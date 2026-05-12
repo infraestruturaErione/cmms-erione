@@ -72,6 +72,7 @@ import { getSingleAsset } from '../../../slices/asset';
 import { dayDiff } from '../../../utils/dates';
 import { FilterField, SearchCriteria } from '../../../models/owns/page';
 import WorkOrderCalendar from './Calendar';
+import WorkOrderBoard from './Board/WorkOrderBoard';
 import MoreVertTwoToneIcon from '@mui/icons-material/MoreVertTwoTone';
 import FilterAltTwoToneIcon from '@mui/icons-material/FilterAltTwoTone';
 import MoreFilters from './Filters/MoreFilters';
@@ -141,7 +142,7 @@ function WorkOrders() {
       label: t('calendar_view'),
       disabled: !hasViewPermission(PermissionEntity.WORK_ORDERS)
     },
-    { value: 'column', label: t('column_view'), disabled: true }
+    { value: 'column', label: t('column_view'), disabled: false }
   ];
   const handleTabsChange = (_event: ChangeEvent<{}>, value: string): void => {
     setCurrentTab(value);
@@ -328,8 +329,8 @@ function WorkOrders() {
         dispatch(getSingleAsset(Number(assetParam)));
       }
     }
-    if (viewParam === 'calendar') {
-      setCurrentTab('calendar');
+    if (viewParam === 'calendar' || viewParam === 'column') {
+      setCurrentTab(viewParam);
     }
   }, []);
 
@@ -976,7 +977,13 @@ function WorkOrders() {
               <EnumFilter
                 filterFields={criteria.filterFields}
                 onChange={onFilterChange}
-                completeOptions={['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE']}
+                completeOptions={[
+                  'OPEN',
+                  'EN_ROUTE',
+                  'IN_PROGRESS',
+                  'ON_HOLD',
+                  'COMPLETE'
+                ]}
                 fieldName="status"
                 icon={<CircleTwoToneIcon />}
               />
@@ -1010,6 +1017,8 @@ function WorkOrders() {
                 pinnedColumns={pinnedColumns}
                 onPinnedColumnsChange={setPinnedColumns}
               />
+            ) : currentTab === 'column' ? (
+              <WorkOrderBoard handleOpenDetails={handleOpenDetails} />
             ) : (
               <WorkOrderCalendar
                 handleAddWorkOrder={(date: Date) => {
