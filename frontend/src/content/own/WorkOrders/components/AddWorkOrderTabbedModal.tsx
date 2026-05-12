@@ -147,19 +147,32 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
             '& .MuiTab-root': {
               minHeight: 52,
               px: { xs: 1.25, sm: 2 },
+              borderRadius: 0.75,
               color: theme.palette.text.secondary,
               fontWeight: 600,
+              opacity: 1,
               textTransform: 'none',
               whiteSpace: 'nowrap',
-              transition: theme.transitions.create(['color', 'background-color']),
+              transition: theme.transitions.create([
+                'color',
+                'background-color'
+              ]),
+              '& .MuiTab-wrapper, & .MuiTypography-root, & span': {
+                color: 'inherit'
+              },
               '&:hover': {
                 color: theme.palette.text.primary,
                 backgroundColor: alpha(theme.palette.text.primary, 0.035)
               }
             },
             '& .MuiTab-root.Mui-selected': {
-              color: theme.palette.primary.main,
-              backgroundColor: 'transparent'
+              color: theme.palette.primary.contrastText,
+              backgroundColor: theme.palette.primary.main,
+              opacity: 1,
+              '&:hover': {
+                color: theme.palette.primary.contrastText,
+                backgroundColor: theme.palette.primary.dark
+              }
             }
           }}
         >
