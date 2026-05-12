@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="2026-05-11-add-wo-field-service-fields" author="opencode">
+        <addColumn tableName="work_order">
+            <column name="departure_at" type="timestamp"/>
+            <column name="departure_lat" type="numeric(10,7)"/>
+            <column name="departure_lng" type="numeric(10,7)"/>
+            <column name="check_in_at" type="timestamp"/>
+            <column name="check_in_lat" type="numeric(10,7)"/>
+            <column name="check_in_lng" type="numeric(10,7)"/>
+            <column name="check_in_address" type="varchar(500)"/>
+            <column name="check_out_at" type="timestamp"/>
+            <column name="check_out_lat" type="numeric(10,7)"/>
+            <column name="check_out_lng" type="numeric(10,7)"/>
+            <column name="check_out_address" type="varchar(500)"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

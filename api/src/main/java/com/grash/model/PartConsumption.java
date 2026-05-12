@@ -1,0 +1,46 @@
+package com.grash.model;
+
+import com.grash.model.abstracts.CompanyAudit;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.FetchType;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+
+@Entity
+@Data
+@NoArgsConstructor
+@Schema(description = "Part consumption entity tracking part usage on work orders")
+public class PartConsumption extends CompanyAudit {
+    @NotNull
+    @Min(value = 0L, message = "The value must be positive")
+    @Schema(description = "Quantity consumed", requiredMode = Schema.RequiredMode.REQUIRED)
+    private double quantity;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @NotNull
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private Part part;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private WorkOrder workOrder;
+
+    public PartConsumption(Part part, WorkOrder workOrder, double quantity) {
+        this.part = part;
+        this.workOrder = workOrder;
+        this.quantity = quantity;
+    }
+
+    public double getCost() {
+        return part.getCost() * quantity;
+    }
+}
+
+
