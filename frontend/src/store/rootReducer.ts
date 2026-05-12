@@ -13,6 +13,7 @@ import { reducer as partReducer } from 'src/slices/part';
 import { reducer as purchaseOrderReducer } from 'src/slices/purchaseOrder';
 import { reducer as requestReducer } from 'src/slices/request';
 import { reducer as workOrderReducer } from 'src/slices/workOrder';
+import { reducer as workOrderOperationalReportReducer } from 'src/slices/workOrderOperationalReport';
 import { reducer as assetReducer } from 'src/slices/asset';
 import { reducer as categoryReducer } from 'src/slices/category';
 import { reducer as multiPartsReducer } from 'src/slices/multipart';
@@ -62,6 +63,7 @@ const rootReducer = combineReducers({
   purchaseOrders: purchaseOrderReducer,
   requests: requestReducer,
   workOrders: workOrderReducer,
+  workOrderOperationalReport: workOrderOperationalReportReducer,
   categories: categoryReducer,
   multiParts: multiPartsReducer,
   checklists: checklistReducer,

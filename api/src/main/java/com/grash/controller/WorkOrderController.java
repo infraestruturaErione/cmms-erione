@@ -9,6 +9,8 @@ import com.grash.dto.workOrder.WorkOrderDepartDTO;
 import com.grash.dto.workOrder.WorkOrderPatchDTO;
 import com.grash.dto.workOrder.WorkOrderPostDTO;
 import com.grash.dto.workOrder.WorkOrderShowDTO;
+import com.grash.dto.workOrder.report.WorkOrderOperationalReportRequestDTO;
+import com.grash.dto.workOrder.report.WorkOrderOperationalReportResponseDTO;
 import com.grash.exception.CustomException;
 import com.grash.factory.StorageServiceFactory;
 import com.grash.mapper.PreventiveMaintenanceMapper;
@@ -93,6 +95,7 @@ public class WorkOrderController {
     private final LicenseService licenseService;
     private final IntercomService intercomService;
     private final CompanyService companyService;
+    private final WorkOrderOperationalReportService workOrderOperationalReportService;
 
 
     @Value("${frontend.url}")
@@ -117,6 +120,15 @@ public class WorkOrderController {
         return ResponseEntity.ok(workOrderService.findBySearchCriteria(workOrderService.getSearchCriteria(user,
                         searchCriteria))
                 .map(workOrderMapper::toBaseMiniDto));
+    }
+
+    @PostMapping("/reports/operational")
+    @PreAuthorize("hasRole('ROLE_CLIENT')")
+    public ResponseEntity<WorkOrderOperationalReportResponseDTO> getOperationalReport(
+            @Parameter(description = "Operational report filters") @RequestBody WorkOrderOperationalReportRequestDTO request,
+            HttpServletRequest req) {
+        User user = userService.whoami(req);
+        return ResponseEntity.ok(workOrderOperationalReportService.buildReport(request, user));
     }
 
     @PostMapping("/events")
@@ -590,6 +602,5 @@ public class WorkOrderController {
     }
 
 }
-
 
 
