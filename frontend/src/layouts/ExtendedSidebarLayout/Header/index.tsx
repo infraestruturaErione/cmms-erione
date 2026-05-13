@@ -19,10 +19,12 @@ import CloseTwoToneIcon from '@mui/icons-material/CloseTwoTone';
 
 import HeaderButtons from './Buttons';
 import HeaderUserbox from './Userbox';
+import ErioneTopNav from './ErioneTopNav';
 import { useTranslation } from 'react-i18next';
 import { TitleContext } from '../../../contexts/TitleContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ERIONE_VISUAL_IDENTITY } from '../../../config/erioneVisualIdentity';
+import { useBrand } from '../../../hooks/useBrand';
 
 const HeaderWrapper = styled(Box)(
   ({ theme }) => `
@@ -38,10 +40,7 @@ const HeaderWrapper = styled(Box)(
         position: fixed;
         justify-content: space-between;
         width: 100%;
-        @media (min-width: ${theme.breakpoints.values.lg}px) {
-            left: ${theme.sidebar.width};
-            width: auto;
-        }
+        left: 0;
 `
 );
 
@@ -52,6 +51,7 @@ function Header() {
   const { t }: { t: any } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { logo, name: brandName } = useBrand();
 
   return (
     <HeaderWrapper
@@ -73,12 +73,49 @@ function Header() {
               )}`
       }}
     >
-      <Stack
-        direction="row"
-        divider={<Divider orientation="vertical" flexItem />}
-        alignItems="center"
-        spacing={2}
-      >
+      <Stack direction="row" alignItems="center" spacing={1.5} minWidth={0}>
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          sx={{
+            display: { xs: 'none', lg: 'flex' },
+            pr: 1,
+            minWidth: 180
+          }}
+        >
+          <Box
+            component="img"
+            src={logo.dark || '/static/images/logo/logo.png'}
+            alt={brandName}
+            sx={{
+              width: 34,
+              height: 34,
+              objectFit: 'contain'
+            }}
+          />
+          <Box minWidth={0}>
+            <Typography variant="h5" noWrap fontWeight={800}>
+              {brandName}
+            </Typography>
+            <Typography
+              variant="caption"
+              noWrap
+              sx={{
+                display: 'block',
+                color: 'text.secondary',
+                lineHeight: 1.1
+              }}
+            >
+              {t('field_operations')}
+            </Typography>
+          </Box>
+        </Stack>
+        <Divider
+          orientation="vertical"
+          flexItem
+          sx={{ display: { xs: 'none', lg: 'block' } }}
+        />
         <IconButton
           color="primary"
           onClick={() => navigate(-1)}
@@ -87,10 +124,11 @@ function Header() {
         >
           <ArrowBackTwoToneIcon fontSize="small" />
         </IconButton>
-        <Typography variant="h3" noWrap>
+        <Typography variant="h3" noWrap sx={{ maxWidth: { xs: 220, lg: 320 } }}>
           {title}
         </Typography>
       </Stack>
+      <ErioneTopNav />
       <Box display="flex" alignItems="center">
         <HeaderButtons />
         <HeaderUserbox />

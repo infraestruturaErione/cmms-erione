@@ -25,7 +25,7 @@ import { isCloudVersion } from 'src/config';
 const MenuWrapper = styled(Box)(
   ({ theme }) => `
   .MuiList-root {
-    padding: ${theme.spacing(1)};
+    padding: ${theme.spacing(0.75, 1)};
 
     & > .MuiList-root {
       padding: 0 ${theme.spacing(0)} ${theme.spacing(1)};
@@ -34,11 +34,12 @@ const MenuWrapper = styled(Box)(
 
     .MuiListSubheader-root {
       text-transform: uppercase;
-      font-weight: bold;
-      font-size: ${theme.typography.pxToRem(12)};
-      color: ${theme.colors.alpha.trueWhite[50]};
-      padding: ${theme.spacing(0, 2.5)};
-      line-height: 1.4;
+      font-weight: 700;
+      font-size: ${theme.typography.pxToRem(11)};
+      letter-spacing: 0.04em;
+      color: ${theme.colors.alpha.trueWhite[55]};
+      padding: ${theme.spacing(1.25, 2.5, 0.75)};
+      line-height: 1.3;
     }
 `
 );
@@ -69,7 +70,8 @@ const SubMenuWrapper = styled(Box)(
           background-color: transparent;
           width: 100%;
           justify-content: flex-start;
-          padding: ${theme.spacing(1.2, 3)};
+          padding: ${theme.spacing(1.1, 2.5)};
+          border-radius: ${theme.general.borderRadiusSm};
 
           .MuiButton-startIcon,
           .MuiButton-endIcon {
@@ -96,7 +98,7 @@ const SubMenuWrapper = styled(Box)(
 
           &.active,
           &:hover {
-            background-color: ${alpha(theme.colors.alpha.trueWhite[100], 0.06)};
+            background-color: ${alpha(theme.colors.alpha.trueWhite[100], 0.08)};
             color: ${theme.colors.alpha.trueWhite[100]};
 
             .MuiButton-startIcon,
@@ -126,7 +128,8 @@ const SubMenuWrapper = styled(Box)(
             padding: 1px 0;
 
             .MuiButton-root {
-              padding: ${theme.spacing(0.8, 3)};
+              padding: ${theme.spacing(0.75, 2.5)};
+              border-radius: ${theme.general.borderRadiusSm};
 
               .MuiBadge-root {
                 right: ${theme.spacing(3.2)};
@@ -329,6 +332,7 @@ function SidebarMenu() {
             }
             return sectionClone;
           })
+          .filter((section) => section.items.length > 0)
           .map((section) => (
             <MenuWrapper key={section.heading}>
               <List

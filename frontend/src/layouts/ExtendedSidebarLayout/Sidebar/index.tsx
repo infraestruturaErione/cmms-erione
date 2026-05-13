@@ -41,10 +41,7 @@ function Sidebar() {
     <>
       <SidebarWrapper
         sx={{
-          display: {
-            xs: 'none',
-            lg: 'inline-block'
-          },
+          display: 'none',
           position: 'fixed',
           left: 0,
           top: 0,

@@ -65,10 +65,7 @@ const ExtendedSidebarLayout: FC<ExtendedSidebarLayoutProps> = () => {
             zIndex: 5,
             display: 'block',
             flex: 1,
-            pt: `${theme.header.height}`,
-            [theme.breakpoints.up('lg')]: {
-              ml: `${theme.sidebar.width}`
-            }
+            pt: `${theme.header.height}`
           }}
         >
           <Box display="block">
