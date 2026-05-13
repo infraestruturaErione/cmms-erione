@@ -21,6 +21,13 @@ import OpenInNewTwoToneIcon from '@mui/icons-material/OpenInNewTwoTone';
 import DirectionsRunTwoToneIcon from '@mui/icons-material/DirectionsRunTwoTone';
 import LoginTwoToneIcon from '@mui/icons-material/LoginTwoTone';
 import LogoutTwoToneIcon from '@mui/icons-material/LogoutTwoTone';
+import {
+  canCheckIn,
+  canCheckOut,
+  canStartTravel,
+  isFieldExecutionFinished,
+  isWorkOrderComplete
+} from '../fieldExecutionRules';
 
 const CardWrapper = styled(Card)(
   ({ theme }) => `
@@ -82,8 +89,6 @@ function formatDate(dateStr: string): string {
   }
 }
 
-const finalStatuses = ['COMPLETE', 'CLOSED', 'CANCELLED'];
-
 export default function WorkOrderCard({
   workOrder,
   onClick,
@@ -92,7 +97,6 @@ export default function WorkOrderCard({
   canRunActions = false
 }: WorkOrderCardProps) {
   const { t } = useTranslation();
-  const isFinalStatus = finalStatuses.includes(workOrder.status);
   const actionLoadingPrefix = `${workOrder.id}-`;
   const isLoadingThisCard = loadingAction?.startsWith(actionLoadingPrefix);
 
@@ -105,22 +109,22 @@ export default function WorkOrderCard({
   const getNextAction = ():
     | { action: 'depart' | 'check-in' | 'check-out'; label: string; icon: JSX.Element }
     | null => {
-    if (!canRunActions || isFinalStatus) return null;
-    if (!workOrder.departureAt) {
+    if (!canRunActions || isWorkOrderComplete(workOrder)) return null;
+    if (canStartTravel(workOrder)) {
       return {
         action: 'depart',
         label: t('start_travel'),
         icon: <DirectionsRunTwoToneIcon fontSize="small" />
       };
     }
-    if (!workOrder.checkInAt) {
+    if (canCheckIn(workOrder)) {
       return {
         action: 'check-in',
         label: t('make_check_in'),
         icon: <LoginTwoToneIcon fontSize="small" />
       };
     }
-    if (!workOrder.checkOutAt) {
+    if (canCheckOut(workOrder)) {
       return {
         action: 'check-out',
         label: t('make_check_out'),
@@ -131,7 +135,7 @@ export default function WorkOrderCard({
   };
 
   const nextAction = getNextAction();
-  const isFieldFinished = !!workOrder.checkOutAt;
+  const isFieldFinished = isFieldExecutionFinished(workOrder);
 
   return (
     <CardWrapper onClick={() => onClick(workOrder.id)}>
@@ -241,7 +245,7 @@ export default function WorkOrderCard({
               size="small"
               color="success"
               variant="outlined"
-              label={t('field_finished')}
+              label={t('field_execution_finished')}
             />
           )
         )}

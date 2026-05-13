@@ -13,6 +13,10 @@ import RadioButtonCheckedTwoToneIcon from '@mui/icons-material/RadioButtonChecke
 import RadioButtonUncheckedTwoToneIcon from '@mui/icons-material/RadioButtonUncheckedTwoTone';
 import WorkOrder from '../../../../models/owns/workOrder';
 import { useTranslation } from 'react-i18next';
+import {
+  getFieldExecutionStatus,
+  isFieldExecutionFinished
+} from '../fieldExecutionRules';
 
 type TimelineState = 'done' | 'current' | 'pending';
 
@@ -71,6 +75,7 @@ export default function FieldExecutionTimeline({
     workOrder.checkOutAt
   );
   const isServiceInProgress = !!workOrder.checkInAt && !workOrder.checkOutAt;
+  const executionStatus = getFieldExecutionStatus(workOrder);
 
   const steps: {
     key: string;
@@ -119,11 +124,11 @@ export default function FieldExecutionTimeline({
       key: 'service',
       label: t('service_in_progress'),
       value: isServiceInProgress
-        ? t('IN_PROGRESS')
+        ? t(executionStatus)
         : siteDuration !== '--'
         ? siteDuration
         : t('pending_step'),
-      state: workOrder.checkOutAt
+      state: isFieldExecutionFinished(workOrder)
         ? 'done'
         : isServiceInProgress
         ? 'current'

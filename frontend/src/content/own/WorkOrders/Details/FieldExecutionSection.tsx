@@ -27,6 +27,12 @@ import { getErrorMessage } from '../../../../utils/api';
 import FieldExecutionTimeline from './FieldExecutionTimeline';
 import { useSelector } from '../../../../store';
 import { useTranslation } from 'react-i18next';
+import {
+  canCheckIn,
+  canCheckOut,
+  canStartTravel,
+  getFieldExecutionStatus
+} from '../fieldExecutionRules';
 
 interface FieldExecutionSectionProps {
   workOrder: WorkOrder;
@@ -71,13 +77,6 @@ const formatDuration = (start?: string | null, end?: string | null): string => {
   if (hours && minutes) return `${hours}h ${minutes}min`;
   if (hours) return `${hours}h`;
   return `${minutes}min`;
-};
-
-const getExecutionStatus = (workOrder: WorkOrder): string => {
-  if (workOrder.checkOutAt) return 'field_finished';
-  if (workOrder.checkInAt) return 'on_site';
-  if (workOrder.departureAt) return 'en_route';
-  return 'not_started';
 };
 
 export default function FieldExecutionSection({
@@ -234,7 +233,7 @@ export default function FieldExecutionSection({
         <Grid container spacing={2}>
           <FieldValue
             label={t('field_execution_status')}
-            value={t(getExecutionStatus(workOrder))}
+            value={t(getFieldExecutionStatus(workOrder))}
           />
           <FieldValue
             label={t('travel_duration')}
@@ -312,19 +311,19 @@ export default function FieldExecutionSection({
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <ActionButton
             action="depart"
-            disabled={!!workOrder.departureAt}
+            disabled={!canStartTravel(workOrder)}
             icon={<DirectionsRunTwoToneIcon />}
             label={t('start_travel')}
           />
           <ActionButton
             action="check-in"
-            disabled={!!workOrder.checkInAt}
+            disabled={!canCheckIn(workOrder)}
             icon={<LoginTwoToneIcon />}
             label={t('make_check_in')}
           />
           <ActionButton
             action="check-out"
-            disabled={!workOrder.checkInAt || !!workOrder.checkOutAt}
+            disabled={!canCheckOut(workOrder)}
             icon={<LogoutTwoToneIcon />}
             label={t('make_check_out')}
           />
