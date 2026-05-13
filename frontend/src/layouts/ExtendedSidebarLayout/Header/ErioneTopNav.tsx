@@ -360,9 +360,13 @@ function ErioneTopNav() {
         <ListItemIcon
           sx={{
             alignItems: 'center',
+            backgroundColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.08),
+            borderRadius: 1,
             color: ERIONE_VISUAL_IDENTITY.primary,
+            height: 30,
+            justifyContent: 'center',
             minWidth: 32,
-            pt: 0.25
+            width: 32
           }}
         >
           {item.icon}
@@ -438,11 +442,11 @@ function ErioneTopNav() {
         alignItems="center"
         sx={{
           p: 0.5,
-          border: `1px solid ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.14)}`,
-          borderRadius: 2,
-          backgroundColor: alpha(theme.colors.alpha.white[100], 0.72),
-          boxShadow: `0 12px 30px ${alpha(
-            ERIONE_VISUAL_IDENTITY.primaryDarker,
+          border: `1px solid ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.1)}`,
+          borderRadius: 1.75,
+          backgroundColor: theme.colors.alpha.white[100],
+          boxShadow: `0 1px 0 ${alpha(
+            ERIONE_VISUAL_IDENTITY.primary,
             0.05
           )}`
         }}
@@ -467,13 +471,13 @@ function ErioneTopNav() {
                 borderRadius: 1.5,
                 fontWeight: 700,
                 backgroundColor: isActive
-                  ? alpha(ERIONE_VISUAL_IDENTITY.primary, 0.1)
+                  ? alpha(ERIONE_VISUAL_IDENTITY.primary, 0.09)
                   : 'transparent',
                 color: isActive
                   ? ERIONE_VISUAL_IDENTITY.primary
                   : theme.colors.alpha.black[70],
                 '&:hover': {
-                  backgroundColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.12),
+                  backgroundColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.1),
                   color: ERIONE_VISUAL_IDENTITY.primary
                 }
               }}
@@ -506,10 +510,11 @@ function ErioneTopNav() {
             p: 1,
             width: 390,
             borderRadius: 2,
-            border: `1px solid ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.12)}`,
-            boxShadow: `0 18px 60px ${alpha(
+            backgroundColor: theme.colors.alpha.white[100],
+            border: `1px solid ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.1)}`,
+            boxShadow: `0 18px 52px ${alpha(
               ERIONE_VISUAL_IDENTITY.primaryDarker,
-              0.16
+              0.14
             )}`
           }}
         >

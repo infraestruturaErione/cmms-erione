@@ -33,10 +33,9 @@ const HeaderWrapper = styled(Box)(
         padding: ${theme.spacing(0, 2)};
         right: 0;
         z-index: 6;
-        background-color: ${alpha(theme.header.background, 0.95)};
-        backdrop-filter: blur(3px);
-        border-bottom: 1px solid ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.14)};
-        border-top: 3px solid ${ERIONE_VISUAL_IDENTITY.primary};
+        background-color: ${alpha(theme.colors.alpha.white[100], 0.98)};
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.12)};
         position: fixed;
         justify-content: space-between;
         width: 100%;
@@ -63,13 +62,13 @@ function Header() {
             ? `0 1px 0 ${alpha(
                 lighten(theme.colors.primary.main, 0.7),
                 0.15
-              )}, 0px 2px 8px -3px rgba(0, 0, 0, 0.2), 0px 5px 22px -4px rgba(0, 0, 0, .1)`
-            : `0px 2px 8px -3px ${alpha(
-                theme.colors.alpha.black[100],
-                0.2
-              )}, 0px 5px 22px -4px ${alpha(
-                theme.colors.alpha.black[100],
-                0.1
+              )}, 0px 2px 8px -3px rgba(0, 0, 0, 0.16)`
+            : `0 1px 0 ${alpha(
+                ERIONE_VISUAL_IDENTITY.primary,
+                0.08
+              )}, 0 10px 28px -24px ${alpha(
+                ERIONE_VISUAL_IDENTITY.primaryDarker,
+                0.35
               )}`
       }}
     >
