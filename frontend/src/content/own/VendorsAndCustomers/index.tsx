@@ -5,6 +5,7 @@ import { TitleContext } from '../../../contexts/TitleContext';
 import { useLocation, useParams } from 'react-router-dom';
 import Vendors from './Vendors';
 import Customers from './Customers';
+import CustomerShow from './CustomerShow';
 import useAuth from '../../../hooks/useAuth';
 import { PermissionEntity } from '../../../models/owns/role';
 import PermissionErrorMessage from '../components/PermissionErrorMessage';
@@ -37,7 +38,11 @@ const VendorsAndCustomers = ({}: PropsType) => {
     (tab) => tab.value === arr[arr.length - minus]
   );
 
-  if (hasViewPermission(PermissionEntity.VENDORS_AND_CUSTOMERS))
+  if (hasViewPermission(PermissionEntity.VENDORS_AND_CUSTOMERS)) {
+    if (customerId && location.pathname.includes('/customers/')) {
+      return <CustomerShow />;
+    }
+
     return (
       <MultipleTabsLayout
         basePath="/app/vendors-customers"
@@ -64,7 +69,7 @@ const VendorsAndCustomers = ({}: PropsType) => {
         )}
       </MultipleTabsLayout>
     );
-  else
+  } else
     return <PermissionErrorMessage message={'no_access_vendors_customers'} />;
 };
 

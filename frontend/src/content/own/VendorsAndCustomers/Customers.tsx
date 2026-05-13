@@ -29,7 +29,7 @@ import {
 } from '../../../utils/validators';
 import { Close } from '@mui/icons-material';
 import { Customer } from '../../../models/owns/customer';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   addCustomer,
   clearSingleCustomer,
@@ -79,6 +79,7 @@ const Customers = ({ openModal, handleCloseModal }: PropsType) => {
   const [isCustomerDetailsOpen, setIsCustomerDetailsOpen] =
     useState<boolean>(false);
   const { customerId } = useParams();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { customers, loadingGet, singleCustomer } = useSelector(
     (state) => state.customers
@@ -144,12 +145,7 @@ const Customers = ({ openModal, handleCloseModal }: PropsType) => {
     setIsCustomerDetailsOpen(true);
   };
   const handleOpenDetails = (id: number) => {
-    const foundCustomer = customers.content.find(
-      (customer) => customer.id === id
-    );
-    if (foundCustomer) {
-      handleOpenModal(foundCustomer);
-    }
+    navigate(`/app/vendors-customers/customers/${id}`);
   };
   const handleCloseDetails = () => {
     window.history.replaceState(

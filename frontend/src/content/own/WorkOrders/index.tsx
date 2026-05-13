@@ -68,7 +68,8 @@ import {
   onSearchQueryChange
 } from '../../../utils/overall';
 import { getSingleLocation } from '../../../slices/location';
-import { getSingleAsset } from '../../../slices/asset';
+import { getAssetDetails, getSingleAsset } from '../../../slices/asset';
+import { getSingleCustomer } from '../../../slices/customer';
 import { dayDiff } from '../../../utils/dates';
 import { FilterField, SearchCriteria } from '../../../models/owns/page';
 import WorkOrderCalendar from './Calendar';
@@ -120,6 +121,7 @@ function WorkOrders() {
   const locationParam = searchParams.get('location');
   const viewParam = searchParams.get('view');
   const assetParam = searchParams.get('asset');
+  const customerParam = searchParams.get('customer');
   const dispatch = useDispatch();
   const {
     hasViewPermission,
@@ -159,6 +161,13 @@ function WorkOrders() {
   const { tasksByWorkOrder } = useSelector((state) => state.tasks);
   const { locations } = useSelector((state) => state.locations);
   const { assetInfos } = useSelector((state) => state.assets);
+  const { singleCustomer } = useSelector(
+    (state) => state.customers
+  );
+  const customerParamObject =
+    customerParam && singleCustomer?.id === Number(customerParam)
+      ? singleCustomer
+      : null;
   const [initialDueDate, setInitialDueDate] = useState<Date>(null);
   const locationParamObject = locations.find(
     (location) => location.id === Number(locationParam)
@@ -321,12 +330,15 @@ function WorkOrders() {
   }, [singleWorkOrder, workOrders.content]);
 
   useEffect(() => {
-    if (locationParam || assetParam) {
+    if (locationParam || assetParam || customerParam) {
       if (locationParam && isNumeric(locationParam)) {
         dispatch(getSingleLocation(Number(locationParam)));
       }
       if (assetParam && isNumeric(assetParam)) {
-        dispatch(getSingleAsset(Number(assetParam)));
+        dispatch(getAssetDetails(Number(assetParam)));
+      }
+      if (customerParam && isNumeric(customerParam)) {
+        dispatch(getSingleCustomer(Number(customerParam)));
       }
     }
     if (viewParam === 'calendar' || viewParam === 'column') {
@@ -336,8 +348,9 @@ function WorkOrders() {
 
   useEffect(() => {
     const newParam = searchParams.get('new');
+    const hasContextParam = customerParam || locationParam || assetParam;
 
-    if (newParam === 'true') {
+    if (newParam === 'true' && !hasContextParam) {
       setOpenAddModal(true);
 
       const newParams = new URLSearchParams(searchParams);
@@ -348,12 +361,27 @@ function WorkOrders() {
   }, [searchParams]);
 
   useEffect(() => {
-    let shouldOpen1 = locationParam && locationParamObject;
-    let shouldOpen2 = assetParam && assetParamObject;
-    if (shouldOpen1 || shouldOpen2) {
+    const newParam = searchParams.get('new');
+    const hasContextParam = customerParam || locationParam || assetParam;
+    const isCustomerReady = !customerParam || !!customerParamObject;
+    const isLocationReady = !locationParam || !!locationParamObject;
+    const isAssetReady = !assetParam || !!assetParamObject;
+
+    if (
+      newParam === 'true' &&
+      hasContextParam &&
+      isCustomerReady &&
+      isLocationReady &&
+      isAssetReady
+    ) {
       setOpenAddModal(true);
+
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('new');
+
+      setSearchParams(newParams);
     }
-  }, [locationParamObject, assetParamObject]);
+  }, [locationParamObject, assetParamObject, customerParamObject, searchParams]);
 
   const formatValues = (values) => {
     const newValues = { ...values };
@@ -732,7 +760,16 @@ function WorkOrders() {
               label: locationParamObject.name,
               value: locationParamObject.id
             }
-          : null
+          : null,
+        customers:
+          customerParam && customerParamObject
+            ? [
+                {
+                  label: customerParamObject.name,
+                  value: customerParamObject.id
+                }
+              ]
+            : []
       }}
       onChange={({ field, e }) => {}}
       onSubmit={async (values) => {

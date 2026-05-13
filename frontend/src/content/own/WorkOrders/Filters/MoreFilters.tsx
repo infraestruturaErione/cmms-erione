@@ -43,7 +43,7 @@ function MoreFilters({ filterFields, onFilterChange, onClose }: OwnProps) {
     { accessor: 'completedBy', fieldName: 'completedBy', type: 'array' },
     {
       accessor: 'customers',
-      fieldName: 'customer',
+      fieldName: 'customers',
       operator: 'inm',
       type: 'array'
     },
