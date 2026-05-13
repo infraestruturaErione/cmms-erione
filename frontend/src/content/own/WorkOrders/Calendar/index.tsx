@@ -314,54 +314,45 @@ function ApplicationsCalendar({
             <CircularProgress size={64} />
           </Stack>
         )}
-        {!hasEvents && !loadingGet ? (
-          <Stack
-            alignItems="center"
-            justifyContent="center"
-            spacing={2}
-            py={8}
-          >
-            <Typography variant="h5" color="text.secondary">
+        {!hasEvents && !loadingGet && (
+          <Box textAlign="center" py={1}>
+            <Typography variant="body2" color="text.secondary">
               {t('workOrders.calendar.empty.title')}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t('workOrders.calendar.empty.description')}
-            </Typography>
-          </Stack>
-        ) : (
-          <FullCalendar
-            allDayMaintainDuration
-            initialDate={date}
-            initialView={view}
-            locale={calendarLocale}
-            eventDisplay="block"
-            eventContent={renderEventContent}
-            eventClick={(arg) => {
-              const idStr = arg.event.id;
-              const match = idStr.match(/^(?:wo|pm)-(\d+)$/);
-              if (match) {
-                handleOpenDetails(
-                  Number(match[1]),
-                  arg.event.extendedProps.type
-                );
-              }
-            }}
-            dateClick={(event) => handleAddWorkOrder(event.date)}
-            dayMaxEventRows={4}
-            events={calendarEvents}
-            headerToolbar={false}
-            height={660}
-            ref={calendarRef}
-            rerenderDelay={10}
-            weekends
-            plugins={[
-              dayGridPlugin,
-              timeGridPlugin,
-              interactionPlugin,
-              listPlugin
-            ]}
-          />
+          </Box>
         )}
+        <FullCalendar
+          allDayMaintainDuration
+          initialDate={date}
+          initialView={view}
+          locale={calendarLocale}
+          eventDisplay="block"
+          eventContent={renderEventContent}
+          eventClick={(arg) => {
+            const idStr = arg.event.id;
+            const match = idStr.match(/^(?:wo|pm)-(\d+)$/);
+            if (match) {
+              handleOpenDetails(
+                Number(match[1]),
+                arg.event.extendedProps.type
+              );
+            }
+          }}
+          dateClick={(event) => handleAddWorkOrder(event.date)}
+          dayMaxEventRows={4}
+          events={calendarEvents}
+          headerToolbar={false}
+          height={660}
+          ref={calendarRef}
+          rerenderDelay={10}
+          weekends
+          plugins={[
+            dayGridPlugin,
+            timeGridPlugin,
+            interactionPlugin,
+            listPlugin
+          ]}
+        />
       </FullCalendarWrapper>
     </Grid>
   );
