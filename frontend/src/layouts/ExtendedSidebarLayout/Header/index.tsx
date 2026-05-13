@@ -76,10 +76,17 @@ function Header() {
         alignItems="center"
         spacing={2}
       >
-        <IconButton onClick={()=>navigate(-1)} disabled={location.key==='default'}>
-          <ArrowBackTwoToneIcon/>
-          </IconButton>
-        <Typography variant="h2">{title}</Typography>
+        <IconButton
+          color="primary"
+          onClick={() => navigate(-1)}
+          disabled={location.key === 'default'}
+          sx={{ border: `1px solid ${theme.palette.divider}` }}
+        >
+          <ArrowBackTwoToneIcon fontSize="small" />
+        </IconButton>
+        <Typography variant="h3" noWrap>
+          {title}
+        </Typography>
       </Stack>
       <Box display="flex" alignItems="center">
         <HeaderButtons />

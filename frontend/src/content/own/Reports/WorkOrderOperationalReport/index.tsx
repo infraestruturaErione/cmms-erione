@@ -1,9 +1,12 @@
 import {
   Alert,
+  alpha,
   Box,
   Button,
   Card,
   CardContent,
+  Chip,
+  Divider,
   Grid,
   MenuItem,
   Stack,
@@ -84,14 +87,24 @@ function formatDuration(seconds: number): string {
 function SummaryCard({
   label,
   value,
-  muted
+  muted,
+  accent = 'primary'
 }: {
   label: string;
   value: number;
   muted?: boolean;
+  accent?: 'primary' | 'success' | 'warning' | 'info' | 'secondary';
 }) {
   return (
-    <Card variant="outlined" sx={{ height: '100%' }}>
+    <Card
+      variant="outlined"
+      sx={(theme) => ({
+        height: '100%',
+        boxShadow: 'none',
+        borderColor: alpha(theme.colors[accent].main, 0.22),
+        bgcolor: alpha(theme.colors[accent].main, 0.04)
+      })}
+    >
       <CardContent sx={{ py: 2 }}>
         <Typography variant="overline" color="text.secondary">
           {label}
@@ -235,6 +248,12 @@ function WorkOrderOperationalReport() {
 
   const summary: WorkOrderOperationalReportSummary = report.summary;
   const columnHelper = createColumnHelper<WorkOrderOperationalReportRow>();
+  const statusColor = (status: string) => {
+    if (status === 'COMPLETE') return 'success';
+    if (status === 'EN_ROUTE' || status === 'ON_HOLD') return 'warning';
+    if (status === 'IN_PROGRESS') return 'primary';
+    return 'info';
+  };
   const columns = useMemo<CustomDatagridColumn2<WorkOrderOperationalReportRow>[]>(
     () => [
       columnHelper.accessor('customId', {
@@ -256,7 +275,7 @@ function WorkOrderOperationalReport() {
         cell: (info) => info.getValue() || '--'
       }),
       columnHelper.accessor('assetName', {
-        header: t('asset'),
+        header: t('camera_equipment'),
         size: 180,
         cell: (info) => info.getValue() || '--'
       }),
@@ -268,12 +287,20 @@ function WorkOrderOperationalReport() {
       columnHelper.accessor('priority', {
         header: t('priority'),
         size: 130,
-        cell: (info) => t(info.getValue())
+        cell: (info) => (
+          <Chip size="small" variant="outlined" label={t(info.getValue())} />
+        )
       }),
       columnHelper.accessor('status', {
         header: t('status'),
         size: 140,
-        cell: (info) => t(info.getValue())
+        cell: (info) => (
+          <Chip
+            size="small"
+            color={statusColor(info.getValue()) as any}
+            label={t(info.getValue())}
+          />
+        )
       }),
       columnHelper.accessor('createdAt', {
         header: t('created_at'),
@@ -347,8 +374,22 @@ function WorkOrderOperationalReport() {
             </Typography>
           </Box>
 
-          <Card variant="outlined">
+          <Card variant="outlined" sx={{ boxShadow: 'none' }}>
             <CardContent>
+              <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                justifyContent="space-between"
+                spacing={1}
+                sx={{ mb: 2 }}
+              >
+                <Box>
+                  <Typography variant="h5">{t('report_filters')}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('report_filters_helper')}
+                  </Typography>
+                </Box>
+              </Stack>
+              <Divider sx={{ mb: 2 }} />
               <Grid container spacing={2}>
                 <Grid item xs={12} md={3}>
                   <TextField
@@ -389,7 +430,7 @@ function WorkOrderOperationalReport() {
                     select
                     fullWidth
                     size="small"
-                    label={t('asset')}
+                    label={t('camera_equipment')}
                     value={filters.assetId}
                     onChange={handleFilterChange('assetId')}
                   >
@@ -501,19 +542,19 @@ function WorkOrderOperationalReport() {
 
           <Grid container spacing={2}>
             <Grid item xs={6} md={2}>
-              <SummaryCard label={t('total')} value={summary.total} />
+              <SummaryCard label={t('total')} value={summary.total} accent="secondary" />
             </Grid>
             <Grid item xs={6} md={2}>
-              <SummaryCard label={t('OPEN')} value={summary.open} />
+              <SummaryCard label={t('OPEN')} value={summary.open} accent="info" />
             </Grid>
             <Grid item xs={6} md={2}>
-              <SummaryCard label={t('EN_ROUTE')} value={summary.enRoute} />
+              <SummaryCard label={t('EN_ROUTE')} value={summary.enRoute} accent="warning" />
             </Grid>
             <Grid item xs={6} md={2}>
-              <SummaryCard label={t('IN_PROGRESS')} value={summary.inProgress} />
+              <SummaryCard label={t('IN_PROGRESS')} value={summary.inProgress} accent="primary" />
             </Grid>
             <Grid item xs={6} md={2}>
-              <SummaryCard label={t('COMPLETE')} value={summary.complete} />
+              <SummaryCard label={t('COMPLETE')} value={summary.complete} accent="success" />
             </Grid>
             <Grid item xs={6} md={2}>
               <SummaryCard label={t('with_field_report')} value={summary.withFieldReport} />

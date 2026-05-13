@@ -137,10 +137,19 @@ const ownMenuItems: MenuItems[] = [
       },
       {
         name: 'requests',
-        link: '/app/requests',
         icon: MoveToInboxTwoToneIcon,
         permission: PermissionEntity.REQUESTS,
-        uiConfigKey: 'requests'
+        uiConfigKey: 'requests',
+        items: [
+          {
+            name: 'all_requests',
+            link: '/app/requests'
+          },
+          {
+            name: 'quick_request',
+            link: '/app/requests/quick'
+          }
+        ]
       },
       {
         name: 'assets',

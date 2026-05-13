@@ -1,8 +1,8 @@
 {
-  "name": "grash",
+  "name": "erione-cmms",
   "version": "0.1.0",
-  "title": "Atlas CMMS",
-  "description": "Free Open Source CMMS.",
+  "title": "Erione CMMS",
+  "description": "Erione CMMS.",
   "private": true,
   "dependencies": {
     "@auth0/auth0-spa-js": "1.22.0",

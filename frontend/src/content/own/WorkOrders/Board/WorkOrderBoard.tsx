@@ -2,13 +2,25 @@ import {
   Box,
   CircularProgress,
   Paper,
+  alpha,
   Typography,
   styled,
   useTheme
 } from '@mui/material';
+import { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSelector } from 'src/store';
+import { useDispatch, useSelector } from 'src/store';
 import WorkOrderCard from './WorkOrderCard';
+import {
+  checkInWorkOrder,
+  checkOutWorkOrder,
+  departWorkOrder
+} from '../../../../slices/workOrder';
+import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
+import { getErrorMessage } from '../../../../utils/api';
+import useAuth from '../../../../hooks/useAuth';
+import { PermissionEntity } from '../../../../models/owns/role';
+import WorkOrder from '../../../../models/owns/workOrder';
 
 const statusOrder = ['OPEN', 'EN_ROUTE', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE'];
 
@@ -58,7 +70,7 @@ const BoardContainer = styled(Box)(
     display: flex;
     gap: ${theme.spacing(2)};
     overflow-x: auto;
-    padding: ${theme.spacing(2)} 0;
+    padding: ${theme.spacing(2)} 0 ${theme.spacing(2.5)};
     min-height: 400px;
   `
 );
@@ -70,6 +82,9 @@ const ColumnPaper = styled(Paper)(
     display: flex;
     flex-direction: column;
     max-height: 70vh;
+    border: 1px solid ${alpha(theme.colors.alpha.black[100], 0.08)};
+    box-shadow: none;
+    overflow: hidden;
   `
 );
 
@@ -85,9 +100,10 @@ const ColumnHeader = styled(Box)(
 
 const CardList = styled(Box)(
   ({ theme }) => `
-    padding: ${theme.spacing(1)};
+    padding: ${theme.spacing(1.25)};
     overflow-y: auto;
     flex: 1;
+    background: ${theme.palette.background.default};
   `
 );
 
@@ -95,10 +111,81 @@ interface WorkOrderBoardProps {
   handleOpenDetails: (id: number) => void;
 }
 
+type QuickFieldAction = 'depart' | 'check-in' | 'check-out';
+
+const getCoordinates = (): Promise<{
+  latitude?: number;
+  longitude?: number;
+}> => {
+  if (!navigator.geolocation) return Promise.resolve({});
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) =>
+        resolve({
+          latitude: coords.latitude,
+          longitude: coords.longitude
+        }),
+      () => resolve({}),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+    );
+  });
+};
+
 export default function WorkOrderBoard({ handleOpenDetails }: WorkOrderBoardProps) {
   const { t } = useTranslation();
   const theme = useTheme();
+  const dispatch = useDispatch();
+  const { showSnackBar } = useContext(CustomSnackBarContext);
+  const { hasEditPermission } = useAuth();
   const { workOrders, loadingGet } = useSelector((state) => state.workOrders);
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
+
+  const handleQuickAction = async (
+    workOrder: WorkOrder,
+    action: QuickFieldAction
+  ) => {
+    const actionKey = `${workOrder.id}-${action}`;
+    setLoadingAction(actionKey);
+    try {
+      const { latitude, longitude } = await getCoordinates();
+
+      if (action === 'depart') {
+        await dispatch(
+          departWorkOrder(workOrder.id, {
+            departureLat: latitude ?? null,
+            departureLng: longitude ?? null
+          })
+        );
+      }
+
+      if (action === 'check-in') {
+        await dispatch(
+          checkInWorkOrder(workOrder.id, {
+            checkInLat: latitude ?? null,
+            checkInLng: longitude ?? null,
+            checkInAddress: null
+          })
+        );
+      }
+
+      if (action === 'check-out') {
+        await dispatch(
+          checkOutWorkOrder(workOrder.id, {
+            checkOutLat: latitude ?? null,
+            checkOutLng: longitude ?? null,
+            checkOutAddress: null
+          })
+        );
+      }
+
+      showSnackBar(t('field_execution_updated'), 'success');
+    } catch (error) {
+      showSnackBar(getErrorMessage(error), 'error');
+    } finally {
+      setLoadingAction(null);
+    }
+  };
 
   const grouped = statusOrder.reduce<Record<string, typeof workOrders.content>>(
     (acc, status) => {
@@ -124,18 +211,52 @@ export default function WorkOrderBoard({ handleOpenDetails }: WorkOrderBoardProp
                 <Typography variant="subtitle2" fontWeight={700} color={colors.headerText}>
                   {t(status)}
                 </Typography>
-                <Typography variant="caption" fontWeight={600} color={colors.headerText}>
+                <Box
+                  sx={{
+                    minWidth: 28,
+                    height: 24,
+                    px: 1,
+                    borderRadius: 12,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: 'background.paper',
+                    color: colors.headerText,
+                    fontWeight: 700
+                  }}
+                >
                   {items.length}
-                </Typography>
+                </Box>
               </ColumnHeader>
               <CardList>
                 {items.length === 0 ? (
-                  <Typography variant="caption" color="text.secondary" display="block" textAlign="center" py={4}>
-                    {t('no_results')}
-                  </Typography>
+                  <Box
+                    sx={{
+                      border: '1px dashed',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      py: 4,
+                      px: 1,
+                      bgcolor: 'background.paper'
+                    }}
+                  >
+                    <Typography variant="caption" color="text.secondary" display="block" textAlign="center">
+                      {t('no_results')}
+                    </Typography>
+                  </Box>
                 ) : (
                   items.map((wo) => (
-                    <WorkOrderCard key={wo.id} workOrder={wo} onClick={handleOpenDetails} />
+                    <WorkOrderCard
+                      key={wo.id}
+                      workOrder={wo}
+                      onClick={handleOpenDetails}
+                      onQuickAction={handleQuickAction}
+                      loadingAction={loadingAction}
+                      canRunActions={hasEditPermission(
+                        PermissionEntity.WORK_ORDERS,
+                        wo
+                      )}
+                    />
                   ))
                 )}
               </CardList>

@@ -1,9 +1,13 @@
 import { Box, Typography } from '@mui/material';
 
 import Logo from 'src/components/LogoSign';
-import { isWhiteLabeled } from '../../config';
+import { useBrand } from '../../hooks/useBrand';
+import { useTranslation } from 'react-i18next';
 
 function AppInit() {
+  const { name: brandName } = useBrand();
+  const { t }: { t: any } = useTranslation();
+
   return (
     <Box
       sx={{
@@ -19,19 +23,14 @@ function AppInit() {
       alignItems="center"
       justifyContent="center"
     >
-      <Box>
+      <Box textAlign="center">
         <Logo />
-        {!isWhiteLabeled && (
-          <Typography
-            style={{ cursor: 'pointer' }}
-            fontSize={13}
-            onClick={() => {
-              window.open('https://www.intel-loop.com/', '_blank');
-            }}
-          >
-            Powered by Intelloop
-          </Typography>
-        )}
+        <Typography fontSize={13} fontWeight={700} sx={{ mt: 1 }}>
+          {brandName}
+        </Typography>
+        <Typography fontSize={12} color="text.secondary">
+          {t('preparing_operation')}
+        </Typography>
       </Box>
     </Box>
   );

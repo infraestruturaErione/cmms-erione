@@ -24,6 +24,9 @@ import {
 import { createComment } from '../../../../slices/comment';
 import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
 import { getErrorMessage } from '../../../../utils/api';
+import FieldExecutionTimeline from './FieldExecutionTimeline';
+import { useSelector } from '../../../../store';
+import { useTranslation } from 'react-i18next';
 
 interface FieldExecutionSectionProps {
   workOrder: WorkOrder;
@@ -32,8 +35,6 @@ interface FieldExecutionSectionProps {
 }
 
 type FieldAction = 'depart' | 'check-in' | 'check-out' | 'comment';
-
-const pendingText = 'Pendente';
 
 const getCoordinates = (): Promise<{
   latitude?: number;
@@ -73,10 +74,10 @@ const formatDuration = (start?: string | null, end?: string | null): string => {
 };
 
 const getExecutionStatus = (workOrder: WorkOrder): string => {
-  if (workOrder.checkOutAt) return 'Finalizado em campo';
-  if (workOrder.checkInAt) return 'No local';
-  if (workOrder.departureAt) return 'Em deslocamento';
-  return 'Não iniciado';
+  if (workOrder.checkOutAt) return 'field_finished';
+  if (workOrder.checkInAt) return 'on_site';
+  if (workOrder.departureAt) return 'en_route';
+  return 'not_started';
 };
 
 export default function FieldExecutionSection({
@@ -86,7 +87,11 @@ export default function FieldExecutionSection({
 }: FieldExecutionSectionProps) {
   const theme = useTheme();
   const dispatch = useDispatch();
+  const { t }: { t: any } = useTranslation();
   const { showSnackBar } = useContext(CustomSnackBarContext);
+  const comments = useSelector(
+    (state) => state.comments.commentsByWorkOrder[workOrder.id] ?? []
+  );
   const [loadingAction, setLoadingAction] = useState<FieldAction | null>(null);
   const [checkInAddress, setCheckInAddress] = useState<string>(
     workOrder.checkInAddress ?? ''
@@ -130,7 +135,7 @@ export default function FieldExecutionSection({
         );
       }
 
-      showSnackBar('Execução em campo atualizada', 'success');
+      showSnackBar(t('field_execution_updated'), 'success');
     } catch (err) {
       showSnackBar(getErrorMessage(err), 'error');
     } finally {
@@ -151,7 +156,7 @@ export default function FieldExecutionSection({
         })
       );
       setFieldReport('');
-      showSnackBar('Relato em campo registrado', 'success');
+      showSnackBar(t('field_report_registered'), 'success');
     } catch (err) {
       showSnackBar(getErrorMessage(err), 'error');
     } finally {
@@ -199,14 +204,24 @@ export default function FieldExecutionSection({
     </Button>
   );
 
+  const hasFieldReport = comments.some((comment) =>
+    comment.content?.startsWith('[Relato em campo]')
+  );
+
   return (
     <Box>
       <Box sx={{ mb: 2 }}>
-        <Typography variant="h3">Execução em Campo</Typography>
+        <Typography variant="h3">{t('field_execution')}</Typography>
         <Typography variant="body2" color="text.secondary">
-          Acompanhe deslocamento, chegada, saída e relato do atendimento.
+          {t('field_execution_helper')}
         </Typography>
       </Box>
+
+      <FieldExecutionTimeline
+        workOrder={workOrder}
+        getFormattedDate={getFormattedDate}
+        hasFieldReport={hasFieldReport}
+      />
 
       <Box
         sx={{
@@ -218,15 +233,15 @@ export default function FieldExecutionSection({
       >
         <Grid container spacing={2}>
           <FieldValue
-            label="Status da execução"
-            value={getExecutionStatus(workOrder)}
+            label={t('field_execution_status')}
+            value={t(getExecutionStatus(workOrder))}
           />
           <FieldValue
-            label="Duração do deslocamento"
+            label={t('travel_duration')}
             value={formatDuration(workOrder.departureAt, workOrder.checkInAt)}
           />
           <FieldValue
-            label="Duração no local"
+            label={t('site_duration')}
             value={formatDuration(workOrder.checkInAt, workOrder.checkOutAt)}
           />
         </Grid>
@@ -234,59 +249,59 @@ export default function FieldExecutionSection({
 
       <Grid container spacing={2}>
         <FieldValue
-          label="Início de deslocamento"
+          label={t('travel_started')}
           value={
             workOrder.departureAt
               ? getFormattedDate(workOrder.departureAt)
-              : pendingText
+              : t('pending_step')
           }
         />
         <FieldValue
-          label="Latitude saída"
+          label={t('departure_latitude')}
           value={formatCoordinate(workOrder.departureLat)}
         />
         <FieldValue
-          label="Longitude saída"
+          label={t('departure_longitude')}
           value={formatCoordinate(workOrder.departureLng)}
         />
         <FieldValue
-          label="Check-in"
+          label={t('check_in')}
           value={
             workOrder.checkInAt
               ? getFormattedDate(workOrder.checkInAt)
-              : pendingText
+              : t('pending_step')
           }
         />
         <FieldValue
-          label="Latitude check-in"
+          label={t('check_in_latitude')}
           value={formatCoordinate(workOrder.checkInLat)}
         />
         <FieldValue
-          label="Longitude check-in"
+          label={t('check_in_longitude')}
           value={formatCoordinate(workOrder.checkInLng)}
         />
         <FieldValue
-          label="Endereço check-in"
+          label={t('check_in_address')}
           value={workOrder.checkInAddress || '-'}
         />
         <FieldValue
-          label="Check-out"
+          label={t('check_out')}
           value={
             workOrder.checkOutAt
               ? getFormattedDate(workOrder.checkOutAt)
-              : pendingText
+              : t('pending_step')
           }
         />
         <FieldValue
-          label="Latitude check-out"
+          label={t('check_out_latitude')}
           value={formatCoordinate(workOrder.checkOutLat)}
         />
         <FieldValue
-          label="Longitude check-out"
+          label={t('check_out_longitude')}
           value={formatCoordinate(workOrder.checkOutLng)}
         />
         <FieldValue
-          label="Endereço check-out"
+          label={t('check_out_address')}
           value={workOrder.checkOutAddress || '-'}
         />
       </Grid>
@@ -299,19 +314,19 @@ export default function FieldExecutionSection({
             action="depart"
             disabled={!!workOrder.departureAt}
             icon={<DirectionsRunTwoToneIcon />}
-            label="Iniciar deslocamento"
+            label={t('start_travel')}
           />
           <ActionButton
             action="check-in"
             disabled={!!workOrder.checkInAt}
             icon={<LoginTwoToneIcon />}
-            label="Check-in"
+            label={t('make_check_in')}
           />
           <ActionButton
             action="check-out"
             disabled={!workOrder.checkInAt || !!workOrder.checkOutAt}
             icon={<LogoutTwoToneIcon />}
-            label="Check-out"
+            label={t('make_check_out')}
           />
         </Stack>
 
@@ -319,7 +334,7 @@ export default function FieldExecutionSection({
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Endereço do check-in"
+              label={t('check_in_address')}
               value={checkInAddress}
               disabled={!!workOrder.checkInAt || !canEdit}
               onChange={(event) => setCheckInAddress(event.target.value)}
@@ -328,7 +343,7 @@ export default function FieldExecutionSection({
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Endereço do check-out"
+              label={t('check_out_address')}
               value={checkOutAddress}
               disabled={!!workOrder.checkOutAt || !canEdit}
               onChange={(event) => setCheckOutAddress(event.target.value)}
@@ -340,8 +355,8 @@ export default function FieldExecutionSection({
           fullWidth
           multiline
           minRows={3}
-          label="Relato em campo"
-          placeholder="Descreva o que foi observado ou executado em campo"
+          label={t('field_report')}
+          placeholder={t('field_report_placeholder')}
           value={fieldReport}
           disabled={!canEdit}
           onChange={(event) => setFieldReport(event.target.value)}
@@ -359,7 +374,7 @@ export default function FieldExecutionSection({
             disabled={!canEdit || !fieldReport.trim() || !!loadingAction}
             onClick={submitFieldReport}
           >
-            Registrar relato
+            {t('register_field_report')}
           </Button>
         </Box>
       </Stack>

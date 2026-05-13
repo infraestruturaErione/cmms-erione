@@ -1,45 +1,11 @@
 import { Link as RouterLink } from 'react-router-dom';
-import {
-  Alert,
-  Box,
-  Card,
-  Container,
-  Link,
-  styled,
-  Tooltip,
-  Typography
-} from '@mui/material';
+import { Box, Card, Container, Link, styled, Typography } from '@mui/material';
 import { Helmet } from 'react-helmet-async';
-import useAuth from 'src/hooks/useAuth';
 import JWTLogin from '../LoginJWT';
 import { useTranslation } from 'react-i18next';
 import Logo from 'src/components/LogoSign';
-
-const icons = {
-  Auth0: '/static/images/logo/auth0.svg',
-  FirebaseAuth: '/static/images/logo/firebase.svg',
-  JWT: '/static/images/logo/jwt.svg',
-  Amplify: '/static/images/logo/amplify.svg'
-};
-
-const CardImg = styled(Card)(
-  ({ theme }) => `
-    width: 90px;
-    height: 80px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    background: ${theme.colors.alpha.white[100]};
-    margin: 0 ${theme.spacing(1)};
-    border: 1px solid ${theme.colors.alpha.black[10]};
-    transition: ${theme.transitions.create(['all'])};
-
-    &:hover {
-      border-color: ${theme.colors.primary.main};
-    }
-`
-);
+import { useBrand } from '../../../../../hooks/useBrand';
+import useAuth from '../../../../../hooks/useAuth';
 
 const BottomWrapper = styled(Box)(
   ({ theme }) => `
@@ -69,27 +35,34 @@ const TopWrapper = styled(Box)(
 );
 
 function LoginBasic() {
-  const { method } = useAuth() as any;
   const { t }: { t: any } = useTranslation();
+  const { name: brandName } = useBrand();
+  const { method } = useAuth() as any;
 
   return (
     <>
       <Helmet>
-        <title>Login - Basic</title>
+        <title>{t('Login')}</title>
       </Helmet>
       <MainContent>
         <TopWrapper>
           <Container maxWidth="sm">
-            <Logo />
             <Card
               sx={{
                 mt: 3,
                 px: 4,
                 pt: 5,
-                pb: 3
+                pb: 3,
+                border: '1px solid',
+                borderColor: 'divider',
+                boxShadow: '0 16px 42px rgba(34, 51, 84, 0.12)'
               }}
             >
-              <Box>
+              <Box textAlign="center">
+                <Logo />
+                <Typography variant="h3" sx={{ mt: 2, mb: 0.5 }}>
+                  {brandName}
+                </Typography>
                 <Typography
                   variant="h2"
                   sx={{
@@ -99,7 +72,7 @@ function LoginBasic() {
                   {t('login')}
                 </Typography>
                 <Typography
-                  variant="h4"
+                  variant="body1"
                   color="text.secondary"
                   fontWeight="normal"
                   sx={{
@@ -125,33 +98,10 @@ function LoginBasic() {
               </Box>
             </Card>
             <BottomWrapper>
-              <Tooltip arrow placement="top" title="Auth0">
-                <CardImg>
-                  <img height={50} alt="Auth0" src={icons['Auth0']} />
-                </CardImg>
-              </Tooltip>
-              <Tooltip arrow placement="top" title="Firebase">
-                <CardImg>
-                  <img height={50} alt="Firebase" src={icons['FirebaseAuth']} />
-                </CardImg>
-              </Tooltip>
-              <Tooltip arrow placement="top" title="JSON Web Token">
-                <CardImg>
-                  <img height={50} alt="JSON Web Token" src={icons['JWT']} />
-                </CardImg>
-              </Tooltip>
-              <Tooltip arrow placement="top" title="Amplify">
-                <CardImg>
-                  <img height={50} alt="Amplify" src={icons['Amplify']} />
-                </CardImg>
-              </Tooltip>
+              <Typography variant="body2" color="text.secondary">
+                {t('erione_login_tagline')}
+              </Typography>
             </BottomWrapper>
-
-            <Alert severity="error">
-              {t(
-                'Learn how to switch between auth methods by reading the section we’ve prepared in the documentation.'
-              )}
-            </Alert>
           </Container>
         </TopWrapper>
       </MainContent>

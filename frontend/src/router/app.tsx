@@ -150,6 +150,9 @@ const Assets = Loader(lazy(() => import('../content/own/Assets')));
 const ShowAsset = Loader(lazy(() => import('../content/own/Assets/Show')));
 const Inventory = Loader(lazy(() => import('../content/own/Inventory')));
 const Requests = Loader(lazy(() => import('../content/own/Requests')));
+const QuickRequest = Loader(
+  lazy(() => import('../content/own/Requests/QuickRequest'))
+);
 const PreventiveMaintenances = Loader(
   lazy(() => import('../content/own/PreventiveMaintenance'))
 );
@@ -308,6 +311,10 @@ const appRoutes = [
       {
         path: '',
         element: <Requests />
+      },
+      {
+        path: 'quick',
+        element: <QuickRequest />
       },
       {
         path: ':requestId',
