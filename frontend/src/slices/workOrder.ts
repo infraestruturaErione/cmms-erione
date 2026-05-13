@@ -49,6 +49,7 @@ interface WorkOrderState {
   calendar: {
     events: CalendarEvent<WorkOrder | PreventiveMaintenance>[];
   };
+  calendarWorkOrders: WorkOrder[];
 }
 
 const initialState: WorkOrderState = {
@@ -61,7 +62,8 @@ const initialState: WorkOrderState = {
   workOrdersMini: getInitialPage<WorkOrderBaseMiniDTO>(),
   calendar: {
     events: []
-  }
+  },
+  calendarWorkOrders: []
 };
 
 const slice = createSlice({
@@ -195,6 +197,12 @@ const slice = createSlice({
     ) {
       const { events } = action.payload;
       state.calendar.events = events;
+    },
+    setCalendarWorkOrders(
+      state: WorkOrderState,
+      action: PayloadAction<{ workOrders: WorkOrder[] }>
+    ) {
+      state.calendarWorkOrders = action.payload.workOrders;
     },
     setLoadingGet(
       state: WorkOrderState,
@@ -397,6 +405,17 @@ export const getWorkOrderEvents =
         events: response
       })
     );
+    dispatch(slice.actions.setLoadingGet({ loading: false }));
+  };
+export const getCalendarWorkOrders =
+  (criteria: SearchCriteria): AppThunk =>
+  async (dispatch) => {
+    dispatch(slice.actions.setLoadingGet({ loading: true }));
+    const result = await api.post<Page<WorkOrder>>(
+      `${basePath}/search`,
+      criteria
+    );
+    dispatch(slice.actions.setCalendarWorkOrders({ workOrders: result.content }));
     dispatch(slice.actions.setLoadingGet({ loading: false }));
   };
 export const getUrgentWorkOrdersCount = (): AppThunk => async (dispatch) => {

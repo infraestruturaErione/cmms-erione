@@ -18,7 +18,11 @@ import {
 import type { View } from 'src/models/calendar';
 import { useDispatch, useSelector } from 'src/store';
 import WorkOrder, { Priority } from 'src/models/owns/workOrder';
-import { getWorkOrderEvents } from 'src/slices/workOrder';
+import {
+  getCalendarWorkOrders,
+  getWorkOrderEvents
+} from 'src/slices/workOrder';
+import type { FilterField, SearchCriteria } from 'src/models/owns/page';
 import Actions from './Actions';
 import { useTranslation } from 'react-i18next';
 import { getCalendarLocale } from '../../../../i18n/i18n';
@@ -110,13 +114,6 @@ const EventBlock = styled(Box)(
 `
 );
 
-const getDateForWO = (wo: WorkOrder): Date | null => {
-  if (wo.estimatedStartDate) return new Date(wo.estimatedStartDate);
-  if (wo.dueDate) return new Date(wo.dueDate);
-  if (wo.createdAt) return new Date(wo.createdAt);
-  return null;
-};
-
 const getPriorityColor = (priority: Priority, theme: any): string => {
   switch (priority) {
     case 'HIGH':
@@ -144,20 +141,25 @@ interface CalendarEventData {
 interface OwnProps {
   handleAddWorkOrder: (date: Date) => void;
   handleOpenDetails: (id: number, type: string) => void;
+  filterFields: FilterField[];
 }
 
 function ApplicationsCalendar({
   handleAddWorkOrder,
-  handleOpenDetails
+  handleOpenDetails,
+  filterFields
 }: OwnProps) {
   const theme = useTheme();
   const calendarRef = useRef<FullCalendar | null>(null);
   const dispatch = useDispatch();
-  const { workOrders, loadingGet } = useSelector((state) => state.workOrders);
-  const { calendar } = useSelector((state) => state.workOrders);
+  const { loadingGet, calendar, calendarWorkOrders } = useSelector(
+    (state) => state.workOrders
+  );
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<View>('dayGridMonth');
-  const { i18n } = useTranslation();
+  const [activeStart, setActiveStart] = useState<Date>(new Date());
+  const [activeEnd, setActiveEnd] = useState<Date>(new Date());
+  const { t, i18n } = useTranslation();
   const [calendarLocale, setCalendarLocale] = useState<LocaleSingularArg>(enGb);
 
   useEffect(() => {
@@ -168,17 +170,35 @@ function ApplicationsCalendar({
     const calItem = calendarRef.current;
     if (!calItem) return;
     const calApi = calItem.getApi();
-    const activeStart = calApi.view.activeStart;
-    const activeEnd = calApi.view.activeEnd;
-    dispatch(getWorkOrderEvents(activeStart, activeEnd));
-  }, [date, view, dispatch]);
+    const start = calApi.view.activeStart;
+    const end = calApi.view.activeEnd;
+    setActiveStart(start);
+    setActiveEnd(end);
+    dispatch(getWorkOrderEvents(start, end));
+    const criteria: SearchCriteria = {
+      filterFields,
+      pageNum: 0,
+      pageSize: 200,
+      sortField: 'estimatedStartDate',
+      direction: 'ASC'
+    };
+    dispatch(getCalendarWorkOrders(criteria));
+  }, [date, view, dispatch, filterFields]);
+
+  const getDateForWO = (wo: WorkOrder): Date | null => {
+    if (wo.estimatedStartDate) return new Date(wo.estimatedStartDate);
+    if (wo.dueDate) return new Date(wo.dueDate);
+    if (wo.createdAt) return new Date(wo.createdAt);
+    return null;
+  };
 
   const calendarEvents: CalendarEventData[] = useMemo(() => {
     const result: CalendarEventData[] = [];
 
-    for (const wo of workOrders.content) {
+    for (const wo of calendarWorkOrders) {
       const eventDate = getDateForWO(wo);
       if (!eventDate) continue;
+      if (eventDate < activeStart || eventDate > activeEnd) continue;
 
       const priorityColor = getPriorityColor(wo.priority, theme);
       const isComplete = wo.status === 'COMPLETE';
@@ -226,7 +246,7 @@ function ApplicationsCalendar({
 
     result.sort((a, b) => a.start.getTime() - b.start.getTime());
     return result;
-  }, [workOrders.content, calendar.events, theme]);
+  }, [calendarWorkOrders, calendar.events, theme, activeStart, activeEnd]);
 
   const handleDateToday = (): void => {
     const calItem = calendarRef.current;
@@ -302,10 +322,10 @@ function ApplicationsCalendar({
             py={8}
           >
             <Typography variant="h5" color="text.secondary">
-              Nenhuma OS encontrada para este período
+              {t('workOrders.calendar.empty.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Nenhuma ordem de serviço com data de início, vencimento ou criação neste período.
+              {t('workOrders.calendar.empty.description')}
             </Typography>
           </Stack>
         ) : (

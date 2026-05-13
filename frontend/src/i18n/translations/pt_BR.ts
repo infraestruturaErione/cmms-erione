@@ -327,6 +327,9 @@ const ptBRJSON = {
   'noRows.wo.message':
     'Ordens de Serviço são tarefas ou trabalhos que podem ser agendados ou atribuídos a alguém',
   'noRows.wo.action': "Pressione o botão '+' para criar uma Ordem de Serviço",
+  'workOrders.calendar.empty.title': 'Nenhuma OS encontrada para este período',
+  'workOrders.calendar.empty.description':
+    'Nenhuma ordem de serviço com data de início, vencimento ou criação neste período.',
   to_delete: 'Excluir',
   confirm_delete_wo: 'Tem certeza de que deseja excluir esta Ordem de Serviço?',
   no_access_wo:

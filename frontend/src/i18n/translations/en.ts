@@ -307,6 +307,9 @@ const locale = {
   'noRows.wo.message':
     'Work Orders are tasks or jobs, that can be scheduled or assigned to someone',
   'noRows.wo.action': "Press the '+' button to create a Work Order",
+  'workOrders.calendar.empty.title': 'No Work Orders found for this period',
+  'workOrders.calendar.empty.description':
+    'No work orders with a start date, due date or creation date in this period.',
   to_delete: 'Delete',
   confirm_delete_wo: 'Are you sure you want to delete this Work Order?',
   no_access_wo:

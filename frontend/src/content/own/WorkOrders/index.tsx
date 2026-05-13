@@ -1029,6 +1029,7 @@ function WorkOrders() {
                   if (type === 'WORK_ORDER') handleOpenDetails(id);
                   else navigate(getPreventiveMaintenanceUrl(id));
                 }}
+                filterFields={criteria.filterFields}
               />
             )}
           </Box>
