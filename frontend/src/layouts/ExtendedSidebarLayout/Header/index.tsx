@@ -22,6 +22,7 @@ import HeaderUserbox from './Userbox';
 import { useTranslation } from 'react-i18next';
 import { TitleContext } from '../../../contexts/TitleContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { ERIONE_VISUAL_IDENTITY } from '../../../config/erioneVisualIdentity';
 
 const HeaderWrapper = styled(Box)(
   ({ theme }) => `
@@ -32,6 +33,8 @@ const HeaderWrapper = styled(Box)(
         z-index: 6;
         background-color: ${alpha(theme.header.background, 0.95)};
         backdrop-filter: blur(3px);
+        border-bottom: 1px solid ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.14)};
+        border-top: 3px solid ${ERIONE_VISUAL_IDENTITY.primary};
         position: fixed;
         justify-content: space-between;
         width: 100%;

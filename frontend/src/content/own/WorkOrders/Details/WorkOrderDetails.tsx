@@ -96,6 +96,7 @@ import PartQuantitiesList from '../../components/PartQuantitiesList';
 import AddFileModal from './AddFileModal';
 import CommentsSection from './CommentsSection';
 import FieldExecutionSection from './FieldExecutionSection';
+import { ERIONE_HIDDEN_MODULES } from '../../../../config/erioneModules';
 import { useBrand } from '../../../../hooks/useBrand';
 import { useLicenseEntitlement } from '../../../../hooks/useLicenseEntitlement';
 import { getCustomFieldValuesForDetails } from '../../type';
@@ -280,7 +281,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
       },
       {
         name: 'completeParts',
-        condition: !partQuantities.length,
+        condition: !ERIONE_HIDDEN_MODULES.parts && !partQuantities.length,
         message: 'required_part_on_completion'
       },
       {
@@ -1195,50 +1196,52 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 </Button>
               )}
             </Box>
-            <Box>
-              <Divider sx={{ mt: 2 }} />
-              <Typography sx={{ mt: 2, mb: 1 }} variant="h3">
-                {t('parts')}
-              </Typography>
-              {loadingPartQuantities[workOrder.id] ? (
-                <Stack width={'100%'} alignItems={'center'}>
-                  <CircularProgress />
-                </Stack>
-              ) : (
-                <Fragment>
-                  <PartQuantitiesList
-                    partQuantities={partQuantities}
-                    disabled={
-                      !hasEditPermission(
-                        PermissionEntity.WORK_ORDERS,
-                        workOrder
-                      )
-                    }
-                    onChange={debouncedPartQuantityChange}
-                  />
-                  {hasEditPermission(
-                    PermissionEntity.WORK_ORDERS,
-                    workOrder
-                  ) && (
-                    <SelectParts
-                      selected={partQuantities.map(
-                        (partQuantity) => partQuantity.part.id
-                      )}
-                      onChange={(selectedParts) => {
-                        dispatch(
-                          editWOPartQuantities(
-                            workOrder.id,
-                            selectedParts.map((part) => part.id)
-                          )
-                        ).catch((error) =>
-                          showSnackBar(t('not_enough_part'), 'error')
-                        );
-                      }}
+            {!ERIONE_HIDDEN_MODULES.parts && (
+              <Box>
+                <Divider sx={{ mt: 2 }} />
+                <Typography sx={{ mt: 2, mb: 1 }} variant="h3">
+                  {t('parts')}
+                </Typography>
+                {loadingPartQuantities[workOrder.id] ? (
+                  <Stack width={'100%'} alignItems={'center'}>
+                    <CircularProgress />
+                  </Stack>
+                ) : (
+                  <Fragment>
+                    <PartQuantitiesList
+                      partQuantities={partQuantities}
+                      disabled={
+                        !hasEditPermission(
+                          PermissionEntity.WORK_ORDERS,
+                          workOrder
+                        )
+                      }
+                      onChange={debouncedPartQuantityChange}
                     />
-                  )}
-                </Fragment>
-              )}
-            </Box>
+                    {hasEditPermission(
+                      PermissionEntity.WORK_ORDERS,
+                      workOrder
+                    ) && (
+                      <SelectParts
+                        selected={partQuantities.map(
+                          (partQuantity) => partQuantity.part.id
+                        )}
+                        onChange={(selectedParts) => {
+                          dispatch(
+                            editWOPartQuantities(
+                              workOrder.id,
+                              selectedParts.map((part) => part.id)
+                            )
+                          ).catch((error) =>
+                            showSnackBar(t('not_enough_part'), 'error')
+                          );
+                        }}
+                      />
+                    )}
+                  </Fragment>
+                )}
+              </Box>
+            )}
             <Box>
               <Divider sx={{ mt: 2 }} />
               <Typography sx={{ mt: 2, mb: 1 }} variant="h3">

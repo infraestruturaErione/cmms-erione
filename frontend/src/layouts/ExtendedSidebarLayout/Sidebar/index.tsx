@@ -5,10 +5,8 @@ import { SidebarContext } from 'src/contexts/SidebarContext';
 import {
   alpha,
   Box,
-  darken,
   Divider,
   Drawer,
-  lighten,
   styled,
   Typography,
   useTheme
@@ -18,6 +16,7 @@ import SidebarFooter from './SidebarFooter';
 import Logo from 'src/components/LogoSign';
 import { useBrand } from '../../../hooks/useBrand';
 import { useTranslation } from 'react-i18next';
+import { ERIONE_VISUAL_IDENTITY } from '../../../config/erioneVisualIdentity';
 
 const SidebarWrapper = styled(Box)(
   ({ theme }) => `
@@ -49,12 +48,14 @@ function Sidebar() {
           position: 'fixed',
           left: 0,
           top: 0,
-          background:
-            theme.palette.mode === 'dark'
-              ? alpha(lighten(theme.header.background, 0.1), 0.5)
-              : darken(theme.colors.alpha.black[100], 0.5),
+          background: ERIONE_VISUAL_IDENTITY.sidebarGradient,
           boxShadow:
-            theme.palette.mode === 'dark' ? theme.sidebar.boxShadow : 'none'
+            theme.palette.mode === 'dark'
+              ? theme.sidebar.boxShadow
+              : `6px 0 24px ${alpha(
+                  ERIONE_VISUAL_IDENTITY.primaryDarker,
+                  0.18
+                )}`
         }}
       >
         <Scrollbar>
@@ -68,10 +69,17 @@ function Sidebar() {
             >
               <Box textAlign="center">
                 <Logo white />
-                <Typography sx={{ color: 'white', mt: 0.5 }} fontSize={13} fontWeight={700}>
+                <Typography
+                  sx={{ color: 'white', mt: 0.5, letterSpacing: 0 }}
+                  fontSize={13}
+                  fontWeight={700}
+                >
                   {brandName}
                 </Typography>
-                <Typography sx={{ color: theme.colors.alpha.trueWhite[50] }} fontSize={11}>
+                <Typography
+                  sx={{ color: alpha(theme.colors.alpha.trueWhite[100], 0.62) }}
+                  fontSize={11}
+                >
                   {t('field_operations')}
                 </Typography>
               </Box>
@@ -105,10 +113,7 @@ function Sidebar() {
       >
         <SidebarWrapper
           sx={{
-            background:
-              theme.palette.mode === 'dark'
-                ? theme.colors.alpha.white[100]
-                : darken(theme.colors.alpha.black[100], 0.5)
+            background: ERIONE_VISUAL_IDENTITY.sidebarGradient
           }}
         >
           <Scrollbar>
@@ -122,10 +127,19 @@ function Sidebar() {
               >
                 <Box textAlign="center">
                   <Logo white />
-                  <Typography sx={{ color: 'white', mt: 0.5 }} fontSize={13} fontWeight={700}>
+                  <Typography
+                    sx={{ color: 'white', mt: 0.5, letterSpacing: 0 }}
+                    fontSize={13}
+                    fontWeight={700}
+                  >
                     {brandName}
                   </Typography>
-                  <Typography sx={{ color: theme.colors.alpha.trueWhite[50] }} fontSize={11}>
+                  <Typography
+                    sx={{
+                      color: alpha(theme.colors.alpha.trueWhite[100], 0.62)
+                    }}
+                    fontSize={11}
+                  >
                     {t('field_operations')}
                   </Typography>
                 </Box>

@@ -293,7 +293,7 @@ const ptBRJSON = {
   completed_by: 'Concluído por',
   time: 'Tempo',
   save: 'Salvar',
-  customers: 'Contratantes',
+  customers: 'Clientes',
   no_labor:
     'Nenhum custo de mão de obra foi adicionado ainda. Eles aparecerão aqui quando um usuário registrar o tempo e tiver uma taxa horária armazenada no {{shortBrandName}}.',
   not_assigned: 'Não Atribuído',
@@ -379,7 +379,7 @@ const ptBRJSON = {
   wo_analysis: 'Análise de Ordens de Serviço',
   wo_aging: 'Envelhecimento de Ordens de Serviço',
   time_and_cost: 'Tempo e Custo',
-  assets: 'Ativos',
+  assets: 'Câmeras/Equipamentos',
   all_requests: 'Todas as solicitações',
   quick_request: 'Abrir solicitação',
   erione_login_tagline:
@@ -417,14 +417,14 @@ const ptBRJSON = {
   total_maintenance_cost: 'Custo Total de Manutenção',
   useful_life: 'Vida Útil',
   requests: 'Solicitações',
-  locations: 'Localizações',
+  locations: 'Locais',
   parts_and_inventory: 'Peças/Inventário',
   purchase_orders: 'Ordens de Compra',
   meters: 'Medidores',
   people_teams: 'Pessoas e Equipes',
   people: 'Pessoas',
   teams: 'Equipes',
-  vendors_customers: 'Fornecedores e Contratantes',
+  vendors_customers: 'Clientes',
   vendors: 'Fornecedores',
   categories: 'Categorias',
   settings: 'Configurações',
@@ -592,7 +592,7 @@ const ptBRJSON = {
   select_asset_location: 'Selecionar localização do ativo',
   primary_user_description: 'Selecionar usuário principal',
   teams_description: 'Selecionar equipes',
-  customers_description: 'Selecionar contratantes',
+  customers_description: 'Selecionar clientes',
   vendors_description: 'Selecionar fornecedores',
   inServiceDate_description: 'Data de colocação em serviço',
   warranty_expiration_date: 'Data de expiração da garantia',
@@ -655,13 +655,13 @@ const ptBRJSON = {
   no_file_in_location: 'Nenhum arquivo anexado a esta localização',
   no_floor_plan_in_location: 'Nenhuma Planta Baixa nesta localização',
   assigned_teams: 'Equipes Atribuídas',
-  assigned_customers: 'Contratantes Atribuídos',
+  assigned_customers: 'Clientes atribuídos',
   assigned_vendors: 'Fornecedores Atribuídos',
   //no_access
   no_access_location:
     'Você não tem acesso a Localizações. Entre em contato com seu administrador se deveria ter acesso',
   no_access_vendors_customers:
-    'Você não tem acesso a Fornecedores e Contratantes. Entre em contato com seu administrador se deveria ter acesso',
+    'Você não tem acesso a Clientes. Entre em contato com seu administrador se deveria ter acesso',
   no_access_people_team:
     'Você não tem acesso a Pessoas e Equipes. Entre em contato com seu administrador se deveria ter acesso',
   no_access_analytics:
@@ -844,37 +844,37 @@ const ptBRJSON = {
   you_have_uploaded: 'Você fez upload de',
   upload: 'Upload',
   //vendors_customers
-  Vendors_Customers: 'Fornecedores e Contratantes',
-  customer_create_success: 'O Contratante foi criado com sucesso',
-  customer_create_failure: 'O Contratante não pôde ser criado',
-  customer_edit_failure: 'O Contratante não pôde ser editado',
-  customer_delete_success: 'O Contratante foi excluído com sucesso',
-  customer_delete_failure: 'O Contratante não pôde ser excluído',
-  customer_name: 'Nome do Contratante',
+  Vendors_Customers: 'Clientes',
+  customer_create_success: 'O cliente foi criado com sucesso',
+  customer_create_failure: 'O cliente não pôde ser criado',
+  customer_edit_failure: 'O cliente não pôde ser editado',
+  customer_delete_success: 'O cliente foi excluído com sucesso',
+  customer_delete_failure: 'O cliente não pôde ser excluído',
+  customer_name: 'Nome do cliente',
   website: 'Website',
-  customer_type: 'Tipo de Contratante',
+  customer_type: 'Tipo de cliente',
   customer_type_description: 'ex. Encanamento, Elétrica',
   customer_description_description:
-    'Descreva o propósito deste contratante em algumas linhas...',
+    'Descreva o propósito deste cliente em algumas linhas...',
   billing_information: 'Informações de Cobrança',
   address_line_2: 'Linha 2 do Endereço',
   billing_name: 'Nome de Cobrança',
   currency: 'Moeda',
   select_currency: 'Selecionar Moeda',
-  required_customer_name: 'O nome do contratante é obrigatório',
+  required_customer_name: 'O nome do cliente é obrigatório',
   required_phone: 'O número de telefone é obrigatório',
   invalid_website: 'Website inválido',
   billing_address: 'Endereço de Cobrança',
-  add_customer: 'Adicionar Contratante',
+  add_customer: 'Adicionar cliente',
   add_customer_description:
-    'Preencha os campos abaixo para criar e adicionar um novo contratante',
-  'noRows.customer.message': 'Contratantes são trabalhadores externos',
-  'noRows.customer.action': "Pressione o botão '+' para criar um Contratante",
+    'Preencha os campos abaixo para criar e adicionar um novo cliente',
+  'noRows.customer.message': 'Clientes são contratantes atendidos pela operação',
+  'noRows.customer.action': "Pressione o botão '+' para criar um cliente",
   type: 'Tipo',
   billing_currency: 'Moeda de Cobrança',
   go_back: 'Voltar',
   confirm_delete_customer:
-    'Tem certeza de que deseja excluir este Contratante?',
+    'Tem certeza de que deseja excluir este cliente?',
   //vendor
   vendor_create_success: 'O Fornecedor foi criado com sucesso',
   vendor_create_failure: 'O Fornecedor não pôde ser criado',
@@ -1285,7 +1285,7 @@ const ptBRJSON = {
   to_export: 'Exportar',
   filters: 'Filtros',
   more_filters: 'Mais Filtros',
-  customer: 'Contratante',
+  customer: 'Cliente',
   to: 'para',
   dates: 'Datas',
   start: 'Início',
@@ -1942,7 +1942,8 @@ const ptBRJSON = {
   request_title: 'Título da solicitação',
   configure_form_fields: 'Configurar campos do formulário',
   allow_selection_from_all_locations: 'Permitir seleção de todos os locais',
-  allow_selection_from_all_assets: 'Permitir seleção de todos os ativos',
+  allow_selection_from_all_assets:
+    'Permitir seleção de todas as câmeras/equipamentos',
   restrict_to_a_specific_location: 'Restringir a um local específico',
   restrict_to_a_specific_asset: 'Restringir a um ativo específico',
   portal_public_asset_warning:
@@ -2012,7 +2013,7 @@ const ptBRJSON = {
     'Personalize o formulário e preferências do inventário de peças',
   meters_settings_description: 'Personalize o formulário e preferências de medidores',
   vendors_contractors_settings_description:
-    'Gerencie contratantes e fornecedores externos com os quais sua organização trabalha',
+    'Gerencie clientes atendidos pela operação',
   workflows_settings_description: 'Crie e gerencie fluxos de trabalho automatizados',
   request_portals_settings_description:
     'Crie, gerencie e edite todos os portais de solicitação da sua organização.',
@@ -2042,7 +2043,7 @@ const ptBRJSON = {
   customize_form: 'Personalizar o formulário',
   type_enter_to_add_option: 'Digite e pressione enter para adicionar uma opção',
   customers_settings_description:
-    'Gerencie contratantes externos com os quais sua organização trabalha.',
+    'Gerencie clientes atendidos pela operação.',
   vendors_settings_description: 'Personalize configurações relacionadas a fornecedores'
 };
 

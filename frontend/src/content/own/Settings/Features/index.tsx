@@ -37,6 +37,7 @@ import AccountTreeTwoToneIcon from '@mui/icons-material/AccountTreeTwoTone';
 import { useContext, useEffect } from 'react';
 import { TitleContext } from '../../../../contexts/TitleContext';
 import BusinessTwoToneIcon from '@mui/icons-material/BusinessTwoTone';
+import { ERIONE_HIDDEN_MODULES } from '../../../../config/erioneModules';
 
 interface FeatureModule {
   id: string;
@@ -100,13 +101,17 @@ function FeaturesSettings() {
       descriptionKey: 'request_portals_settings_description',
       preferencesPath: '/app/settings/features/request-portals'
     },
-    {
-      id: 'parts-inventory',
-      icon: HandymanTwoToneIcon,
-      titleKey: 'parts_inventory',
-      descriptionKey: 'parts_inventory_settings_description',
-      preferencesPath: '/app/settings/features/parts'
-    },
+    ...(!ERIONE_HIDDEN_MODULES.inventory
+      ? [
+          {
+            id: 'parts-inventory',
+            icon: HandymanTwoToneIcon,
+            titleKey: 'parts_inventory',
+            descriptionKey: 'parts_inventory_settings_description',
+            preferencesPath: '/app/settings/features/parts'
+          }
+        ]
+      : []),
     {
       id: 'meters',
       icon: SpeedTwoToneIcon,
@@ -123,14 +128,18 @@ function FeaturesSettings() {
       preferencesPath: '/app/settings/features/contractors',
       toggleKey: 'vendorsAndCustomers'
     },
-    {
-      id: 'vendors',
-      icon: BusinessTwoToneIcon,
-      titleKey: 'vendors',
-      descriptionKey: 'vendors_settings_description',
-      preferencesPath: '/app/settings/features/vendors',
-      toggleKey: 'vendorsAndCustomers'
-    },
+    ...(!ERIONE_HIDDEN_MODULES.vendors
+      ? [
+          {
+            id: 'vendors',
+            icon: BusinessTwoToneIcon,
+            titleKey: 'vendors',
+            descriptionKey: 'vendors_settings_description',
+            preferencesPath: '/app/settings/features/vendors',
+            toggleKey: 'vendorsAndCustomers' as const
+          }
+        ]
+      : []),
     {
       id: 'workflows',
       icon: AccountTreeTwoToneIcon,

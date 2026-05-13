@@ -15,9 +15,6 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import useAuth from 'src/hooks/useAuth';
 import UpgradeTwoToneIcon from '@mui/icons-material/UpgradeTwoTone';
 import QuestionMarkTwoToneIcon from '@mui/icons-material/QuestionMarkTwoTone';
-import { homeUrl, isCloudVersion } from '../../../../config';
-import { useContext } from 'react';
-import { CompanySettingsContext } from '../../../../contexts/CompanySettingsContext';
 
 const LightTooltip = styled(({ className, ...props }: TooltipProps) => (
   <Tooltip {...props} classes={{ popper: className }} />
@@ -38,7 +35,6 @@ function SidebarFooter() {
   const { t }: { t: any } = useTranslation();
   const theme = useTheme();
   const { logout, user } = useAuth();
-  const { requestSubscriptionChange } = useContext(CompanySettingsContext);
   const navigate = useNavigate();
 
   const handleLogout = async (): Promise<void> => {
@@ -72,14 +68,8 @@ function SidebarFooter() {
                 color: `${theme.colors.alpha.trueWhite[100]}`
               }
             }}
-            component={isCloudVersion ? RouterLink : 'a'}
-            {...(isCloudVersion
-              ? { to: '/app/subscription/plans' }
-              : {
-                  href: 'https://atlas-cmms.com/pricing?type=selfhosted',
-                  target: '_blank',
-                  rel: 'noopener noreferrer'
-                })}
+            component={RouterLink}
+            to="/app/subscription/plans"
           >
             <UpgradeTwoToneIcon fontSize="small" />
           </IconButton>
@@ -97,7 +87,7 @@ function SidebarFooter() {
               color: `${theme.colors.alpha.trueWhite[100]}`
             }
           }}
-          onClick={() => window.open('https://grashjs.github.io/user-guide')}
+          onClick={() => navigate('/app/work-orders')}
         >
           <QuestionMarkTwoToneIcon fontSize="small" />
         </IconButton>

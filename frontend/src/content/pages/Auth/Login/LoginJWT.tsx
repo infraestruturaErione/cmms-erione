@@ -12,7 +12,8 @@ import {
   IconButton,
   InputAdornment,
   Link,
-  TextField
+  TextField,
+  alpha
 } from '@mui/material';
 import useAuth from 'src/hooks/useAuth';
 import useRefMounted from 'src/hooks/useRefMounted';
@@ -25,6 +26,7 @@ import {
   ldapEnabled,
   oauth2Provider
 } from '../../../../config';
+import { ERIONE_VISUAL_IDENTITY } from '../../../../config/erioneVisualIdentity';
 
 const LoginJWT: FC = () => {
   const { login } = useAuth();
@@ -125,7 +127,19 @@ const LoginJWT: FC = () => {
 
           <Button
             sx={{
-              mt: 3
+              mt: 3,
+              bgcolor: ERIONE_VISUAL_IDENTITY.primary,
+              boxShadow: `0 10px 24px ${alpha(
+                ERIONE_VISUAL_IDENTITY.primary,
+                0.22
+              )}`,
+              '&:hover': {
+                bgcolor: ERIONE_VISUAL_IDENTITY.primaryDark,
+                boxShadow: `0 12px 28px ${alpha(
+                  ERIONE_VISUAL_IDENTITY.primaryDark,
+                  0.26
+                )}`
+              }
             }}
             color="primary"
             startIcon={isSubmitting ? <CircularProgress size="1rem" /> : null}

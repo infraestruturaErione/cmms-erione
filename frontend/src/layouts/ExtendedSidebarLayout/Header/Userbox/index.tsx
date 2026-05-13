@@ -356,7 +356,8 @@ function HeaderUserbox() {
           </MenuItem>
           <MenuItem
             onClick={() => {
-              window.open('https://grashjs.github.io/user-guide');
+              handleClose();
+              navigate('/app/work-orders');
             }}
           >
             <ListItemIcon>
@@ -366,7 +367,7 @@ function HeaderUserbox() {
               primaryTypographyProps={{
                 variant: 'h5'
               }}
-              primary={t('documentation')}
+              primary={t('work_orders')}
             />
             <Box display="flex" alignItems="center">
               <ChevronRightTwoToneIcon

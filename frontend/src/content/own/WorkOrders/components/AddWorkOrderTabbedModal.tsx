@@ -73,7 +73,16 @@ const allKnownFieldNames = TAB_CONFIG.flatMap((tab) => tab.fieldNames);
 export default function AddWorkOrderTabbedModal(props: PropsType) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const { open, onClose, fields, validation, values, onSubmit, onChange, submitText } = props;
+  const {
+    open,
+    onClose,
+    fields,
+    validation,
+    values,
+    onSubmit,
+    onChange,
+    submitText
+  } = props;
   const [activeTab, setActiveTab] = useState(0);
 
   const handleTabChange = (_event: ChangeEvent<{}>, newValue: number) => {
@@ -184,6 +193,7 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
       <DialogContent
         sx={{
           p: 0,
+          overflow: 'hidden',
           backgroundColor: theme.palette.background.paper
         }}
       >
@@ -198,6 +208,9 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
               alignItems: 'flex-start'
             },
             '& .MuiGrid-item:last-of-type': {
+              position: 'sticky',
+              bottom: 0,
+              zIndex: 2,
               mt: 1,
               mx: { xs: -2.5, sm: -3 },
               px: { xs: 2.5, sm: 3 },
@@ -205,7 +218,12 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
               display: 'flex',
               justifyContent: 'flex-end',
               borderTop: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
-              backgroundColor: theme.palette.background.paper
+              backgroundColor: alpha(theme.palette.background.paper, 0.98),
+              boxShadow: `0 -10px 24px ${alpha(
+                theme.palette.common.black,
+                0.06
+              )}`,
+              backdropFilter: 'blur(6px)'
             },
             '& .MuiGrid-item:last-of-type .MuiButton-root': {
               minWidth: 120,

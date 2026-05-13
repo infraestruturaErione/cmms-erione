@@ -6,6 +6,7 @@ import FeatureErrorMessage from '../../../components/FeatureErrorMessage';
 import useAuth from '../../../../../hooks/useAuth';
 import { PlanFeature } from '../../../../../models/owns/subscriptionPlan';
 import { TitleContext } from '../../../../../contexts/TitleContext';
+import { ERIONE_HIDDEN_MODULES } from '../../../../../config/erioneModules';
 
 function WorkOrderSettings() {
   const { t }: { t: any } = useTranslation();
@@ -34,7 +35,9 @@ function WorkOrderSettings() {
     { label: t('location'), name: 'location' },
     { label: t('due_date'), name: 'dueDate' },
     { label: t('category'), name: 'category' },
-    { label: t('purchase_order'), name: 'purchaseOrder' },
+    ...(!ERIONE_HIDDEN_MODULES.purchaseOrders
+      ? [{ label: t('purchase_order'), name: 'purchaseOrder' }]
+      : []),
     { label: t('files'), name: 'files' },
     { label: t('signature'), name: 'signature' }
   ];
@@ -46,7 +49,9 @@ function WorkOrderSettings() {
       name: 'completeTasks'
     },
     { label: t('time'), name: 'completeTime' },
-    { label: t('parts'), name: 'completeParts' },
+    ...(!ERIONE_HIDDEN_MODULES.parts
+      ? [{ label: t('parts'), name: 'completeParts' }]
+      : []),
     { label: t('cost'), name: 'completeCost' }
   ];
 

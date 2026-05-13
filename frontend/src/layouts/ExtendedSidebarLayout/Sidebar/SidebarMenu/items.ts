@@ -28,6 +28,7 @@ import { PermissionEntity } from '../../../../models/owns/role';
 import { PlanFeature } from '../../../../models/owns/subscriptionPlan';
 import { IS_LOCALHOST } from '../../../../config';
 import { UiConfiguration } from '../../../../models/owns/uiConfiguration';
+import { ERIONE_HIDDEN_MODULES } from '../../../../config/erioneModules';
 
 export interface MenuItem {
   link?: string;
@@ -113,16 +114,20 @@ const ownMenuItems: MenuItems[] = [
               // }
             ]
           },
-          {
-            name: 'parts',
-            icon: HandymanTwoToneIcon,
-            items: [
-              {
-                name: 'parts_consumption',
-                link: '/app/analytics/parts/consumption'
-              }
-            ]
-          },
+          ...(!ERIONE_HIDDEN_MODULES.parts
+            ? [
+                {
+                  name: 'parts',
+                  icon: HandymanTwoToneIcon,
+                  items: [
+                    {
+                      name: 'parts_consumption',
+                      link: '/app/analytics/parts/consumption'
+                    }
+                  ]
+                }
+              ]
+            : []),
           {
             name: 'requests',
             icon: MoveToInboxTwoToneIcon,
@@ -164,29 +169,37 @@ const ownMenuItems: MenuItems[] = [
         permission: PermissionEntity.LOCATIONS,
         uiConfigKey: 'locations'
       },
-      {
-        name: 'parts_and_inventory',
-        link: '/app/inventory',
-        icon: HandymanTwoToneIcon,
-        permission: PermissionEntity.PARTS_AND_MULTIPARTS,
-        items: [
-          {
-            name: 'parts',
-            link: '/app/inventory/parts'
-          },
-          {
-            name: 'sets_of_parts',
-            link: '/app/inventory/sets'
-          }
-        ]
-      },
-      {
-        name: 'purchase_orders',
-        link: '/app/purchase-orders',
-        icon: ReceiptTwoToneIcon,
-        permission: PermissionEntity.PURCHASE_ORDERS,
-        planFeature: PlanFeature.PURCHASE_ORDER
-      },
+      ...(!ERIONE_HIDDEN_MODULES.inventory
+        ? [
+            {
+              name: 'parts_and_inventory',
+              link: '/app/inventory',
+              icon: HandymanTwoToneIcon,
+              permission: PermissionEntity.PARTS_AND_MULTIPARTS,
+              items: [
+                {
+                  name: 'parts',
+                  link: '/app/inventory/parts'
+                },
+                {
+                  name: 'sets_of_parts',
+                  link: '/app/inventory/sets'
+                }
+              ]
+            }
+          ]
+        : []),
+      ...(!ERIONE_HIDDEN_MODULES.purchaseOrders
+        ? [
+            {
+              name: 'purchase_orders',
+              link: '/app/purchase-orders',
+              icon: ReceiptTwoToneIcon,
+              permission: PermissionEntity.PURCHASE_ORDERS,
+              planFeature: PlanFeature.PURCHASE_ORDER
+            }
+          ]
+        : []),
       {
         name: 'meters',
         link: '/app/meters',
@@ -212,16 +225,22 @@ const ownMenuItems: MenuItems[] = [
         ]
       },
       {
-        name: 'vendors_customers',
-        link: '/app/vendors-customers/vendors',
+        name: ERIONE_HIDDEN_MODULES.vendors ? 'customers' : 'vendors_customers',
+        link: ERIONE_HIDDEN_MODULES.vendors
+          ? '/app/vendors-customers/customers'
+          : '/app/vendors-customers/vendors',
         icon: GroupsTwoTone,
         permission: PermissionEntity.VENDORS_AND_CUSTOMERS,
         uiConfigKey: 'vendorsAndCustomers',
         items: [
-          {
-            name: 'vendors',
-            link: '/app/vendors-customers/vendors'
-          },
+          ...(!ERIONE_HIDDEN_MODULES.vendors
+            ? [
+                {
+                  name: 'vendors',
+                  link: '/app/vendors-customers/vendors'
+                }
+              ]
+            : []),
           {
             name: 'customers',
             link: '/app/vendors-customers/customers'

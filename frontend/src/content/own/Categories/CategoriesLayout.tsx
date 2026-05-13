@@ -38,6 +38,7 @@ import Category from '../../../models/owns/category';
 import { CustomSnackBarContext } from '../../../contexts/CustomSnackBarContext';
 import { PermissionEntity } from '../../../models/owns/role';
 import PermissionErrorMessage from '../components/PermissionErrorMessage';
+import { ERIONE_HIDDEN_MODULES } from '../../../config/erioneModules';
 
 const IconButtonWrapper = styled(IconButton)(
   ({ theme }) => `
@@ -126,8 +127,12 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
     { value: 'meter', label: t('meters') },
     { value: 'time', label: t('timers') },
     { value: 'cost', label: t('costs') },
-    { value: 'part', label: t('parts') },
-    { value: 'purchase-order', label: t('purchase_orders') }
+    ...(!ERIONE_HIDDEN_MODULES.parts
+      ? [{ value: 'part', label: t('parts') }]
+      : []),
+    ...(!ERIONE_HIDDEN_MODULES.purchaseOrders
+      ? [{ value: 'purchase-order', label: t('purchase_orders') }]
+      : [])
   ];
   const renderModal = () => (
     <Dialog

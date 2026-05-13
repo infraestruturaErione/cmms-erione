@@ -1,11 +1,20 @@
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Card, Container, Link, styled, Typography } from '@mui/material';
+import {
+  alpha,
+  Box,
+  Card,
+  Container,
+  Link,
+  styled,
+  Typography
+} from '@mui/material';
 import { Helmet } from 'react-helmet-async';
 import JWTLogin from '../LoginJWT';
 import { useTranslation } from 'react-i18next';
 import Logo from 'src/components/LogoSign';
 import { useBrand } from '../../../../../hooks/useBrand';
 import useAuth from '../../../../../hooks/useAuth';
+import { ERIONE_VISUAL_IDENTITY } from '../../../../../config/erioneVisualIdentity';
 
 const BottomWrapper = styled(Box)(
   ({ theme }) => `
@@ -22,6 +31,7 @@ const MainContent = styled(Box)(
     display: flex;
     flex: 1;
     flex-direction: column;
+    background: ${ERIONE_VISUAL_IDENTITY.surface};
 `
 );
 
@@ -54,8 +64,11 @@ function LoginBasic() {
                 pt: 5,
                 pb: 3,
                 border: '1px solid',
-                borderColor: 'divider',
-                boxShadow: '0 16px 42px rgba(34, 51, 84, 0.12)'
+                borderColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.14),
+                boxShadow: `0 18px 46px ${alpha(
+                  ERIONE_VISUAL_IDENTITY.primaryDark,
+                  0.14
+                )}`
               }}
             >
               <Box textAlign="center">

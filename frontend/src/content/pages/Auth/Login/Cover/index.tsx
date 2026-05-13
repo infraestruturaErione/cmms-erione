@@ -5,6 +5,7 @@ import {
   Card,
   Container,
   Link,
+  Chip,
   Stack,
   styled,
   Typography,
@@ -17,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import Logo from 'src/components/LogoSign';
 import { ldapEnabled } from '../../../../../config';
 import { useBrand } from '../../../../../hooks/useBrand';
+import { ERIONE_VISUAL_IDENTITY } from '../../../../../config/erioneVisualIdentity';
 
 const Content = styled(Box)(
   () => `
@@ -40,10 +42,7 @@ function LoginCover() {
       <Content
         sx={{
           minHeight: '100vh',
-          background: `linear-gradient(180deg, ${alpha(
-            theme.colors.primary.lighter,
-            0.45
-          )} 0%, ${theme.palette.background.default} 58%)`
+          background: `linear-gradient(180deg, ${ERIONE_VISUAL_IDENTITY.surface} 0%, ${theme.palette.background.default} 58%)`
         }}
       >
         <Container
@@ -62,35 +61,66 @@ function LoginCover() {
               display: 'grid',
               gridTemplateColumns: { xs: '1fr', md: '0.95fr 1fr' },
               overflow: 'hidden',
-              border: `1px solid ${alpha(theme.colors.alpha.black[100], 0.08)}`,
-              boxShadow: '0 18px 45px rgba(34, 51, 84, 0.12)'
+              border: `1px solid ${alpha(
+                ERIONE_VISUAL_IDENTITY.primary,
+                0.14
+              )}`,
+              boxShadow: `0 24px 60px ${alpha(
+                ERIONE_VISUAL_IDENTITY.primaryDark,
+                0.16
+              )}`
             }}
           >
             <Box
               sx={{
                 p: { xs: 3, md: 5 },
-                bgcolor: alpha(theme.colors.primary.main, 0.06),
+                background: ERIONE_VISUAL_IDENTITY.loginGradient,
+                color: 'white',
                 borderRight: {
                   xs: 0,
                   md: `1px solid ${alpha(theme.colors.alpha.black[100], 0.08)}`
                 }
               }}
             >
-              <Logo />
+              <Logo white />
               <Typography variant="h2" sx={{ mt: 3, mb: 1 }}>
                 {brandName}
               </Typography>
-              <Typography variant="h4" color="text.secondary" fontWeight="normal">
+              <Chip
+                label={t('field_operations')}
+                size="small"
+                sx={{
+                  mb: 2,
+                  color: ERIONE_VISUAL_IDENTITY.accentSoft,
+                  borderColor: alpha(theme.colors.alpha.trueWhite[100], 0.28),
+                  bgcolor: alpha(theme.colors.alpha.trueWhite[100], 0.08)
+                }}
+                variant="outlined"
+              />
+              <Typography
+                variant="h4"
+                color={alpha(theme.colors.alpha.trueWhite[100], 0.82)}
+                fontWeight="normal"
+              >
                 {t('erione_login_tagline')}
               </Typography>
               <Stack spacing={1.25} sx={{ mt: 4 }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  color={alpha(theme.colors.alpha.trueWhite[100], 0.74)}
+                >
                   {t('erione_login_bullet_work_orders')}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  color={alpha(theme.colors.alpha.trueWhite[100], 0.74)}
+                >
                   {t('erione_login_bullet_field')}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography
+                  variant="body2"
+                  color={alpha(theme.colors.alpha.trueWhite[100], 0.74)}
+                >
                   {t('erione_login_bullet_reports')}
                 </Typography>
               </Stack>
