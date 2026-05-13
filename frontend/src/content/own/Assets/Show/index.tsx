@@ -428,7 +428,7 @@ const ShowAsset = ({}: PropsType) => {
         basePath={`/app/assets/${assetId}`}
         tabs={tabs}
         tabIndex={tabIndex}
-        title={`Asset`}
+        title={t('equipment_device', 'Equipamento/Dispositivo')}
         action={
           hasEditPermission(PermissionEntity.ASSETS, asset)
             ? handleOpenUpdateModal

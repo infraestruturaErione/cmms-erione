@@ -1,6 +1,8 @@
 import {
   Box,
   Button,
+  Card,
+  Chip,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -16,6 +18,7 @@ import {
   Tab,
   Tabs,
   Typography,
+  alpha,
   useTheme
 } from '@mui/material';
 import Location from '../../../models/owns/location';
@@ -41,6 +44,10 @@ import { getAssetUrl } from '../../../utils/urlPaths';
 import useAuth from '../../../hooks/useAuth';
 import { PermissionEntity } from '../../../models/owns/role';
 import { PlanFeature } from '../../../models/owns/subscriptionPlan';
+import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
+import DevicesOtherTwoToneIcon from '@mui/icons-material/DevicesOtherTwoTone';
+import LocationOnTwoToneIcon from '@mui/icons-material/LocationOnTwoTone';
+import MapTwoToneIcon from '@mui/icons-material/MapTwoTone';
 
 interface LocationDetailsProps {
   location: Location;
@@ -53,7 +60,7 @@ export default function LocationDetails(props: LocationDetailsProps) {
   const dispatch = useDispatch();
   const { getFormattedDate, uploadFiles } = useContext(CompanySettingsContext);
   const [openAddFloorPlan, setOpenAddFloorPlan] = useState<boolean>(false);
-  const [currentTab, setCurrentTab] = useState<string>('assets');
+  const [currentTab, setCurrentTab] = useState<string>('overview');
   const { assetsByLocation } = useSelector((state) => state.assets);
   const { workOrdersByLocation } = useSelector((state) => state.workOrders);
   const { floorPlansByLocation } = useSelector((state) => state.floorPlans);
@@ -67,12 +74,25 @@ export default function LocationDetails(props: LocationDetailsProps) {
   const locationAssets = assetsByLocation[location.id] ?? [];
   const locationWorkOrders = workOrdersByLocation[location.id] ?? [];
   const floorPlans = floorPlansByLocation[location.id] ?? [];
+  const primaryCustomer = location.customers?.[0];
+  const locationWorkOrderUrl = primaryCustomer
+    ? `/app/work-orders?customer=${primaryCustomer.id}&location=${location.id}&new=true`
+    : `/app/work-orders?location=${location.id}&new=true`;
+  const hasCoordinates =
+    Number.isFinite(location.latitude) && Number.isFinite(location.longitude);
   const theme = useTheme();
   const navigate = useNavigate();
   const tabs = [
-    { value: 'assets', label: t('assets') },
-    { value: 'files', label: t('files') },
+    {
+      value: 'overview',
+      label: t('overview', 'Visao geral')
+    },
+    {
+      value: 'assets',
+      label: t('equipment_devices', 'Equipamentos/Dispositivos')
+    },
     { value: 'workOrders', label: t('work_orders') },
+    { value: 'files', label: t('files') },
     { value: 'floorPlans', label: t('floor_plans') },
     { value: 'people', label: t('people') }
   ];
@@ -183,10 +203,39 @@ export default function LocationDetails(props: LocationDetailsProps) {
         justifyContent="space-between"
       >
         <Box>
+          <Typography variant="overline" color="primary" fontWeight={800}>
+            {t('location_address', 'Local/Endereco')}
+          </Typography>
           <Typography variant="h2">{location?.name}</Typography>
-          <Typography variant="h6">{location?.address}</Typography>
+          <Stack direction="row" flexWrap="wrap" gap={1} mt={1}>
+            {primaryCustomer && (
+              <Chip
+                label={primaryCustomer.name}
+                component="a"
+                href={`/app/vendors-customers/customers/${primaryCustomer.id}`}
+                clickable
+              />
+            )}
+            {location.customId && (
+              <Chip label={location.customId} variant="outlined" />
+            )}
+          </Stack>
+          {location?.address && (
+            <Typography variant="h6" color="text.secondary" mt={1}>
+              {location.address}
+            </Typography>
+          )}
         </Box>
-        <Box>
+        <Stack direction="row" alignItems="flex-start" spacing={1}>
+          {hasCreatePermission(PermissionEntity.WORK_ORDERS) && (
+            <Button
+              variant="contained"
+              startIcon={<AssignmentTwoToneIcon />}
+              onClick={() => navigate(locationWorkOrderUrl)}
+            >
+              {t('create_wo_for_location', 'Criar OS neste local')}
+            </Button>
+          )}
           {hasEditPermission(PermissionEntity.LOCATIONS, location) && (
             <IconButton onClick={handleOpenUpdate} style={{ marginRight: 10 }}>
               <EditTwoToneIcon color="primary" />
@@ -197,9 +246,66 @@ export default function LocationDetails(props: LocationDetailsProps) {
               <DeleteTwoToneIcon color="error" />
             </IconButton>
           )}
-        </Box>
+        </Stack>
       </Grid>
       <Divider />
+      <Grid item xs={12}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={4}>
+            <Card sx={{ p: 2, borderRadius: 1.5 }}>
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <DevicesOtherTwoToneIcon color="primary" />
+                <Box>
+                  <Typography variant="h3">{locationAssets.length}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {t('equipment_devices', 'Equipamentos/Dispositivos')}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <Card sx={{ p: 2, borderRadius: 1.5 }}>
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <AssignmentTwoToneIcon color="primary" />
+                <Box>
+                  <Typography variant="h3">
+                    {locationWorkOrders.length}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {t('work_orders')}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <Card
+              sx={{
+                p: 2,
+                borderRadius: 1.5,
+                backgroundColor: hasCoordinates
+                  ? alpha(theme.palette.primary.main, 0.05)
+                  : undefined
+              }}
+            >
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <MapTwoToneIcon color={hasCoordinates ? 'primary' : 'disabled'} />
+                <Box>
+                  <Typography variant="h6">
+                    {hasCoordinates
+                      ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+                      : '--'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {t('map_future_area', 'Mapa futuro / coordenadas')}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Card>
+          </Grid>
+        </Grid>
+      </Grid>
       {location.image && (
         <Grid
           item
@@ -230,6 +336,63 @@ export default function LocationDetails(props: LocationDetailsProps) {
         </Tabs>
       </Grid>
       <Grid item xs={12}>
+        {currentTab === 'overview' && (
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <Card sx={{ p: 2, borderRadius: 1.5, height: '100%' }}>
+                <Typography variant="h4" gutterBottom>
+                  {t('location_address', 'Local/Endereco')}
+                </Typography>
+                <Stack spacing={1.5}>
+                  <InfoLine
+                    label={t('customer_city', 'Cliente/Cidade')}
+                    value={primaryCustomer?.name}
+                  />
+                  <InfoLine label={t('address')} value={location.address} />
+                  <InfoLine
+                    label={t('coordinates', 'Coordenadas')}
+                    value={
+                      hasCoordinates
+                        ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+                        : null
+                    }
+                  />
+                </Stack>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Card sx={{ p: 2, borderRadius: 1.5, height: '100%' }}>
+                <Typography variant="h4" gutterBottom>
+                  {t('quick_actions', 'Acoes rapidas')}
+                </Typography>
+                <Stack spacing={1}>
+                  <Button
+                    variant="contained"
+                    startIcon={<AssignmentTwoToneIcon />}
+                    onClick={() => navigate(locationWorkOrderUrl)}
+                    disabled={!hasCreatePermission(PermissionEntity.WORK_ORDERS)}
+                  >
+                    {t('create_wo_for_location', 'Criar OS neste local')}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<DevicesOtherTwoToneIcon />}
+                    onClick={() => setCurrentTab('assets')}
+                  >
+                    {t('view_equipment_devices', 'Ver equipamentos/dispositivos')}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<LocationOnTwoToneIcon />}
+                    onClick={() => setCurrentTab('workOrders')}
+                  >
+                    {t('view_work_orders', 'Ver OS')}
+                  </Button>
+                </Stack>
+              </Card>
+            </Grid>
+          </Grid>
+        )}
         {currentTab === 'assets' && (
           <Box>
             {hasCreatePermission(PermissionEntity.ASSETS) && (
@@ -240,7 +403,7 @@ export default function LocationDetails(props: LocationDetailsProps) {
                     navigate(`/app/assets?location=${location.id}`)
                   }
                 >
-                  {t('asset')}
+                  {t('equipment_device', 'Equipamento/Dispositivo')}
                 </Button>
               </Box>
             )}
@@ -262,7 +425,10 @@ export default function LocationDetails(props: LocationDetailsProps) {
             ) : (
               <Stack direction="row" justifyContent="center" width="100%">
                 <Typography variant="h5">
-                  {t('no_asset_in_location')}
+                  {t(
+                    'no_equipment_in_location',
+                    'Nenhum equipamento/dispositivo vinculado a este local.'
+                  )}
                 </Typography>
               </Stack>
             )}
@@ -274,11 +440,9 @@ export default function LocationDetails(props: LocationDetailsProps) {
               <Box display="flex" justifyContent="right">
                 <Button
                   startIcon={<AddTwoToneIcon fontSize="small" />}
-                  onClick={() =>
-                    navigate(`/app/work-orders?location=${location.id}`)
-                  }
+                  onClick={() => navigate(locationWorkOrderUrl)}
                 >
-                  {t('work_order')}
+                  {t('create_wo_for_location', 'Criar OS neste local')}
                 </Button>
               </Box>
             )}
@@ -489,3 +653,18 @@ export default function LocationDetails(props: LocationDetailsProps) {
     </Grid>
   );
 }
+
+const InfoLine = ({
+  label,
+  value
+}: {
+  label: string;
+  value?: string | null;
+}) => (
+  <Box>
+    <Typography variant="caption" color="text.secondary">
+      {label}
+    </Typography>
+    <Typography fontWeight={700}>{value || '--'}</Typography>
+  </Box>
+);

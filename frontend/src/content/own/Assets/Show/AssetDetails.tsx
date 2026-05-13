@@ -58,6 +58,15 @@ const AssetDetails = ({ asset, loading }: PropsType) => {
   const { getFormattedDate, getFormattedCurrency } = useContext(
     CompanySettingsContext
   );
+  const primaryCustomer = asset?.customers?.[0];
+  const createWorkOrderUrl = [
+    `/app/work-orders?asset=${asset?.id}`,
+    primaryCustomer ? `customer=${primaryCustomer.id}` : null,
+    asset?.location ? `location=${asset.location.id}` : null,
+    'new=true'
+  ]
+    .filter(Boolean)
+    .join('&');
   const informationFields = [
     { label: t('name'), value: asset?.name },
     { label: t('description'), value: asset?.description },
@@ -176,19 +185,17 @@ const AssetDetails = ({ asset, loading }: PropsType) => {
                 <Stack direction={'row'} justifyContent={'space-between'}>
                   <Stack direction={'row'} spacing={2} alignItems={'center'}>
                     <Typography variant="h3">
-                      {t('asset_information')}
+                      {t('equipment_device_information', 'Dados do equipamento/dispositivo')}
                     </Typography>
                     {asset && <AssetStatusTag status={asset.status} />}
                   </Stack>
                   {hasCreatePermission(PermissionEntity.WORK_ORDERS) && (
                     <Button
-                      onClick={() =>
-                        navigate(`/app/work-orders?asset=${asset.id}`)
-                      }
+                      onClick={() => navigate(createWorkOrderUrl)}
                       startIcon={<AddTwoToneIcon />}
                       variant={'contained'}
                     >
-                      {t('work_order')}
+                      {t('create_work_order', 'Criar OS')}
                     </Button>
                   )}
                 </Stack>
@@ -223,7 +230,7 @@ const AssetDetails = ({ asset, loading }: PropsType) => {
                 <Grid item xs={12}>
                   <Stack spacing={5} direction="row">
                     <Typography variant="h6" fontWeight="bold">
-                      {t('location')}
+                      {t('location_address', 'Local/Endereco')}
                     </Typography>
                     <Link
                       href={`/app/locations/${asset.location.id}`}
@@ -245,7 +252,7 @@ const AssetDetails = ({ asset, loading }: PropsType) => {
               />
               <ListField
                 values={asset?.customers}
-                label={t('customers')}
+                label={t('customer_city', 'Cliente/Cidade')}
                 getHref={(customer: Customer) => getCustomerUrl(customer.id)}
                 getValueLabel={(customer: Customer) => customer.name}
               />

@@ -15,6 +15,7 @@ import {
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
@@ -81,6 +82,8 @@ import { getCustomFields } from '../../../slices/customField';
 import { CustomFieldEntityType } from '../../../models/owns/customField';
 import { getCustomFieldsIFields, getCustomFieldsRequiredShape } from '../type';
 import { formatCustomFields } from '../../../utils/formatters';
+import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
+import OpenInNewTwoToneIcon from '@mui/icons-material/OpenInNewTwoTone';
 
 const HIERARCHY_ZERO_PAGE_SIZE = 40;
 
@@ -159,6 +162,16 @@ function Locations() {
     createdAt: 'createdAt'
   };
 
+  const getPrimaryCustomerId = (location: Location | LocationRow) =>
+    location.customers?.[0]?.id;
+
+  const getLocationWorkOrderUrl = (location: Location | LocationRow) => {
+    const customerId = getPrimaryCustomerId(location);
+    return customerId
+      ? `/app/work-orders?customer=${customerId}&location=${location.id}&new=true`
+      : `/app/work-orders?location=${location.id}&new=true`;
+  };
+
   // Table state for column state persistence
   const tableState = useTableState({
     prefix: 'locations',
@@ -230,7 +243,7 @@ function Locations() {
     setOpenDrawer(false);
   };
   useEffect(() => {
-    setTitle(t('locations'));
+    setTitle(t('locations_addresses', 'Locais/Enderecos'));
     if (hasViewPermission(PermissionEntity.LOCATIONS)) {
       dispatch(getLocations());
     }
@@ -384,6 +397,27 @@ function Locations() {
       cell: (info) => info.getValue() || '',
       size: 200
     }),
+    columnHelper.accessor(
+      (row) => row.customers?.map((customer) => customer.name).join(', '),
+      {
+        id: 'customers',
+        header: () => t('customer_city', 'Cliente/Cidade'),
+        cell: (info) => info.getValue() || '--',
+        size: 180
+      }
+    ),
+    columnHelper.accessor(
+      (row) =>
+        Number.isFinite(row.latitude) && Number.isFinite(row.longitude)
+          ? `${row.latitude.toFixed(6)}, ${row.longitude.toFixed(6)}`
+          : '',
+      {
+        id: 'coordinates',
+        header: () => t('coordinates', 'Coordenadas'),
+        cell: (info) => info.getValue() || '--',
+        size: 170
+      }
+    ),
     columnHelper.accessor('createdAt', {
       id: 'createdAt',
       header: () => t('created_at'),
@@ -409,6 +443,37 @@ function Locations() {
             >
               <EditTwoToneIcon fontSize="small" color="primary" />
             </IconButton>
+          );
+        }
+        actions.push(
+          <Tooltip key="open" title={t('view_location', 'Ver local')}>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenDetails(Number(location.id));
+              }}
+            >
+              <OpenInNewTwoToneIcon fontSize="small" color="primary" />
+            </IconButton>
+          </Tooltip>
+        );
+        if (hasCreatePermission(PermissionEntity.WORK_ORDERS)) {
+          actions.push(
+            <Tooltip
+              key="create-wo"
+              title={t('create_wo_for_location', 'Criar OS neste local')}
+            >
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(getLocationWorkOrderUrl(location));
+                }}
+              >
+                <AssignmentTwoToneIcon fontSize="small" color="primary" />
+              </IconButton>
+            </Tooltip>
           );
         }
         if (hasDeletePermission(PermissionEntity.LOCATIONS, location)) {
@@ -847,7 +912,7 @@ function Locations() {
     return (
       <>
         <Helmet>
-          <title>{t('locations')}</title>
+          <title>{t('locations_addresses', 'Locais/Enderecos')}</title>
         </Helmet>
         <Box justifyContent="center" alignItems="stretch" paddingX={4}>
           <Box
@@ -886,7 +951,7 @@ function Locations() {
                   onMainClick={() => setOpenAddModal(true)}
                   startIcon={<AddTwoToneIcon />}
                   sx={{ mx: 6, my: 1 }}
-                  label={t('location')}
+                  label={t('location_address', 'Local/Endereco')}
                   menuItems={
                     hasViewPermission(PermissionEntity.SETTINGS) &&
                     hasFeature(PlanFeature.IMPORT_CSV)

@@ -226,7 +226,7 @@ function Assets() {
   };
   const [openFilterDrawer, setOpenFilterDrawer] = useState<boolean>(false);
   useEffect(() => {
-    setTitle(t('assets'));
+    setTitle(t('equipment_devices', 'Equipamentos/Dispositivos'));
   }, []);
 
   useEffect(() => {
@@ -460,7 +460,7 @@ function Assets() {
     }),
     columnHelper.accessor((row) => row.location?.name, {
       id: 'location',
-      header: () => t('location'),
+      header: () => t('location_address', 'Local/Endereco'),
       cell: (info) => info.getValue() || '',
       size: 150,
       meta: {
@@ -568,7 +568,7 @@ function Assets() {
     {
       name: 'assetInfo',
       type: 'titleGroupField',
-      label: t('asset_information')
+      label: t('equipment_device_information', 'Dados do equipamento/dispositivo')
     },
     {
       name: 'name',
@@ -581,7 +581,7 @@ function Assets() {
       name: 'location',
       type: 'select',
       type2: 'location',
-      label: t('location'),
+      label: t('location_address', 'Local/Endereco'),
       placeholder: t('select_asset_location'),
       midWidth: true
     },
@@ -694,7 +694,7 @@ function Assets() {
       type: 'select',
       type2: 'customer',
       multiple: true,
-      label: t('customers'),
+      label: t('customer_city', 'Cliente/Cidade'),
       placeholder: 'customers_description'
     },
     {
@@ -955,7 +955,7 @@ function Assets() {
       <>
         {renderAssetAddModal()}
         <Helmet>
-          <title>{t('assets')}</title>
+          <title>{t('equipment_devices', 'Equipamentos/Dispositivos')}</title>
         </Helmet>
         <Box justifyContent="center" alignItems="stretch" paddingX={4}>
           <Box
@@ -983,7 +983,7 @@ function Assets() {
                   onMainClick={() => setOpenAddModal(true)}
                   startIcon={<AddTwoToneIcon />}
                   sx={{ mx: 6, my: 1 }}
-                  label={t('asset')}
+                  label={t('equipment_device', 'Equipamento/Dispositivo')}
                   menuItems={
                     hasViewPermission(PermissionEntity.SETTINGS) &&
                     hasFeature(PlanFeature.IMPORT_CSV)
