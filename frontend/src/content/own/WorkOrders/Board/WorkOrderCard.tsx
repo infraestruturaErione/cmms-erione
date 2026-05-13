@@ -6,6 +6,7 @@ import {
   Chip,
   CircularProgress,
   Stack,
+  Tooltip,
   Typography,
   styled
 } from '@mui/material';
@@ -22,12 +23,18 @@ import DirectionsRunTwoToneIcon from '@mui/icons-material/DirectionsRunTwoTone';
 import LoginTwoToneIcon from '@mui/icons-material/LoginTwoTone';
 import LogoutTwoToneIcon from '@mui/icons-material/LogoutTwoTone';
 import {
-  canCheckIn,
-  canCheckOut,
-  canStartTravel,
-  isFieldExecutionFinished,
-  isWorkOrderComplete
+  getFieldClosureChecklist,
+  getFieldExecutionSummary,
+  RecommendedFieldActionType
 } from '../fieldExecutionRules';
+
+type FieldAction = 'depart' | 'check-in' | 'check-out';
+
+const fieldActionTypes: RecommendedFieldActionType[] = [
+  'depart',
+  'check-in',
+  'check-out'
+];
 
 const CardWrapper = styled(Card)(
   ({ theme }) => `
@@ -106,36 +113,31 @@ export default function WorkOrderCard({
     workOrder.status !== 'COMPLETE' &&
     workOrder.status !== 'ON_HOLD';
 
-  const getNextAction = ():
-    | { action: 'depart' | 'check-in' | 'check-out'; label: string; icon: JSX.Element }
-    | null => {
-    if (!canRunActions || isWorkOrderComplete(workOrder)) return null;
-    if (canStartTravel(workOrder)) {
-      return {
-        action: 'depart',
-        label: t('start_travel'),
-        icon: <DirectionsRunTwoToneIcon fontSize="small" />
-      };
-    }
-    if (canCheckIn(workOrder)) {
-      return {
-        action: 'check-in',
-        label: t('make_check_in'),
-        icon: <LoginTwoToneIcon fontSize="small" />
-      };
-    }
-    if (canCheckOut(workOrder)) {
-      return {
-        action: 'check-out',
-        label: t('make_check_out'),
-        icon: <LogoutTwoToneIcon fontSize="small" />
-      };
-    }
-    return null;
+  const summary = getFieldExecutionSummary(workOrder);
+  const checklist = getFieldClosureChecklist(workOrder, false);
+  const pendingRequiredCount = checklist.filter(
+    (item) => item.required && !item.complete
+  ).length;
+  const recommendedAction = summary.recommendedAction;
+  const isRunnableFieldAction =
+    canRunActions && fieldActionTypes.includes(recommendedAction.type);
+  const actionLoadingKey = `${workOrder.id}-${recommendedAction.type}`;
+  const isRecommendedActionLoading = loadingAction === actionLoadingKey;
+
+  const getActionIcon = (action: RecommendedFieldActionType): JSX.Element => {
+    if (action === 'depart') return <DirectionsRunTwoToneIcon fontSize="small" />;
+    if (action === 'check-in') return <LoginTwoToneIcon fontSize="small" />;
+    if (action === 'check-out') return <LogoutTwoToneIcon fontSize="small" />;
+    return <OpenInNewTwoToneIcon fontSize="small" />;
   };
 
-  const nextAction = getNextAction();
-  const isFieldFinished = isFieldExecutionFinished(workOrder);
+  const handleRecommendedAction = () => {
+    if (isRunnableFieldAction) {
+      onQuickAction(workOrder, recommendedAction.type as FieldAction);
+      return;
+    }
+    onClick(workOrder.id);
+  };
 
   return (
     <CardWrapper onClick={() => onClick(workOrder.id)}>
@@ -148,6 +150,40 @@ export default function WorkOrderCard({
       <Typography variant="body2" fontWeight={700} noWrap title={workOrder.title}>
         {workOrder.title}
       </Typography>
+      <Stack direction="row" spacing={0.75} flexWrap="wrap" sx={{ mt: 1 }}>
+        <Tooltip
+          title={
+            summary.fieldFinished && !summary.osCompleted
+              ? t('field_execution_finished_hint')
+              : ''
+          }
+        >
+          <Chip
+            size="small"
+            variant="outlined"
+            color={
+              summary.osCompleted || summary.fieldFinished ? 'success' : 'default'
+            }
+            label={
+              summary.osCompleted
+                ? t('work_order_completed')
+                : summary.fieldFinished
+                ? t('field_execution_finished_short')
+                : t(summary.statusKey)
+            }
+            sx={{ maxWidth: '100%' }}
+          />
+        </Tooltip>
+        {!!pendingRequiredCount && !summary.osCompleted && (
+          <Chip
+            size="small"
+            variant="outlined"
+            color="warning"
+            label={t('pending_items_count', { count: pendingRequiredCount })}
+            sx={{ maxWidth: '100%' }}
+          />
+        )}
+      </Stack>
       <Box mt={1}>
         {workOrder.customers?.[0] && (
           <MetaRow>
@@ -210,46 +246,37 @@ export default function WorkOrderCard({
         spacing={0.75}
         alignItems="center"
         justifyContent="space-between"
-        sx={{ mt: 1.5 }}
+        sx={{ mt: 1.5, flexWrap: 'wrap', rowGap: 0.75 }}
         onClick={(event) => event.stopPropagation()}
       >
+        <Button
+          size="small"
+          variant={isRunnableFieldAction ? 'contained' : 'outlined'}
+          disabled={!!loadingAction && !isRecommendedActionLoading}
+          startIcon={
+            isRecommendedActionLoading ? (
+              <CircularProgress size="0.875rem" />
+            ) : (
+              getActionIcon(recommendedAction.type)
+            )
+          }
+          onClick={handleRecommendedAction}
+          sx={{ minWidth: 0, px: 1, flexShrink: 0 }}
+        >
+          {t(recommendedAction.labelKey)}
+        </Button>
         <Button
           size="small"
           variant="text"
           startIcon={<OpenInNewTwoToneIcon fontSize="small" />}
           onClick={() => onClick(workOrder.id)}
-          sx={{ minWidth: 0, px: 0.75 }}
+          sx={{ minWidth: 0, px: 0.75, flexShrink: 0 }}
         >
           {t('open_work_order')}
         </Button>
-        {nextAction ? (
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={!!loadingAction}
-            startIcon={
-              loadingAction === `${workOrder.id}-${nextAction.action}` ? (
-                <CircularProgress size="0.875rem" />
-              ) : (
-                nextAction.icon
-              )
-            }
-            onClick={() => onQuickAction(workOrder, nextAction.action)}
-            sx={{ minWidth: 0, px: 0.75 }}
-          >
-            {nextAction.label}
-          </Button>
-        ) : (
-          isFieldFinished && (
-            <Chip
-              size="small"
-              color="success"
-              variant="outlined"
-              label={t('field_execution_finished')}
-            />
-          )
+        {isLoadingThisCard && !isRecommendedActionLoading && (
+          <CircularProgress size="1rem" />
         )}
-        {isLoadingThisCard && !nextAction && <CircularProgress size="1rem" />}
       </Stack>
     </CardWrapper>
   );

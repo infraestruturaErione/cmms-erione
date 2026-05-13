@@ -464,8 +464,14 @@ const locale = {
   field_execution_timeline_helper:
     'View the main field stages for this work order.',
   field_execution_updated: 'Field execution updated',
+  current_field_status: 'Current field status',
+  closure_readiness: 'Closure readiness',
+  field_duration_estimate_helper:
+    'Times are estimated from field events; they do not replace labor time.',
   work_order_created: 'Work order created',
   work_order_completed: 'Work order completed',
+  work_order_completed_helper:
+    'The work order is complete. Field execution actions are locked.',
   travel_started: 'Travel started',
   arrived_on_site: 'Check-in completed',
   service_in_progress: 'Field service',
@@ -476,15 +482,36 @@ const locale = {
   completed_step: 'Completed',
   current_step: 'Current',
   open_work_order: 'Open',
+  view_work_order: 'View WO',
   quick_actions: 'Quick actions',
   start_travel: 'Start travel',
   make_check_in: 'Check-in',
   make_check_out: 'Check-out',
+  review_closure: 'Review closure',
+  next_action_start_travel_helper:
+    'Recommended next step: start travel to the site.',
+  next_action_check_in_helper:
+    'Recommended next step: register arrival on site.',
+  next_action_check_out_helper:
+    'Recommended next step: finish the field execution.',
+  next_action_open_work_order_helper:
+    'Open the details to review information and evidence.',
+  field_finished_work_order_open_helper:
+    'Field execution finished; review pending items before completing the work order.',
   field_finished: 'Field execution finished',
   field_execution_finished: 'Field execution finished',
+  field_execution_finished_short: 'Field done',
+  field_execution_finished_hint:
+    'Field execution finished; work order status is tracked separately',
   on_site: 'On site',
   en_route: 'En route',
   not_started: 'Not started',
+  in_progress: 'in progress',
+  pending_items_count: '{{count}} pending',
+  check_in_done: 'Check-in completed',
+  check_out_done: 'Check-out completed',
+  evidence_registered: 'Evidence/photos registered',
+  signature_registered: 'Signature registered',
   departure_latitude: 'Departure latitude',
   departure_longitude: 'Departure longitude',
   check_in_latitude: 'Check-in latitude',

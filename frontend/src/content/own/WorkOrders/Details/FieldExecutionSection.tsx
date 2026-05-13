@@ -1,6 +1,9 @@
 import {
   Box,
   Button,
+  Card,
+  CardContent,
+  Chip,
   CircularProgress,
   Divider,
   Grid,
@@ -9,11 +12,13 @@ import {
   Typography,
   useTheme
 } from '@mui/material';
+import CheckCircleTwoToneIcon from '@mui/icons-material/CheckCircleTwoTone';
 import DirectionsRunTwoToneIcon from '@mui/icons-material/DirectionsRunTwoTone';
 import LoginTwoToneIcon from '@mui/icons-material/LoginTwoTone';
 import LogoutTwoToneIcon from '@mui/icons-material/LogoutTwoTone';
+import RadioButtonUncheckedTwoToneIcon from '@mui/icons-material/RadioButtonUncheckedTwoTone';
 import SendTwoToneIcon from '@mui/icons-material/SendTwoTone';
-import { ReactNode, useContext, useState } from 'react';
+import { ReactNode, useContext, useEffect, useState } from 'react';
 import WorkOrder from '../../../../models/owns/workOrder';
 import { useDispatch } from '../../../../store';
 import {
@@ -21,17 +26,17 @@ import {
   checkOutWorkOrder,
   departWorkOrder
 } from '../../../../slices/workOrder';
-import { createComment } from '../../../../slices/comment';
+import { createComment, getCommentsByWorkOrder } from '../../../../slices/comment';
 import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
 import { getErrorMessage } from '../../../../utils/api';
 import FieldExecutionTimeline from './FieldExecutionTimeline';
 import { useSelector } from '../../../../store';
 import { useTranslation } from 'react-i18next';
 import {
-  canCheckIn,
-  canCheckOut,
-  canStartTravel,
-  getFieldExecutionStatus
+  getFieldClosureChecklist,
+  getFieldDurations,
+  getFieldExecutionSummary,
+  RecommendedFieldActionType
 } from '../fieldExecutionRules';
 
 interface FieldExecutionSectionProps {
@@ -41,6 +46,12 @@ interface FieldExecutionSectionProps {
 }
 
 type FieldAction = 'depart' | 'check-in' | 'check-out' | 'comment';
+
+const fieldActionTypes: RecommendedFieldActionType[] = [
+  'depart',
+  'check-in',
+  'check-out'
+];
 
 const getCoordinates = (): Promise<{
   latitude?: number;
@@ -64,19 +75,17 @@ const getCoordinates = (): Promise<{
 const formatCoordinate = (value?: number | null): string =>
   typeof value === 'number' ? value.toFixed(6) : '-';
 
-const formatDuration = (start?: string | null, end?: string | null): string => {
-  if (!start || !end) return '-';
+const formatDurationSeconds = (
+  seconds: number | null,
+  inProgress: boolean,
+  t: any
+): string => {
+  if (seconds === null || seconds === undefined) return '-';
 
-  const diffInSeconds = Math.max(
-    0,
-    Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000)
-  );
-  const hours = Math.floor(diffInSeconds / 3600);
-  const minutes = Math.floor((diffInSeconds % 3600) / 60);
-
-  if (hours && minutes) return `${hours}h ${minutes}min`;
-  if (hours) return `${hours}h`;
-  return `${minutes}min`;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const label = hours && minutes ? `${hours}h ${minutes}min` : hours ? `${hours}h` : `${minutes}min`;
+  return inProgress ? `${label} (${t('in_progress')})` : label;
 };
 
 export default function FieldExecutionSection({
@@ -99,6 +108,16 @@ export default function FieldExecutionSection({
     workOrder.checkOutAddress ?? ''
   );
   const [fieldReport, setFieldReport] = useState<string>('');
+  const [now, setNow] = useState<Date>(new Date());
+
+  useEffect(() => {
+    dispatch(getCommentsByWorkOrder(workOrder.id));
+  }, [workOrder.id, dispatch]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const runAction = async (action: FieldAction) => {
     setLoadingAction(action);
@@ -180,32 +199,23 @@ export default function FieldExecutionSection({
     </Grid>
   );
 
-  const ActionButton = ({
-    action,
-    disabled,
-    icon,
-    label
-  }: {
-    action: FieldAction;
-    disabled: boolean;
-    icon: ReactNode;
-    label: string;
-  }) => (
-    <Button
-      variant="contained"
-      startIcon={
-        loadingAction === action ? <CircularProgress size="1rem" /> : icon
-      }
-      disabled={!canEdit || disabled || !!loadingAction}
-      onClick={() => runAction(action)}
-    >
-      {label}
-    </Button>
-  );
-
   const hasFieldReport = comments.some((comment) =>
     comment.content?.startsWith('[Relato em campo]')
   );
+  const summary = getFieldExecutionSummary(workOrder);
+  const checklist = getFieldClosureChecklist(workOrder, hasFieldReport);
+  const durations = getFieldDurations(workOrder, now);
+  const recommendedAction = summary.recommendedAction;
+  const isRunnableFieldAction = fieldActionTypes.includes(
+    recommendedAction.type
+  );
+
+  const getActionIcon = (action: RecommendedFieldActionType): ReactNode => {
+    if (action === 'depart') return <DirectionsRunTwoToneIcon />;
+    if (action === 'check-in') return <LoginTwoToneIcon />;
+    if (action === 'check-out') return <LogoutTwoToneIcon />;
+    return null;
+  };
 
   return (
     <Box>
@@ -215,6 +225,64 @@ export default function FieldExecutionSection({
           {t('field_execution_helper')}
         </Typography>
       </Box>
+
+      <Card variant="outlined" sx={{ boxShadow: 'none', mb: 2 }}>
+        <CardContent>
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={2}
+            justifyContent="space-between"
+            alignItems={{ xs: 'stretch', md: 'center' }}
+          >
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                <Typography variant="overline" color="text.secondary">
+                  {t('current_field_status')}
+                </Typography>
+                <Chip
+                  size="small"
+                  color={
+                    summary.osCompleted || summary.fieldFinished
+                      ? 'success'
+                      : 'primary'
+                  }
+                  variant={summary.osCompleted ? 'filled' : 'outlined'}
+                  label={
+                    summary.osCompleted
+                      ? t('work_order_completed')
+                      : t(summary.statusKey)
+                  }
+                />
+              </Stack>
+              <Typography variant="h4" sx={{ mt: 0.5 }}>
+                {t(recommendedAction.labelKey)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                {recommendedAction.helperKey
+                  ? t(recommendedAction.helperKey)
+                  : t('next_action_open_work_order_helper')}
+              </Typography>
+            </Box>
+            {isRunnableFieldAction && (
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={
+                  loadingAction === recommendedAction.type ? (
+                    <CircularProgress size="1rem" />
+                  ) : (
+                    getActionIcon(recommendedAction.type)
+                  )
+                }
+                disabled={!canEdit || !!loadingAction}
+                onClick={() => runAction(recommendedAction.type as FieldAction)}
+              >
+                {t(recommendedAction.labelKey)}
+              </Button>
+            )}
+          </Stack>
+        </CardContent>
+      </Card>
 
       <FieldExecutionTimeline
         workOrder={workOrder}
@@ -233,17 +301,36 @@ export default function FieldExecutionSection({
         <Grid container spacing={2}>
           <FieldValue
             label={t('field_execution_status')}
-            value={t(getFieldExecutionStatus(workOrder))}
+            value={summary.osCompleted ? t('work_order_completed') : t(summary.statusKey)}
           />
           <FieldValue
             label={t('travel_duration')}
-            value={formatDuration(workOrder.departureAt, workOrder.checkInAt)}
+            value={formatDurationSeconds(
+              durations.travel.seconds,
+              durations.travel.inProgress,
+              t
+            )}
           />
           <FieldValue
             label={t('site_duration')}
-            value={formatDuration(workOrder.checkInAt, workOrder.checkOutAt)}
+            value={formatDurationSeconds(
+              durations.site.seconds,
+              durations.site.inProgress,
+              t
+            )}
+          />
+          <FieldValue
+            label={t('total_field_duration')}
+            value={formatDurationSeconds(
+              durations.total.seconds,
+              durations.total.inProgress,
+              t
+            )}
           />
         </Grid>
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+          {t('field_duration_estimate_helper')}
+        </Typography>
       </Box>
 
       <Grid container spacing={2}>
@@ -308,26 +395,32 @@ export default function FieldExecutionSection({
       <Divider sx={{ my: 3 }} />
 
       <Stack spacing={2}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-          <ActionButton
-            action="depart"
-            disabled={!canStartTravel(workOrder)}
-            icon={<DirectionsRunTwoToneIcon />}
-            label={t('start_travel')}
-          />
-          <ActionButton
-            action="check-in"
-            disabled={!canCheckIn(workOrder)}
-            icon={<LoginTwoToneIcon />}
-            label={t('make_check_in')}
-          />
-          <ActionButton
-            action="check-out"
-            disabled={!canCheckOut(workOrder)}
-            icon={<LogoutTwoToneIcon />}
-            label={t('make_check_out')}
-          />
-        </Stack>
+        <Box>
+          <Typography variant="h4" sx={{ mb: 1 }}>
+            {t('closure_readiness')}
+          </Typography>
+          <Grid container spacing={1}>
+            {checklist.map((item) => (
+              <Grid item xs={12} sm={6} md={4} key={item.key}>
+                <Chip
+                  variant={item.complete ? 'filled' : 'outlined'}
+                  color={item.complete ? 'success' : item.required ? 'warning' : 'default'}
+                  icon={
+                    item.complete ? (
+                      <CheckCircleTwoToneIcon />
+                    ) : (
+                      <RadioButtonUncheckedTwoToneIcon />
+                    )
+                  }
+                  label={`${t(item.labelKey)}${
+                    item.required ? ` - ${t('required')}` : ''
+                  }`}
+                  sx={{ maxWidth: '100%' }}
+                />
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
 
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>

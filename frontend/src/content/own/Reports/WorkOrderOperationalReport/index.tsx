@@ -561,18 +561,30 @@ function WorkOrderOperationalReport() {
             </Grid>
           </Grid>
 
-          <CustomDatagrid2
-            columns={columns}
-            data={report.rows}
-            notClickable
-            loading={loading}
-            pagination={pagination}
-            onPaginationChange={handlePaginationChange}
-            totalRows={report.page.totalElements}
-            getRowId={(row) => row.id.toString()}
-            noRowsMessage={t('no_operational_report_rows')}
-            enableColumnReordering={false}
-          />
+          <Card
+            variant="outlined"
+            sx={{
+              boxShadow: 'none',
+              overflow: 'hidden',
+              '& > .MuiPaper-root': {
+                height: { xs: 520, md: 600, xl: 680 },
+                minHeight: { xs: 520, md: 600 }
+              }
+            }}
+          >
+            <CustomDatagrid2
+              columns={columns}
+              data={report.rows}
+              notClickable
+              loading={loading}
+              pagination={pagination}
+              onPaginationChange={handlePaginationChange}
+              totalRows={report.page.totalElements}
+              getRowId={(row) => row.id.toString()}
+              noRowsMessage={t('no_operational_report_rows')}
+              enableColumnReordering={false}
+            />
+          </Card>
         </Stack>
       </Box>
     </AnalyticsLayout>

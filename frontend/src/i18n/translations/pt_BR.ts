@@ -494,8 +494,14 @@ const ptBRJSON = {
   field_execution_timeline_helper:
     'Visualize as etapas principais da OS em campo.',
   field_execution_updated: 'Execução em campo atualizada',
+  current_field_status: 'Status atual em campo',
+  closure_readiness: 'Pendências para fechamento',
+  field_duration_estimate_helper:
+    'Tempos estimados por eventos de campo; não substituem o tempo de mão de obra.',
   work_order_created: 'OS criada',
   work_order_completed: 'OS concluída',
+  work_order_completed_helper:
+    'A OS está concluída. As ações de execução em campo ficam bloqueadas.',
   travel_started: 'Deslocamento iniciado',
   arrived_on_site: 'Check-in realizado',
   service_in_progress: 'Atendimento em campo',
@@ -506,15 +512,36 @@ const ptBRJSON = {
   completed_step: 'Concluído',
   current_step: 'Atual',
   open_work_order: 'Abrir',
+  view_work_order: 'Ver OS',
   quick_actions: 'Ações rápidas',
   start_travel: 'Iniciar deslocamento',
   make_check_in: 'Fazer check-in',
   make_check_out: 'Fazer check-out',
+  review_closure: 'Revisar fechamento',
+  next_action_start_travel_helper:
+    'Próxima etapa recomendada: iniciar o deslocamento até o local.',
+  next_action_check_in_helper:
+    'Próxima etapa recomendada: registrar chegada ao local.',
+  next_action_check_out_helper:
+    'Próxima etapa recomendada: finalizar a execução em campo.',
+  next_action_open_work_order_helper:
+    'Abra o detalhe para revisar informações e evidências.',
+  field_finished_work_order_open_helper:
+    'Execução em campo finalizada; revise pendências antes de concluir a OS.',
   field_finished: 'Execução em campo finalizada',
   field_execution_finished: 'Execução em campo finalizada',
+  field_execution_finished_short: 'Campo finalizado',
+  field_execution_finished_hint:
+    'Execução em campo finalizada; o status da OS permanece separado',
   on_site: 'No local',
   en_route: 'Em deslocamento',
   not_started: 'Não iniciado',
+  in_progress: 'em andamento',
+  pending_items_count: '{{count}} pendência(s)',
+  check_in_done: 'Check-in realizado',
+  check_out_done: 'Check-out realizado',
+  evidence_registered: 'Evidências/fotos registradas',
+  signature_registered: 'Assinatura registrada',
   departure_latitude: 'Latitude saída',
   departure_longitude: 'Longitude saída',
   check_in_latitude: 'Latitude check-in',
