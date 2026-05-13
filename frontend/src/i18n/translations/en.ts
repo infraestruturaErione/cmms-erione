@@ -464,6 +464,11 @@ const locale = {
   field_execution_timeline_helper:
     'View the main field stages for this work order.',
   field_execution_updated: 'Field execution updated',
+  geolocation_not_supported: 'Location not available: browser does not support geolocation',
+  geolocation_permission_denied: 'Location not available: permission denied',
+  geolocation_unavailable: 'Location not available: position unavailable',
+  geolocation_timeout: 'Location not available: request timed out',
+  geolocation_unknown_error: 'Location not available: an unknown error occurred',
   current_field_status: 'Current field status',
   closure_readiness: 'Closure readiness',
   field_duration_estimate_helper:

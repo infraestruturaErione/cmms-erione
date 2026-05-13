@@ -28,6 +28,7 @@ import {
 } from '../../../../slices/workOrder';
 import { createComment, getCommentsByWorkOrder } from '../../../../slices/comment';
 import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
+import { getCoordinates } from '../../../../utils/geolocation';
 import { getErrorMessage } from '../../../../utils/api';
 import FieldExecutionTimeline from './FieldExecutionTimeline';
 import { useSelector } from '../../../../store';
@@ -52,25 +53,6 @@ const fieldActionTypes: RecommendedFieldActionType[] = [
   'check-in',
   'check-out'
 ];
-
-const getCoordinates = (): Promise<{
-  latitude?: number;
-  longitude?: number;
-}> => {
-  if (!navigator.geolocation) return Promise.resolve({});
-
-  return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) =>
-        resolve({
-          latitude: coords.latitude,
-          longitude: coords.longitude
-        }),
-      () => resolve({}),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-    );
-  });
-};
 
 const formatCoordinate = (value?: number | null): string =>
   typeof value === 'number' ? value.toFixed(6) : '-';
@@ -122,7 +104,11 @@ export default function FieldExecutionSection({
   const runAction = async (action: FieldAction) => {
     setLoadingAction(action);
     try {
-      const { latitude, longitude } = await getCoordinates();
+      const { latitude, longitude, error: geoError } = await getCoordinates();
+
+      if (geoError) {
+        showSnackBar(t(geoError), 'error');
+      }
 
       if (action === 'depart') {
         await dispatch(

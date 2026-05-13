@@ -494,6 +494,11 @@ const ptBRJSON = {
   field_execution_timeline_helper:
     'Visualize as etapas principais da OS em campo.',
   field_execution_updated: 'Execução em campo atualizada',
+  geolocation_not_supported: 'Localização indisponível: navegador não suporta geolocalização',
+  geolocation_permission_denied: 'Localização indisponível: permissão negada',
+  geolocation_unavailable: 'Localização indisponível: posição não obtida',
+  geolocation_timeout: 'Localização indisponível: tempo excedido',
+  geolocation_unknown_error: 'Localização indisponível: erro desconhecido',
   current_field_status: 'Status atual em campo',
   closure_readiness: 'Pendências para fechamento',
   field_duration_estimate_helper:

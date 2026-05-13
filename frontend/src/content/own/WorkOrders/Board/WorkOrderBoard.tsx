@@ -17,6 +17,7 @@ import {
   departWorkOrder
 } from '../../../../slices/workOrder';
 import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
+import { getCoordinates } from '../../../../utils/geolocation';
 import { getErrorMessage } from '../../../../utils/api';
 import useAuth from '../../../../hooks/useAuth';
 import { PermissionEntity } from '../../../../models/owns/role';
@@ -113,25 +114,6 @@ interface WorkOrderBoardProps {
 
 type QuickFieldAction = 'depart' | 'check-in' | 'check-out';
 
-const getCoordinates = (): Promise<{
-  latitude?: number;
-  longitude?: number;
-}> => {
-  if (!navigator.geolocation) return Promise.resolve({});
-
-  return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) =>
-        resolve({
-          latitude: coords.latitude,
-          longitude: coords.longitude
-        }),
-      () => resolve({}),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-    );
-  });
-};
-
 export default function WorkOrderBoard({ handleOpenDetails }: WorkOrderBoardProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -148,7 +130,11 @@ export default function WorkOrderBoard({ handleOpenDetails }: WorkOrderBoardProp
     const actionKey = `${workOrder.id}-${action}`;
     setLoadingAction(actionKey);
     try {
-      const { latitude, longitude } = await getCoordinates();
+      const { latitude, longitude, error: geoError } = await getCoordinates();
+
+      if (geoError) {
+        showSnackBar(t(geoError), 'error');
+      }
 
       if (action === 'depart') {
         await dispatch(

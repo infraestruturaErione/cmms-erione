@@ -1,136 +1,144 @@
-import { useEffect, useRef, useState } from 'react';
-import frLocale from '@fullcalendar/core/locales/fr';
-import enLocale from '@fullcalendar/core/locales/en-gb';
-import FullCalendar, { LocaleSingularArg } from '@fullcalendar/react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
 import {
   Box,
-  Card,
   CircularProgress,
   Divider,
   Grid,
   Stack,
   styled,
-  useMediaQuery,
+  Typography,
   useTheme
 } from '@mui/material';
 
 import type { View } from 'src/models/calendar';
 import { useDispatch, useSelector } from 'src/store';
-import { selectEvent } from 'src/slices/calendar';
 import WorkOrder, { Priority } from 'src/models/owns/workOrder';
-import { CalendarEvent, getWorkOrderEvents } from 'src/slices/workOrder';
+import { getWorkOrderEvents } from 'src/slices/workOrder';
 import Actions from './Actions';
-import i18n from 'i18next';
-import PreventiveMaintenance from 'src/models/owns/preventiveMaintenance';
-import { usePrevious } from '../../../../hooks/usePrevious';
-import {
-  getCalendarLocale,
-  getDateLocale,
-  getSupportedLanguage,
-  supportedLanguages
-} from '../../../../i18n/i18n';
-import { Locale as DateLocale } from 'date-fns';
-import enGb from '@fullcalendar/core/locales/en-gb';
 import { useTranslation } from 'react-i18next';
+import { getCalendarLocale } from '../../../../i18n/i18n';
+import type { LocaleSingularArg } from '@fullcalendar/core';
+import enGb from '@fullcalendar/core/locales/en-gb';
 
 const FullCalendarWrapper = styled(Box)(
   ({ theme }) => `
     padding: ${theme.spacing(3)};
     position: relative;
-   
+
     & .fc-license-message {
       display: none;
     }
     .fc {
-      .fc-daygrid-day,.fc-timegrid-slot{
+      .fc-daygrid-day {
         cursor: pointer;
+        min-height: 100px;
       }
       .fc-col-header-cell {
         padding: ${theme.spacing(1)};
         background: ${theme.colors.alpha.black[5]};
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
       }
-
       .fc-scrollgrid {
         border: 2px solid ${theme.colors.alpha.black[10]};
         border-right-width: 1px;
         border-bottom-width: 1px;
       }
-
       .fc-cell-shaded,
       .fc-list-day-cushion {
         background: ${theme.colors.alpha.black[5]};
       }
-
-      .fc-list-event-graphic {
-        padding-right: ${theme.spacing(1)};
-      }
-
       .fc-theme-standard td, .fc-theme-standard th,
       .fc-col-header-cell {
         border: 1px solid ${theme.colors.alpha.black[10]};
       }
-
-      .fc-event {
-        padding: ${theme.spacing(0.1)} ${theme.spacing(0.3)};
+      .fc-daygrid-day-events {
+        min-height: 0;
       }
-
-      .fc-list-day-side-text {
-        font-weight: normal;
-        color: ${theme.colors.alpha.black[70]};
+      .fc-daygrid-day-number {
+        padding: ${theme.spacing(0.75)} ${theme.spacing(0.75)} 0;
+        font-weight: 700;
+        font-size: 0.85rem;
       }
-
-      .fc-list-event:hover td,
       td.fc-daygrid-day.fc-day-today {
         background-color: ${theme.colors.primary.lighter};
       }
-
-      td.fc-daygrid-day:hover,
-      .fc-highlight {
-        background: ${theme.colors.alpha.black[10]};
+      td.fc-daygrid-day:hover {
+        background: ${theme.colors.alpha.black[5]};
       }
-
-      .fc-daygrid-dot-event:hover, 
-      .fc-daygrid-dot-event.fc-event-mirror {
-        background: ${theme.colors.primary.lighter};
+      .fc-day-today .fc-daygrid-day-number {
+        background: ${theme.palette.primary.main};
+        color: #fff;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        margin: ${theme.spacing(0.5)};
       }
-
-      .fc-daygrid-day-number {
-        padding: ${theme.spacing(1)};
-        font-weight: bold;
-      }
-
-      .fc-list-sticky .fc-list-day > * {
-        background: ${theme.colors.alpha.black[5]} !important;
-      }
-
-      .fc-cell-shaded, 
-      .fc-list-day-cushion {
-        background: ${theme.colors.alpha.black[10]} !important;
-        color: ${theme.colors.alpha.black[70]} !important;
-      }
-
-      &.fc-theme-standard td, 
-      &.fc-theme-standard th,
-      &.fc-theme-standard .fc-list {
-        border-color: ${theme.colors.alpha.black[30]};
+      .fc-daygrid-more-link {
+        font-size: 0.75rem;
+        font-weight: 600;
       }
     }
 `
 );
 
-interface Event {
+const EventBlock = styled(Box)(
+  ({ theme }) => `
+    padding: 1px 4px;
+    margin-bottom: 1px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    line-height: 1.3;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 0.15s;
+    &:hover {
+      opacity: 0.85;
+    }
+`
+);
+
+const getDateForWO = (wo: WorkOrder): Date | null => {
+  if (wo.estimatedStartDate) return new Date(wo.estimatedStartDate);
+  if (wo.dueDate) return new Date(wo.dueDate);
+  if (wo.createdAt) return new Date(wo.createdAt);
+  return null;
+};
+
+const getPriorityColor = (priority: Priority, theme: any): string => {
+  switch (priority) {
+    case 'HIGH':
+      return theme.colors.error.main;
+    case 'MEDIUM':
+      return theme.colors.warning.main;
+    case 'LOW':
+      return theme.colors.info.main;
+    default:
+      return theme.colors.primary.main;
+  }
+};
+
+interface CalendarEventData {
   id: string;
-  allDay: boolean;
-  color?: string;
-  description: string;
-  end: Date;
-  start: Date;
   title: string;
-  extendedProps: { type: string };
+  start: Date;
+  allDay: boolean;
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+  extendedProps: { type: string; status: string; priority: string };
 }
 
 interface OwnProps {
@@ -143,120 +151,129 @@ function ApplicationsCalendar({
   handleOpenDetails
 }: OwnProps) {
   const theme = useTheme();
-  const { i18n } = useTranslation();
   const calendarRef = useRef<FullCalendar | null>(null);
-  const mobile = useMediaQuery(theme.breakpoints.down('md'));
   const dispatch = useDispatch();
-  const { calendar, loadingGet } = useSelector((state) => state.workOrders);
+  const { workOrders, loadingGet } = useSelector((state) => state.workOrders);
+  const { calendar } = useSelector((state) => state.workOrders);
   const [date, setDate] = useState<Date>(new Date());
-  const [view, setView] = useState<View>('timeGridWeek');
-  const getLanguage = i18n.language;
+  const [view, setView] = useState<View>('dayGridMonth');
+  const { i18n } = useTranslation();
   const [calendarLocale, setCalendarLocale] = useState<LocaleSingularArg>(enGb);
 
   useEffect(() => {
     getCalendarLocale(i18n.language).then(setCalendarLocale);
   }, [i18n.language]);
 
-  const viewsOrder: View[] = [
-    'dayGridMonth',
-    'timeGridWeek',
-    'listWeek',
-    'timeGridDay'
-  ];
-  const previousView = usePrevious(view);
-  const getColor = (priority: Priority) => {
-    switch (priority) {
-      case 'HIGH':
-        return theme.colors.error.main;
-      case 'MEDIUM':
-        return theme.colors.warning.main;
-      case 'LOW':
-        return theme.colors.info.main;
-      case 'NONE':
-        return theme.colors.primary.main;
-      default:
-        break;
-    }
-  };
-  const getEventFromWO = (
-    eventPayload: CalendarEvent<WorkOrder | PreventiveMaintenance>
-  ): Event => {
-    return {
-      id: eventPayload.event.id.toString(),
-      allDay: false,
-      color:
-        'status' in eventPayload.event &&
-        eventPayload.event.status === 'COMPLETE'
-          ? theme.colors.alpha.black[30]
-          : getColor(eventPayload.event.priority),
-      description: eventPayload.event?.description,
-      end: new Date(eventPayload.date),
-      start: new Date(eventPayload.date),
-      title: eventPayload.event.title,
-      extendedProps: { type: eventPayload.type }
-    };
-  };
-  const handleDateToday = (): void => {
-    const calItem = calendarRef.current;
-
-    if (calItem) {
-      const calApi = calItem.getApi();
-
-      calApi.today();
-      setDate(calApi.getDate());
-    }
-  };
   useEffect(() => {
     const calItem = calendarRef.current;
-    const newView = calItem.getApi().view;
-    if (
-      previousView &&
-      previousView !== view &&
-      viewsOrder.findIndex((v) => v === previousView) <
-        viewsOrder.findIndex((v) => v === view)
-    ) {
-      return;
+    if (!calItem) return;
+    const calApi = calItem.getApi();
+    const activeStart = calApi.view.activeStart;
+    const activeEnd = calApi.view.activeEnd;
+    dispatch(getWorkOrderEvents(activeStart, activeEnd));
+  }, [date, view, dispatch]);
+
+  const calendarEvents: CalendarEventData[] = useMemo(() => {
+    const result: CalendarEventData[] = [];
+
+    for (const wo of workOrders.content) {
+      const eventDate = getDateForWO(wo);
+      if (!eventDate) continue;
+
+      const priorityColor = getPriorityColor(wo.priority, theme);
+      const isComplete = wo.status === 'COMPLETE';
+
+      result.push({
+        id: `wo-${wo.id}`,
+        title: `${wo.customId ?? `#${wo.id}`} ${wo.title}`,
+        start: eventDate,
+        allDay: true,
+        backgroundColor: isComplete
+          ? theme.colors.alpha.black[20]
+          : priorityColor,
+        borderColor: isComplete
+          ? theme.colors.alpha.black[20]
+          : priorityColor,
+        textColor: isComplete
+          ? theme.colors.alpha.black[50]
+          : '#fff',
+        extendedProps: {
+          type: 'WORK_ORDER',
+          status: wo.status,
+          priority: wo.priority
+        }
+      });
     }
-    const start = newView.activeStart;
-    const end = newView.activeEnd;
-    dispatch(getWorkOrderEvents(start, end));
-  }, [date, view]);
+
+    for (const evt of calendar.events) {
+      if (evt.type === 'PREVENTIVE_MAINTENANCE') {
+        result.push({
+          id: `pm-${evt.event.id}`,
+          title: evt.event.title,
+          start: new Date(evt.date),
+          allDay: true,
+          backgroundColor: theme.colors.primary.main,
+          borderColor: theme.colors.primary.main,
+          textColor: '#fff',
+          extendedProps: {
+            type: 'PREVENTIVE_MAINTENANCE',
+            status: '',
+            priority: 'NONE'
+          }
+        });
+      }
+    }
+
+    result.sort((a, b) => a.start.getTime() - b.start.getTime());
+    return result;
+  }, [workOrders.content, calendar.events, theme]);
+
+  const handleDateToday = (): void => {
+    const calItem = calendarRef.current;
+    if (!calItem) return;
+    const calApi = calItem.getApi();
+    calApi.today();
+    setDate(calApi.getDate());
+  };
+
   const changeView = (changedView: View): void => {
     const calItem = calendarRef.current;
-
-    if (calItem) {
-      const calApi = calItem.getApi();
-
-      calApi.changeView(changedView);
-      setView(changedView);
-    }
+    if (!calItem) return;
+    const calApi = calItem.getApi();
+    calApi.changeView(changedView);
+    setView(changedView);
   };
 
   const handleDatePrev = (): void => {
     const calItem = calendarRef.current;
-
-    if (calItem) {
-      const calApi = calItem.getApi();
-
-      calApi.prev();
-      setDate(calApi.getDate());
-    }
+    if (!calItem) return;
+    const calApi = calItem.getApi();
+    calApi.prev();
+    setDate(calApi.getDate());
   };
 
   const handleDateNext = (): void => {
     const calItem = calendarRef.current;
-
-    if (calItem) {
-      const calApi = calItem.getApi();
-
-      calApi.next();
-      setDate(calApi.getDate());
-    }
+    if (!calItem) return;
+    const calApi = calItem.getApi();
+    calApi.next();
+    setDate(calApi.getDate());
   };
 
-  const handleEventSelect = (arg: any): void => {
-    dispatch(selectEvent(arg.event.id));
+  const renderEventContent = (arg: any) => {
+    return (
+      <EventBlock
+        sx={{
+          backgroundColor: arg.backgroundColor,
+          color: arg.textColor
+        }}
+      >
+        {arg.event.title}
+      </EventBlock>
+    );
   };
+
+  const hasEvents = calendarEvents.length > 0;
 
   return (
     <Grid item xs={12}>
@@ -277,36 +294,54 @@ function ApplicationsCalendar({
             <CircularProgress size={64} />
           </Stack>
         )}
-        <FullCalendar
-          allDayMaintainDuration
-          initialDate={date}
-          initialView={view}
-          locale={calendarLocale}
-          droppable
-          eventDisplay="block"
-          eventClick={(arg) =>
-            handleOpenDetails(
-              Number(arg.event.id),
-              arg.event.extendedProps.type
-            )
-          }
-          dateClick={(event) => handleAddWorkOrder(event.date)}
-          dayMaxEventRows={4}
-          events={calendar.events.map((eventPayload) =>
-            getEventFromWO(eventPayload)
-          )}
-          headerToolbar={false}
-          height={660}
-          ref={calendarRef}
-          rerenderDelay={10}
-          weekends
-          plugins={[
-            dayGridPlugin,
-            timeGridPlugin,
-            interactionPlugin,
-            listPlugin
-          ]}
-        />
+        {!hasEvents && !loadingGet ? (
+          <Stack
+            alignItems="center"
+            justifyContent="center"
+            spacing={2}
+            py={8}
+          >
+            <Typography variant="h5" color="text.secondary">
+              Nenhuma OS encontrada para este período
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Nenhuma ordem de serviço com data de início, vencimento ou criação neste período.
+            </Typography>
+          </Stack>
+        ) : (
+          <FullCalendar
+            allDayMaintainDuration
+            initialDate={date}
+            initialView={view}
+            locale={calendarLocale}
+            eventDisplay="block"
+            eventContent={renderEventContent}
+            eventClick={(arg) => {
+              const idStr = arg.event.id;
+              const match = idStr.match(/^(?:wo|pm)-(\d+)$/);
+              if (match) {
+                handleOpenDetails(
+                  Number(match[1]),
+                  arg.event.extendedProps.type
+                );
+              }
+            }}
+            dateClick={(event) => handleAddWorkOrder(event.date)}
+            dayMaxEventRows={4}
+            events={calendarEvents}
+            headerToolbar={false}
+            height={660}
+            ref={calendarRef}
+            rerenderDelay={10}
+            weekends
+            plugins={[
+              dayGridPlugin,
+              timeGridPlugin,
+              interactionPlugin,
+              listPlugin
+            ]}
+          />
+        )}
       </FullCalendarWrapper>
     </Grid>
   );
