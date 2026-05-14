@@ -109,6 +109,9 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
       PaperProps={{
         sx: {
           borderRadius: 1,
+          display: 'flex',
+          height: { xs: '92vh', sm: '86vh' },
+          maxHeight: { xs: '92vh', sm: '86vh' },
           overflow: 'hidden',
           boxShadow: theme.shadows[12]
         }
@@ -192,6 +195,9 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
       </Box>
       <DialogContent
         sx={{
+          display: 'flex',
+          flex: 1,
+          minHeight: 0,
           p: 0,
           overflow: 'hidden',
           backgroundColor: theme.palette.background.paper
@@ -202,7 +208,8 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
             px: { xs: 2.5, sm: 3 },
             pt: { xs: 2.5, sm: 3 },
             pb: 0,
-            maxHeight: { xs: 'calc(100vh - 220px)', sm: 'calc(100vh - 250px)' },
+            flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
             '& .MuiGrid-container': {
               alignItems: 'flex-start'
