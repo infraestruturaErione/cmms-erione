@@ -239,7 +239,7 @@ function MoreFilters({ filterFields, onFilterChange, onClose }: OwnProps) {
       customers: getLabelAndValue(
         filterFields,
         customersMini,
-        'customer',
+        'customers',
         'name'
       ),
       createdBy: getLabelAndValue(

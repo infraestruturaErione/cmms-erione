@@ -40,7 +40,7 @@ const TAB_CONFIG: { key: string; label: string; fieldNames: string[] }[] = [
   },
   {
     key: 'local',
-    label: 'Local e C\u00e2mera',
+    label: 'Local e Equipamento',
     fieldNames: ['location', 'asset']
   },
   {
