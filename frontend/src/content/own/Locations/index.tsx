@@ -451,7 +451,7 @@ function Locations() {
               size="small"
               onClick={(e) => {
                 e.stopPropagation();
-                handleOpenDetails(Number(location.id));
+                navigate(getLocationUrl(Number(location.id)));
               }}
             >
               <OpenInNewTwoToneIcon fontSize="small" color="primary" />
@@ -1003,7 +1003,7 @@ function Locations() {
                   noRowsMessage={t('noRows.location.message')}
                   noRowsAction={t('noRows.location.action')}
                   onRowClick={(row) => {
-                    handleOpenDetails(row.id);
+                    navigate(getLocationUrl(row.id));
                   }}
                 />
               </Box>

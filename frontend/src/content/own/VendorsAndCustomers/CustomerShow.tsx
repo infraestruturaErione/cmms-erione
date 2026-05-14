@@ -428,8 +428,15 @@ const CustomerShow = () => {
                 </Typography>
               )}
             </Box>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+              flexWrap="wrap"
+              justifyContent={{ xs: 'flex-start', md: 'flex-end' }}
+            >
               <Button
+                size="small"
                 variant="contained"
                 startIcon={<AddTwoToneIcon />}
                 onClick={() => navigate(createWorkOrderUrl)}
@@ -437,6 +444,7 @@ const CustomerShow = () => {
                 {t('create_wo', 'Criar OS')}
               </Button>
               <Button
+                size="small"
                 variant="outlined"
                 startIcon={<AssessmentTwoToneIcon />}
                 onClick={() => navigate(reportUrl)}
@@ -444,6 +452,7 @@ const CustomerShow = () => {
                 {t('view_report', 'Ver relatorio')}
               </Button>
               <Button
+                size="small"
                 variant="text"
                 startIcon={<EditTwoToneIcon />}
                 onClick={() => navigate('/app/vendors-customers/customers')}
