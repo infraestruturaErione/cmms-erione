@@ -15,7 +15,15 @@ import {
 } from '@mui/material';
 import { Helmet } from 'react-helmet-async';
 import { useTranslation } from 'react-i18next';
-import { ChangeEvent, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  ChangeEvent,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { createColumnHelper, PaginationState } from '@tanstack/react-table';
 import SearchTwoToneIcon from '@mui/icons-material/SearchTwoTone';
 import RestartAltTwoToneIcon from '@mui/icons-material/RestartAltTwoTone';
@@ -59,6 +67,14 @@ const defaultFilters: FilterState = {
   end: '',
   periodField: 'CREATED_AT'
 };
+
+const getFiltersWithCustomer = (customerId: string): FilterState => ({
+  ...defaultFilters,
+  customerId
+});
+
+const getValidCustomerParam = (customerId: string | null): string =>
+  customerId && /^\d+$/.test(customerId) ? customerId : '';
 
 const statusOptions = ['OPEN', 'EN_ROUTE', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE'];
 
@@ -120,6 +136,7 @@ function SummaryCard({
 function WorkOrderOperationalReport() {
   const { t }: { t: any } = useTranslation();
   const dispatch = useDispatch();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { setTitle } = useContext(TitleContext);
   const { getFormattedDate } = useContext(CompanySettingsContext);
   const { customersMini } = useSelector((state) => state.customers);
@@ -129,11 +146,15 @@ function WorkOrderOperationalReport() {
   const { report, loading, error } = useSelector(
     (state) => state.workOrderOperationalReport
   );
-  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const customerParam = getValidCustomerParam(searchParams.get('customer'));
+  const [filters, setFilters] = useState<FilterState>(() =>
+    getFiltersWithCustomer(customerParam)
+  );
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10
   });
+  const appliedCustomerParamRef = useRef<string | null>(null);
 
   useEffect(() => {
     setTitle(t('operational_work_order_report'));
@@ -219,8 +240,30 @@ function WorkOrderOperationalReport() {
   };
 
   useEffect(() => {
-    loadReport(defaultFilters, pagination);
-  }, []);
+    if (appliedCustomerParamRef.current === customerParam) return;
+
+    appliedCustomerParamRef.current = customerParam;
+    const nextPagination = { pageIndex: 0, pageSize: pagination.pageSize };
+    const nextFilters = getFiltersWithCustomer(customerParam);
+
+    setFilters(nextFilters);
+    setPagination(nextPagination);
+    loadReport(nextFilters, nextPagination);
+  }, [customerParam]);
+
+  useEffect(() => {
+    if (!customerParam || !customersMini.length) return;
+
+    const customerExists = customersMini.some(
+      (customer) => String(customer.id) === customerParam
+    );
+
+    if (!customerExists) {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.delete('customer');
+      setSearchParams(nextSearchParams, { replace: true });
+    }
+  }, [customersMini, customerParam, searchParams, setSearchParams]);
 
   const handleFilterChange =
     (field: keyof FilterState) =>
@@ -238,6 +281,14 @@ function WorkOrderOperationalReport() {
     const nextPagination = { pageIndex: 0, pageSize: pagination.pageSize };
     setFilters(defaultFilters);
     setPagination(nextPagination);
+
+    if (searchParams.has('customer')) {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.delete('customer');
+      setSearchParams(nextSearchParams, { replace: true });
+      return;
+    }
+
     loadReport(defaultFilters, nextPagination);
   };
 
@@ -401,6 +452,14 @@ function WorkOrderOperationalReport() {
                     onChange={handleFilterChange('customerId')}
                   >
                     <MenuItem value="">{t('ALL')}</MenuItem>
+                    {filters.customerId &&
+                      !customersMini.some(
+                        (customer) => String(customer.id) === filters.customerId
+                      ) && (
+                        <MenuItem value={filters.customerId}>
+                          {t('selected_customer', 'Cliente selecionado')}
+                        </MenuItem>
+                      )}
                     {customersMini.map((customer) => (
                       <MenuItem key={customer.id} value={customer.id}>
                         {customer.name}
