@@ -353,7 +353,11 @@ function ErioneTopNav() {
           py: 1.1,
           whiteSpace: 'normal',
           '&:hover': {
-            backgroundColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.08)
+            backgroundColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.075),
+            boxShadow: `inset 0 0 0 1px ${alpha(
+              ERIONE_VISUAL_IDENTITY.primary,
+              0.08
+            )}`
           }
         }}
       >
@@ -443,11 +447,15 @@ function ErioneTopNav() {
         sx={{
           p: 0.5,
           border: `1px solid ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.1)}`,
-          borderRadius: 1.75,
-          backgroundColor: theme.colors.alpha.white[100],
-          boxShadow: `0 1px 0 ${alpha(
-            ERIONE_VISUAL_IDENTITY.primary,
-            0.05
+          borderRadius: 2,
+          backgroundColor: alpha(theme.colors.alpha.trueWhite[100], 0.1),
+          backdropFilter: 'blur(12px)',
+          boxShadow: `0 8px 24px -20px ${alpha(
+            ERIONE_VISUAL_IDENTITY.primaryDarker,
+            0.45
+          )}, inset 0 1px 0 ${alpha(
+            theme.colors.alpha.trueWhite[100],
+            0.16
           )}`
         }}
       >
@@ -471,14 +479,26 @@ function ErioneTopNav() {
                 borderRadius: 1.5,
                 fontWeight: 700,
                 backgroundColor: isActive
-                  ? alpha(ERIONE_VISUAL_IDENTITY.primary, 0.09)
+                  ? alpha(theme.colors.alpha.trueWhite[100], 0.16)
                   : 'transparent',
                 color: isActive
-                  ? ERIONE_VISUAL_IDENTITY.primary
-                  : theme.colors.alpha.black[70],
+                  ? theme.colors.alpha.trueWhite[100]
+                  : alpha(theme.colors.alpha.trueWhite[100], 0.78),
+                transition:
+                  'background-color 160ms ease, color 160ms ease, box-shadow 160ms ease',
+                boxShadow: isActive
+                  ? `inset 0 0 0 1px ${alpha(
+                      ERIONE_VISUAL_IDENTITY.primary,
+                      0.24
+                    )}`
+                  : 'none',
                 '&:hover': {
-                  backgroundColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.1),
-                  color: ERIONE_VISUAL_IDENTITY.primary
+                  backgroundColor: alpha(theme.colors.alpha.trueWhite[100], 0.14),
+                  color: theme.colors.alpha.trueWhite[100],
+                  boxShadow: `inset 0 0 0 1px ${alpha(
+                    theme.colors.alpha.trueWhite[100],
+                    0.18
+                  )}`
                 }
               }}
             >
@@ -509,13 +529,14 @@ function ErioneTopNav() {
           sx={{
             p: 1,
             width: 390,
-            borderRadius: 2,
-            backgroundColor: theme.colors.alpha.white[100],
-            border: `1px solid ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.1)}`,
-            boxShadow: `0 18px 52px ${alpha(
+            borderRadius: 2.5,
+            backgroundColor: alpha(theme.colors.alpha.white[100], 0.98),
+            backdropFilter: 'blur(16px)',
+            border: `1px solid ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.12)}`,
+            boxShadow: `0 22px 58px ${alpha(
               ERIONE_VISUAL_IDENTITY.primaryDarker,
-              0.14
-            )}`
+              0.16
+            )}, 0 1px 0 ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.06)}`
           }}
         >
           {activeSection && (

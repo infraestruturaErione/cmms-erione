@@ -33,9 +33,9 @@ const HeaderWrapper = styled(Box)(
         padding: ${theme.spacing(0, 2)};
         right: 0;
         z-index: 6;
-        background-color: ${alpha(theme.colors.alpha.white[100], 0.98)};
-        backdrop-filter: blur(8px);
-        border-bottom: 1px solid ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.12)};
+        background: ${ERIONE_VISUAL_IDENTITY.sidebarGradient};
+        backdrop-filter: blur(16px);
+        border-bottom: 1px solid ${alpha(theme.colors.alpha.trueWhite[100], 0.16)};
         position: fixed;
         justify-content: space-between;
         width: 100%;
@@ -64,11 +64,11 @@ function Header() {
                 0.15
               )}, 0px 2px 8px -3px rgba(0, 0, 0, 0.16)`
             : `0 1px 0 ${alpha(
-                ERIONE_VISUAL_IDENTITY.primary,
-                0.08
-              )}, 0 10px 28px -24px ${alpha(
+                theme.colors.alpha.trueWhite[100],
+                0.12
+              )}, 0 16px 38px -26px ${alpha(
                 ERIONE_VISUAL_IDENTITY.primaryDarker,
-                0.35
+                0.62
               )}`
       }}
     >
@@ -85,12 +85,16 @@ function Header() {
         >
           <Box
             component="img"
-            src={logo.dark || '/static/images/logo/logo.png'}
+            src={logo.white || logo.dark || '/static/images/logo/logo.png'}
             alt={brandName}
             sx={{
               width: 34,
               height: 34,
-              objectFit: 'contain'
+              objectFit: 'contain',
+              filter: `drop-shadow(0 5px 10px ${alpha(
+                ERIONE_VISUAL_IDENTITY.primary,
+                0.16
+              )})`
             }}
           />
           <Box minWidth={0}>
@@ -102,7 +106,7 @@ function Header() {
               noWrap
               sx={{
                 display: 'block',
-                color: 'text.secondary',
+                color: alpha(theme.colors.alpha.trueWhite[100], 0.72),
                 lineHeight: 1.1
               }}
             >
@@ -113,17 +117,39 @@ function Header() {
         <Divider
           orientation="vertical"
           flexItem
-          sx={{ display: { xs: 'none', lg: 'block' } }}
+          sx={{
+            display: { xs: 'none', lg: 'block' },
+            borderColor: alpha(theme.colors.alpha.trueWhite[100], 0.14)
+          }}
         />
         <IconButton
           color="primary"
           onClick={() => navigate(-1)}
           disabled={location.key === 'default'}
-          sx={{ border: `1px solid ${theme.palette.divider}` }}
+          sx={{
+            border: `1px solid ${alpha(
+              theme.colors.alpha.trueWhite[100],
+              0.2
+            )}`,
+            color: alpha(theme.colors.alpha.trueWhite[100], 0.86),
+            '&.Mui-disabled': {
+              color: alpha(theme.colors.alpha.trueWhite[100], 0.28)
+            },
+            '&:hover': {
+              bgcolor: alpha(theme.colors.alpha.trueWhite[100], 0.08)
+            }
+          }}
         >
           <ArrowBackTwoToneIcon fontSize="small" />
         </IconButton>
-        <Typography variant="h3" noWrap sx={{ maxWidth: { xs: 220, lg: 320 } }}>
+        <Typography
+          variant="h3"
+          noWrap
+          sx={{
+            maxWidth: { xs: 220, lg: 320 },
+            color: theme.colors.alpha.trueWhite[100]
+          }}
+        >
           {title}
         </Typography>
       </Stack>

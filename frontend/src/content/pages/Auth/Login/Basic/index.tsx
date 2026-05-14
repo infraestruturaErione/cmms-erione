@@ -31,7 +31,12 @@ const MainContent = styled(Box)(
     display: flex;
     flex: 1;
     flex-direction: column;
-    background: ${ERIONE_VISUAL_IDENTITY.surface};
+    background:
+      linear-gradient(145deg, transparent 0 54%, rgba(7, 31, 40, 0.42) 54% 62%, transparent 62%),
+      linear-gradient(28deg, transparent 0 48%, rgba(11, 47, 58, 0.44) 48% 58%, transparent 58%),
+      radial-gradient(circle at 12% 18%, rgba(34, 197, 94, 0.32), transparent 30%),
+      radial-gradient(circle at 86% 12%, rgba(15, 118, 110, 0.34), transparent 32%),
+      linear-gradient(180deg, #6f8fa8 0%, #bfd7d9 38%, #527482 67%, #071f28 100%);
 `
 );
 
@@ -64,11 +69,17 @@ function LoginBasic() {
                 pt: 5,
                 pb: 3,
                 border: '1px solid',
-                borderColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.14),
+                borderColor: alpha('#ffffff', 0.42),
+                backgroundColor: alpha('#ffffff', 0.42),
+                backdropFilter: 'blur(28px) saturate(145%)',
                 boxShadow: `0 18px 46px ${alpha(
                   ERIONE_VISUAL_IDENTITY.primaryDark,
-                  0.14
-                )}`
+                  0.26
+                )}, inset 0 1px 0 ${alpha('#ffffff', 0.44)}`,
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: alpha('#ffffff', 0.78),
+                  backdropFilter: 'blur(8px)'
+                }
               }}
             >
               <Box textAlign="center">
