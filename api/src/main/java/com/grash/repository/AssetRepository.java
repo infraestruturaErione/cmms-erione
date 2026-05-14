@@ -20,6 +20,22 @@ public interface AssetRepository extends JpaRepository<Asset, Long>, JpaSpecific
 
     List<Asset> findByCompany_Id(Long id, Sort sort);
 
+    long countDistinctByCustomers_IdAndCompany_Id(Long customerId, Long companyId);
+
+    long countDistinctByCustomers_IdAndCompany_IdAndCreatedBy(Long customerId, Long companyId, Long createdBy);
+
+    @Query("SELECT COUNT(DISTINCT a.location.id) FROM Asset a JOIN a.customers c " +
+            "WHERE c.id = :customerId AND a.company.id = :companyId AND a.location IS NOT NULL")
+    long countDistinctLocationsWithAssetsByCustomer(@Param("customerId") Long customerId,
+                                                    @Param("companyId") Long companyId);
+
+    @Query("SELECT COUNT(DISTINCT a.location.id) FROM Asset a JOIN a.customers c " +
+            "WHERE c.id = :customerId AND a.company.id = :companyId AND a.createdBy = :createdBy AND a.location IS " +
+            "NOT NULL")
+    long countDistinctLocationsWithAssetsByCustomerAndCreatedBy(@Param("customerId") Long customerId,
+                                                               @Param("companyId") Long companyId,
+                                                               @Param("createdBy") Long createdBy);
+
     Page<Asset> findByCompany_IdAndParentAssetIsNull(Long id, Pageable pageable);
 
     List<Asset> findByParentAsset_Id(Long id, Sort sort);
@@ -59,4 +75,3 @@ public interface AssetRepository extends JpaRepository<Asset, Long>, JpaSpecific
     boolean hasMoreThan(@Param("companyId") Long companyId, @Param("threshold") Long threshold);
 
 }
-

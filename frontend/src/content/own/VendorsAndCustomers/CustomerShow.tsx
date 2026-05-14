@@ -18,7 +18,6 @@ import {
   TablePagination,
   TableRow,
   Tabs,
-  TextField,
   Typography,
   useTheme
 } from '@mui/material';
@@ -46,6 +45,29 @@ import { ERIONE_VISUAL_IDENTITY } from '../../../config/erioneVisualIdentity';
 
 const CUSTOMER_PAGE_SIZE = 10;
 const CUSTOMER_ASSETS_PAGE_SIZE = 1000;
+
+interface CustomerOperationalSummary {
+  totalLocations: number;
+  totalAssets: number;
+  locationsWithAssets: number;
+  locationsWithoutAssets: number;
+  locationsWithCoordinates: number;
+  openWorkOrders: number;
+  enRouteWorkOrders: number;
+  inProgressWorkOrders: number;
+  onHoldWorkOrders: number;
+  completedWorkOrders: number;
+  totalWorkOrders: number;
+}
+
+interface CustomerLocationMapPoint {
+  id: number;
+  name: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
+  customId?: string;
+}
 
 type CustomerTab =
   | 'overview'
@@ -103,15 +125,15 @@ const buildCustomerAssetsCriteria = (
 const formatDate = (value?: string) =>
   value ? new Date(value).toLocaleDateString() : '--';
 
-const hasCoordinates = (location: LocationModel) =>
+const hasCoordinates = (location: LocationModel | CustomerLocationMapPoint) =>
   Number.isFinite(location.latitude) && Number.isFinite(location.longitude);
 
-const formatCoordinates = (location: LocationModel) =>
+const formatCoordinates = (location: LocationModel | CustomerLocationMapPoint) =>
   hasCoordinates(location)
     ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
     : '--';
 
-const getGoogleMapsUrl = (location: LocationModel) =>
+const getGoogleMapsUrl = (location: LocationModel | CustomerLocationMapPoint) =>
   Number.isFinite(location.latitude) && Number.isFinite(location.longitude)
     ? `https://www.google.com/maps?q=${location.latitude},${location.longitude}`
     : undefined;
@@ -125,12 +147,18 @@ const CustomerShow = () => {
 
   const [tab, setTab] = useState<CustomerTab>('overview');
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [locations, setLocations] = useState<LocationModel[]>([]);
+  const [locationsPageData, setLocationsPageData] =
+    useState<Page<LocationModel> | null>(null);
+  const [mapLocations, setMapLocations] = useState<CustomerLocationMapPoint[]>(
+    []
+  );
+  const [customerSummary, setCustomerSummary] =
+    useState<CustomerOperationalSummary | null>(null);
   const [assets, setAssets] = useState<AssetDTO[]>([]);
   const [workOrders, setWorkOrders] = useState<Page<WorkOrder> | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [locationsLoading, setLocationsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [locationSearch, setLocationSearch] = useState('');
   const [locationsPage, setLocationsPage] = useState(0);
   const [assetsPage, setAssetsPage] = useState(0);
   const [workOrdersPage, setWorkOrdersPage] = useState(0);
@@ -156,7 +184,12 @@ const CustomerShow = () => {
 
     Promise.all([
       api.get<Customer>(`customers/${numericCustomerId}`),
-      api.get<LocationModel[]>('locations'),
+      api.get<CustomerOperationalSummary>(
+        `customers/${numericCustomerId}/summary`
+      ),
+      api.get<CustomerLocationMapPoint[]>(
+        `customers/${numericCustomerId}/locations/map`
+      ),
       api.post<Page<WorkOrder>>(
         'work-orders/search',
         buildCustomerWorkOrderCriteria(numericCustomerId, 200)
@@ -168,23 +201,26 @@ const CustomerShow = () => {
         )
         .catch(() => null)
     ])
-      .then(([customerResponse, locationsResponse, woResponse, assetsResponse]) => {
-        if (!active) return;
-        setCustomer(customerResponse);
-        setLocations(
-          locationsResponse.filter((location) =>
-            location.customers?.some(
-              (locationCustomer) => locationCustomer.id === numericCustomerId
-            )
-          )
-        );
-        setWorkOrders(woResponse);
-        setAssets(assetsResponse?.content ?? []);
-        setLocationsPage(0);
-        setAssetsPage(0);
-        setWorkOrdersPage(0);
-        setMapPage(0);
-      })
+      .then(
+        ([
+          customerResponse,
+          summaryResponse,
+          mapResponse,
+          woResponse,
+          assetsResponse
+        ]) => {
+          if (!active) return;
+          setCustomer(customerResponse);
+          setCustomerSummary(summaryResponse);
+          setMapLocations(mapResponse);
+          setWorkOrders(woResponse);
+          setAssets(assetsResponse?.content ?? []);
+          setLocationsPage(0);
+          setAssetsPage(0);
+          setWorkOrdersPage(0);
+          setMapPage(0);
+        }
+      )
       .catch((err) => {
         if (!active) return;
         setError(err?.message ?? t('load_failure', 'Falha ao carregar'));
@@ -198,34 +234,33 @@ const CustomerShow = () => {
     };
   }, [numericCustomerId]);
 
+  useEffect(() => {
+    if (!numericCustomerId) return;
+
+    let active = true;
+    setLocationsLoading(true);
+    api
+      .get<Page<LocationModel>>(
+        `customers/${numericCustomerId}/locations?page=${locationsPage}&size=${CUSTOMER_PAGE_SIZE}&sort=name,asc`
+      )
+      .then((response) => {
+        if (active) setLocationsPageData(response);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err?.message ?? t('load_failure', 'Falha ao carregar'));
+      })
+      .finally(() => {
+        if (active) setLocationsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [numericCustomerId, locationsPage]);
+
   const workOrdersContent = workOrders?.content ?? [];
-  const normalizedLocationSearch = locationSearch.trim().toLowerCase();
-  const filteredLocations = useMemo(
-    () =>
-      normalizedLocationSearch
-        ? locations.filter((location) =>
-            [
-              location.name,
-              location.address,
-              location.customId,
-              formatCoordinates(location)
-            ]
-              .filter(Boolean)
-              .some((value) =>
-                String(value).toLowerCase().includes(normalizedLocationSearch)
-              )
-          )
-        : locations,
-    [locations, normalizedLocationSearch]
-  );
-  const locationsWithCoordinates = useMemo(
-    () => filteredLocations.filter(hasCoordinates),
-    [filteredLocations]
-  );
-  const paginatedLocations = filteredLocations.slice(
-    locationsPage * CUSTOMER_PAGE_SIZE,
-    locationsPage * CUSTOMER_PAGE_SIZE + CUSTOMER_PAGE_SIZE
-  );
+  const locations = locationsPageData?.content ?? [];
   const paginatedAssets = assets.slice(
     assetsPage * CUSTOMER_PAGE_SIZE,
     assetsPage * CUSTOMER_PAGE_SIZE + CUSTOMER_PAGE_SIZE
@@ -234,37 +269,27 @@ const CustomerShow = () => {
     workOrdersPage * CUSTOMER_PAGE_SIZE,
     workOrdersPage * CUSTOMER_PAGE_SIZE + CUSTOMER_PAGE_SIZE
   );
-  const paginatedMapLocations = locationsWithCoordinates.slice(
+  const paginatedMapLocations = mapLocations.slice(
     mapPage * CUSTOMER_PAGE_SIZE,
     mapPage * CUSTOMER_PAGE_SIZE + CUSTOMER_PAGE_SIZE
   );
 
   const summary = useMemo(() => {
-    const open = workOrdersContent.filter((wo) => wo.status === 'OPEN').length;
-    const inProgress = workOrdersContent.filter((wo) =>
-      ['EN_ROUTE', 'IN_PROGRESS', 'ON_HOLD'].includes(wo.status)
-    ).length;
-    const complete = workOrdersContent.filter((wo) =>
-      ['COMPLETE', 'CLOSED'].includes(wo.status)
-    ).length;
-    const locationsWithAssets = new Set(
-      assets
-        .map((asset) => asset.location?.id)
-        .filter((locationId) => Boolean(locationId))
-    ).size;
-
     return {
-      locations: locations.length,
-      assets: assets.length,
-      locationsWithAssets,
-      locationsWithoutAssets: Math.max(locations.length - locationsWithAssets, 0),
-      locationsWithCoordinates: locations.filter(hasCoordinates).length,
-      open,
-      inProgress,
-      complete,
+      locations: customerSummary?.totalLocations ?? 0,
+      assets: customerSummary?.totalAssets ?? 0,
+      locationsWithAssets: customerSummary?.locationsWithAssets ?? 0,
+      locationsWithoutAssets: customerSummary?.locationsWithoutAssets ?? 0,
+      locationsWithCoordinates: customerSummary?.locationsWithCoordinates ?? 0,
+      open: customerSummary?.openWorkOrders ?? 0,
+      inProgress:
+        (customerSummary?.enRouteWorkOrders ?? 0) +
+        (customerSummary?.inProgressWorkOrders ?? 0) +
+        (customerSummary?.onHoldWorkOrders ?? 0),
+      complete: customerSummary?.completedWorkOrders ?? 0,
       lastWorkOrder: workOrdersContent[0]
     };
-  }, [assets, locations, workOrdersContent]);
+  }, [customerSummary, workOrdersContent]);
 
   const summaryCards = [
     {
@@ -319,76 +344,66 @@ const CustomerShow = () => {
   );
 
   const renderLocations = () =>
-    locations.length ? (
+    locationsLoading ? (
+      <Card sx={{ p: 3, borderRadius: 1.5 }}>
+        <Typography>{t('loading', 'Carregando...')}</Typography>
+      </Card>
+    ) : (locationsPageData?.totalElements ?? 0) > 0 ? (
       <Stack spacing={2}>
-        <TextField
-          size="small"
-          fullWidth
-          label={t('search_locations', 'Buscar locais/endereco')}
-          value={locationSearch}
-          onChange={(event) => {
-            setLocationSearch(event.target.value);
-            setLocationsPage(0);
-          }}
-        />
-        {filteredLocations.length ? (
-          <Card sx={{ overflow: 'auto', borderRadius: 1.5 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('name')}</TableCell>
-                  <TableCell>{t('address')}</TableCell>
-                  <TableCell>{t('coordinates', 'Coordenadas')}</TableCell>
-                  <TableCell>{t('code', 'Codigo')}</TableCell>
-                  <TableCell align="right">{t('actions')}</TableCell>
+        <Card sx={{ overflow: 'auto', borderRadius: 1.5 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>{t('name')}</TableCell>
+                <TableCell>{t('address')}</TableCell>
+                <TableCell>{t('coordinates', 'Coordenadas')}</TableCell>
+                <TableCell>{t('code', 'Codigo')}</TableCell>
+                <TableCell align="right">{t('actions')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {locations.map((location) => (
+                <TableRow key={location.id} hover>
+                  <TableCell>
+                    <Typography fontWeight={700}>{location.name}</Typography>
+                  </TableCell>
+                  <TableCell>{location.address || '--'}</TableCell>
+                  <TableCell>{formatCoordinates(location)}</TableCell>
+                  <TableCell>{location.customId || '--'}</TableCell>
+                  <TableCell align="right">
+                    <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                      <Button
+                        size="small"
+                        onClick={() => navigate(`/app/locations/${location.id}`)}
+                      >
+                        {t('view_location', 'Ver local')}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() =>
+                          navigate(
+                            `/app/work-orders?customer=${numericCustomerId}&location=${location.id}&new=true`
+                          )
+                        }
+                      >
+                        {t('create_wo_for_location', 'Criar OS neste local')}
+                      </Button>
+                    </Stack>
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {paginatedLocations.map((location) => (
-                  <TableRow key={location.id} hover>
-                    <TableCell>
-                      <Typography fontWeight={700}>{location.name}</Typography>
-                    </TableCell>
-                    <TableCell>{location.address || '--'}</TableCell>
-                    <TableCell>{formatCoordinates(location)}</TableCell>
-                    <TableCell>{location.customId || '--'}</TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                        <Button
-                          size="small"
-                          onClick={() => navigate(`/app/locations/${location.id}`)}
-                        >
-                          {t('view_location', 'Ver local')}
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() =>
-                            navigate(
-                              `/app/work-orders?customer=${numericCustomerId}&location=${location.id}&new=true`
-                            )
-                          }
-                        >
-                          {t('create_wo_for_location', 'Criar OS neste local')}
-                        </Button>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <TablePagination
-              component="div"
-              count={filteredLocations.length}
-              page={locationsPage}
-              onPageChange={(_event, page) => setLocationsPage(page)}
-              rowsPerPage={CUSTOMER_PAGE_SIZE}
-              rowsPerPageOptions={[CUSTOMER_PAGE_SIZE]}
-            />
-          </Card>
-        ) : (
-          renderEmpty(t('no_locations_for_search', 'Nenhum local encontrado.'))
-        )}
+              ))}
+            </TableBody>
+          </Table>
+          <TablePagination
+            component="div"
+            count={locationsPageData?.totalElements ?? 0}
+            page={locationsPage}
+            onPageChange={(_event, page) => setLocationsPage(page)}
+            rowsPerPage={CUSTOMER_PAGE_SIZE}
+            rowsPerPageOptions={[CUSTOMER_PAGE_SIZE]}
+          />
+        </Card>
       </Stack>
     ) : (
       renderEmpty(t('no_customer_locations', 'Nenhum local vinculado.'))
@@ -524,7 +539,7 @@ const CustomerShow = () => {
     );
 
   const renderMap = () =>
-    locationsWithCoordinates.length ? (
+    mapLocations.length ? (
       <Stack spacing={2}>
         <Card
           sx={{
@@ -592,7 +607,7 @@ const CustomerShow = () => {
           </Table>
           <TablePagination
             component="div"
-            count={locationsWithCoordinates.length}
+            count={mapLocations.length}
             page={mapPage}
             onPageChange={(_event, page) => setMapPage(page)}
             rowsPerPage={CUSTOMER_PAGE_SIZE}

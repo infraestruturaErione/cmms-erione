@@ -1,6 +1,7 @@
 package com.grash.repository;
 
 import com.grash.model.Location;
+import com.grash.dto.customer.CustomerLocationMapDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -18,7 +19,42 @@ public interface LocationRepository extends JpaRepository<Location, Long>, JpaSp
 
     List<Location> findByCompany_Id(Long id, Sort sort);
 
+    Page<Location> findDistinctByCustomers_IdAndCompany_Id(Long customerId, Long companyId, Pageable pageable);
+
+    Page<Location> findDistinctByCustomers_IdAndCompany_IdAndCreatedBy(Long customerId, Long companyId, Long createdBy,
+                                                                       Pageable pageable);
+
+    long countDistinctByCustomers_IdAndCompany_Id(Long customerId, Long companyId);
+
+    long countDistinctByCustomers_IdAndCompany_IdAndCreatedBy(Long customerId, Long companyId, Long createdBy);
+
     List<Location> findByParentLocation_Id(Long id, Sort sort);
+
+    @Query("SELECT DISTINCT new com.grash.dto.customer.CustomerLocationMapDTO(l.id, l.name, l.address, l.latitude, " +
+            "l.longitude, l.customId) FROM Location l JOIN l.customers c " +
+            "WHERE c.id = :customerId AND l.company.id = :companyId AND l.latitude IS NOT NULL AND l.longitude IS NOT " +
+            "NULL ORDER BY l.name")
+    List<CustomerLocationMapDTO> findMapPointsByCustomer(@Param("customerId") Long customerId,
+                                                         @Param("companyId") Long companyId);
+
+    @Query("SELECT DISTINCT new com.grash.dto.customer.CustomerLocationMapDTO(l.id, l.name, l.address, l.latitude, " +
+            "l.longitude, l.customId) FROM Location l JOIN l.customers c " +
+            "WHERE c.id = :customerId AND l.company.id = :companyId AND l.createdBy = :createdBy AND l.latitude IS " +
+            "NOT NULL AND l.longitude IS NOT NULL ORDER BY l.name")
+    List<CustomerLocationMapDTO> findMapPointsByCustomerAndCreatedBy(@Param("customerId") Long customerId,
+                                                                     @Param("companyId") Long companyId,
+                                                                     @Param("createdBy") Long createdBy);
+
+    @Query("SELECT COUNT(DISTINCT l.id) FROM Location l JOIN l.customers c " +
+            "WHERE c.id = :customerId AND l.company.id = :companyId AND l.latitude IS NOT NULL AND l.longitude IS NOT " +
+            "NULL")
+    long countMapPointsByCustomer(@Param("customerId") Long customerId, @Param("companyId") Long companyId);
+
+    @Query("SELECT COUNT(DISTINCT l.id) FROM Location l JOIN l.customers c " +
+            "WHERE c.id = :customerId AND l.company.id = :companyId AND l.createdBy = :createdBy AND l.latitude IS " +
+            "NOT NULL AND l.longitude IS NOT NULL")
+    long countMapPointsByCustomerAndCreatedBy(@Param("customerId") Long customerId, @Param("companyId") Long companyId,
+                                              @Param("createdBy") Long createdBy);
 
     @Query("SELECT l FROM Location l " +
             "LEFT JOIN FETCH l.parentLocation " +
