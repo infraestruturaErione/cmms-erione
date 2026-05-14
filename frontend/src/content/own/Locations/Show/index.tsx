@@ -15,6 +15,7 @@ import {
   TableBody,
   TableCell,
   TableHead,
+  TablePagination,
   TableRow,
   Tabs,
   Typography,
@@ -48,6 +49,8 @@ type LocationTab =
   | 'files'
   | 'map';
 
+const LOCATION_PAGE_SIZE = 10;
+
 const formatCoordinates = (location?: LocationModel | null) =>
   location &&
   Number.isFinite(location.latitude) &&
@@ -76,6 +79,8 @@ const LocationShow = () => {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [assetsPage, setAssetsPage] = useState(0);
+  const [workOrdersPage, setWorkOrdersPage] = useState(0);
 
   const numericLocationId =
     locationId && isNumeric(locationId) ? Number(locationId) : null;
@@ -110,6 +115,8 @@ const LocationShow = () => {
         setLocation(locationResponse);
         setAssets(assetsResponse);
         setWorkOrders(workOrdersResponse);
+        setAssetsPage(0);
+        setWorkOrdersPage(0);
       })
       .catch((err) => {
         if (!active) return;
@@ -134,6 +141,14 @@ const LocationShow = () => {
       lastWorkOrder: workOrders[0]
     }),
     [assets, workOrders]
+  );
+  const paginatedAssets = assets.slice(
+    assetsPage * LOCATION_PAGE_SIZE,
+    assetsPage * LOCATION_PAGE_SIZE + LOCATION_PAGE_SIZE
+  );
+  const paginatedWorkOrders = workOrders.slice(
+    workOrdersPage * LOCATION_PAGE_SIZE,
+    workOrdersPage * LOCATION_PAGE_SIZE + LOCATION_PAGE_SIZE
   );
 
   if (loading) {
@@ -248,7 +263,7 @@ const LocationShow = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {assets.map((asset) => {
+            {paginatedAssets.map((asset) => {
               const customerId = asset.customers?.[0]?.id ?? primaryCustomer?.id;
               const createAssetWorkOrderUrl = [
                 `/app/work-orders?asset=${asset.id}`,
@@ -294,6 +309,14 @@ const LocationShow = () => {
             })}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={assets.length}
+          page={assetsPage}
+          onPageChange={(_event, page) => setAssetsPage(page)}
+          rowsPerPage={LOCATION_PAGE_SIZE}
+          rowsPerPageOptions={[LOCATION_PAGE_SIZE]}
+        />
       </Card>
     ) : (
       renderEmpty(
@@ -320,7 +343,7 @@ const LocationShow = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {workOrders.map((workOrder) => (
+            {paginatedWorkOrders.map((workOrder) => (
               <TableRow key={workOrder.id} hover>
                 <TableCell>{workOrder.customId || `#${workOrder.id}`}</TableCell>
                 <TableCell>
@@ -348,6 +371,14 @@ const LocationShow = () => {
             ))}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={workOrders.length}
+          page={workOrdersPage}
+          onPageChange={(_event, page) => setWorkOrdersPage(page)}
+          rowsPerPage={LOCATION_PAGE_SIZE}
+          rowsPerPageOptions={[LOCATION_PAGE_SIZE]}
+        />
       </Card>
     ) : (
       renderEmpty(t('no_wo_in_location'))
@@ -511,13 +542,46 @@ const LocationShow = () => {
                 renderEmpty(t('no_file_in_location'))
               ))}
             {tab === 'map' &&
-              renderEmpty(
-                t(
-                  'location_map_pending',
-                  'Mapa real nao foi implementado nesta fase. Coordenadas disponiveis: {{coordinates}}',
-                  { coordinates: formatCoordinates(location) }
+              (formatCoordinates(location) !== '--' ? (
+                <Card sx={{ p: 3, borderRadius: 1.5 }}>
+                  <Stack spacing={2}>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <MapTwoToneIcon color="primary" />
+                      <Box>
+                        <Typography fontWeight={800}>
+                          {t('location_map_point', 'Ponto do local')}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {t(
+                            'location_map_placeholder_description',
+                            'Mapa interativo fica para fase futura. Por enquanto, use as coordenadas para abrir o ponto no Google Maps.'
+                          )}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                    <Typography fontWeight={700}>
+                      {formatCoordinates(location)}
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      component="a"
+                      href={`https://www.google.com/maps?q=${location.latitude},${location.longitude}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      sx={{ alignSelf: 'flex-start' }}
+                    >
+                      {t('open_in_google_maps', 'Abrir no Google Maps')}
+                    </Button>
+                  </Stack>
+                </Card>
+              ) : (
+                renderEmpty(
+                  t(
+                    'location_map_pending',
+                    'Mapa real nao foi implementado nesta fase. Este local ainda nao tem coordenadas cadastradas.'
+                  )
                 )
-              )}
+              ))}
           </Box>
         </Card>
       </Box>

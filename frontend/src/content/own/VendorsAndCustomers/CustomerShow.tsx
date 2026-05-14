@@ -15,8 +15,10 @@ import {
   TableBody,
   TableCell,
   TableHead,
+  TablePagination,
   TableRow,
   Tabs,
+  TextField,
   Typography,
   useTheme
 } from '@mui/material';
@@ -29,20 +31,28 @@ import MailTwoToneIcon from '@mui/icons-material/MailTwoTone';
 import PhoneTwoToneIcon from '@mui/icons-material/PhoneTwoTone';
 import HomeWorkTwoToneIcon from '@mui/icons-material/HomeWorkTwoTone';
 import OpenInNewTwoToneIcon from '@mui/icons-material/OpenInNewTwoTone';
+import DevicesOtherTwoToneIcon from '@mui/icons-material/DevicesOtherTwoTone';
+import MapTwoToneIcon from '@mui/icons-material/MapTwoTone';
 
 import { TitleContext } from '../../../contexts/TitleContext';
 import { Customer } from '../../../models/owns/customer';
 import LocationModel from '../../../models/owns/location';
 import WorkOrder from '../../../models/owns/workOrder';
+import { AssetDTO } from '../../../models/owns/asset';
 import { Page, SearchCriteria } from '../../../models/owns/page';
 import api from '../../../utils/api';
 import { isNumeric } from '../../../utils/validators';
 import { ERIONE_VISUAL_IDENTITY } from '../../../config/erioneVisualIdentity';
 
+const CUSTOMER_PAGE_SIZE = 10;
+const CUSTOMER_ASSETS_PAGE_SIZE = 1000;
+
 type CustomerTab =
   | 'overview'
   | 'locations'
+  | 'assets'
   | 'workOrders'
+  | 'map'
   | 'reports'
   | 'contacts'
   | 'files';
@@ -71,13 +81,40 @@ const buildCustomerWorkOrderCriteria = (
   direction: 'DESC'
 });
 
+const buildCustomerAssetsCriteria = (
+  customerId: number,
+  pageSize = CUSTOMER_ASSETS_PAGE_SIZE
+): SearchCriteria => ({
+  filterFields: [
+    {
+      field: 'customers',
+      operation: 'inm',
+      values: [customerId],
+      value: '',
+      joinType: 'LEFT'
+    }
+  ],
+  pageNum: 0,
+  pageSize,
+  sortField: 'name',
+  direction: 'ASC'
+});
+
 const formatDate = (value?: string) =>
   value ? new Date(value).toLocaleDateString() : '--';
 
+const hasCoordinates = (location: LocationModel) =>
+  Number.isFinite(location.latitude) && Number.isFinite(location.longitude);
+
 const formatCoordinates = (location: LocationModel) =>
-  Number.isFinite(location.latitude) && Number.isFinite(location.longitude)
+  hasCoordinates(location)
     ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
     : '--';
+
+const getGoogleMapsUrl = (location: LocationModel) =>
+  Number.isFinite(location.latitude) && Number.isFinite(location.longitude)
+    ? `https://www.google.com/maps?q=${location.latitude},${location.longitude}`
+    : undefined;
 
 const CustomerShow = () => {
   const { t }: { t: any } = useTranslation();
@@ -89,9 +126,15 @@ const CustomerShow = () => {
   const [tab, setTab] = useState<CustomerTab>('overview');
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [locations, setLocations] = useState<LocationModel[]>([]);
+  const [assets, setAssets] = useState<AssetDTO[]>([]);
   const [workOrders, setWorkOrders] = useState<Page<WorkOrder> | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [locationSearch, setLocationSearch] = useState('');
+  const [locationsPage, setLocationsPage] = useState(0);
+  const [assetsPage, setAssetsPage] = useState(0);
+  const [workOrdersPage, setWorkOrdersPage] = useState(0);
+  const [mapPage, setMapPage] = useState(0);
 
   const numericCustomerId =
     customerId && isNumeric(customerId) ? Number(customerId) : null;
@@ -117,9 +160,15 @@ const CustomerShow = () => {
       api.post<Page<WorkOrder>>(
         'work-orders/search',
         buildCustomerWorkOrderCriteria(numericCustomerId, 200)
-      )
+      ),
+      api
+        .post<Page<AssetDTO>>(
+          'assets/search',
+          buildCustomerAssetsCriteria(numericCustomerId)
+        )
+        .catch(() => null)
     ])
-      .then(([customerResponse, locationsResponse, woResponse]) => {
+      .then(([customerResponse, locationsResponse, woResponse, assetsResponse]) => {
         if (!active) return;
         setCustomer(customerResponse);
         setLocations(
@@ -130,6 +179,11 @@ const CustomerShow = () => {
           )
         );
         setWorkOrders(woResponse);
+        setAssets(assetsResponse?.content ?? []);
+        setLocationsPage(0);
+        setAssetsPage(0);
+        setWorkOrdersPage(0);
+        setMapPage(0);
       })
       .catch((err) => {
         if (!active) return;
@@ -145,6 +199,45 @@ const CustomerShow = () => {
   }, [numericCustomerId]);
 
   const workOrdersContent = workOrders?.content ?? [];
+  const normalizedLocationSearch = locationSearch.trim().toLowerCase();
+  const filteredLocations = useMemo(
+    () =>
+      normalizedLocationSearch
+        ? locations.filter((location) =>
+            [
+              location.name,
+              location.address,
+              location.customId,
+              formatCoordinates(location)
+            ]
+              .filter(Boolean)
+              .some((value) =>
+                String(value).toLowerCase().includes(normalizedLocationSearch)
+              )
+          )
+        : locations,
+    [locations, normalizedLocationSearch]
+  );
+  const locationsWithCoordinates = useMemo(
+    () => filteredLocations.filter(hasCoordinates),
+    [filteredLocations]
+  );
+  const paginatedLocations = filteredLocations.slice(
+    locationsPage * CUSTOMER_PAGE_SIZE,
+    locationsPage * CUSTOMER_PAGE_SIZE + CUSTOMER_PAGE_SIZE
+  );
+  const paginatedAssets = assets.slice(
+    assetsPage * CUSTOMER_PAGE_SIZE,
+    assetsPage * CUSTOMER_PAGE_SIZE + CUSTOMER_PAGE_SIZE
+  );
+  const paginatedWorkOrders = workOrdersContent.slice(
+    workOrdersPage * CUSTOMER_PAGE_SIZE,
+    workOrdersPage * CUSTOMER_PAGE_SIZE + CUSTOMER_PAGE_SIZE
+  );
+  const paginatedMapLocations = locationsWithCoordinates.slice(
+    mapPage * CUSTOMER_PAGE_SIZE,
+    mapPage * CUSTOMER_PAGE_SIZE + CUSTOMER_PAGE_SIZE
+  );
 
   const summary = useMemo(() => {
     const open = workOrdersContent.filter((wo) => wo.status === 'OPEN').length;
@@ -154,21 +247,50 @@ const CustomerShow = () => {
     const complete = workOrdersContent.filter((wo) =>
       ['COMPLETE', 'CLOSED'].includes(wo.status)
     ).length;
+    const locationsWithAssets = new Set(
+      assets
+        .map((asset) => asset.location?.id)
+        .filter((locationId) => Boolean(locationId))
+    ).size;
 
     return {
       locations: locations.length,
+      assets: assets.length,
+      locationsWithAssets,
+      locationsWithoutAssets: Math.max(locations.length - locationsWithAssets, 0),
+      locationsWithCoordinates: locations.filter(hasCoordinates).length,
       open,
       inProgress,
       complete,
       lastWorkOrder: workOrdersContent[0]
     };
-  }, [locations, workOrdersContent]);
+  }, [assets, locations, workOrdersContent]);
 
   const summaryCards = [
     {
       label: t('locations_addresses', 'Locais/Enderecos'),
       value: summary.locations,
       icon: <LocationOnTwoToneIcon />
+    },
+    {
+      label: t('equipment_devices', 'Equipamentos/Dispositivos'),
+      value: summary.assets,
+      icon: <DevicesOtherTwoToneIcon />
+    },
+    {
+      label: t('locations_with_equipment', 'Locais com equipamentos'),
+      value: summary.locationsWithAssets,
+      icon: <DevicesOtherTwoToneIcon />
+    },
+    {
+      label: t('locations_without_equipment', 'Locais sem equipamentos'),
+      value: summary.locationsWithoutAssets,
+      icon: <LocationOnTwoToneIcon />
+    },
+    {
+      label: t('locations_with_coordinates', 'Locais com coordenadas'),
+      value: summary.locationsWithCoordinates,
+      icon: <MapTwoToneIcon />
     },
     {
       label: t('open_work_orders', 'OS abertas'),
@@ -198,44 +320,131 @@ const CustomerShow = () => {
 
   const renderLocations = () =>
     locations.length ? (
+      <Stack spacing={2}>
+        <TextField
+          size="small"
+          fullWidth
+          label={t('search_locations', 'Buscar locais/endereco')}
+          value={locationSearch}
+          onChange={(event) => {
+            setLocationSearch(event.target.value);
+            setLocationsPage(0);
+          }}
+        />
+        {filteredLocations.length ? (
+          <Card sx={{ overflow: 'auto', borderRadius: 1.5 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>{t('name')}</TableCell>
+                  <TableCell>{t('address')}</TableCell>
+                  <TableCell>{t('coordinates', 'Coordenadas')}</TableCell>
+                  <TableCell>{t('code', 'Codigo')}</TableCell>
+                  <TableCell align="right">{t('actions')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedLocations.map((location) => (
+                  <TableRow key={location.id} hover>
+                    <TableCell>
+                      <Typography fontWeight={700}>{location.name}</Typography>
+                    </TableCell>
+                    <TableCell>{location.address || '--'}</TableCell>
+                    <TableCell>{formatCoordinates(location)}</TableCell>
+                    <TableCell>{location.customId || '--'}</TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                        <Button
+                          size="small"
+                          onClick={() => navigate(`/app/locations/${location.id}`)}
+                        >
+                          {t('view_location', 'Ver local')}
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() =>
+                            navigate(
+                              `/app/work-orders?customer=${numericCustomerId}&location=${location.id}&new=true`
+                            )
+                          }
+                        >
+                          {t('create_wo_for_location', 'Criar OS neste local')}
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <TablePagination
+              component="div"
+              count={filteredLocations.length}
+              page={locationsPage}
+              onPageChange={(_event, page) => setLocationsPage(page)}
+              rowsPerPage={CUSTOMER_PAGE_SIZE}
+              rowsPerPageOptions={[CUSTOMER_PAGE_SIZE]}
+            />
+          </Card>
+        ) : (
+          renderEmpty(t('no_locations_for_search', 'Nenhum local encontrado.'))
+        )}
+      </Stack>
+    ) : (
+      renderEmpty(t('no_customer_locations', 'Nenhum local vinculado.'))
+    );
+
+  const renderAssets = () =>
+    assets.length ? (
       <Card sx={{ overflow: 'auto', borderRadius: 1.5 }}>
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell>{t('name')}</TableCell>
-              <TableCell>{t('address')}</TableCell>
-              <TableCell>{t('coordinates', 'Coordenadas')}</TableCell>
-              <TableCell>{t('code', 'Codigo')}</TableCell>
+              <TableCell>{t('location_address', 'Local/Endereco')}</TableCell>
+              <TableCell>{t('category')}</TableCell>
+              <TableCell>{t('status')}</TableCell>
+              <TableCell>{t('serial_number')}</TableCell>
               <TableCell align="right">{t('actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {locations.map((location) => (
-              <TableRow key={location.id} hover>
+            {paginatedAssets.map((asset) => (
+              <TableRow key={asset.id} hover>
                 <TableCell>
-                  <Typography fontWeight={700}>{location.name}</Typography>
+                  <Typography fontWeight={700}>{asset.name}</Typography>
                 </TableCell>
-                <TableCell>{location.address || '--'}</TableCell>
-                <TableCell>{formatCoordinates(location)}</TableCell>
-                <TableCell>{location.customId || '--'}</TableCell>
+                <TableCell>{asset.location?.name || '--'}</TableCell>
+                <TableCell>{asset.category?.name || '--'}</TableCell>
+                <TableCell>{asset.status ? t(asset.status) : '--'}</TableCell>
+                <TableCell>{asset.serialNumber || asset.barCode || '--'}</TableCell>
                 <TableCell align="right">
                   <Stack direction="row" justifyContent="flex-end" spacing={1}>
                     <Button
                       size="small"
-                      onClick={() => navigate(`/app/locations/${location.id}`)}
+                      onClick={() => navigate(`/app/assets/${asset.id}`)}
                     >
-                      {t('view_location', 'Ver local')}
+                      {t('view_equipment', 'Ver equipamento')}
                     </Button>
                     <Button
                       size="small"
                       variant="outlined"
                       onClick={() =>
                         navigate(
-                          `/app/work-orders?customer=${numericCustomerId}&location=${location.id}&new=true`
+                          [
+                            `/app/work-orders?customer=${numericCustomerId}`,
+                            asset.location?.id
+                              ? `location=${asset.location.id}`
+                              : null,
+                            `asset=${asset.id}`,
+                            'new=true'
+                          ]
+                            .filter(Boolean)
+                            .join('&')
                         )
                       }
                     >
-                      {t('create_wo_for_location', 'Criar OS neste local')}
+                      {t('create_work_order', 'Criar OS')}
                     </Button>
                   </Stack>
                 </TableCell>
@@ -243,9 +452,22 @@ const CustomerShow = () => {
             ))}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={assets.length}
+          page={assetsPage}
+          onPageChange={(_event, page) => setAssetsPage(page)}
+          rowsPerPage={CUSTOMER_PAGE_SIZE}
+          rowsPerPageOptions={[CUSTOMER_PAGE_SIZE]}
+        />
       </Card>
     ) : (
-      renderEmpty(t('no_customer_locations', 'Nenhum local vinculado.'))
+      renderEmpty(
+        t(
+          'no_equipment_in_customer',
+          'Nenhum equipamento/dispositivo vinculado a este cliente.'
+        )
+      )
     );
 
   const renderWorkOrders = () =>
@@ -264,7 +486,7 @@ const CustomerShow = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {workOrdersContent.map((workOrder) => (
+            {paginatedWorkOrders.map((workOrder) => (
               <TableRow key={workOrder.id} hover>
                 <TableCell>{workOrder.customId || `#${workOrder.id}`}</TableCell>
                 <TableCell>
@@ -288,9 +510,103 @@ const CustomerShow = () => {
             ))}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={workOrdersContent.length}
+          page={workOrdersPage}
+          onPageChange={(_event, page) => setWorkOrdersPage(page)}
+          rowsPerPage={CUSTOMER_PAGE_SIZE}
+          rowsPerPageOptions={[CUSTOMER_PAGE_SIZE]}
+        />
       </Card>
     ) : (
       renderEmpty(t('no_customer_work_orders', 'Nenhuma OS vinculada.'))
+    );
+
+  const renderMap = () =>
+    locationsWithCoordinates.length ? (
+      <Stack spacing={2}>
+        <Card
+          sx={{
+            p: 2,
+            borderRadius: 1.5,
+            backgroundColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.04)
+          }}
+        >
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <MapTwoToneIcon color="primary" />
+            <Box>
+              <Typography fontWeight={800}>
+                {t('locations_map', 'Mapa dos locais')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t(
+                  'locations_map_placeholder_description',
+                  'MVP seguro: lista os locais com coordenadas e abre cada ponto no Google Maps. O mapa interativo fica para uma fase com dependencia aprovada.'
+                )}
+              </Typography>
+            </Box>
+          </Stack>
+        </Card>
+        <Card sx={{ overflow: 'auto', borderRadius: 1.5 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>{t('location_address', 'Local/Endereco')}</TableCell>
+                <TableCell>{t('address')}</TableCell>
+                <TableCell>{t('coordinates', 'Coordenadas')}</TableCell>
+                <TableCell align="right">{t('actions')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {paginatedMapLocations.map((location) => (
+                <TableRow key={location.id} hover>
+                  <TableCell>
+                    <Typography fontWeight={700}>{location.name}</Typography>
+                  </TableCell>
+                  <TableCell>{location.address || '--'}</TableCell>
+                  <TableCell>{formatCoordinates(location)}</TableCell>
+                  <TableCell align="right">
+                    <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                      <Button
+                        size="small"
+                        onClick={() => navigate(`/app/locations/${location.id}`)}
+                      >
+                        {t('view_location', 'Ver local')}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        component="a"
+                        href={getGoogleMapsUrl(location)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {t('open_in_google_maps', 'Abrir no Google Maps')}
+                      </Button>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <TablePagination
+            component="div"
+            count={locationsWithCoordinates.length}
+            page={mapPage}
+            onPageChange={(_event, page) => setMapPage(page)}
+            rowsPerPage={CUSTOMER_PAGE_SIZE}
+            rowsPerPageOptions={[CUSTOMER_PAGE_SIZE]}
+          />
+        </Card>
+      </Stack>
+    ) : (
+      renderEmpty(
+        t(
+          'no_locations_with_coordinates',
+          'Nenhum local com latitude/longitude cadastrado.'
+        )
+      )
     );
 
   const renderOverview = () => (
@@ -507,7 +823,12 @@ const CustomerShow = () => {
               value="locations"
               label={t('locations_addresses', 'Locais/Enderecos')}
             />
+            <Tab
+              value="assets"
+              label={t('equipment_devices', 'Equipamentos/Dispositivos')}
+            />
             <Tab value="workOrders" label={t('work_orders')} />
+            <Tab value="map" label={t('locations_map', 'Mapa dos locais')} />
             <Tab value="reports" label={t('reports', 'Relatorios')} />
             <Tab value="contacts" label={t('contacts', 'Contatos')} />
             <Tab value="files" label={t('files')} />
@@ -515,7 +836,9 @@ const CustomerShow = () => {
           <Box p={2}>
             {tab === 'overview' && renderOverview()}
             {tab === 'locations' && renderLocations()}
+            {tab === 'assets' && renderAssets()}
             {tab === 'workOrders' && renderWorkOrders()}
+            {tab === 'map' && renderMap()}
             {tab === 'reports' && (
               <Stack spacing={2}>
                 <Typography color="text.secondary">
