@@ -16,6 +16,7 @@ import jakarta.persistence.criteria.JoinType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -125,6 +126,7 @@ public class CustomerOperationalService {
                 .pageNum(0)
                 .pageSize(1)
                 .sortField("id")
+                .direction(Sort.Direction.ASC)
                 .build();
         return workOrderService.findBySearchCriteria(workOrderService.getSearchCriteria(user, criteria))
                 .getTotalElements();
