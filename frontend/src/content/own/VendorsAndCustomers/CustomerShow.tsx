@@ -36,6 +36,7 @@ import MapTwoToneIcon from '@mui/icons-material/MapTwoTone';
 import { TitleContext } from '../../../contexts/TitleContext';
 import { Customer } from '../../../models/owns/customer';
 import WorkOrder from '../../../models/owns/workOrder';
+import { getAssetUrl } from '../../../utils/urlPaths';
 import { AssetDTO } from '../../../models/owns/asset';
 import { Page, SearchCriteria } from '../../../models/owns/page';
 import api from '../../../utils/api';
@@ -402,15 +403,49 @@ const CustomerShow = () => {
                   hover
                   sx={{
                     '&:hover .location-actions': { opacity: 1 },
-                    '& .location-actions': { opacity: 0.6, transition: 'opacity 0.2s' }
+                    '& .location-actions': { opacity: 0.6, transition: 'opacity 0.2s' },
+                    '&:hover': { backgroundColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.03) },
+                    transition: 'background-color 0.15s'
                   }}
                 >
                   <TableCell>
-                    <Typography fontWeight={700}>{location.name}</Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 600,
+                        color: 'text.primary',
+                        lineHeight: 1.4,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                      }}
+                      title={location.name}
+                    >
+                      {location.name}
+                    </Typography>
                   </TableCell>
-                  <TableCell sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>{location.address || '--'}</TableCell>
-                  <TableCell sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>{formatCoordinates(location)}</TableCell>
-                  <TableCell sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>{location.customId || '--'}</TableCell>
+                  <TableCell
+                    sx={{
+                      color: 'text.secondary',
+                      fontSize: '0.875rem',
+                      lineHeight: 1.4,
+                      maxWidth: 220,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title={location.address || ''}
+                  >
+                    {location.address || '--'}
+                  </TableCell>
+                  <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatCoordinates(location)}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                      {location.customId || '--'}
+                    </Typography>
+                  </TableCell>
                   <TableCell align="right" sx={{ py: 0.5 }}>
                     <Stack
                       className="location-actions"
@@ -513,7 +548,7 @@ const CustomerShow = () => {
                   <Stack direction="row" justifyContent="flex-end" spacing={1}>
                     <Button
                       size="small"
-                      onClick={() => navigate(`/app/assets/${asset.id}`)}
+                      onClick={() => navigate(getAssetUrl(asset.id))}
                     >
                       {t('view_equipment', 'Ver equipamento')}
                     </Button>

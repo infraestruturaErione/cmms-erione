@@ -986,7 +986,6 @@ function Locations() {
                     pageIndex: pageable.page,
                     pageSize: pageable.size
                   }}
-                  hidePagination
                   onPaginationChange={handlePaginationChange}
                   totalRows={locationsHierarchy.length}
                   pageSizeOptions={[10, 25, 50, 100]}

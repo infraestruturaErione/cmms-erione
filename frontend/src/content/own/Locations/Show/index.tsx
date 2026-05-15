@@ -38,6 +38,7 @@ import WorkOrder from '../../../../models/owns/workOrder';
 import api from '../../../../utils/api';
 import { isNumeric } from '../../../../utils/validators';
 import { ERIONE_VISUAL_IDENTITY } from '../../../../config/erioneVisualIdentity';
+import { getAssetUrl } from '../../../../utils/urlPaths';
 import AssetStatusTag from '../../Assets/components/AssetStatusTag';
 import PermissionErrorMessage from '../../components/PermissionErrorMessage';
 
@@ -289,7 +290,7 @@ const LocationShow = () => {
                     <Stack direction="row" justifyContent="flex-end" spacing={1}>
                       <Button
                         size="small"
-                        onClick={() => navigate(`/app/assets/${asset.id}`)}
+                        onClick={() => navigate(getAssetUrl(asset.id))}
                       >
                         {t('view_equipment', 'Ver equipamento')}
                       </Button>
