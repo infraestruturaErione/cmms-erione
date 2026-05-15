@@ -35,7 +35,6 @@ import MapTwoToneIcon from '@mui/icons-material/MapTwoTone';
 
 import { TitleContext } from '../../../contexts/TitleContext';
 import { Customer } from '../../../models/owns/customer';
-import LocationModel from '../../../models/owns/location';
 import WorkOrder from '../../../models/owns/workOrder';
 import { AssetDTO } from '../../../models/owns/asset';
 import { Page, SearchCriteria } from '../../../models/owns/page';
@@ -67,6 +66,15 @@ interface CustomerLocationMapPoint {
   latitude: number;
   longitude: number;
   customId?: string;
+}
+
+interface CustomerLocationListDTO {
+  id: number;
+  name: string;
+  customId?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 type CustomerTab =
@@ -125,15 +133,15 @@ const buildCustomerAssetsCriteria = (
 const formatDate = (value?: string) =>
   value ? new Date(value).toLocaleDateString() : '--';
 
-const hasCoordinates = (location: LocationModel | CustomerLocationMapPoint) =>
+const hasCoordinates = (location: CustomerLocationListDTO | CustomerLocationMapPoint) =>
   Number.isFinite(location.latitude) && Number.isFinite(location.longitude);
 
-const formatCoordinates = (location: LocationModel | CustomerLocationMapPoint) =>
+const formatCoordinates = (location: CustomerLocationListDTO | CustomerLocationMapPoint) =>
   hasCoordinates(location)
-    ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+    ? `${location.latitude!.toFixed(6)}, ${location.longitude!.toFixed(6)}`
     : '--';
 
-const getGoogleMapsUrl = (location: LocationModel | CustomerLocationMapPoint) =>
+const getGoogleMapsUrl = (location: CustomerLocationListDTO | CustomerLocationMapPoint) =>
   Number.isFinite(location.latitude) && Number.isFinite(location.longitude)
     ? `https://www.google.com/maps?q=${location.latitude},${location.longitude}`
     : undefined;
@@ -148,7 +156,7 @@ const CustomerShow = () => {
   const [tab, setTab] = useState<CustomerTab>('overview');
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [locationsPageData, setLocationsPageData] =
-    useState<Page<LocationModel> | null>(null);
+    useState<Page<CustomerLocationListDTO> | null>(null);
   const [mapLocations, setMapLocations] = useState<CustomerLocationMapPoint[]>(
     []
   );
@@ -163,6 +171,9 @@ const CustomerShow = () => {
   const [assetsPage, setAssetsPage] = useState(0);
   const [workOrdersPage, setWorkOrdersPage] = useState(0);
   const [mapPage, setMapPage] = useState(0);
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const [workOrdersLoaded, setWorkOrdersLoaded] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   const numericCustomerId =
     customerId && isNumeric(customerId) ? Number(customerId) : null;
@@ -186,41 +197,17 @@ const CustomerShow = () => {
       api.get<Customer>(`customers/${numericCustomerId}`),
       api.get<CustomerOperationalSummary>(
         `customers/${numericCustomerId}/summary`
-      ),
-      api.get<CustomerLocationMapPoint[]>(
-        `customers/${numericCustomerId}/locations/map`
-      ),
-      api.post<Page<WorkOrder>>(
-        'work-orders/search',
-        buildCustomerWorkOrderCriteria(numericCustomerId, 200)
-      ),
-      api
-        .post<Page<AssetDTO>>(
-          'assets/search',
-          buildCustomerAssetsCriteria(numericCustomerId)
-        )
-        .catch(() => null)
-    ])
-      .then(
-        ([
-          customerResponse,
-          summaryResponse,
-          mapResponse,
-          woResponse,
-          assetsResponse
-        ]) => {
-          if (!active) return;
-          setCustomer(customerResponse);
-          setCustomerSummary(summaryResponse);
-          setMapLocations(mapResponse);
-          setWorkOrders(woResponse);
-          setAssets(assetsResponse?.content ?? []);
-          setLocationsPage(0);
-          setAssetsPage(0);
-          setWorkOrdersPage(0);
-          setMapPage(0);
-        }
       )
+    ])
+      .then(([customerResponse, summaryResponse]) => {
+        if (!active) return;
+        setCustomer(customerResponse);
+        setCustomerSummary(summaryResponse);
+        setLocationsPage(0);
+        setAssetsPage(0);
+        setWorkOrdersPage(0);
+        setMapPage(0);
+      })
       .catch((err) => {
         if (!active) return;
         setError(err?.message ?? t('load_failure', 'Falha ao carregar'));
@@ -240,7 +227,7 @@ const CustomerShow = () => {
     let active = true;
     setLocationsLoading(true);
     api
-      .get<Page<LocationModel>>(
+      .get<Page<CustomerLocationListDTO>>(
         `customers/${numericCustomerId}/locations?page=${locationsPage}&size=${CUSTOMER_PAGE_SIZE}&sort=name,asc`
       )
       .then((response) => {
@@ -258,6 +245,53 @@ const CustomerShow = () => {
       active = false;
     };
   }, [numericCustomerId, locationsPage]);
+
+  useEffect(() => {
+    if (!numericCustomerId || assetsLoaded || tab !== 'assets') return;
+    let active = true;
+    setAssetsLoaded(true);
+    api
+      .post<Page<AssetDTO>>(
+        'assets/search',
+        buildCustomerAssetsCriteria(numericCustomerId)
+      )
+      .then((response) => {
+        if (active) setAssets(response.content ?? []);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [numericCustomerId, tab, assetsLoaded]);
+
+  useEffect(() => {
+    if (!numericCustomerId || workOrdersLoaded || tab !== 'workOrders') return;
+    let active = true;
+    setWorkOrdersLoaded(true);
+    api
+      .post<Page<WorkOrder>>(
+        'work-orders/search',
+        buildCustomerWorkOrderCriteria(numericCustomerId, 200)
+      )
+      .then((response) => {
+        if (active) setWorkOrders(response);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [numericCustomerId, tab, workOrdersLoaded]);
+
+  useEffect(() => {
+    if (!numericCustomerId || mapLoaded || tab !== 'map') return;
+    let active = true;
+    setMapLoaded(true);
+    api
+      .get<CustomerLocationMapPoint[]>(
+        `customers/${numericCustomerId}/locations/map`
+      )
+      .then((response) => {
+        if (active) setMapLocations(response);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [numericCustomerId, tab, mapLoaded]);
 
   const workOrdersContent = workOrders?.content ?? [];
   const locations = locationsPageData?.content ?? [];

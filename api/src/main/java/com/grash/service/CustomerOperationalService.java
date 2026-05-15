@@ -2,10 +2,9 @@ package com.grash.service;
 
 import com.grash.advancedsearch.FilterField;
 import com.grash.advancedsearch.SearchCriteria;
-import com.grash.dto.LocationShowDTO;
+import com.grash.dto.customer.CustomerLocationListDTO;
 import com.grash.dto.customer.CustomerLocationMapDTO;
 import com.grash.dto.customer.CustomerOperationalSummaryDTO;
-import com.grash.mapper.LocationMapper;
 import com.grash.model.Location;
 import com.grash.model.User;
 import com.grash.model.enums.PermissionEntity;
@@ -29,15 +28,20 @@ public class CustomerOperationalService {
     private final LocationRepository locationRepository;
     private final AssetRepository assetRepository;
     private final WorkOrderService workOrderService;
-    private final LocationMapper locationMapper;
-    private final LocationService locationService;
 
-    public Page<LocationShowDTO> findLocations(User user, Long customerId, Pageable pageable) {
+    public Page<CustomerLocationListDTO> findLocations(User user, Long customerId, Pageable pageable) {
         Page<Location> locations = canViewOther(user, PermissionEntity.LOCATIONS)
                 ? locationRepository.findDistinctByCustomers_IdAndCompany_Id(customerId, user.getCompany().getId(), pageable)
                 : locationRepository.findDistinctByCustomers_IdAndCompany_IdAndCreatedBy(customerId,
                 user.getCompany().getId(), user.getId(), pageable);
-        return locations.map(location -> locationMapper.toShowDto(location, locationService));
+        return locations.map(location -> CustomerLocationListDTO.builder()
+                .id(location.getId())
+                .name(location.getName())
+                .customId(location.getCustomId())
+                .address(location.getAddress())
+                .latitude(location.getLatitude())
+                .longitude(location.getLongitude())
+                .build());
     }
 
     public List<CustomerLocationMapDTO> findLocationMap(User user, Long customerId) {

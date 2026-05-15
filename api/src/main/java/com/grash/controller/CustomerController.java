@@ -6,6 +6,9 @@ import com.grash.dto.CustomerPatchDTO;
 import com.grash.dto.CustomerPostDTO;
 import com.grash.dto.CustomerShowDTO;
 import com.grash.dto.SuccessResponse;
+import com.grash.dto.customer.CustomerLocationListDTO;
+import com.grash.dto.customer.CustomerLocationMapDTO;
+import com.grash.dto.customer.CustomerOperationalSummaryDTO;
 import com.grash.exception.CustomException;
 import com.grash.mapper.CustomerMapper;
 import com.grash.model.Customer;
@@ -13,12 +16,14 @@ import com.grash.model.User;
 import com.grash.model.enums.PermissionEntity;
 import com.grash.model.enums.RoleType;
 import com.grash.service.CustomerService;
+import com.grash.service.CustomerOperationalService;
 import com.grash.service.UserService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,6 +33,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -38,6 +44,7 @@ import java.util.stream.Collectors;
 public class CustomerController {
 
     private final CustomerService customerService;
+    private final CustomerOperationalService customerOperationalService;
     private final UserService userService;
     private final CustomerMapper customerMapper;
 
@@ -73,6 +80,39 @@ public class CustomerController {
                 return customerMapper.toShowDto(savedCustomer);
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
+    }
+
+    @GetMapping("/{id}/locations")
+    @PreAuthorize("hasRole('ROLE_CLIENT')")
+    public ResponseEntity<Page<CustomerLocationListDTO>> getLocationsByCustomer(@PathVariable("id") Long id, Pageable pageable,
+                                                                        HttpServletRequest req) {
+        User user = userService.whoami(req);
+        ensureCustomerInCompanyAndReadable(id, user);
+        if (!user.getRole().getViewPermissions().contains(PermissionEntity.LOCATIONS)) {
+            throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
+        }
+        return ResponseEntity.ok(customerOperationalService.findLocations(user, id, pageable));
+    }
+
+    @GetMapping("/{id}/summary")
+    @PreAuthorize("hasRole('ROLE_CLIENT')")
+    public ResponseEntity<CustomerOperationalSummaryDTO> getOperationalSummary(@PathVariable("id") Long id,
+                                                                              HttpServletRequest req) {
+        User user = userService.whoami(req);
+        ensureCustomerInCompanyAndReadable(id, user);
+        return ResponseEntity.ok(customerOperationalService.getSummary(user, id));
+    }
+
+    @GetMapping("/{id}/locations/map")
+    @PreAuthorize("hasRole('ROLE_CLIENT')")
+    public ResponseEntity<List<CustomerLocationMapDTO>> getLocationMap(@PathVariable("id") Long id,
+                                                                       HttpServletRequest req) {
+        User user = userService.whoami(req);
+        ensureCustomerInCompanyAndReadable(id, user);
+        if (!user.getRole().getViewPermissions().contains(PermissionEntity.LOCATIONS)) {
+            throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
+        }
+        return ResponseEntity.ok(customerOperationalService.findLocationMap(user, id));
     }
 
     @PostMapping("")
@@ -115,13 +155,28 @@ public class CustomerController {
             Customer savedCustomer = optionalCustomer.get();
             if (user.getId().equals(savedCustomer.getCreatedBy()) ||
                     user.getRole().getDeleteOtherPermissions().contains(PermissionEntity.VENDORS_AND_CUSTOMERS)) {
-                customerService.delete(id);
+                    customerService.delete(id);
                 return new ResponseEntity(new SuccessResponse(true, "Deleted successfully"),
                         HttpStatus.OK);
             } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
         } else throw new CustomException("Customer not found", HttpStatus.NOT_FOUND);
     }
 
-}
+    private Customer ensureCustomerInCompanyAndReadable(Long id, User user) {
+        Optional<Customer> optionalCustomer = customerService.findById(id);
+        if (optionalCustomer.isEmpty()) {
+            throw new CustomException("Not found", HttpStatus.NOT_FOUND);
+        }
+        Customer savedCustomer = optionalCustomer.get();
+        if (!user.getRole().getViewPermissions().contains(PermissionEntity.VENDORS_AND_CUSTOMERS)) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT) &&
+                !savedCustomer.getCompany().getId().equals(user.getCompany().getId())) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        return savedCustomer;
+    }
 
+}
 
