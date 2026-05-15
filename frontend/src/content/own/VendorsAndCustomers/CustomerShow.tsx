@@ -42,6 +42,10 @@ import { Page, SearchCriteria } from '../../../models/owns/page';
 import api from '../../../utils/api';
 import { isNumeric } from '../../../utils/validators';
 import { ERIONE_VISUAL_IDENTITY } from '../../../config/erioneVisualIdentity';
+import ErioneTableActions, {
+  viewAction,
+  createWorkOrderAction
+} from '../components/ErioneTableActions';
 
 const CUSTOMER_PAGE_SIZE = 10;
 const CUSTOMER_ASSETS_PAGE_SIZE = 1000;
@@ -447,60 +451,21 @@ const CustomerShow = () => {
                     </Typography>
                   </TableCell>
                   <TableCell align="right" sx={{ py: 0.5 }}>
-                    <Stack
-                      className="location-actions"
-                      direction="row"
-                      justifyContent="flex-end"
-                      alignItems="center"
-                      spacing={0.5}
-                    >
-                      <Button
-                        size="small"
-                        variant="text"
-                        sx={{
-                          minWidth: 0,
-                          px: 1,
-                          fontSize: '0.8rem',
-                          fontWeight: 500,
-                          color: 'text.secondary',
-                          '&:hover': {
-                            color: 'primary.main',
-                            backgroundColor: 'transparent'
-                          }
-                        }}
-                        endIcon={<OpenInNewTwoToneIcon sx={{ fontSize: 14 }} />}
-                        onClick={() => navigate(`/app/locations/${location.id}`)}
-                      >
-                        {t('view_location', 'Ver local')}
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                          minWidth: 0,
-                          px: 1.5,
-                          py: 0.25,
-                          fontSize: '0.8rem',
-                          fontWeight: 600,
-                          lineHeight: 1.6,
-                          borderColor: 'primary.main',
-                          color: 'primary.main',
-                          whiteSpace: 'nowrap',
-                          '&:hover': {
-                            borderColor: 'primary.dark',
-                            backgroundColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.06)
-                          }
-                        }}
-                        startIcon={<AddTwoToneIcon sx={{ fontSize: 16 }} />}
-                        onClick={() =>
-                          navigate(
-                            `/app/work-orders?customer=${numericCustomerId}&location=${location.id}&new=true`
-                          )
-                        }
-                      >
-                        {t('create_wo_for_location', 'Criar OS')}
-                      </Button>
-                    </Stack>
+                    <ErioneTableActions
+                      actions={[
+                        viewAction(
+                          () => navigate(`/app/locations/${location.id}`),
+                          t('view_location', 'Ver local')
+                        ),
+                        createWorkOrderAction(
+                          () =>
+                            navigate(
+                              `/app/work-orders?customer=${numericCustomerId}&location=${location.id}&new=true`
+                            ),
+                          t('create_wo_for_location', 'Criar OS neste local')
+                        )
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -545,35 +510,31 @@ const CustomerShow = () => {
                 <TableCell>{asset.status ? t(asset.status) : '--'}</TableCell>
                 <TableCell>{asset.serialNumber || asset.barCode || '--'}</TableCell>
                 <TableCell align="right">
-                  <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                    <Button
-                      size="small"
-                      onClick={() => navigate(getAssetUrl(asset.id))}
-                    >
-                      {t('view_equipment', 'Ver equipamento')}
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() =>
-                        navigate(
-                          [
-                            `/app/work-orders?customer=${numericCustomerId}`,
-                            asset.location?.id
-                              ? `location=${asset.location.id}`
-                              : null,
-                            `asset=${asset.id}`,
-                            'new=true'
-                          ]
-                            .filter(Boolean)
-                            .join('&')
+                    <ErioneTableActions
+                      actions={[
+                        viewAction(
+                          () => navigate(getAssetUrl(asset.id)),
+                          t('view_equipment', 'Ver equipamento')
+                        ),
+                        createWorkOrderAction(
+                          () =>
+                            navigate(
+                              [
+                                `/app/work-orders?customer=${numericCustomerId}`,
+                                asset.location?.id
+                                  ? `location=${asset.location.id}`
+                                  : null,
+                                `asset=${asset.id}`,
+                                'new=true'
+                              ]
+                                .filter(Boolean)
+                                .join('&')
+                            ),
+                          t('create_work_order', 'Criar OS')
                         )
-                      }
-                    >
-                      {t('create_work_order', 'Criar OS')}
-                    </Button>
-                  </Stack>
-                </TableCell>
+                      ]}
+                    />
+                  </TableCell>
               </TableRow>
             ))}
           </TableBody>

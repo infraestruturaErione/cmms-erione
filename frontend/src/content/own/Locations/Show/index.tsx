@@ -39,6 +39,10 @@ import api from '../../../../utils/api';
 import { isNumeric } from '../../../../utils/validators';
 import { ERIONE_VISUAL_IDENTITY } from '../../../../config/erioneVisualIdentity';
 import { getAssetUrl } from '../../../../utils/urlPaths';
+import ErioneTableActions, {
+  viewAction,
+  createWorkOrderAction
+} from '../../components/ErioneTableActions';
 import AssetStatusTag from '../../Assets/components/AssetStatusTag';
 import PermissionErrorMessage from '../../components/PermissionErrorMessage';
 
@@ -287,23 +291,22 @@ const LocationShow = () => {
                   <TableCell>{asset.serialNumber || '--'}</TableCell>
                   <TableCell>{asset.barCode || '--'}</TableCell>
                   <TableCell align="right">
-                    <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                      <Button
-                        size="small"
-                        onClick={() => navigate(getAssetUrl(asset.id))}
-                      >
-                        {t('view_equipment', 'Ver equipamento')}
-                      </Button>
-                      {hasCreatePermission(PermissionEntity.WORK_ORDERS) && (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => navigate(createAssetWorkOrderUrl)}
-                        >
-                          {t('create_work_order', 'Criar OS')}
-                        </Button>
-                      )}
-                    </Stack>
+                    <ErioneTableActions
+                      actions={[
+                        viewAction(
+                          () => navigate(getAssetUrl(asset.id)),
+                          t('view_equipment', 'Ver equipamento')
+                        ),
+                        ...(hasCreatePermission(PermissionEntity.WORK_ORDERS)
+                          ? [
+                              createWorkOrderAction(
+                                () => navigate(createAssetWorkOrderUrl),
+                                t('create_work_order', 'Criar OS')
+                              )
+                            ]
+                          : [])
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               );
