@@ -251,7 +251,6 @@ function Locations() {
 
   useEffect(() => {
     if (hasViewPermission(PermissionEntity.LOCATIONS)) {
-      handleReset(false);
       dispatch(getLocationChildren(0, [], pageable));
     }
   }, [pageable]);
