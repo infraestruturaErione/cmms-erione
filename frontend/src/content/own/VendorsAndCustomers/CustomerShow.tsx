@@ -392,22 +392,48 @@ const CustomerShow = () => {
                 <TableCell>{t('address')}</TableCell>
                 <TableCell>{t('coordinates', 'Coordenadas')}</TableCell>
                 <TableCell>{t('code', 'Codigo')}</TableCell>
-                <TableCell align="right">{t('actions')}</TableCell>
+                <TableCell align="right" sx={{ width: 200 }}>{t('actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {locations.map((location) => (
-                <TableRow key={location.id} hover>
+                <TableRow
+                  key={location.id}
+                  hover
+                  sx={{
+                    '&:hover .location-actions': { opacity: 1 },
+                    '& .location-actions': { opacity: 0.6, transition: 'opacity 0.2s' }
+                  }}
+                >
                   <TableCell>
                     <Typography fontWeight={700}>{location.name}</Typography>
                   </TableCell>
-                  <TableCell>{location.address || '--'}</TableCell>
-                  <TableCell>{formatCoordinates(location)}</TableCell>
-                  <TableCell>{location.customId || '--'}</TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" justifyContent="flex-end" spacing={1}>
+                  <TableCell sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>{location.address || '--'}</TableCell>
+                  <TableCell sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>{formatCoordinates(location)}</TableCell>
+                  <TableCell sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>{location.customId || '--'}</TableCell>
+                  <TableCell align="right" sx={{ py: 0.5 }}>
+                    <Stack
+                      className="location-actions"
+                      direction="row"
+                      justifyContent="flex-end"
+                      alignItems="center"
+                      spacing={0.5}
+                    >
                       <Button
                         size="small"
+                        variant="text"
+                        sx={{
+                          minWidth: 0,
+                          px: 1,
+                          fontSize: '0.8rem',
+                          fontWeight: 500,
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'primary.main',
+                            backgroundColor: 'transparent'
+                          }
+                        }}
+                        endIcon={<OpenInNewTwoToneIcon sx={{ fontSize: 14 }} />}
                         onClick={() => navigate(`/app/locations/${location.id}`)}
                       >
                         {t('view_location', 'Ver local')}
@@ -415,13 +441,29 @@ const CustomerShow = () => {
                       <Button
                         size="small"
                         variant="outlined"
+                        sx={{
+                          minWidth: 0,
+                          px: 1.5,
+                          py: 0.25,
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          lineHeight: 1.6,
+                          borderColor: 'primary.main',
+                          color: 'primary.main',
+                          whiteSpace: 'nowrap',
+                          '&:hover': {
+                            borderColor: 'primary.dark',
+                            backgroundColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.06)
+                          }
+                        }}
+                        startIcon={<AddTwoToneIcon sx={{ fontSize: 16 }} />}
                         onClick={() =>
                           navigate(
                             `/app/work-orders?customer=${numericCustomerId}&location=${location.id}&new=true`
                           )
                         }
                       >
-                        {t('create_wo_for_location', 'Criar OS neste local')}
+                        {t('create_wo_for_location', 'Criar OS')}
                       </Button>
                     </Stack>
                   </TableCell>
