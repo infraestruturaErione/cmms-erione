@@ -1,0 +1,13 @@
+diff --git a/node_modules/whatwg-url-without-unicode/lib/url-state-machine.js b/node_modules/whatwg-url-without-unicode/lib/url-state-machine.js
+index 26b7596..0723a9d 100644
+--- a/node_modules/whatwg-url-without-unicode/lib/url-state-machine.js
++++ b/node_modules/whatwg-url-without-unicode/lib/url-state-machine.js
+@@ -1,6 +1,7 @@
+ "use strict";
+ const { Buffer } = require("buffer/");
+-const punycode = require("punycode");
++const punycodeModule = require("punycode");
++const punycode = punycodeModule.default || punycodeModule;
+ 
+ const infra = require("./infra");
+ const { percentEncode, percentDecode } = require("./urlencoded");

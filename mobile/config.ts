@@ -5,8 +5,10 @@ export const googleMapsConfig = {
   apiKey: process.env.GOOGLE_KEY
 };
 
-// Default API URL from Expo config
-const defaultApiUrl = Constants.expoConfig.extra.API_URL;
+// Default API URL from Expo config.
+// Expo web can boot before expoConfig.extra is available, so keep a safe
+// fallback to the inlined environment value.
+const defaultApiUrl = Constants.expoConfig?.extra?.API_URL ?? process.env.API_URL;
 export const IS_LOCALHOST = false;
 
 // Function to get the API URL (either custom or default)
