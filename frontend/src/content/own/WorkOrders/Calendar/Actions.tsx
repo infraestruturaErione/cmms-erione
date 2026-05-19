@@ -3,7 +3,14 @@ import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { Locale as DateLocale } from 'date-fns';
 import PropTypes from 'prop-types';
-import { Grid, IconButton, Tooltip, Typography } from '@mui/material';
+import {
+  alpha,
+  Box,
+  Grid,
+  IconButton,
+  Tooltip,
+  Typography
+} from '@mui/material';
 
 import ViewAgendaTwoToneIcon from '@mui/icons-material/ViewAgendaTwoTone';
 import ViewDayTwoToneIcon from '@mui/icons-material/ViewDayTwoTone';
@@ -77,21 +84,32 @@ const Actions: FC<ActionsProps> = ({
       justifyContent="space-between"
     >
       <Grid item>
-        <Tooltip arrow placement="top" title={t('previous')}>
-          <IconButton color="primary" onClick={onPrevious}>
-            <ArrowBackTwoToneIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip arrow placement="top" title={t('today')}>
-          <IconButton color="primary" sx={{ mx: 1 }} onClick={onToday}>
-            <TodayTwoToneIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip arrow placement="top" title={t('next')}>
-          <IconButton color="primary" onClick={onNext}>
-            <ArrowForwardTwoToneIcon />
-          </IconButton>
-        </Tooltip>
+        <Box
+          sx={(theme) => ({
+            display: 'inline-flex',
+            gap: 0.5,
+            p: 0.5,
+            borderRadius: 1.25,
+            border: `1px solid ${theme.palette.divider}`,
+            bgcolor: theme.palette.background.paper
+          })}
+        >
+          <Tooltip arrow placement="top" title={t('previous')}>
+            <IconButton color="primary" onClick={onPrevious} size="small">
+              <ArrowBackTwoToneIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip arrow placement="top" title={t('today')}>
+            <IconButton color="primary" onClick={onToday} size="small">
+              <TodayTwoToneIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip arrow placement="top" title={t('next')}>
+            <IconButton color="primary" onClick={onNext} size="small">
+              <ArrowForwardTwoToneIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Grid>
       <Grid item sx={{ display: { xs: 'none', sm: 'inline-block' } }}>
         <Typography variant="h3" color="text.primary">
@@ -99,24 +117,45 @@ const Actions: FC<ActionsProps> = ({
         </Typography>
       </Grid>
       <Grid item sx={{ display: { xs: 'none', sm: 'inline-block' } }}>
-        {viewOptions.map((viewOption) => {
-          const Icon = viewOption.icon;
-          return (
-            <Tooltip
-              key={viewOption.value}
-              arrow
-              placement="top"
-              title={t(viewOption.label)}
-            >
-              <IconButton
-                color={viewOption.value === view ? 'primary' : 'secondary'}
-                onClick={() => changeView(viewOption.value)}
+        <Box
+          sx={(theme) => ({
+            display: 'inline-flex',
+            gap: 0.5,
+            p: 0.5,
+            borderRadius: 1.25,
+            border: `1px solid ${theme.palette.divider}`,
+            bgcolor: theme.palette.background.paper
+          })}
+        >
+          {viewOptions.map((viewOption) => {
+            const Icon = viewOption.icon;
+            const selected = viewOption.value === view;
+            return (
+              <Tooltip
+                key={viewOption.value}
+                arrow
+                placement="top"
+                title={t(viewOption.label)}
               >
-                <Icon />
-              </IconButton>
-            </Tooltip>
-          );
-        })}
+                <IconButton
+                  color={selected ? 'primary' : 'default'}
+                  onClick={() => changeView(viewOption.value)}
+                  size="small"
+                  sx={(theme) => ({
+                    bgcolor: selected
+                      ? alpha(theme.palette.primary.main, 0.11)
+                      : 'transparent',
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.08)
+                    }
+                  })}
+                >
+                  <Icon />
+                </IconButton>
+              </Tooltip>
+            );
+          })}
+        </Box>
       </Grid>
     </Grid>
   );

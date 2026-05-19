@@ -367,6 +367,10 @@ const ptBRJSON = {
   'workOrders.calendar.empty.title': 'Nenhuma OS encontrada para este período',
   'workOrders.calendar.empty.description':
     'Nenhuma ordem de serviço com data de início, vencimento ou criação neste período.',
+  'workOrders.calendar.title': 'Agenda de Ordens de Serviço',
+  'workOrders.calendar.subtitle':
+    'Planejamento visual das OS por data, prazo ou início estimado.',
+  'workOrders.calendar.unscheduled': '{{count}} OS sem agendamento',
   to_delete: 'Excluir',
   confirm_delete_wo: 'Tem certeza de que deseja excluir esta Ordem de Serviço?',
   no_access_wo:

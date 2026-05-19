@@ -5,6 +5,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
 import {
+  alpha,
   Box,
   CircularProgress,
   Divider,
@@ -31,8 +32,12 @@ import enGb from '@fullcalendar/core/locales/en-gb';
 
 const FullCalendarWrapper = styled(Box)(
   ({ theme }) => `
-    padding: ${theme.spacing(3)};
+    padding: ${theme.spacing(2.5)};
     position: relative;
+    background: ${theme.palette.background.paper};
+    border-radius: ${theme.spacing(1.25)};
+    border: 1px solid ${theme.palette.divider};
+    box-shadow: 0 12px 30px ${alpha(theme.palette.common.black, 0.06)};
 
     & .fc-license-message {
       display: none;
@@ -41,26 +46,28 @@ const FullCalendarWrapper = styled(Box)(
       .fc-daygrid-day {
         cursor: pointer;
         min-height: 100px;
+        background: ${theme.palette.background.paper};
       }
       .fc-col-header-cell {
         padding: ${theme.spacing(1)};
-        background: ${theme.colors.alpha.black[5]};
+        background: ${alpha(theme.palette.primary.main, 0.05)};
+        color: ${theme.palette.text.secondary};
         font-weight: 700;
         text-transform: uppercase;
         font-size: 0.75rem;
       }
       .fc-scrollgrid {
-        border: 2px solid ${theme.colors.alpha.black[10]};
-        border-right-width: 1px;
-        border-bottom-width: 1px;
+        border: 1px solid ${theme.palette.divider};
+        border-radius: ${theme.spacing(1)};
+        overflow: hidden;
       }
       .fc-cell-shaded,
       .fc-list-day-cushion {
-        background: ${theme.colors.alpha.black[5]};
+        background: ${alpha(theme.palette.primary.main, 0.05)};
       }
       .fc-theme-standard td, .fc-theme-standard th,
       .fc-col-header-cell {
-        border: 1px solid ${theme.colors.alpha.black[10]};
+        border: 1px solid ${theme.palette.divider};
       }
       .fc-daygrid-day-events {
         min-height: 0;
@@ -71,10 +78,10 @@ const FullCalendarWrapper = styled(Box)(
         font-size: 0.85rem;
       }
       td.fc-daygrid-day.fc-day-today {
-        background-color: ${theme.colors.primary.lighter};
+        background-color: ${alpha(theme.palette.primary.main, 0.07)};
       }
       td.fc-daygrid-day:hover {
-        background: ${theme.colors.alpha.black[5]};
+        background: ${alpha(theme.palette.primary.main, 0.045)};
       }
       .fc-day-today .fc-daygrid-day-number {
         background: ${theme.palette.primary.main};
@@ -98,9 +105,9 @@ const FullCalendarWrapper = styled(Box)(
 
 const EventBlock = styled(Box)(
   ({ theme }) => `
-    padding: 1px 4px;
-    margin-bottom: 1px;
-    border-radius: 3px;
+    padding: 2px 4px;
+    margin-bottom: 2px;
+    border-radius: 6px;
     font-size: 0.7rem;
     line-height: 1.3;
     cursor: pointer;
@@ -109,7 +116,7 @@ const EventBlock = styled(Box)(
     text-overflow: ellipsis;
     transition: opacity 0.15s;
     &:hover {
-      opacity: 0.85;
+      background: ${alpha(theme.palette.primary.main, 0.06)};
     }
 `
 );
@@ -281,23 +288,86 @@ function ApplicationsCalendar({
   };
 
   const renderEventContent = (arg: any) => {
+    const color = arg.backgroundColor;
     return (
-      <EventBlock
-        sx={{
-          backgroundColor: arg.backgroundColor,
-          color: arg.textColor
-        }}
-      >
-        {arg.event.title}
+      <EventBlock>
+        <Stack direction="row" alignItems="center" spacing={0.5} minWidth={0}>
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              flex: '0 0 auto',
+              bgcolor: color,
+              boxShadow: `0 0 0 2px ${alpha(color, 0.16)}`
+            }}
+          />
+          <Typography
+            component="span"
+            variant="caption"
+            sx={{
+              color: 'text.primary',
+              fontWeight: 700,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {arg.event.title}
+          </Typography>
+        </Stack>
       </EventBlock>
     );
   };
 
   const hasEvents = calendarEvents.length > 0;
+  const unscheduledWorkOrders = calendarWorkOrders.filter(
+    (wo) => !wo.estimatedStartDate && !wo.dueDate
+  ).length;
 
   return (
     <Grid item xs={12}>
       <Box p={3}>
+        <Box
+          sx={{
+            mb: 2,
+            p: 2,
+            borderRadius: 1.5,
+            border: `1px solid ${theme.palette.divider}`,
+            bgcolor: alpha(theme.palette.primary.main, 0.035)
+          }}
+        >
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            alignItems={{ xs: 'flex-start', sm: 'center' }}
+            justifyContent="space-between"
+          >
+            <Box>
+              <Typography variant="h4">
+                {t('workOrders.calendar.title')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t('workOrders.calendar.subtitle')}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                px: 1.5,
+                py: 0.75,
+                borderRadius: 1,
+                bgcolor: theme.palette.background.paper,
+                border: `1px solid ${theme.palette.divider}`
+              }}
+            >
+              <Typography variant="subtitle2" color="text.secondary">
+                {t('workOrders.calendar.unscheduled', {
+                  count: unscheduledWorkOrders
+                })}
+              </Typography>
+            </Box>
+          </Stack>
+        </Box>
         <Actions
           date={date}
           onNext={handleDateNext}

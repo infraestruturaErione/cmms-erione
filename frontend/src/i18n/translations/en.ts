@@ -347,6 +347,10 @@ const locale = {
   'workOrders.calendar.empty.title': 'No Work Orders found for this period',
   'workOrders.calendar.empty.description':
     'No work orders with a start date, due date or creation date in this period.',
+  'workOrders.calendar.title': 'Work Order Schedule',
+  'workOrders.calendar.subtitle':
+    'Visual planning by date, due date, or estimated start.',
+  'workOrders.calendar.unscheduled': '{{count}} unscheduled work orders',
   to_delete: 'Delete',
   confirm_delete_wo: 'Are you sure you want to delete this Work Order?',
   no_access_wo:

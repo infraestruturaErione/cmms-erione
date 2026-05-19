@@ -1,4 +1,5 @@
 import {
+  alpha,
   Box,
   Button,
   CircularProgress,
@@ -399,7 +400,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   const workOrderStatuses = ['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE'];
   const tabs = [
     { value: 'details', label: t('details') },
-    { value: 'fieldExecution', label: 'Execução em Campo' },
+    { value: 'fieldExecution', label: t('field_execution') },
     {
       value: 'comments',
       label: `${t('comments')}${commentsCount > 0 ? ` (${commentsCount})` : ''}`
@@ -542,33 +543,61 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
       spacing={2}
       padding={4}
     >
-      <Grid
-        item
-        xs={12}
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-      >
-        <Box>
-          <Box sx={{ mb: 2 }}>
-            {workOrder?.priority !== 'NONE' && (
-              <PriorityWrapper priority={workOrder?.priority} withSuffix />
+      <Grid item xs={12}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'flex-start', md: 'center' },
+            gap: 2,
+            p: 2.5,
+            borderRadius: 2,
+            border: `1px solid ${theme.palette.divider}`,
+            background: `linear-gradient(135deg, ${alpha(
+              theme.palette.primary.main,
+              0.08
+            )} 0%, ${theme.palette.background.paper} 48%, ${alpha(
+              theme.palette.success.main,
+              0.08
+            )} 100%)`,
+            boxShadow: `0 18px 45px ${alpha(
+              theme.palette.common.black,
+              0.08
+            )}`
+          }}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
+              {workOrder?.priority !== 'NONE' && (
+                <PriorityWrapper priority={workOrder?.priority} withSuffix />
+              )}
+              <LabelWrapper>
+                {workOrder?.customId ?? `#${workOrder?.id}`}
+              </LabelWrapper>
+              <LabelWrapper>{t(workOrder?.status)}</LabelWrapper>
+            </Stack>
+            <Typography variant="h2" noWrap>
+              {workOrder?.title}
+            </Typography>
+            {workOrder?.description && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mt: 0.75, maxWidth: 980 }}
+              >
+                {workOrder.description}
+              </Typography>
             )}
           </Box>
-          <Typography variant="h2">{workOrder?.title}</Typography>
-          <Typography variant="h6">{workOrder?.description}</Typography>
-        </Box>
-        <Box>
+          <Stack direction="row" spacing={1} flexShrink={0}>
           {hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
-            <IconButton style={{ marginRight: 10 }} onClick={handleOpenMenu}>
+            <IconButton onClick={handleOpenMenu}>
               <MoreVertTwoToneIcon />
             </IconButton>
           )}
           {hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
-            <IconButton
-              onClick={() => onEdit(workOrder.id)}
-              style={{ marginRight: 10 }}
-            >
+            <IconButton onClick={() => onEdit(workOrder.id)}>
               <EditTwoToneIcon color="primary" />
             </IconButton>
           )}
@@ -580,6 +609,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
               />
             </IconButton>
           )}
+          </Stack>
         </Box>
       </Grid>
       <Divider />
@@ -590,7 +620,22 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
           variant="scrollable"
           scrollButtons="auto"
           textColor="primary"
-          indicatorColor="primary"
+          TabIndicatorProps={{ sx: { display: 'none' } }}
+          sx={{
+            minHeight: 42,
+            '& .MuiTab-root': {
+              minHeight: 42,
+              borderRadius: 1.25,
+              mr: 0.75,
+              textTransform: 'none',
+              fontWeight: 700,
+              color: 'text.secondary'
+            },
+            '& .Mui-selected': {
+              bgcolor: alpha(theme.palette.primary.main, 0.1),
+              color: theme.palette.primary.main
+            }
+          }}
         >
           {tabs.map((tab) => (
             <Tab key={tab.value} label={tab.label} value={tab.value} />
