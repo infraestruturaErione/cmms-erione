@@ -489,8 +489,9 @@ const CustomerShow = () => {
     assets.length ? (
       <Card sx={{ overflow: 'auto', borderRadius: 1.5 }}>
         <Table size="small">
-          <TableHead>
-            <TableRow>
+            <TableHead>
+              <TableRow>
+              <TableCell sx={{ width: 72 }}>{t('image')}</TableCell>
               <TableCell>{t('name')}</TableCell>
               <TableCell>{t('location_address', 'Local/Endereco')}</TableCell>
               <TableCell>{t('category')}</TableCell>
@@ -502,6 +503,47 @@ const CustomerShow = () => {
           <TableBody>
             {paginatedAssets.map((asset) => (
               <TableRow key={asset.id} hover>
+                <TableCell>
+                  {asset.image?.url ? (
+                    <Box
+                      component="img"
+                      src={asset.image.url}
+                      alt={asset.name}
+                      sx={{
+                        width: 48,
+                        height: 40,
+                        objectFit: 'cover',
+                        borderRadius: 1,
+                        border: `1px solid ${alpha(
+                          theme.palette.divider,
+                          0.9
+                        )}`
+                      }}
+                    />
+                  ) : (
+                    <Box
+                      sx={{
+                        width: 48,
+                        height: 40,
+                        borderRadius: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: ERIONE_VISUAL_IDENTITY.primary,
+                        backgroundColor: alpha(
+                          ERIONE_VISUAL_IDENTITY.primary,
+                          0.08
+                        ),
+                        border: `1px solid ${alpha(
+                          ERIONE_VISUAL_IDENTITY.primary,
+                          0.16
+                        )}`
+                      }}
+                    >
+                      <DevicesOtherTwoToneIcon fontSize="small" />
+                    </Box>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Typography fontWeight={700}>{asset.name}</Typography>
                 </TableCell>

@@ -103,44 +103,51 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
   return (
     <Dialog
       fullWidth
-      maxWidth="md"
+      maxWidth="lg"
       open={open}
       onClose={onClose}
       PaperProps={{
         sx: {
-          borderRadius: 1,
+          borderRadius: 2.5,
           display: 'flex',
-          height: { xs: '92vh', sm: '86vh' },
-          maxHeight: { xs: '92vh', sm: '86vh' },
+          height: { xs: '94vh', sm: '88vh' },
+          maxHeight: { xs: '94vh', sm: '88vh' },
           overflow: 'hidden',
-          boxShadow: theme.shadows[12]
+          boxShadow: `0 24px 70px ${alpha(theme.palette.common.black, 0.22)}`,
+          border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
+          backgroundColor: theme.palette.grey[50]
         }
       }}
     >
       <DialogTitle
         sx={{
-          px: { xs: 2.5, sm: 3 },
+          px: { xs: 2.5, sm: 3.5 },
           pt: { xs: 2.5, sm: 3 },
-          pb: 2,
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          backgroundColor: theme.palette.background.paper
+          pb: 2.25,
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.85)}`,
+          background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(
+            theme.palette.primary.main,
+            0.055
+          )} 100%)`
         }}
       >
-        <Typography variant="h4" sx={{ mb: 0.5, fontWeight: 700 }}>
+        <Typography variant="h3" sx={{ mb: 0.5, fontWeight: 800 }}>
           {t('add_wo')}
         </Typography>
         <Typography
           variant="body2"
-          sx={{ color: theme.palette.text.secondary, maxWidth: 620 }}
+          sx={{ color: theme.palette.text.secondary, maxWidth: 720 }}
         >
           {t('add_wo_description')}
         </Typography>
       </DialogTitle>
       <Box
         sx={{
-          px: { xs: 1.5, sm: 3 },
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          backgroundColor: theme.palette.background.paper
+          px: { xs: 1.5, sm: 3.5 },
+          py: 1.25,
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
+          backgroundColor: alpha(theme.palette.background.paper, 0.92),
+          backdropFilter: 'blur(10px)'
         }}
       >
         <Tabs
@@ -150,16 +157,16 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
           scrollButtons="auto"
           allowScrollButtonsMobile
           sx={{
-            minHeight: 52,
+            minHeight: 44,
             '& .MuiTabs-indicator': {
-              height: 3,
-              borderTopLeftRadius: 3,
-              borderTopRightRadius: 3
+              display: 'none'
             },
             '& .MuiTab-root': {
-              minHeight: 52,
-              px: { xs: 1.25, sm: 2 },
-              borderRadius: 0.75,
+              minHeight: 40,
+              mx: 0.35,
+              px: { xs: 1.25, sm: 1.75 },
+              borderRadius: 1.5,
+              border: `1px solid transparent`,
               color: theme.palette.text.secondary,
               fontWeight: 600,
               opacity: 1,
@@ -173,17 +180,18 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
                 color: 'inherit'
               },
               '&:hover': {
-                color: theme.palette.text.primary,
-                backgroundColor: alpha(theme.palette.text.primary, 0.035)
+                color: theme.palette.primary.main,
+                backgroundColor: alpha(theme.palette.primary.main, 0.055)
               }
             },
             '& .MuiTab-root.Mui-selected': {
-              color: theme.palette.primary.contrastText,
-              backgroundColor: theme.palette.primary.main,
+              color: theme.palette.primary.main,
+              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+              borderColor: alpha(theme.palette.primary.main, 0.24),
               opacity: 1,
               '&:hover': {
-                color: theme.palette.primary.contrastText,
-                backgroundColor: theme.palette.primary.dark
+                color: theme.palette.primary.dark,
+                backgroundColor: alpha(theme.palette.primary.main, 0.14)
               }
             }
           }}
@@ -198,19 +206,23 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
           display: 'flex',
           flex: 1,
           minHeight: 0,
-          p: 0,
+          p: { xs: 1.5, sm: 2.5 },
           overflow: 'hidden',
-          backgroundColor: theme.palette.background.paper
+          backgroundColor: theme.palette.grey[50]
         }}
       >
         <Box
           sx={{
-            px: { xs: 2.5, sm: 3 },
-            pt: { xs: 2.5, sm: 3 },
+            px: { xs: 1.5, sm: 2.5 },
+            pt: { xs: 1.5, sm: 2.5 },
             pb: 0,
             flex: 1,
             minHeight: 0,
             overflowY: 'auto',
+            borderRadius: 2,
+            border: `1px solid ${alpha(theme.palette.divider, 0.85)}`,
+            backgroundColor: theme.palette.background.paper,
+            boxShadow: `0 10px 30px ${alpha(theme.palette.common.black, 0.045)}`,
             '& .MuiGrid-container': {
               alignItems: 'flex-start'
             },
@@ -219,18 +231,18 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
               bottom: 0,
               zIndex: 2,
               mt: 1,
-              mx: { xs: -2.5, sm: -3 },
-              px: { xs: 2.5, sm: 3 },
-              py: 2,
+              mx: { xs: -1.5, sm: -2.5 },
+              px: { xs: 1.5, sm: 2.5 },
+              py: 1.75,
               display: 'flex',
               justifyContent: 'flex-end',
               borderTop: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
-              backgroundColor: alpha(theme.palette.background.paper, 0.98),
-              boxShadow: `0 -10px 24px ${alpha(
+              backgroundColor: alpha(theme.palette.background.paper, 0.94),
+              boxShadow: `0 -8px 20px ${alpha(
                 theme.palette.common.black,
-                0.06
+                0.05
               )}`,
-              backdropFilter: 'blur(6px)'
+              backdropFilter: 'blur(10px)'
             },
             '& .MuiGrid-item:last-of-type .MuiButton-root': {
               minWidth: 120,

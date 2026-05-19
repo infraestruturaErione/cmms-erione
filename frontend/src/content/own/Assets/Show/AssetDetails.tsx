@@ -8,7 +8,8 @@ import {
   Stack,
   styled,
   Typography,
-  useTheme
+  useTheme,
+  alpha
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { AssetDTO } from '../../../../models/owns/asset';
@@ -29,6 +30,7 @@ import Loading from '../../Analytics/Loading';
 import { PermissionEntity } from '../../../../models/owns/role';
 import SplitButton from '../../components/SplitButton';
 import AddTwoToneIcon from '@mui/icons-material/AddTwoTone';
+import DevicesOtherTwoToneIcon from '@mui/icons-material/DevicesOtherTwoTone';
 import { PlanFeature } from '../../../../models/owns/subscriptionPlan';
 import * as React from 'react';
 import useAuth from '../../../../hooks/useAuth';
@@ -174,20 +176,85 @@ const AssetDetails = ({ asset, loading }: PropsType) => {
     <Box sx={{ px: 4 }}>
       <Grid container spacing={2}>
         <Grid item xs={12}>
-          <Card sx={{ p: 2 }}>
+          <Card sx={{ p: 2.5, borderRadius: 2 }}>
             <Grid container spacing={2} padding={2}>
-              {asset?.image && (
-                <Grid item xs={12}>
-                  <img width="auto" height="300px" src={asset.image.url} />
-                </Grid>
-              )}
               <Grid item xs={12}>
-                <Stack direction={'row'} justifyContent={'space-between'}>
-                  <Stack direction={'row'} spacing={2} alignItems={'center'}>
-                    <Typography variant="h3">
-                      {t('equipment_device_information', 'Dados do equipamento/dispositivo')}
-                    </Typography>
-                    {asset && <AssetStatusTag status={asset.status} />}
+                <Stack
+                  direction={{ xs: 'column', md: 'row' }}
+                  spacing={2.5}
+                  justifyContent="space-between"
+                  alignItems={{ xs: 'stretch', md: 'center' }}
+                  sx={{
+                    p: 2,
+                    mb: 1,
+                    borderRadius: 2,
+                    border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
+                    backgroundColor: alpha(theme.palette.primary.main, 0.025)
+                  }}
+                >
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    alignItems={{ xs: 'stretch', sm: 'center' }}
+                  >
+                    {asset?.image?.url ? (
+                      <Box
+                        component="img"
+                        src={asset.image.url}
+                        alt={asset.name}
+                        sx={{
+                          width: { xs: '100%', sm: 180 },
+                          height: 132,
+                          objectFit: 'cover',
+                          borderRadius: 1.5,
+                          border: `1px solid ${alpha(
+                            theme.palette.divider,
+                            0.9
+                          )}`,
+                          boxShadow: `0 10px 24px ${alpha(
+                            theme.palette.common.black,
+                            0.08
+                          )}`
+                        }}
+                      />
+                    ) : (
+                      <Box
+                        sx={{
+                          width: { xs: '100%', sm: 180 },
+                          height: 132,
+                          borderRadius: 1.5,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: theme.palette.primary.main,
+                          backgroundColor: alpha(
+                            theme.palette.primary.main,
+                            0.08
+                          ),
+                          border: `1px dashed ${alpha(
+                            theme.palette.primary.main,
+                            0.28
+                          )}`
+                        }}
+                      >
+                        <DevicesOtherTwoToneIcon sx={{ fontSize: 48 }} />
+                      </Box>
+                    )}
+                    <Box>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography variant="h3">
+                          {t(
+                            'equipment_device_information',
+                            'Dados do equipamento/dispositivo'
+                          )}
+                        </Typography>
+                        {asset && <AssetStatusTag status={asset.status} />}
+                      </Stack>
+                      <Typography mt={0.75} color="text.secondary">
+                        {asset?.location?.name ||
+                          t('no_location', 'Sem local vinculado')}
+                      </Typography>
+                    </Box>
                   </Stack>
                   {hasCreatePermission(PermissionEntity.WORK_ORDERS) && (
                     <Button

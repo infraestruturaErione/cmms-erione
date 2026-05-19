@@ -23,7 +23,14 @@ import { getCustomFieldsValues, IField } from '../type';
 import ReplayTwoToneIcon from '@mui/icons-material/ReplayTwoTone';
 import Location, { LocationRow } from '../../../models/owns/location';
 import * as React from 'react';
-import { ChangeEvent, useContext, useEffect, useState } from 'react';
+import {
+  ChangeEvent,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
 import { TitleContext } from '../../../contexts/TitleContext';
 import {
   addLocation,
@@ -60,7 +67,7 @@ import { getLocationUrl } from '../../../utils/urlPaths';
 import { useExport } from '../../../hooks/useExport';
 import MoreVertTwoToneIcon from '@mui/icons-material/MoreVertTwoTone';
 import { PlanFeature } from '../../../models/owns/subscriptionPlan';
-import { Pageable, Sort } from '../../../models/owns/page';
+import { Page, Pageable, SearchCriteria, Sort } from '../../../models/owns/page';
 import { googleMapsConfig } from '../../../config';
 import { getErrorMessage } from '../../../utils/api';
 import SplitButton from '../components/SplitButton';
@@ -82,6 +89,7 @@ import { getCustomFields } from '../../../slices/customField';
 import { CustomFieldEntityType } from '../../../models/owns/customField';
 import { getCustomFieldsIFields, getCustomFieldsRequiredShape } from '../type';
 import { formatCustomFields } from '../../../utils/formatters';
+import api from '../../../utils/api';
 import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
 import OpenInNewTwoToneIcon from '@mui/icons-material/OpenInNewTwoTone';
 
@@ -98,9 +106,14 @@ function Locations() {
   const [openDelete, setOpenDelete] = useState<boolean>(false);
   const { apiKey } = googleMapsConfig;
 
-  const { locationsHierarchy, locations, loadingGet } = useSelector(
+  const { locationsHierarchy, loadingGet } = useSelector(
     (state) => state.locations
   );
+  const [searchResults, setSearchResults] = useState<Location[]>([]);
+  const [searchTotal, setSearchTotal] = useState(0);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [mapLocations, setMapLocations] = useState<Location[]>([]);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>();
   const { customFields } = useSelector((state) => state.customFields);
   const [deployedLocations, setDeployedLocations] = useState<
     { id: number; hierarchy: number[] }[]
@@ -194,8 +207,9 @@ function Locations() {
 
   const changeCurrentLocation = (id: number) => {
     setCurrentLocation(
-      locations.find((location) => location.id === id) ||
-        locationsHierarchy.find((location) => location.id === id)
+      locationsHierarchy.find((location) => location.id === id) ||
+        searchResults.find((location) => location.id === id) ||
+        mapLocations.find((location) => location.id === id)
     );
   };
   const handleDelete = (id: number) => {
@@ -231,7 +245,10 @@ function Locations() {
     showSnackBar(t('location_delete_failure'), 'error');
 
   const handleOpenDetails = (id: number) => {
-    const foundLocation = locations.find((location) => location.id === id);
+    const foundLocation =
+      locationsHierarchy.find((location) => location.id === id) ||
+      searchResults.find((location) => location.id === id) ||
+      mapLocations.find((location) => location.id === id);
     if (foundLocation) {
       setCurrentLocation(foundLocation);
       window.history.replaceState(null, 'Location details', getLocationUrl(id));
@@ -242,18 +259,67 @@ function Locations() {
     window.history.replaceState(null, 'Location', `/app/locations`);
     setOpenDrawer(false);
   };
+  const fetchSearchResults = useCallback(
+    async (query: string, pageIdx: number, pageSz: number) => {
+      if (!hasViewPermission(PermissionEntity.LOCATIONS)) return;
+      setSearchLoading(true);
+      try {
+        const criteria: SearchCriteria = {
+          filterFields: query
+            ? [
+                {
+                  field: 'name',
+                  operation: 'cn',
+                  value: query,
+                  values: []
+                }
+              ]
+            : [],
+          pageNum: pageIdx,
+          pageSize: pageSz,
+          sortField: 'name',
+          direction: 'ASC'
+        };
+        const response = await api.post<Page<Location>>(
+          'locations/search',
+          criteria
+        );
+        setSearchResults(response.content);
+        setSearchTotal(response.totalElements);
+      } catch {
+        setSearchResults([]);
+        setSearchTotal(0);
+      }
+      setSearchLoading(false);
+    },
+    [hasViewPermission]
+  );
+
   useEffect(() => {
     setTitle(t('locations_addresses', 'Locais/Enderecos'));
-    if (hasViewPermission(PermissionEntity.LOCATIONS)) {
-      dispatch(getLocations());
-    }
   }, []);
 
   useEffect(() => {
-    if (hasViewPermission(PermissionEntity.LOCATIONS)) {
-      dispatch(getLocationChildren(0, [], pageable));
+    if (!hasViewPermission(PermissionEntity.LOCATIONS)) return;
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
     }
-  }, [pageable]);
+    searchDebounceRef.current = setTimeout(() => {
+      fetchSearchResults(searchQuery, pageable.page, pageable.size);
+    }, 250);
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [fetchSearchResults, hasViewPermission, pageable, searchQuery]);
+
+  useEffect(() => {
+    if (!hasViewPermission(PermissionEntity.LOCATIONS) || !apiKey) return;
+    if (currentTab === 'map' && !mapLocations.length) {
+      api.get<Location[]>('locations').then(setMapLocations).catch(() => {});
+    }
+  }, [currentTab, apiKey]);
 
   const handleToggleExpand = async (row: LocationRow) => {
     const isExpanded = expanded[row.id];
@@ -294,10 +360,16 @@ function Locations() {
   };
 
   useEffect(() => {
-    if (locations?.length && locationId && isNumeric(locationId)) {
-      handleOpenDetails(Number(locationId));
+    if (locationId && isNumeric(locationId)) {
+      const found =
+        locationsHierarchy.find((l) => l.id === Number(locationId)) ||
+        searchResults.find((l) => l.id === Number(locationId)) ||
+        mapLocations.find((l) => l.id === Number(locationId));
+      if (found) {
+        handleOpenDetails(Number(locationId));
+      }
     }
-  }, [locations]);
+  }, [locationId, locationsHierarchy, searchResults, mapLocations]);
 
   // Handle query params for inline creation (new=true&name=${name})
   useEffect(() => {
@@ -864,15 +936,7 @@ function Locations() {
     subRowsMap
   );
 
-  // Filter table data based on search query
-  const filteredTableData = searchQuery.trim()
-    ? locations.filter(
-        (row) =>
-          row.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          row.customId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          row.address?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : tableData;
+  const filteredTableData = searchResults;
   // Handle pagination change for hierarchy view
   const handlePaginationChange = (newPagination: {
     pageIndex: number;
@@ -938,7 +1002,12 @@ function Locations() {
               <Box />
             )}
             <Stack direction={'row'} alignItems="center" spacing={1}>
-              <SearchInput onChange={(e) => setSearchQuery(e.target.value)} />
+              <SearchInput
+                onChange={(e) => {
+                  setPageable((prev) => ({ ...prev, page: 0 }));
+                  setSearchQuery(e.target.value);
+                }}
+              />
               <IconButton onClick={() => handleReset(true)} color="primary">
                 <ReplayTwoToneIcon />
               </IconButton>
@@ -978,15 +1047,15 @@ function Locations() {
             >
               <Box sx={{ width: '95%' }}>
                 <CustomDatagrid2
-                  columns={searchQuery?.trim() ? columns.slice(1) : columns}
+                  columns={columns.slice(1)}
                   data={filteredTableData}
-                  loading={loadingGet}
+                  loading={searchLoading}
                   pagination={{
                     pageIndex: pageable.page,
                     pageSize: pageable.size
                   }}
                   onPaginationChange={handlePaginationChange}
-                  totalRows={locationsHierarchy.length}
+                  totalRows={searchTotal}
                   pageSizeOptions={[10, 25, 50, 100]}
                   sorting={hierarchySorting}
                   onSortingChange={handleSortingChange}
@@ -1016,7 +1085,7 @@ function Locations() {
             >
               <Map
                 dimensions={{ width: 1000, height: 500 }}
-                locations={locations
+                locations={mapLocations
                   .filter((location) => location.longitude)
                   .map(({ name, longitude, latitude, address, id }) => {
                     return {
