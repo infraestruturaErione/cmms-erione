@@ -9,6 +9,23 @@ import { revertAll } from '../utils/redux';
 
 const basePath = 'work-orders';
 
+export interface WorkOrderDepartPayload {
+  departureLat?: number | null;
+  departureLng?: number | null;
+}
+
+export interface WorkOrderCheckInPayload {
+  checkInLat?: number | null;
+  checkInLng?: number | null;
+  checkInAddress?: string | null;
+}
+
+export interface WorkOrderCheckOutPayload {
+  checkOutLat?: number | null;
+  checkOutLng?: number | null;
+  checkOutAddress?: string | null;
+}
+
 interface WorkOrderState {
   workOrders: Page<WorkOrder>;
   workOrdersByLocation: { [key: number]: WorkOrder[] };
@@ -275,6 +292,33 @@ export const changeWorkOrderStatus =
   async (dispatch) => {
     const workOrderResponse = await api.patch<WorkOrder>(
       `${basePath}/${id}/change-status`,
+      body
+    );
+    dispatch(slice.actions.editWorkOrder({ workOrder: workOrderResponse }));
+  };
+export const departWorkOrder =
+  (id: number, body: WorkOrderDepartPayload): AppThunk =>
+  async (dispatch) => {
+    const workOrderResponse = await api.post<WorkOrder>(
+      `${basePath}/${id}/depart`,
+      body
+    );
+    dispatch(slice.actions.editWorkOrder({ workOrder: workOrderResponse }));
+  };
+export const checkInWorkOrder =
+  (id: number, body: WorkOrderCheckInPayload): AppThunk =>
+  async (dispatch) => {
+    const workOrderResponse = await api.post<WorkOrder>(
+      `${basePath}/${id}/check-in`,
+      body
+    );
+    dispatch(slice.actions.editWorkOrder({ workOrder: workOrderResponse }));
+  };
+export const checkOutWorkOrder =
+  (id: number, body: WorkOrderCheckOutPayload): AppThunk =>
+  async (dispatch) => {
+    const workOrderResponse = await api.post<WorkOrder>(
+      `${basePath}/${id}/check-out`,
       body
     );
     dispatch(slice.actions.editWorkOrder({ workOrder: workOrderResponse }));

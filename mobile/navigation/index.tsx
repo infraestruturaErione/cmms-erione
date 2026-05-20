@@ -593,7 +593,7 @@ function BottomTabNavigator({ navigation }: RootTabScreenProps<'Home'>) {
                   fontWeight: 'bold'
                 }}
               >
-                Atlas
+                Erione
               </Text>
             ),
             title: t('home'),

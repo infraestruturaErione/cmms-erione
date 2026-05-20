@@ -7,12 +7,12 @@ const googleServicesPlist = process.env.GOOGLE_SERVICES_PLIST;
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Atlas CMMS',
-  slug: 'atlas-cmms',
+  name: 'Erione CMMS',
+  slug: 'erione-cmms',
   version: '1.0.40',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
-  scheme: 'atlascmms',
+  scheme: 'erionecmms',
   userInterfaceStyle: 'automatic',
   newArchEnabled: false,
   notification: {
@@ -21,7 +21,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   splash: {
     image: './assets/images/splash.png',
     resizeMode: 'contain',
-    backgroundColor: '#ffffff'
+    backgroundColor: '#F4F7FB'
   },
   updates: {
     fallbackToCacheTimeout: 0,
@@ -70,7 +70,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-camera',
       {
-        cameraPermission: 'Allow Atlas to access camera.'
+        cameraPermission: 'Allow Erione CMMS to access camera.'
       }
     ],
     [

@@ -11,7 +11,13 @@ import PreventiveMaintenance from './preventiveMaintenance';
 import { WorkOrderBase } from './workOrderBase';
 
 export type Priority = 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
-export type WorkOrderStatus = 'OPEN' | 'ON_HOLD' | 'IN_PROGRESS' | 'COMPLETE';
+export type WorkOrderStatus =
+  | 'OPEN'
+  | 'ON_HOLD'
+  | 'IN_PROGRESS'
+  | 'COMPLETE'
+  | 'CLOSED'
+  | 'CANCELLED';
 
 export default interface WorkOrder extends WorkOrderBase {
   category: Category | null;
@@ -27,5 +33,16 @@ export default interface WorkOrder extends WorkOrderBase {
   status: WorkOrderStatus;
   audioDescription: File;
   customId: string;
+  departureAt?: string | null;
+  departureLat?: number | null;
+  departureLng?: number | null;
+  checkInAt?: string | null;
+  checkInLat?: number | null;
+  checkInLng?: number | null;
+  checkInAddress?: string | null;
+  checkOutAt?: string | null;
+  checkOutLat?: number | null;
+  checkOutLng?: number | null;
+  checkOutAddress?: string | null;
   //parentPreventiveMaintenance:
 }

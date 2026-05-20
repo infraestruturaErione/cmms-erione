@@ -1,4 +1,4 @@
-const locale = {
+﻿const locale = {
   DUPLICATE_OF: 'Duplicate of',
   DUPLICATED_BY: 'Duplicated by',
   RELATED_TO: 'Related to',
@@ -14,9 +14,10 @@ const locale = {
   COMPLETE: 'Complete',
   'home.built': 'Built to Make Managing Maintenance Easier',
   home_description:
-    "When whiteboards and sticky notes are chaos, and you need a CMMS software that's easy enough for your team to actually use - try Atlas",
-  try_grash: 'Try Atlas',
+    'Field service, work orders and service execution in one operational app.',
+  try_grash: 'Open Erione CMMS',
   login: 'Log In',
+  erione_mobile_login_subtitle: 'Field service and work orders',
   start_trial: 'Start a Free trial',
   'home.what': 'What',
   'home.you_will_have': "You'll have",
@@ -24,7 +25,7 @@ const locale = {
     'Build efficient, reliable workflows that put you in control of maintenance. Generate, assign, and track work orders. Control inventory. And get reliable automated reports that improve visibility and create accountability.',
   key_features: 'Key Features',
   key_features_description:
-    'Some of the features that make Atlas one of the best CMMS available today',
+    'Operational tools for service teams, assets, locations and work orders',
   contribute: 'Contribute',
   work_orders: 'Work Orders',
   request_system: 'Work Request System',
@@ -38,7 +39,7 @@ const locale = {
   'work-orders.descriptions.0':
     'Sick of the reams of paperwork and lost Work Orders? All of those lost items directly affect the bottom line and your reputation.',
   'work-orders.descriptions.1':
-    'With Atlas you can easily and quickly organize all of your Work Orders, PMs and other Tasks throughout your team in a centralized database that can be accessed anywhere on any device.',
+    'With Erione CMMS you can organize work orders, requests and field tasks in a central workspace available from any device.',
   'work-orders.checks.0':
     'View all of your Tasks including WOs, PMs, and Work Requests',
   'work-orders.checks.1':
@@ -53,7 +54,7 @@ const locale = {
   'work-requests.descriptions.0':
     'Sick of using the old phone and email system that result in LOST tickets, constant daily interruptions, and duplicated work?',
   'work-requests.descriptions.1':
-    'Atlas’s maintenance management solution allows anyone you authorize to submit a problem to your maintenance department by simply scanning a QR code (bar code) or visiting a URL and typing in their request through their mobile devices.',
+    'Erione CMMSâ€™s maintenance management solution allows anyone you authorize to submit a problem to your maintenance department by simply scanning a QR code (bar code) or visiting a URL and typing in their request through their mobile devices.',
   'work-requests.checks.0': 'Never lose Work again.',
   'work-requests.checks.1':
     'Reduce time spent handling Work Requests by up to 34%.',
@@ -78,9 +79,9 @@ const locale = {
   'eam.title': 'Enterprise Asset Management',
   'eam.description.short': 'Know your assets',
   'eam.descriptions.0':
-    'Frustrated with trying to organize the chaotic mess of company’s equipment, wondering if the equipment has been properly taken care of, not knowing what they cost to maintain and all the other headaches that come with managing assets?',
+    'Frustrated with trying to organize the chaotic mess of companyâ€™s equipment, wondering if the equipment has been properly taken care of, not knowing what they cost to maintain and all the other headaches that come with managing assets?',
   'eam.descriptions.1':
-    'Atlas CMMS’s Enterprise Asset Management module can be used for anywhere between 10 to 1,000,000 Assets, allowing you to track exactly what you want, the way you want to, in an easy-to-use and searchable tree structure.',
+    'Erione CMMSâ€™s Enterprise Asset Management module can be used for anywhere between 10 to 1,000,000 Assets, allowing you to track exactly what you want, the way you want to, in an easy-to-use and searchable tree structure.',
   'eam.checks.0':
     'Know the health of your assets at every point of time and what they are costing you',
   'eam.checks.1': 'View complete and detailed Maintenance Logs.',
@@ -94,7 +95,7 @@ const locale = {
   'pm.descriptions.0':
     'Stop wasting precious hours manually distributing PM checklists and following up with your team to make sure the work is done.',
   'pm.descriptions.1':
-    'Atlas allows you to easily automate PM scheduling so the right work is automatically delivered at the right time to the right technician for the right Asset.',
+    'Erione CMMS allows you to easily automate PM scheduling so the right work is automatically delivered at the right time to the right technician for the right Asset.',
   'pm.checks.0':
     'Automate PM scheduling to be daily, weekly, monthly, yearly, or based on events or meter readings.',
   'pm.checks.1':
@@ -103,17 +104,17 @@ const locale = {
     'Our easy-to-use Calendar allows you to view all open work and upcoming PM schedules.',
   'pm.checks.3': 'Drag and drop to change due date.',
   'pm.checks.4':
-    'Upon PM completion, the work is automatically logged in the asset’s maintenance log..',
+    'Upon PM completion, the work is automatically logged in the assetâ€™s maintenance log..',
   'pm.checks.5': 'Requires little to no training to use.',
 
   'part.title': 'Get Control of your Spare Parts Inventory',
   'part.description.short': 'Know when your parts will run out',
   'part.descriptions.0':
-    'Not sure what parts you have in stock or where they are being used? Don’t know when your parts will run out or if your technicians will have the necessary parts to do their jobs?',
+    'Not sure what parts you have in stock or where they are being used? Donâ€™t know when your parts will run out or if your technicians will have the necessary parts to do their jobs?',
   'part.descriptions.1':
-    'We designed Atlas’s parts management to solve those problems and more:',
+    'We designed Erione CMMSâ€™s parts management to solve those problems and more:',
   'part.checks.0':
-    'Get instant push and email notifications when a part’s quantity is low. Keep the right number of parts in stock by receiving instant and automatic push/email notifications when the quantity of a part is below a custom set threshold.',
+    'Get instant push and email notifications when a partâ€™s quantity is low. Keep the right number of parts in stock by receiving instant and automatic push/email notifications when the quantity of a part is below a custom set threshold.',
   'part.checks.1':
     'Technicians instantly know if the part is in stock from inside of a Work Order. If the part is not in stock easily check other locations to see if it is available.',
   'part.checks.2':
@@ -130,22 +131,22 @@ const locale = {
 
   'dashboard.title': 'Your data, your way with custom dashboards',
   'dashboard.descriptions.0':
-    'Let’s face it, the first step to improving your operations is to know the good, the bad and the ugly.',
+    'Letâ€™s face it, the first step to improving your operations is to know the good, the bad and the ugly.',
   'dashboard.descriptions.1':
-    'With Atlas’s Custom Dashboards you can finally start to understand that nefarious “black hole of maintenance” and begin putting data-backed plans into action, resulting in reduced labor costs, decreased downtime and more.',
-  'dashboard.descriptions.2': 'With Atlas’s Custom Dashboards you’ll get to …',
+    'With Erione CMMSâ€™s Custom Dashboards you can finally start to understand that nefarious â€œblack hole of maintenanceâ€ and begin putting data-backed plans into action, resulting in reduced labor costs, decreased downtime and more.',
+  'dashboard.descriptions.2': 'With Erione CMMSâ€™s Custom Dashboards youâ€™ll get to â€¦',
   'dashboard.checks.0': 'Know where your money is being spent and why',
   'dashboard.checks.1': 'Know which asset is costing the most and why',
   'dashboard.checks.2': 'Create your own custom KPIs.',
   'dashboard.checks.3':
     'View reports that are automatically generated and updated based on your metric',
   'dashboard.checks.4':
-    'View reports that are easily shared via Excel sheets, PDFs or within Atlas',
+    'View reports that are easily shared via Excel sheets, PDFs or within Erione CMMS',
   'dashboard.checks.5': 'And so much more ...',
   'home.smarter': 'Smarter',
   'home.work': 'Work',
   'home.smarter_description':
-    'Atlas makes it incredibly easy for technicians to work efficiently by giving them access to the tools and data they need to get work done — all from the palm of their hand.',
+    'Erione CMMS makes it incredibly easy for technicians to work efficiently by giving them access to the tools and data they need to get work done â€” all from the palm of their hand.',
   leading_maintenance:
     'Leading the Way to a Better Future for Maintenance and Reliability',
   //register
@@ -182,7 +183,7 @@ const locale = {
   register: 'Register',
   //signin
   login_description: 'Fill in the fields below to sign into your account.',
-  no_account_yet: 'Don’t have an account, yet?',
+  no_account_yet: 'Donâ€™t have an account, yet?',
   signup_here: 'Sign up here',
   wrong_credentials: 'Wrong credentials provided',
   lost_password: 'Lost password ?',
@@ -279,9 +280,9 @@ const locale = {
   completed_by: 'Completed By',
   time: 'Time',
   save: 'Save',
-  customers: 'Contractors',
+  customers: 'Customers/Cities',
   no_labor:
-    "No labor costs have been added yet. They'll show up here when a user logs time and has an hourly rate stored in Atlas.",
+    "No labor costs have been added yet. They'll show up here when a user logs time and has an hourly rate stored in Erione CMMS.",
   not_assigned: 'Not Assigned',
   no_additional_cost: 'No Additional costs have been added yet',
   parts: 'Parts',
@@ -361,19 +362,19 @@ const locale = {
   wo_analysis: 'Work Order analysis',
   wo_aging: 'Work Order Aging',
   time_and_cost: 'Time and Cost',
-  assets: 'Assets',
+  assets: 'Equipment/Devices',
   reliability_dashboard: 'Reliability Dashboard',
   total_maintenance_cost: 'Total Maintenance Cost',
   useful_life: 'Useful life',
   requests: 'Requests',
-  locations: 'Locations',
+  locations: 'Locations/Addresses',
   parts_and_inventory: 'Parts/Inventory',
   purchase_orders: 'Purchase Orders',
   meters: 'Meters',
   people_teams: 'People & Teams',
   people: 'People',
   teams: 'Teams',
-  vendors_customers: 'Vendors & Contractors',
+  vendors_customers: 'Customers/Cities',
   vendors: 'Vendors',
   categories: 'Categories',
   settings: 'Settings',
@@ -496,7 +497,7 @@ const locale = {
   floor_plans: 'Floor Plans',
   floor_plan: 'Floor Plan',
   floor_plan_name_description: 'Floor plan name',
-  'Floor plan area in m²': 'Floor plan area in m²',
+  'Floor plan area in mÂ²': 'Floor plan area in mÂ²',
   upload_image: 'Upload an image',
   required_floor_plan_name: 'Floor plan name is required',
   add_floor_plan: 'Add new Floor Plan',
@@ -507,7 +508,7 @@ const locale = {
   no_file_in_location: 'No Files attached to this location',
   no_floor_plan_in_location: 'No Floor Plan in this location',
   assigned_teams: 'Assigned Teams',
-  assigned_customers: 'Assigned Contractors',
+  assigned_customers: 'Assigned Customers/Cities',
   assigned_vendors: 'Assigned Vendors',
   //no_access
   no_access_location:
@@ -690,8 +691,8 @@ const locale = {
   you_have_uploaded: 'You have uploaded',
   upload: 'Upload',
   //vendors_customers
-  Vendors_Customers: 'Vendors & Contractors',
-  customer_create_success: 'The Contractor has been created successfully',
+  Vendors_Customers: 'Customers/Cities',
+  customer_create_success: 'The customer/city has been created successfully',
   customer_create_failure: "The Contractor couldn't be created",
   customer_edit_failure: "The Contractor couldn't be edited",
   customer_delete_success: 'The Contractor has been deleted successfully',
@@ -842,7 +843,7 @@ const locale = {
   external_id: 'External ID',
   permissions: 'Permissions',
   create_role_description:
-    'This role can do everything an Administrator can do in Atlas, but you can customize some important permissions below.',
+    'This role can do everything an Administrator can do in Erione CMMS, but you can customize some important permissions below.',
   create_and_edit: 'Create/Edit',
   to_access: 'Access',
   role_delete_success: 'The Role has been deleted successfully',
@@ -1060,7 +1061,7 @@ const locale = {
   your_payment_secure: 'Your payment data is encrypted and secure.',
   plan: 'Plan',
   current_plan: 'Current Plan',
-  number_users_who_will_use_grash: 'Number of users who will use Atlas',
+  number_users_who_will_use_grash: 'Number of users who will use Erione CMMS',
   admin_role: 'Admin',
   technical_role: 'Technical',
   limited_technical_role: 'Limited Technical',
@@ -1161,7 +1162,7 @@ const locale = {
   select_columns: 'Select columns',
   show_filters: 'Show filters',
   hide_filters: 'Hide filters',
-  search_placeholder: 'Search…',
+  search_placeholder: 'Searchâ€¦',
   search: 'Search',
   clear: 'Clear',
   download_as_csv: 'Download as CSV',
@@ -1221,7 +1222,7 @@ const locale = {
   and_optional: 'And(Optional)',
   then: 'Then',
   workflow_description:
-    'Create custom workflows as easy as If, And, Then. Save time and easily assign your work orders automatically through workflows to customize Atlas for the way your team operates.\nAll plans can create up to 1 custom workflow. To add additional workflows, upgrade to our Business plan',
+    'Create custom workflows as easy as If, And, Then. Save time and easily assign your work orders automatically through workflows to customize Erione CMMS for the way your team operates.\nAll plans can create up to 1 custom workflow. To add additional workflows, upgrade to our Business plan',
   CREATE_PURCHASE_ORDER: 'Create a Purchase Order',
   PART_IS: 'The Part is',
   QUANTITY_INFERIOR: 'The quantity is inferior to',
@@ -1284,7 +1285,7 @@ const locale = {
   upgrade: 'Upgrade',
   downgrade: 'Downgrade',
   upgrade_description:
-    'You just upgraded your subscription plan. You need to enable the disabled users who might use Atlas. You can only do this once for the current subscription. Please choose carefully',
+    'You just upgraded your subscription plan. You need to enable the disabled users who might use Erione CMMS. You can only do this once for the current subscription. Please choose carefully',
   enable_users: 'Enable users',
   max_users_description: 'You can enable up to {{maxUsers}} users',
   downgrade_description:
@@ -1345,8 +1346,8 @@ const locale = {
   select_vendors: 'Select Vendors',
   select_users: 'Select Users',
   select_teams: 'Select Teams',
-  select_locations: 'Select Locations',
-  select_assets: 'Select Assets',
+  select_locations: 'Select Locations/Addresses',
+  select_assets: 'Select Equipment/Devices',
   select_categories: 'Select Categories',
   estimated_hours_in_text: '{{hours}} estimated hours',
   create_meter: 'Create Meter',
@@ -1371,7 +1372,7 @@ const locale = {
   all_time: 'All time',
   compliant_work_orders: 'Compliant Work Orders',
   stats: 'Stats',
-  vendors_and_customers: 'Vendors & Contractors',
+  vendors_and_customers: 'Customers/Cities',
   no_notification_message:
     'Important updates will appear here to help you follow the progress of your work',
   no_notification: 'No notification',
@@ -1478,6 +1479,49 @@ const locale = {
   post_comment: 'Post comment',
   confirm_delete_comment: 'Are you sure you want to delete this comment?',
   add_comment_placeholder: 'Add a comment...',
+  field_execution: 'Field Execution',
+  field_execution_mobile_helper:
+    'Follow the technician flow without confusing field execution with Work Order completion.',
+  not_started: 'Not started',
+  en_route: 'En route',
+  on_site: 'On site',
+  field_execution_finished: 'Field execution finished',
+  next_action: 'Next action',
+  start_travel: 'Start travel',
+  make_check_in: 'Check in',
+  make_check_out: 'Check out',
+  review_closure: 'Review closure',
+  view_work_order: 'View Work Order',
+  open_work_order: 'Open Work Order',
+  next_action_start_travel_helper: 'Start the route to the service location.',
+  next_action_check_in_helper: 'Confirm arrival at the service location.',
+  next_action_check_out_helper: 'Finish the field visit after recording the service.',
+  field_finished_work_order_open_helper:
+    'Field work is finished, but the Work Order is not completed yet.',
+  work_order_completed_helper: 'This Work Order is already complete.',
+  next_action_open_work_order_helper: 'Review the Work Order details.',
+  travel_started: 'Travel started',
+  check_in_done: 'Check-in completed',
+  check_out_done: 'Check-out completed',
+  field_service_in_progress: 'Field service',
+  site_duration: 'Time on site',
+  travel_duration: 'Travel time',
+  total_field_duration: 'Total field time',
+  completed_step: 'Completed',
+  pending_step: 'Pending',
+  field_report: 'Field report',
+  field_report_registered: 'Field report registered',
+  field_report_pending: 'Field report pending',
+  evidence_registered: 'Evidence registered',
+  evidence_pending: 'Evidence pending',
+  register_field_report_photo: 'Register report/photo',
+  select_photo: 'Select photo',
+  take_photo: 'Take photo',
+  field_report_photo_only: 'Photo evidence registered.',
+  field_report_save_success: 'Field report saved',
+  field_execution_action_success: 'Field execution updated',
+  service_checklist: 'Service checklist',
+  remaining_service_checklist_items: '{{count}} checklist items remaining',
   id_required: 'ID is required'
 };
 export default locale;

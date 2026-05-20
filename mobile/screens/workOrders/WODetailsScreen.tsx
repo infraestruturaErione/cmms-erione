@@ -86,6 +86,10 @@ import { getUsersMini } from '../../slices/user';
 import { TriggersConfig } from 'react-native-controlled-mentions/dist/types/types';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import FieldExecutionSection, {
+  hasFieldReport,
+  hasFieldReportEvidence
+} from './FieldExecutionSection';
 
 const getRemainingTasksLength = (tasks: Task[]): number => {
   const SECONDS_MS = 5_000;
@@ -196,6 +200,11 @@ export default function WODetailsScreen({
   const statuses = ['OPEN', 'ON_HOLD', 'IN_PROGRESS', 'COMPLETE'].map(
     (status) => ({ value: status, label: t(status) })
   );
+  const fieldReportRegistered = hasFieldReport(comments);
+  const fieldEvidenceRegistered =
+    !!workOrder?.image ||
+    !!workOrder?.files?.length ||
+    hasFieldReportEvidence(comments);
   const [openDelete, setOpenDelete] = React.useState(false);
   const [openArchive, setOpenArchive] = React.useState(false);
   const remainingTasksLength = getRemainingTasksLength(tasks);
@@ -276,12 +285,35 @@ export default function WODetailsScreen({
       permissionEntity: PermissionEntity.PEOPLE_AND_TEAMS
     }
   ];
+  const isWorkOrderFieldHidden = (fieldName: string): boolean =>
+    workOrderConfiguration.workOrderFieldConfigurations.find(
+      (woFC) => woFC.fieldName === fieldName
+    )?.fieldType === 'HIDDEN';
+
+  const showPartsSection =
+    !generalPreferences.simplifiedWorkOrder &&
+    !isWorkOrderFieldHidden('completeParts');
+
+  const showAdditionalCostsSection =
+    !generalPreferences.simplifiedWorkOrder &&
+    !isWorkOrderFieldHidden('completeCost');
+
+  const showLaborSection =
+    !generalPreferences.simplifiedWorkOrder &&
+    !isWorkOrderFieldHidden('completeTime');
+
   const getInfos = () => {
     if (!workOrderProp) dispatch(getWorkOrderDetails(id));
-    if (!generalPreferences.simplifiedWorkOrder) {
+    if (showPartsSection) {
       dispatch(getPartQuantitiesByWorkOrder(id));
+    }
+    if (showLaborSection) {
       dispatch(getLabors(id));
+    }
+    if (showAdditionalCostsSection) {
       dispatch(getAdditionalCosts(id));
+    }
+    if (!generalPreferences.simplifiedWorkOrder) {
       dispatch(getRelations(id));
     }
     dispatch(getTasks(id));
@@ -415,7 +447,7 @@ export default function WODetailsScreen({
     const fieldsToTest = [
       {
         name: 'completeFiles',
-        condition: !workOrder?.files.length,
+        condition: !fieldEvidenceRegistered || !fieldReportRegistered,
         message: 'required_files_on_completion'
       },
       {
@@ -1009,9 +1041,18 @@ export default function WODetailsScreen({
                     ))}
                   </View>
                 )}
-                {!generalPreferences.simplifiedWorkOrder && (
+                <FieldExecutionSection
+                  workOrder={workOrder}
+                  comments={comments}
+                  canEdit={hasEditPermission(
+                    PermissionEntity.WORK_ORDERS,
+                    workOrder
+                  )}
+                />
+                {(showPartsSection || showAdditionalCostsSection) && (
                   <View>
-                    <View style={styles.shadowedCard}>
+                    {showPartsSection && (
+                      <View style={styles.shadowedCard}>
                       <Text
                         style={{
                           marginBottom: 10,
@@ -1061,8 +1102,10 @@ export default function WODetailsScreen({
                           </Button>
                         </Fragment>
                       )}
-                    </View>
-                    <View style={styles.shadowedCard}>
+                      </View>
+                    )}
+                    {showAdditionalCostsSection && (
+                      <View style={styles.shadowedCard}>
                       <Text
                         style={{
                           marginBottom: 10,
@@ -1138,7 +1181,8 @@ export default function WODetailsScreen({
                           </Button>
                         </Fragment>
                       )}
-                    </View>
+                      </View>
+                    )}
                   </View>
                 )}
                 {!!tasks.length && (
@@ -1149,7 +1193,7 @@ export default function WODetailsScreen({
                         color: theme.colors.onSurfaceVariant
                       }}
                     >
-                      {t('tasks')}
+                      {t('service_checklist')}
                     </Text>
                     <TouchableOpacity
                       onPress={() =>
@@ -1161,7 +1205,7 @@ export default function WODetailsScreen({
                     >
                       <Text variant="titleLarge" style={{ fontWeight: 'bold' }}>
                         {' '}
-                        {t('remaining_tasks', {
+                        {t('remaining_service_checklist_items', {
                           count: remainingTasksLength
                         })}
                       </Text>
@@ -1243,7 +1287,8 @@ export default function WODetailsScreen({
                         )}
                       </View>
                     )}
-                    <View style={styles.shadowedCard}>
+                    {showLaborSection && (
+                      <View style={styles.shadowedCard}>
                       <Text
                         style={{
                           marginBottom: 10,
@@ -1295,7 +1340,8 @@ export default function WODetailsScreen({
                           </Button>
                         </Fragment>
                       )}
-                    </View>
+                      </View>
+                    )}
                     <View style={styles.shadowedCard}>
                       <Text
                         style={{
