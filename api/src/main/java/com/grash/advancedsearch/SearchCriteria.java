@@ -54,7 +54,7 @@ public class SearchCriteria implements Cloneable {
                     .field("customers")
                     .operation("inm")
                     .value("")
-                    .values(user.getCustomers().stream().map(Customer::getId).collect(Collectors.toList()))
+                    .values(user.getCustomers().stream().map(c -> (Object) c.getId()).collect(Collectors.toList()))
                     .build());
             FilterField last = this.filterFields.get(this.filterFields.size() - 1);
             last.setJoinType(JoinType.LEFT);
