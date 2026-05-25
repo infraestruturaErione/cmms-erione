@@ -81,4 +81,7 @@ public class UserResponseDTO {
     @Schema(description = "Paddle user ID")
     private String paddleUserId;
 
+    @Schema(description = "Customers the user is restricted to (empty = all customers)")
+    private List<CustomerMiniDTO> customers = new ArrayList<>();
+
 }

@@ -37,7 +37,7 @@ import useAuth from '../../../hooks/useAuth';
 import Form from '../components/form';
 import * as Yup from 'yup';
 import { IField } from '../type';
-import { formatSelect } from '../../../utils/formatters';
+import { formatSelect, formatSelectMultiple } from '../../../utils/formatters';
 import { CompanySettingsContext } from '../../../contexts/CompanySettingsContext';
 import { SearchCriteria, SortDirection } from '../../../models/owns/page';
 import { onSearchQueryChange } from '../../../utils/overall';
@@ -179,6 +179,13 @@ const People = ({ openModal, handleCloseModal, initialEmail }: PropsType) => {
       type2: 'role',
       label: t('role')
     },
+    {
+      name: 'customers',
+      type: 'select',
+      type2: 'customer',
+      multiple: true,
+      label: t('Restricted Customers (empty = all)')
+    },
     ...(isEmailVerificationEnabled
       ? []
       : [
@@ -241,15 +248,21 @@ const People = ({ openModal, handleCloseModal, initialEmail }: PropsType) => {
                     value: currentUser.role.id
                   }
                 : null,
-              password: null
+              password: null,
+              customers: currentUser?.customers?.map((c) => ({
+                label: c.name,
+                value: c.id
+              })) ?? []
             }}
             onChange={({ field, e }) => {}}
             onSubmit={async (values) => {
+              const customerIds = formatSelectMultiple(values.customers);
               return dispatch(
                 editUser(currentUser.id, {
                   ...currentUser,
                   rate: values.rate ?? currentUser.rate,
-                  newPassword: values.password ?? null
+                  newPassword: values.password ?? null,
+                  customers: customerIds.map((id) => ({ id }))
                 })
               )
                 .then(

@@ -71,6 +71,7 @@ public class AssetController {
                 if (!canViewOthers) {
                     searchCriteria.filterCreatedBy(user);
                 }
+                searchCriteria.filterByCustomers(user);
             } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
         }
         return ResponseEntity.ok(assetService.findBySearchCriteria(searchCriteria));

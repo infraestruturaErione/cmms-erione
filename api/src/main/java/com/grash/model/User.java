@@ -89,6 +89,12 @@ public class User extends Audit {
     @ManyToOne(fetch = FetchType.LAZY)
     private Location location;
 
+    @ManyToMany
+    @JoinTable(name = "user_customers",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "customer_id"))
+    private List<Customer> customers = new ArrayList<>();
+
     @OneToMany(mappedBy = "superUser", fetch = FetchType.LAZY)
     @JsonIgnore
     private List<SuperAccountRelation> superAccountRelations = new ArrayList<>();
@@ -141,6 +147,10 @@ public class User extends Audit {
     @JsonIgnore
     public boolean isEnabledInSubscriptionAndPaid() {
         return enabledInSubscription && this.getRole().isPaid();
+    }
+
+    public boolean hasRestrictedCustomers() {
+        return customers != null && !customers.isEmpty();
     }
 
     public void setEmail(String email) {

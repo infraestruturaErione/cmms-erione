@@ -558,8 +558,8 @@ public class WorkOrderService {
             }
             searchCriteria.getFilterFields().
                     removeIf(filterField -> filterField.getField().equals("assignedToUser"));
-//            else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN); //Work order is viewed by everyone
         }
+        searchCriteria.filterByCustomers(user);
         return searchCriteria;
     }
 

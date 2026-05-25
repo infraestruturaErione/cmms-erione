@@ -2,10 +2,14 @@ package com.grash.dto;
 
 import com.grash.model.File;
 import com.grash.model.Location;
+import com.grash.model.Customer;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -35,4 +39,7 @@ public class UserPatchDTO {
 
     @Schema(description = "New password for the user")
     private String newPassword;
+
+    @Schema(description = "Customers the user is restricted to")
+    private List<Customer> customers = new ArrayList<>();
 }

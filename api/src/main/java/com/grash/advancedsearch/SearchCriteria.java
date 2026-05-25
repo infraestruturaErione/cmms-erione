@@ -1,6 +1,7 @@
 package com.grash.advancedsearch;
 
 
+import com.grash.model.Customer;
 import com.grash.model.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Sort.Direction;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 @Data
@@ -44,6 +46,19 @@ public class SearchCriteria implements Cloneable {
                 .value(user.getId())
                 .operation("eq")
                 .values(new ArrayList<>()).build());
+    }
+
+    public void filterByCustomers(User user) {
+        if (user.getCustomers() != null && !user.getCustomers().isEmpty()) {
+            this.filterFields.add(FilterField.builder()
+                    .field("customers")
+                    .operation("inm")
+                    .value("")
+                    .values(user.getCustomers().stream().map(Customer::getId).collect(Collectors.toList()))
+                    .build());
+            FilterField last = this.filterFields.get(this.filterFields.size() - 1);
+            last.setJoinType(JoinType.LEFT);
+        }
     }
 
     @Override
