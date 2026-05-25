@@ -1,6 +1,8 @@
 package com.grash.controller;
 
+import com.grash.advancedsearch.FilterField;
 import com.grash.advancedsearch.SearchCriteria;
+import org.springframework.data.domain.Sort;
 import com.grash.dto.*;
 import com.grash.dto.license.LicenseEntitlement;
 import com.grash.dto.workOrder.WorkOrderCheckInDTO;
@@ -136,10 +138,12 @@ public class WorkOrderController {
     @PreAuthorize("hasRole('ROLE_CLIENT')")
     public Collection<CalendarEvent<WorkOrderBaseMiniDTO>> getEvents(@Parameter(description = "Date range for " +
             "calendar events") @Valid @RequestBody DateRange
-                                                                             dateRange, HttpServletRequest req) {
+                                                                              dateRange, HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getRole().getViewPermissions().contains(PermissionEntity.WORK_ORDERS)) {
             List<CalendarEvent<WorkOrderBaseMiniDTO>> result = new ArrayList<>();
+
+            // Preventive maintenance events — keep existing PM filtering
             result.addAll(preventiveMaintenanceService.getEvents(dateRange.getEnd(), user.getCompany().getId()).stream()
                     .filter(calendarEvent -> calendarEvent.getDate().after(new Date()))
                     .filter(calendarEvent -> canViewWorkOrderBase(user, calendarEvent.getEvent()))
@@ -147,9 +151,42 @@ public class WorkOrderController {
                             preventiveMaintenanceMapper.toBaseMiniDto(calendarEvent.getEvent()),
                             calendarEvent.getDate()))
                     .collect(Collectors.toList()));
-            result.addAll(workOrderService.findByDueDateBetweenAndCompany(dateRange.getStart(), dateRange.getEnd(),
-                    user.getCompany().getId()).stream().filter(workOrder -> canViewWorkOrderBase(user, workOrder)).map(workOrderMapper::toBaseMiniDto).map(workOrderMiniDTO -> new CalendarEvent<>("WORK_ORDER",
-                    workOrderMiniDTO, workOrderMiniDTO.getDueDate())).collect(Collectors.toList()));
+
+            // Work order events — use same permission pipeline as /search
+            SearchCriteria searchCriteria = new SearchCriteria();
+            searchCriteria = workOrderService.getSearchCriteria(user, searchCriteria);
+
+            searchCriteria.getFilterFields().add(FilterField.builder()
+                    .field("dueDate")
+                    .operation("ge")
+                    .value(dateRange.getStart())
+                    .values(new ArrayList<>())
+                    .build());
+            searchCriteria.getFilterFields().add(FilterField.builder()
+                    .field("dueDate")
+                    .operation("le")
+                    .value(dateRange.getEnd())
+                    .values(new ArrayList<>())
+                    .build());
+            searchCriteria.getFilterFields().add(FilterField.builder()
+                    .field("archived")
+                    .operation("eq")
+                    .value(false)
+                    .values(new ArrayList<>())
+                    .build());
+
+            searchCriteria.setSortField("dueDate");
+            searchCriteria.setDirection(Sort.Direction.ASC);
+            searchCriteria.setPageSize(10000);
+
+            Page<WorkOrder> woPage = workOrderService.findBySearchCriteria(searchCriteria);
+
+            result.addAll(woPage.getContent().stream()
+                    .map(workOrderMapper::toBaseMiniDto)
+                    .map(workOrderMiniDTO -> new CalendarEvent<>("WORK_ORDER",
+                            workOrderMiniDTO, workOrderMiniDTO.getDueDate()))
+                    .collect(Collectors.toList()));
+
             return result;
         } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
     }

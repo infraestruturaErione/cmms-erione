@@ -52,7 +52,7 @@ public class SearchCriteria implements Cloneable {
 
     public void filterByCustomers(User user) {
         if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
-            if (user.getCustomers() != null && !user.getCustomers().isEmpty()) {
+            if (user.hasRestrictedCustomers()) {
                 this.filterFields.add(FilterField.builder()
                         .field("customers")
                         .operation("inm")
@@ -61,13 +61,6 @@ public class SearchCriteria implements Cloneable {
                         .build());
                 FilterField last = this.filterFields.get(this.filterFields.size() - 1);
                 last.setJoinType(JoinType.LEFT);
-            } else {
-                this.filterFields.add(FilterField.builder()
-                        .field("id")
-                        .operation("eq")
-                        .value(-1L)
-                        .values(new ArrayList<>())
-                        .build());
             }
         }
     }
