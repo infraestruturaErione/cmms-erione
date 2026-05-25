@@ -4,6 +4,7 @@ package com.grash.advancedsearch;
 import com.grash.model.Customer;
 import com.grash.model.User;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.persistence.criteria.JoinType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
