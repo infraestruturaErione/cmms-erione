@@ -983,50 +983,52 @@ function WorkOrders() {
             alignItems: 'center'
           }}
         >
-          {currentTab !== 'calendar' && (
-            <Stack
-              sx={{ ml: 1 }}
-              direction="row"
-              spacing={1}
-              justifyContent={'flex-start'}
-              width={'95%'}
-            >
-              <Button
-                onClick={() => setOpenFilterDrawer(true)}
-                sx={{
-                  '& .MuiButton-startIcon': { margin: '0px' },
-                  minWidth: 0
-                }}
-                variant={
-                  _.isEqual(criteria.filterFields, initialCriteria.filterFields)
-                    ? 'outlined'
-                    : 'contained'
-                }
-                startIcon={<FilterAltTwoToneIcon />}
-              />
-              <EnumFilter
-                filterFields={criteria.filterFields}
-                onChange={onFilterChange}
-                completeOptions={['NONE', 'LOW', 'MEDIUM', 'HIGH']}
-                fieldName="priority"
-                icon={<SignalCellularAltTwoToneIcon />}
-              />
-              <EnumFilter
-                filterFields={criteria.filterFields}
-                onChange={onFilterChange}
-                completeOptions={[
-                  'OPEN',
-                  'EN_ROUTE',
-                  'IN_PROGRESS',
-                  'ON_HOLD',
-                  'COMPLETE'
-                ]}
-                fieldName="status"
-                icon={<CircleTwoToneIcon />}
-              />
-              <SearchInput onChange={debouncedQueryChange} />
-            </Stack>
-          )}
+          <Stack
+            sx={{ ml: 1 }}
+            direction="row"
+            spacing={1}
+            justifyContent={'flex-start'}
+            width={'95%'}
+          >
+            <Button
+              onClick={() => setOpenFilterDrawer(true)}
+              sx={{
+                '& .MuiButton-startIcon': { margin: '0px' },
+                minWidth: 0
+              }}
+              variant={
+                _.isEqual(criteria.filterFields, initialCriteria.filterFields)
+                  ? 'outlined'
+                  : 'contained'
+              }
+              startIcon={<FilterAltTwoToneIcon />}
+            />
+            {currentTab !== 'calendar' && (
+              <>
+                <EnumFilter
+                  filterFields={criteria.filterFields}
+                  onChange={onFilterChange}
+                  completeOptions={['NONE', 'LOW', 'MEDIUM', 'HIGH']}
+                  fieldName="priority"
+                  icon={<SignalCellularAltTwoToneIcon />}
+                />
+                <EnumFilter
+                  filterFields={criteria.filterFields}
+                  onChange={onFilterChange}
+                  completeOptions={[
+                    'OPEN',
+                    'EN_ROUTE',
+                    'IN_PROGRESS',
+                    'ON_HOLD',
+                    'COMPLETE'
+                  ]}
+                  fieldName="status"
+                  icon={<CircleTwoToneIcon />}
+                />
+                <SearchInput onChange={debouncedQueryChange} />
+              </>
+            )}
+          </Stack>
           <Divider sx={{ mt: 1 }} />
           <Box sx={{ width: '95%' }}>
             {currentTab === 'list' ? (

@@ -12,12 +12,16 @@ export const getLabelAndValue = <T extends { id: number }>(
   return (
     filterFields
       .find((filterField) => filterField.field === fieldName)
-      ?.values?.map((id) => ({
-        label: formatter
-          ? formatter(minis.find((mini) => mini.id === id))
-          : minis.find((mini) => mini.id === id)[labelAccessor].toString(),
-        value: id
-      })) ?? null
+      ?.values?.map((id) => {
+        const found = minis.find((mini) => mini.id === id);
+        if (!found) return { label: String(id), value: id };
+        return {
+          label: formatter
+            ? formatter(found)
+            : String(found[labelAccessor]),
+          value: id
+        };
+      }) ?? null
   );
 };
 export const getDateValue = (

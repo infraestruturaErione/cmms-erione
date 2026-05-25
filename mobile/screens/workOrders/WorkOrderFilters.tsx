@@ -43,7 +43,7 @@ export default function WorkOrderFilters({
     { accessor: 'completedBy', fieldName: 'completedBy', type: 'array' },
     {
       accessor: 'customers',
-      fieldName: 'customer',
+      fieldName: 'customers',
       operator: 'inm',
       type: 'array'
     },
@@ -235,7 +235,7 @@ export default function WorkOrderFilters({
       customers: getLabelAndValue(
         filterFields,
         customersMini,
-        'customer',
+        'customers',
         'name'
       ),
       createdBy: getLabelAndValue(

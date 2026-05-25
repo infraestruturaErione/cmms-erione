@@ -4,7 +4,7 @@ import Form from '../../components/form';
 import { IField } from '../../type';
 import { useTranslation } from 'react-i18next';
 import { Grid, Typography } from '@mui/material';
-import { useSelector } from '../../../../store';
+import { useDispatch, useSelector } from '../../../../store';
 import { UserMiniDTO } from '../../../../models/user';
 import {
   FilterFieldType,
@@ -12,6 +12,13 @@ import {
   getDateValue,
   getLabelAndValue
 } from '../../../../utils/filter';
+import { useEffect } from 'react';
+import { getTeamsMini } from '../../../../slices/team';
+import { getCustomersMini } from '../../../../slices/customer';
+import { getLocationsMini } from '../../../../slices/location';
+import { getAssetsMini } from '../../../../slices/asset';
+import { getUsersMini } from '../../../../slices/user';
+import { getCategories } from '../../../../slices/category';
 
 interface OwnProps {
   onFilterChange: (filterFields: FilterField[]) => void;
@@ -21,12 +28,22 @@ interface OwnProps {
 
 function MoreFilters({ filterFields, onFilterChange, onClose }: OwnProps) {
   const { t }: { t: any } = useTranslation();
+  const dispatch = useDispatch();
   const { customersMini } = useSelector((state) => state.customers);
   const { locationsMini } = useSelector((state) => state.locations);
   const { categories } = useSelector((state) => state.categories);
   const { usersMini } = useSelector((state) => state.users);
   const { assetsMini } = useSelector((state) => state.assets);
   const { teamsMini } = useSelector((state) => state.teams);
+
+  useEffect(() => {
+    dispatch(getTeamsMini());
+    dispatch(getCustomersMini());
+    dispatch(getLocationsMini());
+    dispatch(getAssetsMini());
+    dispatch(getUsersMini());
+    dispatch(getCategories('work-order-categories'));
+  }, []);
 
   const filtersConfig: {
     accessor: string;
