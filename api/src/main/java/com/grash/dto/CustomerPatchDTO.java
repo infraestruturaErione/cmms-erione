@@ -15,8 +15,8 @@ import java.util.List;
 @NoArgsConstructor
 @Schema(description = "DTO for patching an existing customer")
 public class CustomerPatchDTO extends BasicInfos {
-    @Schema(description = "Type of vendor/customer")
-    private String vendorType;
+    @Schema(description = "Type of customer")
+    private String customerType;
 
     @Schema(description = "Description")
     private String description;

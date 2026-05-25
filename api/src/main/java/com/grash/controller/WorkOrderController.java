@@ -21,6 +21,7 @@ import com.grash.model.abstracts.WorkOrderBase;
 import com.grash.model.enums.*;
 import com.grash.model.enums.workflow.WFMainCondition;
 import com.grash.service.*;
+import com.grash.utils.CustomerScopeValidator;
 import com.grash.utils.Helper;
 import com.grash.utils.MultipartFileImpl;
 import com.grash.utils.Utils;
@@ -187,7 +188,9 @@ public class WorkOrderController {
     @PreAuthorize("permitAll()")
     public WorkOrderShowDTO getById(@PathVariable("id") Long id, HttpServletRequest req) {
         User user = userService.whoami(req);
-        return workOrderMapper.toShowDto(workOrderService.checkAccessToWorkOrderId(id, user));
+        WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(id, user);
+        CustomerScopeValidator.validateWorkOrderAccess(user, workOrder);
+        return workOrderMapper.toShowDto(workOrder);
     }
 
     @PostMapping("")
@@ -198,6 +201,20 @@ public class WorkOrderController {
         if (user.getRole().getCreatePermissions().contains(PermissionEntity.WORK_ORDERS)
                 && (workOrderReq.getSignature() == null ||
                 user.getCompany().getSubscription().getSubscriptionPlan().getFeatures().contains(PlanFeatures.SIGNATURE))) {
+            if (user.hasRestrictedCustomers() && workOrderReq.getCustomers() != null
+                    && !workOrderReq.getCustomers().isEmpty()) {
+                boolean allAllowed = workOrderReq.getCustomers().stream()
+                        .allMatch(c -> user.getCustomers().stream()
+                                .anyMatch(uc -> uc.getId().equals(c.getId())));
+                if (!allAllowed) {
+                    throw new CustomException("Cannot assign work order to customers outside your scope",
+                            HttpStatus.FORBIDDEN);
+                }
+            }
+            if (user.hasRestrictedCustomers() && user.getCustomers().size() == 1
+                    && (workOrderReq.getCustomers() == null || workOrderReq.getCustomers().isEmpty())) {
+                workOrderReq.setCustomers(new ArrayList<>(user.getCustomers()));
+            }
             if (user.getCompany().getCompanySettings().getGeneralPreferences().isAutoAssignWorkOrders()) {
                 User primaryUser = workOrderReq.getPrimaryUser();
                 workOrderReq.setPrimaryUser(primaryUser == null ? user : primaryUser);
@@ -280,6 +297,7 @@ public class WorkOrderController {
         User user = userService.whoami(req);
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
         WorkOrder savedWorkOrder = optionalWorkOrder.get();
+        CustomerScopeValidator.validateWorkOrderAccess(user, savedWorkOrder);
         em.detach(savedWorkOrder); // detach FIRST
         WorkOrder originalWorkOrder = savedWorkOrder;
         WorkOrder mutableWO = workOrderService.findById(id).get(); // fresh managed copy
@@ -381,6 +399,7 @@ public class WorkOrderController {
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
         if (optionalWorkOrder.isPresent()) {
             WorkOrder savedWorkOrder = optionalWorkOrder.get();
+            CustomerScopeValidator.validateWorkOrderAccess(user, savedWorkOrder);
             if (savedWorkOrder.canBeEditedBy(user)) {
                 em.detach(savedWorkOrder);
                 WorkOrder originalWorkOrder = savedWorkOrder;
@@ -405,6 +424,7 @@ public class WorkOrderController {
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
         if (optionalWorkOrder.isPresent()) {
             WorkOrder savedWorkOrder = optionalWorkOrder.get();
+            CustomerScopeValidator.validateWorkOrderAccess(user, savedWorkOrder);
             if (savedWorkOrder.canBeEditedBy(user)) {
                 em.detach(savedWorkOrder);
                 WorkOrder originalWorkOrder = savedWorkOrder;
@@ -430,6 +450,7 @@ public class WorkOrderController {
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
         if (optionalWorkOrder.isPresent()) {
             WorkOrder savedWorkOrder = optionalWorkOrder.get();
+            CustomerScopeValidator.validateWorkOrderAccess(user, savedWorkOrder);
             if (savedWorkOrder.canBeEditedBy(user)) {
                 em.detach(savedWorkOrder);
                 WorkOrder originalWorkOrder = savedWorkOrder;

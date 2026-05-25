@@ -184,7 +184,7 @@ const People = ({ openModal, handleCloseModal, initialEmail }: PropsType) => {
       type: 'select',
       type2: 'customer',
       multiple: true,
-      label: t('Restricted Customers (empty = all)')
+      label: t('allowed_customers')
     },
     ...(isEmailVerificationEnabled
       ? []
@@ -202,6 +202,9 @@ const People = ({ openModal, handleCloseModal, initialEmail }: PropsType) => {
       fields = fields.filter(
         (field) => !['role', 'password'].includes(field.name)
       );
+    }
+    if (!user?.ownsCompany) {
+      fields = fields.filter((field) => field.name !== 'customers');
     }
     return fields;
   };

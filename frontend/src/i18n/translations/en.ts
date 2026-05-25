@@ -919,6 +919,7 @@ const locale = {
   role: 'Role',
   edit_user: 'Edit User',
   edit_user_description: 'Fill in the fields below to edit the user',
+  allowed_customers: 'Allowed Customers',
   job_title: 'Job Title',
   invite_users: 'Invite Users',
   bring_people_team: 'Bring new people to the team',

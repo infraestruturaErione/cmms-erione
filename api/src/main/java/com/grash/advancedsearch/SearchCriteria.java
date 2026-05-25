@@ -3,6 +3,7 @@ package com.grash.advancedsearch;
 
 import com.grash.model.Customer;
 import com.grash.model.User;
+import com.grash.model.enums.RoleType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.criteria.JoinType;
 import lombok.AllArgsConstructor;
@@ -50,15 +51,24 @@ public class SearchCriteria implements Cloneable {
     }
 
     public void filterByCustomers(User user) {
-        if (user.getCustomers() != null && !user.getCustomers().isEmpty()) {
-            this.filterFields.add(FilterField.builder()
-                    .field("customers")
-                    .operation("inm")
-                    .value("")
-                    .values(user.getCustomers().stream().map(c -> (Object) c.getId()).collect(Collectors.toList()))
-                    .build());
-            FilterField last = this.filterFields.get(this.filterFields.size() - 1);
-            last.setJoinType(JoinType.LEFT);
+        if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
+            if (user.getCustomers() != null && !user.getCustomers().isEmpty()) {
+                this.filterFields.add(FilterField.builder()
+                        .field("customers")
+                        .operation("inm")
+                        .value("")
+                        .values(user.getCustomers().stream().map(c -> (Object) c.getId()).collect(Collectors.toList()))
+                        .build());
+                FilterField last = this.filterFields.get(this.filterFields.size() - 1);
+                last.setJoinType(JoinType.LEFT);
+            } else {
+                this.filterFields.add(FilterField.builder()
+                        .field("id")
+                        .operation("eq")
+                        .value(-1L)
+                        .values(new ArrayList<>())
+                        .build());
+            }
         }
     }
 

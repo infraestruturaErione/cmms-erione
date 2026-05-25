@@ -157,6 +157,20 @@ public class RequestController {
                           HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getRole().getCreatePermissions().contains(PermissionEntity.REQUESTS)) {
+            if (user.hasRestrictedCustomers() && requestReq.getCustomers() != null
+                    && !requestReq.getCustomers().isEmpty()) {
+                boolean allAllowed = requestReq.getCustomers().stream()
+                        .allMatch(c -> user.getCustomers().stream()
+                                .anyMatch(uc -> uc.getId().equals(c.getId())));
+                if (!allAllowed) {
+                    throw new CustomException("Cannot assign request to customers outside your scope",
+                            HttpStatus.FORBIDDEN);
+                }
+            }
+            if (user.hasRestrictedCustomers() && user.getCustomers().size() == 1
+                    && (requestReq.getCustomers() == null || requestReq.getCustomers().isEmpty())) {
+                requestReq.setCustomers(new ArrayList<>(user.getCustomers()));
+            }
             Request createdRequest = requestService.create(requestReq, user.getCompany());
             onRequestCreation(createdRequest, user.getCompany(), user.getFullName());
             return requestMapper.toShowDto(createdRequest);

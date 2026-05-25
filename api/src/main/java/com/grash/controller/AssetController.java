@@ -18,6 +18,7 @@ import com.grash.model.enums.RoleType;
 import com.grash.repository.AssetRepository;
 import com.grash.security.CurrentUser;
 import com.grash.service.*;
+import com.grash.utils.CustomerScopeValidator;
 import com.grash.utils.Helper;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +26,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -84,6 +86,9 @@ public class AssetController {
         if (!licenseService.hasEntitlement(LicenseEntitlement.NFC_BARCODE))
             throw new CustomException("You need a license to scan an asset", HttpStatus.FORBIDDEN);
         Optional<Asset> optionalAsset = assetService.findByNfcIdAndCompany(nfcId, user.getCompany().getId());
+        if (optionalAsset.isPresent()) {
+            CustomerScopeValidator.validateAssetAccess(user, optionalAsset.get());
+        }
         return assetMapper.toMiniDto(optionalAsset.get());
     }
 
@@ -94,6 +99,9 @@ public class AssetController {
         if (!licenseService.hasEntitlement(LicenseEntitlement.NFC_BARCODE))
             throw new CustomException("You need a license to scan an asset", HttpStatus.FORBIDDEN);
         Optional<Asset> optionalAsset = assetService.findByBarcodeAndCompany(data, user.getCompany().getId());
+        if (optionalAsset.isPresent()) {
+            CustomerScopeValidator.validateAssetAccess(user, optionalAsset.get());
+        }
         return assetMapper.toMiniDto(optionalAsset.get());
     }
 
@@ -110,6 +118,7 @@ public class AssetController {
             Asset savedAsset = optionalAsset.get();
             if (user.getRole().getViewPermissions().contains(PermissionEntity.ASSETS) &&
                     (user.getRole().getViewOtherPermissions().contains(PermissionEntity.ASSETS) || savedAsset.getCreatedBy().equals(user.getId()))) {
+                CustomerScopeValidator.validateAssetAccess(user, savedAsset);
                 return assetMapper.toShowDto(savedAsset, assetService);
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
@@ -143,7 +152,16 @@ public class AssetController {
                                               HttpServletRequest req) {
         User user = userService.whoami(req);
         if (id.equals(0L) && user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
-            return assetService.findByCompanyAndParentAssetNull(user.getCompany().getId(), pageable).stream().map(asset -> assetMapper.toShowDto(asset, assetService)).collect(Collectors.toList());
+            return assetService.findByCompanyAndParentAssetNull(user.getCompany().getId(), pageable).stream()
+                    .filter(asset -> {
+                        if (user.hasRestrictedCustomers()) {
+                            return asset.getCustomers() != null && asset.getCustomers().stream()
+                                    .anyMatch(ac -> user.getCustomers().stream()
+                                            .anyMatch(uc -> uc.getId().equals(ac.getId())));
+                        }
+                        return false;
+                    })
+                    .map(asset -> assetMapper.toShowDto(asset, assetService)).collect(Collectors.toList());
         }
         Optional<Asset> optionalAsset = assetService.findById(id);
         if (optionalAsset.isPresent()) {
@@ -165,6 +183,16 @@ public class AssetController {
         if (id.equals(0L) && user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
             Page<Asset> assetsPage = assetRepository.findByCompany_IdAndParentAssetIsNull(user.getCompany().getId(),
                     pageable);
+            if (user.hasRestrictedCustomers()) {
+                List<Asset> filtered = assetsPage.getContent().stream()
+                        .filter(asset -> asset.getCustomers() != null && asset.getCustomers().stream()
+                                .anyMatch(ac -> user.getCustomers().stream()
+                                        .anyMatch(uc -> uc.getId().equals(ac.getId()))))
+                        .collect(Collectors.toList());
+                return new PageImpl<>(filtered.stream()
+                        .map(asset -> assetMapper.toShowDto(asset, assetService))
+                        .collect(Collectors.toList()), pageable, filtered.size());
+            }
             return assetsPage.map(asset -> assetMapper.toShowDto(asset, assetService));
         }
         Optional<Asset> optionalAsset = assetService.findById(id);
@@ -258,6 +286,13 @@ public class AssetController {
             assets = assetService.findByCompany(user.getCompany().getId());
         } else {
             assets = assetService.findByLocation(locationId);
+        }
+        if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT) && user.hasRestrictedCustomers()) {
+            assets = assets.stream()
+                    .filter(asset -> asset.getCustomers() != null && asset.getCustomers().stream()
+                            .anyMatch(ac -> user.getCustomers().stream()
+                                    .anyMatch(uc -> uc.getId().equals(ac.getId()))))
+                    .collect(Collectors.toList());
         }
         return assets.stream().map(assetMapper::toMiniDto).collect(Collectors.toList());
     }

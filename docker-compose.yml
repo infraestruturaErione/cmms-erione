@@ -26,6 +26,7 @@ services:
       DB_PWD: ${POSTGRES_PWD}
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
       PUBLIC_FRONT_URL: ${PUBLIC_FRONT_URL}
+      PUBLIC_HOME_URL: ${PUBLIC_HOME_URL:-http://localhost:3000}
       GCP_BUCKET_NAME: ${GCP_BUCKET_NAME}
       GCP_JSON: ${GCP_JSON}
       GCP_PROJECT_ID: ${GCP_PROJECT_ID}

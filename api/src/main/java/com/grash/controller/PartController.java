@@ -62,6 +62,7 @@ public class PartController {
                 if (!canViewOthers) {
                     searchCriteria.filterCreatedBy(user);
                 }
+                searchCriteria.filterByCustomers(user);
             } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
         }
         return ResponseEntity.ok(partService.findBySearchCriteria(searchCriteria));

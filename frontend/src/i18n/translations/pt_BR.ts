@@ -967,6 +967,7 @@ const ptBRJSON = {
   role: 'Função',
   edit_user: 'Editar Usuário',
   edit_user_description: 'Preencha os campos abaixo para editar o usuário',
+  allowed_customers: 'Clientes permitidos',
   job_title: 'Cargo',
   invite_users: 'Convidar Usuários',
   bring_people_team: 'Traga novas pessoas para a equipe',

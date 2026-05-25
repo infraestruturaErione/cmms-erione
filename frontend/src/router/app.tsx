@@ -469,6 +469,7 @@ const appRoutes = [
   {
     path: 'people-teams',
     children: [
+      { index: true, element: <Navigate to="people" replace /> },
       {
         path: 'people',
         children: [

@@ -62,10 +62,16 @@ public class CustomerController {
 
     @GetMapping("/mini")
     @PreAuthorize("hasRole('ROLE_CLIENT')")
-
     public Collection<CustomerMiniDTO> getMini(HttpServletRequest req) {
         User user = userService.whoami(req);
-        return customerService.findByCompany(user.getCompany().getId()).stream().map(customerMapper::toMiniDto).collect(Collectors.toList());
+        Collection<Customer> customers = customerService.findByCompany(user.getCompany().getId());
+        if (user.hasRestrictedCustomers()) {
+            customers = customers.stream()
+                    .filter(c -> user.getCustomers().stream()
+                            .anyMatch(uc -> uc.getId().equals(c.getId())))
+                    .collect(Collectors.toList());
+        }
+        return customers.stream().map(customerMapper::toMiniDto).collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")

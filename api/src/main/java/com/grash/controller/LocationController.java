@@ -16,6 +16,7 @@ import com.grash.service.LocationService;
 import com.grash.service.RateLimiterService;
 import com.grash.service.RequestPortalService;
 import com.grash.service.UserService;
+import com.grash.utils.CustomerScopeValidator;
 import com.grash.utils.Helper;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -59,7 +60,15 @@ public class LocationController {
                 return locationService.findByCompany(user.getCompany().getId()).stream().filter(location -> {
                     boolean canViewOthers =
                             user.getRole().getViewOtherPermissions().contains(PermissionEntity.LOCATIONS);
-                    return canViewOthers || location.getCreatedBy().equals(user.getId());
+                    if (!canViewOthers && !location.getCreatedBy().equals(user.getId())) {
+                        return false;
+                    }
+                    if (user.hasRestrictedCustomers()) {
+                        return location.getCustomers() != null && location.getCustomers().stream()
+                                .anyMatch(lc -> user.getCustomers().stream()
+                                        .anyMatch(uc -> uc.getId().equals(lc.getId())));
+                    }
+                    return false;
                 }).map(location -> locationMapper.toShowDto(location, locationService)).collect(Collectors.toList());
             } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
         } else
@@ -110,8 +119,16 @@ public class LocationController {
     @GetMapping("/mini")
     @PreAuthorize("hasRole('ROLE_CLIENT')")
     public Collection<LocationMiniDTO> getMini(HttpServletRequest req) {
-        User location = userService.whoami(req);
-        return locationService.findByCompany(location.getCompany().getId()).stream().map(locationMapper::toMiniDto).collect(Collectors.toList());
+        User user = userService.whoami(req);
+        Collection<Location> locations = locationService.findByCompany(user.getCompany().getId());
+        if (user.hasRestrictedCustomers()) {
+            locations = locations.stream()
+                    .filter(loc -> loc.getCustomers() != null && loc.getCustomers().stream()
+                            .anyMatch(lc -> user.getCustomers().stream()
+                                    .anyMatch(uc -> uc.getId().equals(lc.getId()))))
+                    .collect(Collectors.toList());
+        }
+        return locations.stream().map(locationMapper::toMiniDto).collect(Collectors.toList());
     }
 
     @GetMapping("/public/mini/{portalUUID}")
@@ -132,6 +149,7 @@ public class LocationController {
             Location savedLocation = optionalLocation.get();
             if (user.getRole().getViewPermissions().contains(PermissionEntity.LOCATIONS) &&
                     (user.getRole().getViewOtherPermissions().contains(PermissionEntity.LOCATIONS) || savedLocation.getCreatedBy().equals(user.getId()))) {
+                CustomerScopeValidator.validateLocationAccess(user, savedLocation);
                 return locationMapper.toShowDto(savedLocation, locationService);
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
