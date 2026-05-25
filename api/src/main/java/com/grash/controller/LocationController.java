@@ -75,11 +75,10 @@ public class LocationController {
         User user = userService.whoami(req);
         if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
             if (user.getRole().getViewPermissions().contains(PermissionEntity.LOCATIONS)) {
-                searchCriteria.filterCompany(user);
-                boolean canViewOthers = user.getRole().getViewOtherPermissions().contains(PermissionEntity.ASSETS);
-                if (!canViewOthers) {
-                    searchCriteria.filterCreatedBy(user);
-                }
+                boolean canViewOthers = user.getRole().getViewOtherPermissions().contains(PermissionEntity.LOCATIONS);
+                Long createdBy = canViewOthers ? null : user.getId();
+                return ResponseEntity.ok(locationService.findByCompanySearch(user.getCompany().getId(), createdBy,
+                        searchCriteria));
             } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
         }
         return ResponseEntity.ok(locationService.findBySearchCriteria(searchCriteria));

@@ -94,6 +94,7 @@ security:
 frontend:
   url: ${PUBLIC_FRONT_URL}
   home-url: ${PUBLIC_HOME_URL:}
+  extra-origins: ${EXTRA_CORS_ORIGINS:}
 mail:
   recipients: ${MAIL_RECIPIENTS}
   enable: ${ENABLE_EMAIL_NOTIFICATIONS}

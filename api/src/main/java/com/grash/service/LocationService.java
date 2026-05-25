@@ -19,6 +19,7 @@ import com.grash.service.CustomFieldValueService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -242,6 +243,32 @@ public class LocationService {
                 searchCriteria.getDirection(), searchCriteria.getSortField());
         return locationRepository.findAll(builder.build(), page).map(location -> locationMapper.toShowDto(location,
                 this));
+    }
+
+    public Page<LocationShowDTO> findByCompanySearch(Long companyId, Long createdBy, SearchCriteria searchCriteria) {
+        Pageable page = PageRequest.of(searchCriteria.getPageNum(), searchCriteria.getPageSize(),
+                searchCriteria.getDirection(), searchCriteria.getSortField());
+        List<Location> locations = locationRepository.findByCompany_Id(companyId, page.getSort());
+        String nameQuery = searchCriteria.getFilterFields().stream()
+                .filter(filter -> "name".equals(filter.getField()) && filter.getValue() != null)
+                .map(filter -> filter.getValue().toString().trim().toLowerCase(Locale.ROOT))
+                .filter(value -> !value.isEmpty())
+                .findFirst()
+                .orElse(null);
+
+        List<Location> filteredLocations = locations.stream()
+                .filter(location -> createdBy == null || Objects.equals(location.getCreatedBy(), createdBy))
+                .filter(location -> nameQuery == null || location.getName() != null &&
+                        location.getName().toLowerCase(Locale.ROOT).contains(nameQuery))
+                .toList();
+
+        int fromIndex = Math.min((int) page.getOffset(), filteredLocations.size());
+        int toIndex = Math.min(fromIndex + page.getPageSize(), filteredLocations.size());
+        List<LocationShowDTO> pageContent = filteredLocations.subList(fromIndex, toIndex).stream()
+                .map(location -> locationMapper.toShowDto(location, this))
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(pageContent, page, filteredLocations.size());
     }
 
     public static List<LocationImportDTO> orderLocations(List<LocationImportDTO> locations) {
