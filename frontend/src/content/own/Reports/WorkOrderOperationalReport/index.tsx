@@ -6,11 +6,15 @@ import {
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Divider,
+  Drawer,
   Grid,
+  IconButton,
   MenuItem,
   Stack,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
 import { Helmet } from 'react-helmet-async';
@@ -27,12 +31,18 @@ import { useSearchParams } from 'react-router-dom';
 import { createColumnHelper, PaginationState } from '@tanstack/react-table';
 import SearchTwoToneIcon from '@mui/icons-material/SearchTwoTone';
 import RestartAltTwoToneIcon from '@mui/icons-material/RestartAltTwoTone';
+import VisibilityTwoToneIcon from '@mui/icons-material/VisibilityTwoTone';
+import PictureAsPdfTwoToneIcon from '@mui/icons-material/PictureAsPdfTwoTone';
+import TableChartTwoToneIcon from '@mui/icons-material/TableChartTwoTone';
 import { TitleContext } from '../../../../contexts/TitleContext';
 import { useDispatch, useSelector } from '../../../../store';
 import { getCustomersMini } from '../../../../slices/customer';
 import { getLocationsMini } from '../../../../slices/location';
 import { getAssetsMini } from '../../../../slices/asset';
 import { getUsersMini } from '../../../../slices/user';
+import { getSingleWorkOrder, clearSingleWorkOrder } from '../../../../slices/workOrder';
+import WorkOrder from '../../../../models/owns/workOrder';
+import WorkOrderDetails from '../../WorkOrders/Details/WorkOrderDetails';
 import { FilterField, SearchCriteria } from '../../../../models/owns/page';
 import {
   WorkOrderOperationalReportPeriodField,
@@ -45,6 +55,9 @@ import CustomDatagrid2, {
 } from '../../components/CustomDatagrid2';
 import { CompanySettingsContext } from '../../../../contexts/CompanySettingsContext';
 import AnalyticsLayout from '../../Analytics/AnalyticsLayout';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 type FilterState = {
   customerId: string;
@@ -155,9 +168,21 @@ function WorkOrderOperationalReport() {
     pageSize: 10
   });
   const appliedCustomerParamRef = useRef<string | null>(null);
+  const [openDrawer, setOpenDrawer] = useState<boolean>(false);
+  const [currentWorkOrder, setCurrentWorkOrder] = useState<WorkOrder>();
+  const [openDrawerForSingleWO, setOpenDrawerForSingleWO] =
+    useState<boolean>(false);
+  const [exportingPdf, setExportingPdf] = useState<boolean>(false);
+  const [exportingExcel, setExportingExcel] = useState<boolean>(false);
+  const { singleWorkOrder } = useSelector((state) => state.workOrders);
+  const { tasksByWorkOrder } = useSelector((state) => state.tasks);
+  const tasks = tasksByWorkOrder[currentWorkOrder?.id] ?? [];
 
   useEffect(() => {
     setTitle(t('operational_work_order_report'));
+    return () => {
+      dispatch(clearSingleWorkOrder());
+    };
   }, []);
 
   useEffect(() => {
@@ -297,6 +322,107 @@ function WorkOrderOperationalReport() {
     loadReport(filters, nextPagination);
   };
 
+  const handleOpenDetails = (id: number) => {
+    setOpenDrawerForSingleWO(true);
+    dispatch(getSingleWorkOrder(id));
+  };
+
+  const handleCloseDetails = () => {
+    setOpenDrawer(false);
+    setOpenDrawerForSingleWO(false);
+    setCurrentWorkOrder(undefined);
+  };
+
+  useEffect(() => {
+    if (singleWorkOrder && openDrawerForSingleWO) {
+      setCurrentWorkOrder(singleWorkOrder);
+      setOpenDrawer(true);
+    }
+  }, [singleWorkOrder, openDrawerForSingleWO]);
+
+  const handleExportExcel = () => {
+    if (!report.rows.length) return;
+    setExportingExcel(true);
+    try {
+      const headers = [
+        t('code'), t('title'), t('customer'), t('location'),
+        t('camera_equipment'), t('primary_worker'), t('priority'),
+        t('status'), t('created_at'), t('completed_on'), t('check_in'),
+        t('check_out'), t('travel_duration'), t('site_duration'),
+        t('total_field_duration'), t('field_report'), t('files'),
+        t('image'), t('signature')
+      ];
+      const data = report.rows.map((row) => [
+        row.customId,
+        row.title,
+        row.customerNames?.join(', ') || '',
+        row.locationName || '',
+        row.assetName || '',
+        row.technicianName || '',
+        t(row.priority),
+        t(row.status),
+        row.createdAt ? getFormattedDate(row.createdAt) : '',
+        row.completedOn ? getFormattedDate(row.completedOn) : '',
+        row.checkInAt ? getFormattedDate(row.checkInAt) : '',
+        row.checkOutAt ? getFormattedDate(row.checkOutAt) : '',
+        formatDuration(row.travelDurationSeconds),
+        formatDuration(row.siteDurationSeconds),
+        formatDuration(row.totalFieldDurationSeconds),
+        row.fieldReport || '',
+        row.filesCount?.toString() || '0',
+        t(row.hasImage ? 'yes' : 'no'),
+        t(row.hasSignature ? 'yes' : 'no')
+      ]);
+      const wsData = [headers, ...data];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, t('operational_work_order_report'));
+      XLSX.writeFile(wb, `${t('operational_work_order_report')}.xlsx`);
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  const handleExportPdf = () => {
+    if (!report.rows.length) return;
+    setExportingPdf(true);
+    try {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      doc.setFontSize(14);
+      doc.text(t('operational_work_order_report'), 14, 15);
+      doc.setFontSize(9);
+      doc.text(new Date().toLocaleDateString(), 14, 21);
+      const headers = [
+        t('code'), t('title'), t('customer'), t('status'),
+        t('primary_worker'), t('created_at'), t('completed_on'),
+        t('travel_duration'), t('site_duration'), t('field_report')
+      ];
+      const data = report.rows.map((row) => [
+        row.customId,
+        row.title,
+        row.customerNames?.join(', ') || '',
+        t(row.status),
+        row.technicianName || '',
+        row.createdAt ? getFormattedDate(row.createdAt) : '',
+        row.completedOn ? getFormattedDate(row.completedOn) : '',
+        formatDuration(row.travelDurationSeconds),
+        formatDuration(row.siteDurationSeconds),
+        (row.fieldReport || '').substring(0, 60)
+      ]);
+      autoTable(doc, {
+        head: [headers],
+        body: data,
+        startY: 25,
+        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: [15, 118, 110], textColor: 255 },
+        alternateRowStyles: { fillColor: [244, 248, 247] }
+      });
+      doc.save(`${t('operational_work_order_report')}.pdf`);
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const summary: WorkOrderOperationalReportSummary = report.summary;
   const columnHelper = createColumnHelper<WorkOrderOperationalReportRow>();
   const statusColor = (status: string) => {
@@ -307,6 +433,24 @@ function WorkOrderOperationalReport() {
   };
   const columns = useMemo<CustomDatagridColumn2<WorkOrderOperationalReportRow>[]>(
     () => [
+      columnHelper.display({
+        id: 'actions',
+        header: '',
+        size: 50,
+        cell: (info) => (
+          <Tooltip title={t('view_details')}>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenDetails(info.row.original.id);
+              }}
+            >
+              <VisibilityTwoToneIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )
+      }),
       columnHelper.accessor('customId', {
         header: t('code'),
         size: 120
@@ -577,6 +721,24 @@ function WorkOrderOperationalReport() {
                   <Stack direction="row" spacing={1} justifyContent="flex-end">
                     <Button
                       variant="outlined"
+                      color="success"
+                      startIcon={exportingExcel ? <CircularProgress size={18} /> : <TableChartTwoToneIcon />}
+                      onClick={handleExportExcel}
+                      disabled={exportingExcel || !report.rows.length}
+                    >
+                      Excel
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={exportingPdf ? <CircularProgress size={18} /> : <PictureAsPdfTwoToneIcon />}
+                      onClick={handleExportPdf}
+                      disabled={exportingPdf || !report.rows.length}
+                    >
+                      PDF
+                    </Button>
+                    <Button
+                      variant="outlined"
                       startIcon={<RestartAltTwoToneIcon />}
                       onClick={handleClear}
                     >
@@ -634,7 +796,7 @@ function WorkOrderOperationalReport() {
             <CustomDatagrid2
               columns={columns}
               data={report.rows}
-              notClickable
+              onRowClick={(row) => handleOpenDetails(row.id)}
               loading={loading}
               pagination={pagination}
               onPaginationChange={handlePaginationChange}
@@ -646,6 +808,23 @@ function WorkOrderOperationalReport() {
           </Card>
         </Stack>
       </Box>
+      <Drawer
+        anchor="right"
+        open={openDrawer}
+        onClose={handleCloseDetails}
+        PaperProps={{
+          sx: { width: { xs: '90%', sm: '70%', md: '50%' } }
+        }}
+      >
+        {currentWorkOrder && (
+          <WorkOrderDetails
+            workOrder={currentWorkOrder}
+            onEdit={() => {}}
+            tasks={tasks}
+            onDelete={() => {}}
+          />
+        )}
+      </Drawer>
     </AnalyticsLayout>
   );
 }

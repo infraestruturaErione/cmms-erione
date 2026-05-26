@@ -1,0 +1,9 @@
+ table_name | count 
+------------+-------
+ asset      |     0
+ customer   |     0
+ location   |     0
+ own_user   |     1
+ work_order |     0
+(5 rows)
+

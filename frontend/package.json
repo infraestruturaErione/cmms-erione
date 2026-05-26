@@ -65,6 +65,8 @@
     "i18next-http-backend": "^3.0.2",
     "jose": "^5.2.3",
     "jsonwebtoken": "8.5.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lodash": "^4.17.21",
     "lodash.debounce": "^4.0.8",
     "mailto-link": "^2.0.0",
