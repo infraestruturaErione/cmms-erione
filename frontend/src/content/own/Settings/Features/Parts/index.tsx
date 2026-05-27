@@ -3,10 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from '@mui/icons-material';
 import SettingsSection from '../../components/SettingsSection';
+import { ERIONE_HIDDEN_MODULES } from '../../../../../config/erioneModules';
 
 function PartsSettings() {
   const { t }: { t: any } = useTranslation();
   const navigate = useNavigate();
+  if (ERIONE_HIDDEN_MODULES.parts) {
+    navigate('/app/settings/features');
+    return null;
+  }
 
   return (
     <Grid item xs={12}>

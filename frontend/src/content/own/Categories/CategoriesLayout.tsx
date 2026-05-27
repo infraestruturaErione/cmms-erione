@@ -124,7 +124,9 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
   const tabs = [
     { value: '', label: t('work_orders') },
     { value: 'asset', label: t('assets') },
-    { value: 'meter', label: t('meters') },
+    ...(!ERIONE_HIDDEN_MODULES.meters
+      ? [{ value: 'meter', label: t('meters') }]
+      : []),
     { value: 'time', label: t('timers') },
     { value: 'cost', label: t('costs') },
     ...(!ERIONE_HIDDEN_MODULES.parts

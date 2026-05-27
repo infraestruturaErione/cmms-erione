@@ -27,7 +27,6 @@ import LockOpenTwoToneIcon from '@mui/icons-material/LockOpenTwoTone';
 import ChevronRightTwoToneIcon from '@mui/icons-material/ChevronRightTwoTone';
 import type { ApexOptions } from 'apexcharts';
 import PersonOutlineTwoToneIcon from '@mui/icons-material/PersonOutlineTwoTone';
-import BusinessTwoToneIcon from '@mui/icons-material/BusinessTwoTone';
 import SwitchLeftTwoToneIcon from '@mui/icons-material/SwitchLeftTwoTone';
 import HelpTwoToneIcon from '@mui/icons-material/HelpTwoTone';
 import PhoneAndroidTwoToneIcon from '@mui/icons-material/PhoneAndroidTwoTone';
@@ -329,31 +328,6 @@ function HeaderUserbox() {
               )}
             </MenuItem>
           )}
-          <MenuItem
-            onClick={() => {
-              handleClose();
-              navigate('/app/account/company-profile');
-            }}
-          >
-            <ListItemIcon>
-              <BusinessTwoToneIcon />
-            </ListItemIcon>
-            <ListItemText
-              primaryTypographyProps={{
-                variant: 'h5'
-              }}
-              primary={t('my_company')}
-            />
-            <Box display="flex" alignItems="center">
-              <ChevronRightTwoToneIcon
-                sx={{
-                  ml: 1,
-                  color: `${theme.colors.alpha.black[30]}`,
-                  opacity: 0.8
-                }}
-              />
-            </Box>
-          </MenuItem>
           <MenuItem
             onClick={() => {
               handleClose();

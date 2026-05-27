@@ -80,6 +80,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getCustomFields } from '../../../slices/customField';
 import { CustomFieldEntityType } from '../../../models/owns/customField';
 import { getCustomFieldsRequiredShape } from '../type';
+import { ERIONE_HIDDEN_MODULES } from '../../../config/erioneModules';
 
 const PAGE_SIZE = 40;
 
@@ -736,7 +737,10 @@ function Assets() {
       type: 'titleGroupField',
       label: t('structure')
     },
-    { name: 'parts', type: 'select', type2: 'part', label: t('parts') },
+    ...(ERIONE_HIDDEN_MODULES.parts
+      ? []
+      : ([{ name: 'parts', type: 'select' as const, type2: 'part' as const, label: t('parts') }] as IField[])
+    ),
     {
       name: 'parentAsset',
       type: 'select',

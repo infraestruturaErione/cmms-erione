@@ -8,7 +8,6 @@ import { GroupsTwoTone, People } from '@mui/icons-material';
 import LocationOnTwoToneIcon from '@mui/icons-material/LocationOnTwoTone';
 import Inventory2TwoToneIcon from '@mui/icons-material/Inventory2TwoTone';
 import HandymanTwoToneIcon from '@mui/icons-material/HandymanTwoTone';
-import SpeedTwoToneIcon from '@mui/icons-material/SpeedTwoTone';
 import MoveToInboxTwoToneIcon from '@mui/icons-material/MoveToInboxTwoTone';
 import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
 import PendingActionsTwoToneIcon from '@mui/icons-material/PendingActionsTwoTone';
@@ -209,7 +208,7 @@ const ownMenuItems: MenuItems[] = [
       },
       {
         name: 'people_teams',
-        link: '/app/people-teams',
+        link: '/app/people-teams/people',
         icon: People,
         permission: PermissionEntity.PEOPLE_AND_TEAMS,
         items: [
@@ -242,14 +241,7 @@ const ownMenuItems: MenuItems[] = [
     items: [
       ...inventoryItems,
       ...purchaseOrderItems,
-      {
-        name: 'meters',
-        link: '/app/meters',
-        icon: SpeedTwoToneIcon,
-        permission: PermissionEntity.METERS,
-        planFeature: PlanFeature.METER,
-        uiConfigKey: 'meters'
-      },
+
       {
         name: 'categories',
         link: '/app/categories',

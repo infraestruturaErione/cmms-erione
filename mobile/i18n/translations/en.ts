@@ -183,7 +183,7 @@
   register: 'Register',
   //signin
   login_description: 'Fill in the fields below to sign into your account.',
-  no_account_yet: 'Donâ€™t have an account, yet?',
+  no_account_yet: "Don't have an account yet?",
   signup_here: 'Sign up here',
   wrong_credentials: 'Wrong credentials provided',
   lost_password: 'Lost password ?',

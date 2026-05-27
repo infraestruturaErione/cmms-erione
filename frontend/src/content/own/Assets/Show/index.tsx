@@ -35,6 +35,7 @@ import DeleteTwoToneIcon from '@mui/icons-material/DeleteTwoTone';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import AssetMeters from './AssetMeters';
 import { handleFileUpload } from '../../../../utils/overall';
+import { ERIONE_HIDDEN_MODULES } from '../../../../config/erioneModules';
 import AssetDowntimes from './AssetDowntimes';
 import AssetAnalytics from './AssetAnalytics';
 import { getCustomFields } from '../../../../slices/customField';
@@ -91,9 +92,9 @@ const ShowAsset = ({}: PropsType) => {
   const tabs = [
     { value: 'details', label: t('details') },
     { value: 'work-orders', label: t('work_orders') },
-    { value: 'parts', label: t('parts') },
+    ...(!ERIONE_HIDDEN_MODULES.parts ? [{ value: 'parts', label: t('parts') }] : []),
     { value: 'files', label: t('files') },
-    { value: 'meters', label: t('meters') },
+    ...(!ERIONE_HIDDEN_MODULES.meters ? [{ value: 'meters', label: t('meters') }] : []),
     { value: 'downtimes', label: t('downtimes') },
     { value: 'analytics', label: t('analytics') }
   ];
@@ -277,7 +278,10 @@ const ShowAsset = ({}: PropsType) => {
       type: 'titleGroupField',
       label: t('structure')
     },
-    { name: 'parts', type: 'select', type2: 'part', label: t('parts') },
+    ...(ERIONE_HIDDEN_MODULES.parts
+      ? []
+      : [{ name: 'parts', type: 'select' as const, type2: 'part' as const, label: t('parts') }]
+    ),
     {
       name: 'parentAsset',
       type: 'select',
@@ -447,22 +451,22 @@ const ShowAsset = ({}: PropsType) => {
         withoutCard
         editAction
       >
-        {isNumeric(assetId) ? (
-          tabIndex === 0 ? (
+        {isNumeric(assetId) && tabs[tabIndex] ? (
+          tabs[tabIndex].value === 'details' ? (
             <AssetDetails asset={asset} loading={loadingGet} />
-          ) : tabIndex === 1 ? (
+          ) : tabs[tabIndex].value === 'work-orders' ? (
             <AssetWorkOrders asset={asset} />
-          ) : tabIndex === 2 ? (
+          ) : tabs[tabIndex].value === 'parts' ? (
             <AssetParts asset={asset} />
-          ) : tabIndex === 3 ? (
+          ) : tabs[tabIndex].value === 'files' ? (
             <AssetFiles asset={asset} />
-          ) : tabIndex === 4 ? (
+          ) : tabs[tabIndex].value === 'meters' ? (
             <AssetMeters asset={asset} />
-          ) : tabIndex === 5 ? (
+          ) : tabs[tabIndex].value === 'downtimes' ? (
             <AssetDowntimes asset={asset} />
-          ) : (
-            tabIndex === 6 && <AssetAnalytics id={Number(assetId)} />
-          )
+          ) : tabs[tabIndex].value === 'analytics' ? (
+            <AssetAnalytics id={Number(assetId)} />
+          ) : null
         ) : null}
         <ConfirmDialog
           open={openDelete}

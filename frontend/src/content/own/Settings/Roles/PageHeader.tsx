@@ -23,15 +23,10 @@ import AddTwoToneIcon from '@mui/icons-material/AddTwoTone';
 import { useDispatch } from '../../../../store';
 import { addRole } from '../../../../slices/role';
 import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
-import useAuth from '../../../../hooks/useAuth';
-import { PlanFeature } from '../../../../models/owns/subscriptionPlan';
 import { useBrand } from '../../../../hooks/useBrand';
 import { getErrorMessage } from '../../../../utils/api';
+import { ERIONE_HIDDEN_MODULES } from '../../../../config/erioneModules';
 
-// const roles = [
-//   { label: 'Free', value: 'free' },
-//   { label: 'Paid', value: 'paid' }
-// ];
 
 interface PageHeaderProps {
   rolesNumber: number;
@@ -40,7 +35,6 @@ interface PageHeaderProps {
 
 function PageHeader({ rolesNumber, formatValues }: PageHeaderProps) {
   const { t }: { t: any } = useTranslation();
-  const { hasFeature } = useAuth();
   const brandConfig = useBrand();
   const [open, setOpen] = useState(false);
   const dispatch = useDispatch();
@@ -73,27 +67,16 @@ function PageHeader({ rolesNumber, formatValues }: PageHeaderProps) {
         </Grid>
 
         <Grid item>
-          <Tooltip
-            title={
-              hasFeature(PlanFeature.ROLE)
-                ? t('create_role')
-                : t('upgrade_role')
-            }
+          <Button
+            sx={{
+              mt: { xs: 2, sm: 0 }
+            }}
+            onClick={handleCreateRoleOpen}
+            variant="contained"
+            startIcon={<AddTwoToneIcon fontSize="small" />}
           >
-            <span>
-              <Button
-                sx={{
-                  mt: { xs: 2, sm: 0 }
-                }}
-                disabled={!hasFeature(PlanFeature.ROLE)}
-                onClick={handleCreateRoleOpen}
-                variant="contained"
-                startIcon={<AddTwoToneIcon fontSize="small" />}
-              >
-                {t('create_role')}
-              </Button>
-            </span>
-          </Tooltip>
+            {t('create_role')}
+          </Button>
         </Grid>
       </Grid>
 
@@ -278,30 +261,38 @@ function PageHeader({ rolesNumber, formatValues }: PageHeaderProps) {
                           control={<Checkbox />}
                           label={t('assets')}
                         />
+                        {!ERIONE_HIDDEN_MODULES.parts && (
                         <FormControlLabel
                           onChange={handleChange}
                           name={'deletePartsAndSets'}
                           control={<Checkbox />}
                           label={t('parts_and_sets')}
                         />
+                        )}
+                        {!ERIONE_HIDDEN_MODULES.purchaseOrders && (
                         <FormControlLabel
                           onChange={handleChange}
                           name={'deletePurchaseOrders'}
                           control={<Checkbox />}
                           label={t('purchase_orders')}
                         />
+                        )}
+                        {!ERIONE_HIDDEN_MODULES.meters && (
                         <FormControlLabel
                           onChange={handleChange}
                           name={'deleteMeters'}
                           control={<Checkbox />}
                           label={t('meters')}
                         />
+                        )}
+                        {!ERIONE_HIDDEN_MODULES.vendors && (
                         <FormControlLabel
                           onChange={handleChange}
                           name={'deleteVendorsCustomers'}
                           control={<Checkbox />}
                           label={t('vendors_customers')}
                         />
+                        )}
                         <FormControlLabel
                           onChange={handleChange}
                           name={'deleteCategories'}

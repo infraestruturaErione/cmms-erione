@@ -12,6 +12,9 @@ import org.mapstruct.*;
         , TeamMapper.class, UserMapper.class,
         CustomerMapper.class, AssetMapper.class, CustomFieldValueMapper.class})
 public interface WorkOrderMapper {
+    @Mapping(target = "assignedTo", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "customers", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "files", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     WorkOrder updateWorkOrder(@MappingTarget WorkOrder entity, WorkOrderPatchDTO dto);
 
     @Mappings({})

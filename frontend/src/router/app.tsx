@@ -50,18 +50,7 @@ const LocationSettings = Loader(
 const LocationCustomFields = Loader(
   lazy(() => import('../content/own/Settings/Features/Location/CustomFields'))
 );
-const PartsSettings = Loader(
-  lazy(() => import('../content/own/Settings/Features/Parts'))
-);
-const PartsCustomFields = Loader(
-  lazy(() => import('../content/own/Settings/Features/Parts/CustomFields'))
-);
-const MetersSettings = Loader(
-  lazy(() => import('../content/own/Settings/Features/Meters'))
-);
-const MetersCustomFields = Loader(
-  lazy(() => import('../content/own/Settings/Features/Meters/CustomFields'))
-);
+
 const ContractorsSettings = Loader(
   lazy(() => import('../content/own/Settings/Features/Contractors'))
 );
@@ -107,17 +96,11 @@ const CompanyProfile = Loader(
 const WorkOrderCategories = Loader(
   lazy(() => import('../content/own/Categories/WorkOrder'))
 );
-const PartCategories = Loader(
-  lazy(() => import('../content/own/Categories/Part'))
-);
 const AssetCategories = Loader(
   lazy(() => import('../content/own/Categories/Asset'))
 );
 const PurchaseOrderCategories = Loader(
   lazy(() => import('../content/own/Categories/PurchaseOrder'))
-);
-const MeterCategories = Loader(
-  lazy(() => import('../content/own/Categories/Meter'))
 );
 const TimeCategories = Loader(
   lazy(() => import('../content/own/Categories/Timer'))
@@ -125,11 +108,8 @@ const TimeCategories = Loader(
 const CostCategories = Loader(
   lazy(() => import('../content/own/Categories/Cost'))
 );
-const SubscriptionPlans = Loader(
-  lazy(() => import('../content/own/Subscription/Plans'))
-);
 const Files = Loader(lazy(() => import('../content/own/Files')));
-const Meters = Loader(lazy(() => import('../content/own/Meters')));
+
 const PurchaseOrders = Loader(
   lazy(() => import('../content/own/PurchaseOrders'))
 );
@@ -165,15 +145,10 @@ const PeopleAndTeams = Loader(
 );
 
 const Imports = Loader(lazy(() => import('../content/own/Imports')));
-const Upgrade = Loader(
-  lazy(() => import('../content/own/UpgradeAndDowngrade/Upgrade'))
-);
-const Downgrade = Loader(
-  lazy(() => import('../content/own/UpgradeAndDowngrade/Downgrade'))
-);
 const SwitchAccount = Loader(
   lazy(() => import('../content/own/SwitchAccount'))
 );
+import { ERIONE_HIDDEN_MODULES } from 'src/config/erioneModules';
 const appRoutes = [
   {
     path: 'settings',
@@ -216,20 +191,7 @@ const appRoutes = [
               { path: 'custom-fields', element: <LocationCustomFields /> }
             ]
           },
-          {
-            path: 'parts',
-            children: [
-              { index: true, element: <PartsSettings /> },
-              { path: 'custom-fields', element: <PartsCustomFields /> }
-            ]
-          },
-          {
-            path: 'meters',
-            children: [
-              { index: true, element: <MetersSettings /> },
-              { path: 'custom-fields', element: <MetersCustomFields /> }
-            ]
-          },
+
           {
             path: 'contractors',
             children: [
@@ -283,31 +245,10 @@ const appRoutes = [
     ]
   },
   {
-    path: 'subscription',
-    children: [
-      {
-        path: 'plans',
-        element: <SubscriptionPlans />
-      }
-    ]
-  },
-  {
     path: 'files',
     element: <Files />
   },
-  {
-    path: 'meters',
-    children: [
-      {
-        path: '',
-        element: <Meters />
-      },
-      {
-        path: ':meterId',
-        element: <Meters />
-      }
-    ]
-  },
+
   {
     path: 'requests',
     children: [
@@ -338,7 +279,7 @@ const appRoutes = [
       }
     ]
   },
-  {
+  ...(!ERIONE_HIDDEN_MODULES.purchaseOrders ? [{
     path: 'purchase-orders',
     children: [
       {
@@ -354,7 +295,10 @@ const appRoutes = [
         element: <CreatePurchaseOrders />
       }
     ]
-  },
+  }] : [{
+    path: 'purchase-orders',
+    element: <Navigate to="/app/work-orders" replace />
+  }]),
   {
     path: 'locations',
     children: [
@@ -373,13 +317,6 @@ const appRoutes = [
     path: 'inventory',
     children: [
       {
-        path: 'parts',
-        children: [
-          { path: '', element: <Inventory /> },
-          { path: ':partId', element: <Inventory /> }
-        ]
-      },
-      {
         path: 'sets',
         children: [
           { path: '', element: <Inventory /> },
@@ -397,9 +334,8 @@ const appRoutes = [
         children: [
           { path: 'work-orders', element: <ShowAsset /> },
           { path: 'details', element: <ShowAsset /> },
-          { path: 'parts', element: <ShowAsset /> },
           { path: 'files', element: <ShowAsset /> },
-          { path: 'meters', element: <ShowAsset /> },
+          { path: 'meters', element: <Navigate to="details" replace /> },
           { path: 'downtimes', element: <ShowAsset /> },
           { path: 'analytics', element: <ShowAsset /> }
         ]
@@ -429,10 +365,7 @@ const appRoutes = [
         path: 'purchase-order',
         element: <PurchaseOrderCategories />
       },
-      {
-        path: 'meter',
-        element: <MeterCategories />
-      },
+
       {
         path: 'time',
         element: <TimeCategories />
@@ -441,22 +374,21 @@ const appRoutes = [
         path: 'cost',
         element: <CostCategories />
       },
-      {
-        path: 'part',
-        element: <PartCategories />
-      }
     ]
   },
   {
     path: 'vendors-customers',
     children: [
-      {
+      ...(!ERIONE_HIDDEN_MODULES.vendors ? [{
         path: 'vendors',
         children: [
           { path: '', element: <VendorsAndCustomers /> },
           { path: ':vendorId', element: <VendorsAndCustomers /> }
         ]
-      },
+      }] : [{
+        path: 'vendors',
+        element: <Navigate to="/app/work-orders" replace />
+      }]),
       {
         path: 'customers',
         children: [
@@ -469,6 +401,7 @@ const appRoutes = [
   {
     path: 'people-teams',
     children: [
+      { index: true, element: <Navigate to="people" replace /> },
       {
         path: 'people',
         children: [
@@ -492,14 +425,13 @@ const appRoutes = [
       { path: 'work-orders', element: <Imports /> },
       { path: 'assets', element: <Imports /> },
       { path: 'locations', element: <Imports /> },
-      { path: 'parts', element: <Imports /> },
-      { path: 'meters', element: <Imports /> },
+
       { path: 'preventive-maintenances', element: <Imports /> }
     ]
   },
-  { path: 'upgrade', element: <Upgrade /> },
-  { path: 'downgrade', element: <Downgrade /> },
-  { path: 'switch-account', element: <SwitchAccount /> }
+  { path: 'switch-account', element: <SwitchAccount /> },
+  { path: 'parts', element: <Navigate to="/app/work-orders" replace /> },
+  { path: 'meters', element: <Navigate to="/app/work-orders" replace /> }
 ];
 
 export default appRoutes;

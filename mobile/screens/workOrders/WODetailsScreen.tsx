@@ -90,6 +90,15 @@ import FieldExecutionSection, {
   hasFieldReport,
   hasFieldReportEvidence
 } from './FieldExecutionSection';
+import {
+  ErioneCard,
+  ErionePrimaryButton,
+  ErioneSectionHeader,
+  ErioneStatusBadge
+} from '../../components/erione/ErioneUI';
+import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
+
+const erioneColors = ERIONE_MOBILE_IDENTITY.colors;
 
 const getRemainingTasksLength = (tasks: Task[]): number => {
   const SECONDS_MS = 5_000;
@@ -844,15 +853,16 @@ export default function WODetailsScreen({
           >
             <ScrollView
               ref={scrollViewRef}
-              contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+              contentContainerStyle={[
+                styles.detailsContent,
+                { paddingBottom: 100 + insets.bottom }
+              ]}
               keyboardDismissMode={
                 Platform.OS === 'ios' ? 'interactive' : 'none'
               }
               keyboardShouldPersistTaps="handled"
               onScroll={onScroll}
-              style={{
-                paddingHorizontal: 20
-              }}
+              style={styles.detailsScroll}
               refreshControl={
                 <RefreshControl
                   refreshing={loading || loadingDetails}
@@ -860,46 +870,77 @@ export default function WODetailsScreen({
                 />
               }
             >
-              <Text style={{ marginTop: 5 }} variant="displaySmall">
-                {workOrder.title}
-              </Text>
-              <View style={styles.row}>
-                <Text
-                  variant="titleMedium"
-                  style={{ marginRight: 10, color: 'grey' }}
-                >{`#${workOrder.customId}`}</Text>
-                {workOrder.priority !== 'NONE' && (
-                  <Tag
-                    text={t('priority_label', {
-                      priority: t(workOrder.priority)
-                    })}
-                    color={getPriorityColor(workOrder.priority, theme)}
-                    backgroundColor={'transparent'}
+              <ErioneCard style={styles.heroCard}>
+                <View style={styles.heroTopRow}>
+                  <View style={styles.heroTitleGroup}>
+                    <Text variant="labelMedium" style={styles.heroEyebrow}>
+                      #{workOrder.customId}
+                    </Text>
+                    <Text variant="headlineSmall" style={styles.heroTitle}>
+                      {workOrder.title}
+                    </Text>
+                  </View>
+                  <ErioneStatusBadge
+                    label={
+                      statuses.find((s) => s.value === workOrder.status)
+                        ?.label ?? t(workOrder.status)
+                    }
+                    color={statusColor}
+                    subtle
                   />
-                )}
-              </View>
+                </View>
+                <View style={styles.heroBadges}>
+                  {workOrder.priority !== 'NONE' && (
+                    <ErioneStatusBadge
+                      label={t('priority_label', {
+                        priority: t(workOrder.priority)
+                      })}
+                      color={getPriorityColor(workOrder.priority, theme)}
+                      subtle
+                    />
+                  )}
+                </View>
+                <View style={styles.heroMetaGrid}>
+                  {!!workOrder.customers?.length && (
+                    <BasicField
+                      label="Cliente"
+                      value={workOrder.customers[0].name}
+                    />
+                  )}
+                  {workOrder.location && (
+                    <ObjectField
+                      label={t('location')}
+                      value={workOrder.location.name}
+                      link={{ route: 'LocationDetails', id: workOrder.location.id }}
+                      permissionEntity={PermissionEntity.LOCATIONS}
+                      address={workOrder.location.address}
+                    />
+                  )}
+                  {workOrder.asset && (
+                    <ObjectField
+                      label={t('asset')}
+                      value={workOrder.asset.name}
+                      link={{ route: 'AssetDetails', id: workOrder.asset.id }}
+                      permissionEntity={PermissionEntity.ASSETS}
+                    />
+                  )}
+                </View>
+              </ErioneCard>
               {workOrder.image && (
                 <TouchableOpacity onPress={() => setIsImageViewerOpen(true)}>
                   <Image
-                    style={{ height: 200, marginTop: 20 }}
+                    style={styles.workOrderImage}
                     source={{ uri: workOrder.image.url }}
                   />
                 </TouchableOpacity>
               )}
-              <View style={{ marginTop: 20 }}>
+              <ErioneCard style={styles.detailsCard}>
+                <ErioneSectionHeader title="Detalhes da OS" />
                 <TouchableOpacity
                   disabled={
                     !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
                   }
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: 12,
-                    borderWidth: 1,
-                    borderColor: statusColor,
-                    borderRadius: 4
-                  }}
+                  style={[styles.statusSelector, { borderColor: statusColor }]}
                   onPress={() =>
                     SheetManager.show('dropdown-sheet', {
                       payload: {
@@ -921,8 +962,8 @@ export default function WODetailsScreen({
                   />
                 </TouchableOpacity>
                 {workOrder.audioDescription && (
-                  <View style={{ backgroundColor: 'white', paddingVertical: 20 }}>
-                    <Text>{t('audio_description')}</Text>
+                  <View style={styles.audioBox}>
+                    <Text style={styles.sectionLabel}>{t('audio_description')}</Text>
                     <AudioPlayer url={workOrder.audioDescription.url} />
                   </View>
                 )}
@@ -937,7 +978,11 @@ export default function WODetailsScreen({
                       />
                     )
                 )}
-                {touchableFields.map(
+                {touchableFields
+                  .filter(
+                    ({ label }) => label !== t('asset') && label !== t('location')
+                  )
+                  .map(
                   ({ label, value, link, permissionEntity }) =>
                     value && (
                       <ObjectField
@@ -960,8 +1005,11 @@ export default function WODetailsScreen({
                     permissionEntity={PermissionEntity.PEOPLE_AND_TEAMS}
                   />
                 )}
+              </ErioneCard>
+
                 {workOrder.status === 'COMPLETE' && (
-                  <View>
+                  <ErioneCard style={styles.detailsCard}>
+                    <ErioneSectionHeader title="Conclusao" />
                     {workOrder.completedBy && (
                       <ObjectField
                         label={t('completed_by')}
@@ -994,11 +1042,11 @@ export default function WODetailsScreen({
                         </Text>
                         <Image
                           source={{ uri: workOrder.signature }}
-                          style={{ height: 200 }}
+                          style={styles.signatureImage}
                         />
                       </View>
                     )}
-                  </View>
+                  </ErioneCard>
                 )}
                 {workOrder.parentRequest && (
                   <ObjectField
@@ -1012,13 +1060,10 @@ export default function WODetailsScreen({
                   />
                 )}
                 {!!workOrder.assignedTo.length && (
-                  <View style={{ marginTop: 20 }}>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        color: theme.colors.onSurfaceVariant
-                      }}
-                    >
+                  <ErioneCard style={styles.detailsCard}>
+                    <ErioneSectionHeader title={t('assigned_to')} />
+                    <View>
+                    <Text style={styles.sectionLabel}>
                       {t('assigned_to')}
                     </Text>
                     {workOrder.assignedTo.map((user) => (
@@ -1039,7 +1084,8 @@ export default function WODetailsScreen({
                         </Text>
                       </TouchableOpacity>
                     ))}
-                  </View>
+                    </View>
+                  </ErioneCard>
                 )}
                 <FieldExecutionSection
                   workOrder={workOrder}
@@ -1049,6 +1095,20 @@ export default function WODetailsScreen({
                     workOrder
                   )}
                 />
+                {workOrder.status !== 'COMPLETE' &&
+                  workOrder.checkOutAt &&
+                  hasEditPermission(
+                    PermissionEntity.WORK_ORDERS,
+                    workOrder
+                  ) && (
+                    <ErionePrimaryButton
+                      icon="check-circle"
+                      style={styles.completeButton}
+                      onPress={() => onStatusChange('COMPLETE')}
+                    >
+                      Concluir OS
+                    </ErionePrimaryButton>
+                  )}
                 {(showPartsSection || showAdditionalCostsSection) && (
                   <View>
                     {showPartsSection && (
@@ -1491,7 +1551,6 @@ export default function WODetailsScreen({
                     </View>
                   </View>
                 )}
-              </View>
             </ScrollView>
           </KeyboardAvoidingView>
           {!generalPreferences.simplifiedWorkOrder &&
@@ -1533,7 +1592,78 @@ export default function WODetailsScreen({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: erioneColors.background
+  },
+  detailsScroll: {
+    backgroundColor: erioneColors.background
+  },
+  detailsContent: {
+    paddingHorizontal: 16,
+    paddingTop: 12
+  },
+  heroCard: {
+    marginBottom: 12
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12
+  },
+  heroTitleGroup: {
     flex: 1
+  },
+  heroEyebrow: {
+    color: erioneColors.primary,
+    fontWeight: '800'
+  },
+  heroTitle: {
+    color: erioneColors.text,
+    fontWeight: '800',
+    letterSpacing: 0,
+    marginTop: 3
+  },
+  heroBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12
+  },
+  heroMetaGrid: {
+    marginTop: 4
+  },
+  workOrderImage: {
+    height: 200,
+    marginBottom: 12,
+    borderRadius: 16
+  },
+  detailsCard: {
+    marginBottom: 12
+  },
+  statusSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF'
+  },
+  audioBox: {
+    backgroundColor: '#F6F9FA',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    marginTop: 14
+  },
+  sectionLabel: {
+    fontSize: 14,
+    color: erioneColors.muted
+  },
+  signatureImage: {
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF'
   },
   separator: {
     marginVertical: 30,
@@ -1543,19 +1673,27 @@ const styles = StyleSheet.create({
   startButton: { position: 'absolute', bottom: 20, right: '10%' },
   row: { display: 'flex', flexDirection: 'row', alignItems: 'center' },
   shadowedCard: {
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    marginVertical: 10,
-    marginHorizontal: 5,
-    elevation: 5
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    shadowColor: erioneColors.primaryDark,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    marginVertical: 8,
+    marginHorizontal: 0,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF'
   },
   fabStyle: {
     bottom: 16,
     right: 16,
     position: 'absolute'
+  },
+  completeButton: {
+    marginTop: 4,
+    marginBottom: 14
   }
 });

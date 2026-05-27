@@ -32,7 +32,6 @@ import MoveToInboxTwoToneIcon from '@mui/icons-material/MoveToInboxTwoTone';
 import Inventory2TwoToneIcon from '@mui/icons-material/Inventory2TwoTone';
 import LocationOnTwoToneIcon from '@mui/icons-material/LocationOnTwoTone';
 import HandymanTwoToneIcon from '@mui/icons-material/HandymanTwoTone';
-import SpeedTwoToneIcon from '@mui/icons-material/SpeedTwoTone';
 import AccountTreeTwoToneIcon from '@mui/icons-material/AccountTreeTwoTone';
 import { useContext, useEffect } from 'react';
 import { TitleContext } from '../../../../contexts/TitleContext';
@@ -112,14 +111,6 @@ function FeaturesSettings() {
           }
         ]
       : []),
-    {
-      id: 'meters',
-      icon: SpeedTwoToneIcon,
-      titleKey: 'meters',
-      descriptionKey: 'meters_settings_description',
-      preferencesPath: '/app/settings/features/meters',
-      toggleKey: 'meters'
-    },
     {
       id: 'contractors',
       icon: EngineeringTwoTone,

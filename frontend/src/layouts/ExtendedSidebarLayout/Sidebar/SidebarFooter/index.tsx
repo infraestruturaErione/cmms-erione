@@ -13,7 +13,6 @@ import EventTwoToneIcon from '@mui/icons-material/EventTwoTone';
 import PowerSettingsNewTwoToneIcon from '@mui/icons-material/PowerSettingsNewTwoTone';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import useAuth from 'src/hooks/useAuth';
-import UpgradeTwoToneIcon from '@mui/icons-material/UpgradeTwoTone';
 import QuestionMarkTwoToneIcon from '@mui/icons-material/QuestionMarkTwoTone';
 
 const LightTooltip = styled(({ className, ...props }: TooltipProps) => (
@@ -55,26 +54,6 @@ function SidebarFooter() {
       alignItems="center"
       justifyContent="center"
     >
-      {user.ownsCompany && (
-        <LightTooltip placement="top" arrow title={t('upgrade_now')}>
-          <IconButton
-            sx={{
-              background: `${theme.colors.alpha.trueWhite[10]}`,
-              color: `${theme.colors.alpha.trueWhite[70]}`,
-              transition: `${theme.transitions.create(['all'])}`,
-
-              '&:hover': {
-                background: `${alpha(theme.colors.alpha.trueWhite[100], 0.2)}`,
-                color: `${theme.colors.alpha.trueWhite[100]}`
-              }
-            }}
-            component={RouterLink}
-            to="/app/subscription/plans"
-          >
-            <UpgradeTwoToneIcon fontSize="small" />
-          </IconButton>
-        </LightTooltip>
-      )}
       <LightTooltip placement="top" arrow title={t('documentation')}>
         <IconButton
           sx={{

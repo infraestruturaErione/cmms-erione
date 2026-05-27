@@ -15,9 +15,6 @@ const WOAnalytics = Loader(
 const AssetAnalytics = Loader(
   lazy(() => import('../content/own/Analytics/Asset'))
 );
-const PartAnalytics = Loader(
-  lazy(() => import('../content/own/Analytics/Part'))
-);
 const RequestAnalytics = Loader(
   lazy(() => import('../content/own/Analytics/Request'))
 );
@@ -38,10 +35,6 @@ const analyticsRoutes = [
       { path: 'cost', element: <AssetAnalytics /> },
       { path: 'useful-life', element: <AssetAnalytics /> }
     ]
-  },
-  {
-    path: 'parts',
-    children: [{ path: 'consumption', element: <PartAnalytics /> }]
   },
   {
     path: 'requests',

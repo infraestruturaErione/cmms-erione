@@ -16,6 +16,7 @@ import { ChangeEvent, useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import EditTwoToneIcon from '@mui/icons-material/EditTwoTone';
 import DeleteTwoToneIcon from '@mui/icons-material/DeleteTwoTone';
+import { ERIONE_HIDDEN_MODULES } from '../../../config/erioneModules';
 import PurchaseOrder from '../../../models/owns/purchaseOrder';
 import { CompanySettingsContext } from '../../../contexts/CompanySettingsContext';
 import useAuth from '../../../hooks/useAuth';
@@ -51,7 +52,7 @@ export default function PurchaseOrderDetails(props: PurchaseOrderDetailsProps) {
   const [currentTab, setCurrentTab] = useState<string>('details');
   const tabs = [
     { value: 'details', label: t('details') },
-    { value: 'parts', label: t('parts') },
+    ...(!ERIONE_HIDDEN_MODULES.parts ? [{ value: 'parts', label: t('parts') }] : []),
     { value: 'shipping', label: t('shipping_information') },
     { value: 'additionalInfos', label: t('additional_information') }
   ];

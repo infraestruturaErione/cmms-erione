@@ -23,6 +23,7 @@ import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContex
 import { useDispatch } from '../../../../store';
 import { useBrand } from '../../../../hooks/useBrand';
 import { getErrorMessage } from '../../../../utils/api';
+import { ERIONE_HIDDEN_MODULES } from '../../../../config/erioneModules';
 
 interface EditRoleProps {
   role: Role;
@@ -78,18 +79,18 @@ function EditRole({ role, open, onClose, formatValues }: EditRoleProps) {
           deleteAssets: role?.deleteOtherPermissions.includes(
             PermissionEntity.ASSETS
           ),
-          deletePartsAndSets: role?.deleteOtherPermissions.includes(
+          ...(!ERIONE_HIDDEN_MODULES.parts ? { deletePartsAndSets: role?.deleteOtherPermissions.includes(
             PermissionEntity.PARTS_AND_MULTIPARTS
-          ),
-          deletePurchaseOrders: role?.deleteOtherPermissions.includes(
-            PermissionEntity.PURCHASE_ORDERS
-          ),
-          deleteMeters: role?.deleteOtherPermissions.includes(
+          )} : {}),
+          ...(!ERIONE_HIDDEN_MODULES.meters ? { deleteMeters: role?.deleteOtherPermissions.includes(
             PermissionEntity.METERS
-          ),
-          deleteVendorsCustomers: role?.deleteOtherPermissions.includes(
+          )} : {}),
+          ...(!ERIONE_HIDDEN_MODULES.purchaseOrders ? { deletePurchaseOrders: role?.deleteOtherPermissions.includes(
+            PermissionEntity.PURCHASE_ORDERS
+          )} : {}),
+          ...(!ERIONE_HIDDEN_MODULES.vendors ? { deleteVendorsCustomers: role?.deleteOtherPermissions.includes(
             PermissionEntity.VENDORS_AND_CUSTOMERS
-          ),
+          )} : {}),
           deleteCategories: role?.deleteOtherPermissions.includes(
             PermissionEntity.CATEGORIES
           ),
@@ -250,7 +251,7 @@ function EditRole({ role, open, onClose, formatValues }: EditRoleProps) {
                             checked={values.deletePreventiveMaintenanceTrigger}
                           />
                         }
-                        label="Preventative Maintenance Trigger"
+                        label={t('pm_trigger')}
                       />
                       <FormControlLabel
                         onChange={handleChange}
@@ -264,6 +265,7 @@ function EditRole({ role, open, onClose, formatValues }: EditRoleProps) {
                         control={<Checkbox checked={values.deleteAssets} />}
                         label={t('assets')}
                       />
+                      {!ERIONE_HIDDEN_MODULES.parts && (
                       <FormControlLabel
                         onChange={handleChange}
                         name={'deletePartsAndSets'}
@@ -272,20 +274,16 @@ function EditRole({ role, open, onClose, formatValues }: EditRoleProps) {
                         }
                         label={t('parts_and_sets')}
                       />
-                      <FormControlLabel
-                        onChange={handleChange}
-                        name={'deletePurchaseOrders'}
-                        control={
-                          <Checkbox checked={values.deletePurchaseOrders} />
-                        }
-                        label={t('purchase_orders')}
-                      />
+                      )}
+                      {!ERIONE_HIDDEN_MODULES.meters && (
                       <FormControlLabel
                         onChange={handleChange}
                         name={'deleteMeters'}
                         control={<Checkbox checked={values.deleteMeters} />}
                         label={t('meters')}
                       />
+                      )}
+                      {!ERIONE_HIDDEN_MODULES.vendors && (
                       <FormControlLabel
                         onChange={handleChange}
                         name={'deleteVendorsCustomers'}
@@ -294,6 +292,7 @@ function EditRole({ role, open, onClose, formatValues }: EditRoleProps) {
                         }
                         label={t('vendors_customers')}
                       />
+                      )}
                       <FormControlLabel
                         onChange={handleChange}
                         name={'deleteCategories'}

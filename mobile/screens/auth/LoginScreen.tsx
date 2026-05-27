@@ -1,20 +1,27 @@
-import { Image, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View
+} from 'react-native';
 import * as Yup from 'yup';
 import { AuthStackScreenProps } from '../../types';
 import { Formik } from 'formik';
 import { useTranslation } from 'react-i18next';
 import useAuth from '../../hooks/useAuth';
 import { useContext, useEffect, useState } from 'react';
-import { Button, HelperText, Text, TextInput } from 'react-native-paper';
+import { HelperText, Text, TextInput } from 'react-native-paper';
 import { CustomSnackBarContext } from '../../contexts/CustomSnackBarContext';
-import * as React from 'react';
-import { Asset } from 'expo-asset';
-import { useAppTheme } from '../../custom-theme';
-import { getApiUrl } from '../../config';
-import api, { authHeader } from '../../utils/api';
 import { useDispatch, useSelector } from '../../store';
 import { getInstanceConfig } from '../../slices/instanceConfig';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
+import { getErrorMessage } from '../../utils/api';
+import { ErionePrimaryButton } from '../../components/erione/ErioneUI';
+
+const colors = ERIONE_MOBILE_IDENTITY.colors;
 
 export default function LoginScreen({
   navigation
@@ -22,10 +29,8 @@ export default function LoginScreen({
   const { t } = useTranslation();
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const { login } = useAuth();
-  const theme = useAppTheme();
   const shouldShowRegistration = Platform.OS !== 'ios';
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-  const toggleShowPassword = () => setShowPassword((value) => !value);
+  const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
   const { ldapEnabled } = useSelector((state) => state.instanceConfig);
 
@@ -35,146 +40,164 @@ export default function LoginScreen({
 
   return (
     <View style={styles.container}>
-      <View style={styles.backgroundLayer}>
-        <View style={[styles.orb, styles.orbTop]} />
-        <View style={[styles.orb, styles.orbBottom]} />
-        <View style={styles.gridLineOne} />
-        <View style={styles.gridLineTwo} />
+      <View pointerEvents="none" style={styles.backgroundLayer}>
+        <View style={styles.topColorBlock} />
+        <View style={styles.brandPanel} />
+        <View style={styles.accentRail} />
+        <View style={styles.bottomColorBlock} />
       </View>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.brandHeader}>
-          <Image
-            style={styles.logo}
-            resizeMode="contain"
-            source={require('../../assets/images/erione-logo.png')}
-          />
-          <Text style={styles.brandTitle}>{ERIONE_MOBILE_IDENTITY.appName}</Text>
-          <Text style={styles.brandSubtitle}>
-            {t('erione_mobile_login_subtitle')}
-          </Text>
-        </View>
-        <Formik
-          initialValues={{
-            email: '',
-            password: '',
-            submit: null
-          }}
-          validationSchema={Yup.object().shape({
-            email: ldapEnabled
-              ? Yup.string().required(t('id_required'))
-              : Yup.string()
-                  .email(t('invalid_email'))
-                  .max(255)
-                  .required(t('required_email')),
-            password: Yup.string().max(255).required(t('required_password'))
-          })}
-          onSubmit={async (
-            values,
-            { setErrors, setStatus, setSubmitting }
-          ): Promise<void> => {
-            setSubmitting(true);
-            return login(values.email, values.password, ldapEnabled)
-              .catch((err) => {
-                showSnackBar(t('wrong_credentials'), 'error');
-                setStatus({ success: false });
-              })
-              .finally(() => {
-                setSubmitting(false);
-              });
-          }}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          {({
-            errors,
-            handleBlur,
-            handleChange,
-            handleSubmit,
-            isSubmitting,
-            touched,
-            values,
-            setFieldValue
-          }) => (
-            <View style={styles.loginCard}>
-              <TextInput
-                error={Boolean(touched.email && errors.email)}
-                label={ldapEnabled ? t('id') : t('email')}
-                onBlur={handleBlur('email')}
-                onChangeText={handleChange('email')}
-                value={values.email}
-                mode="outlined"
-                style={styles.input}
-                outlineStyle={styles.inputOutline}
-                autoCapitalize="none"
-                keyboardType={ldapEnabled ? 'default' : 'email-address'}
-              />
-              {Boolean(touched.email && errors.email) && (
-                <HelperText type="error">{errors.email?.toString()}</HelperText>
-              )}
-              <TextInput
-                error={Boolean(touched.password && errors.password)}
-                label={t('password')}
-                onBlur={handleBlur('password')}
-                onChangeText={handleChange('password')}
-                value={values.password}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                right={
-                  <TextInput.Icon onPress={toggleShowPassword} icon="eye" />
-                }
-                mode="outlined"
-                style={styles.input}
-                outlineStyle={styles.inputOutline}
-              />
-              {Boolean(touched.password && errors.password) && (
-                <HelperText type="error">
-                  {errors.password?.toString()}
-                </HelperText>
-              )}
-              <Button
-                color={theme.colors.primary}
-                onPress={() => handleSubmit()}
-                loading={isSubmitting}
-                style={styles.loginButton}
-                contentStyle={styles.loginButtonContent}
-                disabled={isSubmitting}
-                mode="contained"
-              >
-                {t('login')}
-              </Button>
-              {shouldShowRegistration && !ldapEnabled && (
-                <>
-                  <Text style={{ marginVertical: 20 }}>
-                    {t('no_account_yet')}
-                  </Text>
-                  <Button
-                    mode={'outlined'}
-                    onPress={() => navigation.navigate('Register')}
-                    style={{
-                      // @ts-ignore
-                      color: theme.colors.primary
-                    }}
-                  >
-                    {t('register_here')}
-                  </Button>
-                </>
-              )}
+          <View style={styles.brandHeader}>
+            <Image
+              style={styles.logo}
+              resizeMode="contain"
+              source={require('../../assets/images/erione-logo.png')}
+            />
+            <Text style={styles.brandKicker}>Erione CMMS</Text>
+            <Text style={styles.welcome}>Bem-vindo de volta</Text>
+            <Text style={styles.subtitle}>
+              Acesse o Erione CMMS para continuar
+            </Text>
+          </View>
 
-              <Button
-                mode={'text'}
-                onPress={() => navigation.navigate('CustomServer')}
-                style={{
-                  marginTop: 14
-                }}
-              >
-                {t('custom_server')}
-              </Button>
-            </View>
-          )}
-        </Formik>
-      </ScrollView>
+          <Formik
+            initialValues={{ email: '', password: '', submit: null }}
+            validationSchema={Yup.object().shape({
+              email: ldapEnabled
+                ? Yup.string().required(t('id_required'))
+                : Yup.string()
+                    .email(t('invalid_email'))
+                    .max(255)
+                    .required(t('required_email')),
+              password: Yup.string().max(255).required(t('required_password'))
+            })}
+            onSubmit={async (
+              values,
+              { setStatus, setSubmitting }
+            ): Promise<void> => {
+              setSubmitting(true);
+              return login(values.email, values.password, ldapEnabled)
+                .catch((err) => {
+                  if (err instanceof TypeError) {
+                    showSnackBar(
+                      'Servidor inacessivel. Verifique a conexao com a API.',
+                      'error'
+                    );
+                  } else {
+                    showSnackBar(
+                      getErrorMessage(
+                        err,
+                        'Credenciais invalidas. Confira e-mail e senha.'
+                      ),
+                      'error'
+                    );
+                  }
+                  setStatus({ success: false });
+                })
+                .finally(() => {
+                  setSubmitting(false);
+                });
+            }}
+          >
+            {({
+              errors,
+              handleBlur,
+              handleChange,
+              handleSubmit,
+              isSubmitting,
+              touched,
+              values
+            }) => (
+              <View style={styles.card}>
+                <TextInput
+                  error={Boolean(touched.email && errors.email)}
+                  label={ldapEnabled ? t('id') : t('email')}
+                  placeholder={ldapEnabled ? 'usuario' : 'email'}
+                  onBlur={handleBlur('email')}
+                  onChangeText={handleChange('email')}
+                  value={values.email}
+                  mode="outlined"
+                  style={styles.input}
+                  outlineStyle={styles.inputOutline}
+                  autoCapitalize="none"
+                  keyboardType={ldapEnabled ? 'default' : 'email-address'}
+                  left={
+                    <TextInput.Icon
+                      icon="email-outline"
+                      color={colors.primary}
+                    />
+                  }
+                />
+                {Boolean(touched.email && errors.email) && (
+                  <HelperText type="error" style={styles.helperText}>
+                    {errors.email?.toString()}
+                  </HelperText>
+                )}
+
+                <TextInput
+                  error={Boolean(touched.password && errors.password)}
+                  label={t('password')}
+                  placeholder="••••••"
+                  onBlur={handleBlur('password')}
+                  onChangeText={handleChange('password')}
+                  value={values.password}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  mode="outlined"
+                  style={styles.input}
+                  outlineStyle={styles.inputOutline}
+                  left={
+                    <TextInput.Icon icon="lock-outline" color={colors.primary} />
+                  }
+                  right={
+                    <TextInput.Icon
+                      onPress={() => setShowPassword(!showPassword)}
+                      icon={showPassword ? 'eye-off' : 'eye'}
+                    />
+                  }
+                />
+                {Boolean(touched.password && errors.password) && (
+                  <HelperText type="error" style={styles.helperText}>
+                    {errors.password?.toString()}
+                  </HelperText>
+                )}
+
+                <ErionePrimaryButton
+                  icon="login"
+                  onPress={() => handleSubmit()}
+                  loading={isSubmitting}
+                  disabled={isSubmitting}
+                  style={styles.loginButton}
+                >
+                  {isSubmitting ? 'Entrando...' : 'Entrar'}
+                </ErionePrimaryButton>
+
+                {shouldShowRegistration && !ldapEnabled && (
+                  <Pressable
+                    onPress={() => navigation.navigate('Register')}
+                    style={({ pressed }) => [
+                      styles.registerPressable,
+                      pressed && styles.registerPressed
+                    ]}
+                  >
+                    <Text style={styles.registerText}>
+                      {t('no_account_yet')}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+          </Formik>
+          <Text style={styles.footer}>© 2026 Erione</Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -182,135 +205,135 @@ export default function LoginScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: ERIONE_MOBILE_IDENTITY.colors.background
+    backgroundColor: colors.background
   },
   backgroundLayer: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
-    backgroundColor: ERIONE_MOBILE_IDENTITY.colors.background
+    backgroundColor: '#F2FAF8'
   },
-  orb: {
+  topColorBlock: {
     position: 'absolute',
-    borderRadius: 999,
-    opacity: 0.78
+    top: -128,
+    left: -42,
+    right: -42,
+    height: 390,
+    backgroundColor: colors.primaryDark,
+    transform: [{ rotate: '-5deg' }]
   },
-  orbTop: {
-    width: 340,
-    height: 340,
-    top: -130,
-    right: -140,
-    backgroundColor: ERIONE_MOBILE_IDENTITY.colors.accentSoft
-  },
-  orbBottom: {
-    width: 420,
+  brandPanel: {
+    position: 'absolute',
+    top: 68,
+    left: -90,
+    width: 230,
     height: 420,
-    bottom: -190,
-    left: -190,
-    backgroundColor: ERIONE_MOBILE_IDENTITY.colors.primarySoft
+    backgroundColor: colors.primary,
+    opacity: 0.2,
+    transform: [{ rotate: '18deg' }]
   },
-  gridLineOne: {
+  accentRail: {
     position: 'absolute',
-    top: 130,
-    left: -30,
-    width: '120%',
-    height: 1,
-    backgroundColor: 'rgba(11, 78, 162, 0.09)',
-    transform: [{ rotate: '-12deg' }]
+    top: 122,
+    right: -48,
+    width: 118,
+    height: 420,
+    backgroundColor: colors.accent,
+    opacity: 0.16,
+    transform: [{ rotate: '-14deg' }]
   },
-  gridLineTwo: {
+  bottomColorBlock: {
     position: 'absolute',
-    bottom: 170,
-    left: -40,
-    width: '130%',
-    height: 1,
-    backgroundColor: 'rgba(20, 167, 224, 0.12)',
-    transform: [{ rotate: '16deg' }]
+    left: -35,
+    right: -35,
+    bottom: -150,
+    height: 260,
+    backgroundColor: colors.primarySoft,
+    transform: [{ rotate: '4deg' }]
+  },
+  flex: {
+    flex: 1
   },
   scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    flexGrow: 1,
-    paddingVertical: 42
+    paddingVertical: 42,
+    paddingHorizontal: 24
   },
   brandHeader: {
     alignItems: 'center',
-    marginBottom: 18
+    marginBottom: 24
   },
   logo: {
-    width: 118,
-    height: 118,
+    width: 82,
+    height: 82,
     marginBottom: 10
   },
-  brandTitle: {
-    color: ERIONE_MOBILE_IDENTITY.colors.text,
+  brandKicker: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0,
+    marginBottom: 6
+  },
+  welcome: {
     fontSize: 26,
-    fontWeight: '800'
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    letterSpacing: 0
   },
-  brandSubtitle: {
-    color: ERIONE_MOBILE_IDENTITY.colors.muted,
+  subtitle: {
     fontSize: 14,
-    marginTop: 6,
-    textAlign: 'center'
+    color: '#DDF7EC',
+    textAlign: 'center',
+    marginTop: 6
   },
-  loginCard: {
+  card: {
     alignSelf: 'stretch',
-    marginHorizontal: 18,
-    paddingHorizontal: 22,
+    ...(Platform.OS === 'web'
+      ? { maxWidth: 420, alignSelf: 'center' as any }
+      : {}),
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    borderRadius: 18,
+    paddingHorizontal: 24,
     paddingVertical: 24,
-    borderRadius: 28,
-    backgroundColor: ERIONE_MOBILE_IDENTITY.colors.surfaceGlass,
     borderWidth: 1,
-    borderColor: ERIONE_MOBILE_IDENTITY.colors.border,
-    shadowColor: ERIONE_MOBILE_IDENTITY.colors.primaryDark,
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.16,
-    shadowRadius: 30,
-    elevation: 10
+    borderColor: '#DDE7E7',
+    shadowColor: colors.primaryDark,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    elevation: 6
   },
   input: {
-    marginBottom: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)'
+    marginBottom: 4,
+    backgroundColor: colors.surface
   },
   inputOutline: {
-    borderColor: 'rgba(11, 78, 162, 0.22)',
-    borderRadius: 14
+    borderRadius: 12
+  },
+  helperText: {
+    marginBottom: 4
   },
   loginButton: {
-    marginTop: 18,
-    borderRadius: 16,
-    shadowColor: ERIONE_MOBILE_IDENTITY.colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 4
+    marginTop: 20
   },
-  loginButtonContent: {
-    minHeight: 52
+  registerPressable: {
+    alignSelf: 'center',
+    marginTop: 16
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold'
+  registerPressed: {
+    opacity: 0.6
   },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%'
+  registerText: {
+    fontSize: 13,
+    color: colors.muted,
+    textDecorationLine: 'underline'
   },
-  scrollView: {
-    flex: 1,
-    width: '100%'
-  },
-  checkboxContainer: {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center'
-  },
-  row: {
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center'
+  footer: {
+    marginTop: 32,
+    fontSize: 12,
+    color: colors.muted
   }
 });

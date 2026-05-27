@@ -144,6 +144,12 @@ public class UserController {
 
     }
 
+    @GetMapping("/me")
+    @PreAuthorize("permitAll()")
+    public UserResponseDTO getCurrentUser(@Parameter(hidden = true) @CurrentUser User user) {
+        return userMapper.toResponseDto(user);
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("permitAll()")
 

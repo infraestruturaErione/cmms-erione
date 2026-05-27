@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import useAuth from 'src/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { PermissionEntity } from 'src/models/owns/role';
+import { ERIONE_HIDDEN_MODULES } from 'src/config/erioneModules';
 import DownloadTwoToneIcon from '@mui/icons-material/DownloadTwoTone';
 import {
   Box,
@@ -82,8 +83,8 @@ const Import = ({}: OwnProps) => {
     { label: t('work_orders'), value: 'work-orders' },
     { label: t('assets'), value: 'assets' },
     { label: t('locations'), value: 'locations' },
-    { label: t('parts'), value: 'parts' },
-    { label: t('meters'), value: 'meters' },
+    ...(!ERIONE_HIDDEN_MODULES.parts ? [{ label: t('parts'), value: 'parts' as EntityType }] : []),
+    ...(!ERIONE_HIDDEN_MODULES.meters ? [{ label: t('meters'), value: 'meters' as EntityType }] : []),
     { label: t('preventive_maintenance'), value: 'preventive-maintenances' }
   ];
   useEffect(() => {

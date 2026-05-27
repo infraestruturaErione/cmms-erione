@@ -13,6 +13,7 @@ import Form from '../components/form';
 import * as Yup from 'yup';
 import { phoneRegExp } from '../../../utils/validators';
 import { formatSelect, formatSwitch } from '../../../utils/formatters';
+import { ERIONE_HIDDEN_MODULES } from '../../../config/erioneModules';
 import { useNavigate } from 'react-router-dom';
 import { CustomSnackBarContext } from '../../../contexts/CustomSnackBarContext';
 import PermissionErrorMessage from '../components/PermissionErrorMessage';
@@ -84,13 +85,17 @@ function CreatePurchaseOrder() {
       label: t('vendor'),
       midWidth: true
     },
-    {
-      name: 'partQuantities',
-      type: 'partQuantity',
-      label: t('parts'),
-      midWidth: true,
-      multiple: true
-    },
+    ...(!ERIONE_HIDDEN_MODULES.parts
+      ? ([
+          {
+            name: 'partQuantities',
+            type: 'partQuantity' as const,
+            label: t('parts'),
+            midWidth: true,
+            multiple: true
+          }
+        ] as IField[])
+      : []),
     {
       name: 'shippingInformation',
       type: 'titleGroupField',
@@ -245,12 +250,11 @@ function CreatePurchaseOrder() {
                   }}
                   onChange={({ field, e }) => {}}
                   onSubmit={async (values) => {
-                    if (!values.partQuantities?.length) {
+                    if (!ERIONE_HIDDEN_MODULES.parts && !values.partQuantities?.length) {
                       onMissingPartQuantities();
                       return;
                     }
-                    if (
-                      values.partQuantities.some(
+                    if (!ERIONE_HIDDEN_MODULES.parts && values.partQuantities.some(
                         (partQuantity) => partQuantity.quantity <= 0
                       )
                     ) {
@@ -265,16 +269,23 @@ function CreatePurchaseOrder() {
                     );
                     return dispatch(addPurchaseOrder(values))
                       .then((id: number) => {
-                        dispatch(
-                          editPOPartQuantities(id, values.partQuantities)
-                        )
-                          .then(() => {
-                            if (values.approveOnSubmit) {
-                              dispatch(respondPurchaseOrder(id, true));
-                            }
-                          })
-                          .then(onCreationSuccess)
-                          .catch(onCreationFailure);
+                        if (!ERIONE_HIDDEN_MODULES.parts) {
+                          dispatch(
+                            editPOPartQuantities(id, values.partQuantities)
+                          )
+                            .then(() => {
+                              if (values.approveOnSubmit) {
+                                dispatch(respondPurchaseOrder(id, true));
+                              }
+                            })
+                            .then(onCreationSuccess)
+                            .catch(onCreationFailure);
+                        } else {
+                          if (values.approveOnSubmit) {
+                            dispatch(respondPurchaseOrder(id, true));
+                          }
+                          onCreationSuccess();
+                        }
                       })
                       .catch(onCreationFailure);
                   }}

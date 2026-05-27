@@ -36,7 +36,6 @@ import SettingsTwoToneIcon from '@mui/icons-material/SettingsTwoTone';
 import CategoryTwoToneIcon from '@mui/icons-material/CategoryTwoTone';
 import MoreHorizTwoToneIcon from '@mui/icons-material/MoreHorizTwoTone';
 import PendingActionsTwoToneIcon from '@mui/icons-material/PendingActionsTwoTone';
-import SpeedTwoToneIcon from '@mui/icons-material/SpeedTwoTone';
 import AttachFileTwoToneIcon from '@mui/icons-material/AttachFileTwoTone';
 import QueryStatsTwoToneIcon from '@mui/icons-material/QueryStatsTwoTone';
 import PriceCheckTwoToneIcon from '@mui/icons-material/PriceCheckTwoTone';
@@ -189,14 +188,7 @@ const curatedSections: TopNavSection[] = [
         sourceName: 'preventive_maintenance',
         section: 'erione_nav_more_operational'
       },
-      {
-        name: 'meters',
-        description: 'erione_nav_desc_meters',
-        link: '/app/meters',
-        icon: <SpeedTwoToneIcon fontSize="small" />,
-        sourceName: 'meters',
-        section: 'erione_nav_more_operational'
-      },
+
       {
         name: 'files',
         description: 'erione_nav_desc_files',

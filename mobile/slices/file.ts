@@ -5,6 +5,7 @@ import File, { FileType } from '../models/file';
 import api, { authHeader } from '../utils/api';
 import { getInitialPage, Page, SearchCriteria } from '../models/page';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { revertAll } from '../utils/redux';
 
 const basePath = 'files';
@@ -119,10 +120,16 @@ export const addFiles =
     const companyId = await AsyncStorage.getItem('companyId');
     const headers = await authHeader(false);
     delete headers['Content-Type'];
-    files.forEach((file) => {
-      //@ts-ignore
-      formData.append('files', file);
-    });
+    for (const file of files) {
+      if (Platform.OS === 'web') {
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        formData.append('files', blob, file.name);
+      } else {
+        //@ts-ignore
+        formData.append('files', file);
+      }
+    }
     formData.append('folder', `company ${companyId}`);
     formData.append('type', fileType);
     formData.append('hidden', hidden);

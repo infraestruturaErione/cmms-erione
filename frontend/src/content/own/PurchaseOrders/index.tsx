@@ -18,6 +18,7 @@ import { useContext, useEffect, useMemo, useState } from 'react';
 import { TitleContext } from '../../../contexts/TitleContext';
 import { GridEnrichedColDef } from '@mui/x-data-grid/models/colDef/gridColDef';
 import CustomDataGrid from '../components/CustomDatagrid';
+import { ERIONE_HIDDEN_MODULES } from '../../../config/erioneModules';
 import { GridRenderCellParams, GridToolbar } from '@mui/x-data-grid';
 import AddTwoToneIcon from '@mui/icons-material/AddTwoTone';
 import PurchaseOrder from '../../../models/owns/purchaseOrder';
@@ -170,7 +171,7 @@ function PurchaseOrders() {
   };
 
   useEffect(() => {
-    if (currentPurchaseOrder)
+    if (currentPurchaseOrder && !ERIONE_HIDDEN_MODULES.parts)
       dispatch(getPartQuantitiesByPurchaseOrder(currentPurchaseOrder.id));
   }, [currentPurchaseOrder?.id]);
 
@@ -217,6 +218,7 @@ function PurchaseOrders() {
         <Box sx={{ fontWeight: 'bold' }}>{params.value}</Box>
       )
     },
+    ...(!ERIONE_HIDDEN_MODULES.parts ? [
     {
       field: 'itemsNumber',
       headerName: t('number_of_items'),
@@ -225,6 +227,27 @@ function PurchaseOrders() {
       valueGetter: (params: GridRenderCellParams<null, PurchaseOrder>) =>
         params.row.partQuantities.length
     },
+    {
+      field: 'totalCost',
+      headerName: t('total_cost'),
+      description: t('total_cost'),
+      width: 150,
+      valueGetter: (params: GridRenderCellParams<null, PurchaseOrder>) =>
+        params.row.partQuantities.reduce((acc, partQuantity) => {
+          return acc + partQuantity.quantity * partQuantity.part.cost;
+        }, 0)
+    },
+    {
+      field: 'totalQuantity',
+      headerName: t('total_quantity'),
+      description: t('total_quantity'),
+      width: 150,
+      valueGetter: (params: GridRenderCellParams<null, PurchaseOrder>) =>
+        params.row.partQuantities.reduce((acc, partQuantity) => {
+          return acc + partQuantity.quantity;
+        }, 0)
+    }
+  ] : []),
     {
       field: 'totalCost',
       headerName: t('total_cost'),
@@ -338,12 +361,16 @@ function PurchaseOrders() {
       label: t('vendor'),
       midWidth: true
     },
-    {
-      name: 'partQuantities',
-      type: 'partQuantity',
-      label: t('parts'),
-      midWidth: true
-    },
+    ...(!ERIONE_HIDDEN_MODULES.parts
+      ? ([
+          {
+            name: 'partQuantities',
+            type: 'partQuantity' as const,
+            label: t('parts'),
+            midWidth: true
+          }
+        ] as IField[])
+      : []),
     {
       name: 'shippingInformation',
       type: 'titleGroupField',
@@ -504,23 +531,25 @@ function PurchaseOrders() {
               return new Promise<void>((resolve, rej) => {
                 dispatch(editPurchaseOrder(currentPurchaseOrder.id, values))
                   .then(() => {
-                    dispatch(
-                      editPOPartQuantities(
-                        currentPurchaseOrder.id,
-                        values.partQuantities
-                      )
-                    ).then(() =>
-                      setTimeout(
-                        () =>
-                          dispatch(
-                            getPartQuantitiesByPurchaseOrder(
-                              currentPurchaseOrder.id
-                            )
-                          ),
-                        //I don't know why direct call to API doesn't have updated values
-                        1000
-                      )
-                    );
+                    if (!ERIONE_HIDDEN_MODULES.parts) {
+                      dispatch(
+                        editPOPartQuantities(
+                          currentPurchaseOrder.id,
+                          values.partQuantities
+                        )
+                      ).then(() =>
+                        setTimeout(
+                          () =>
+                            dispatch(
+                              getPartQuantitiesByPurchaseOrder(
+                                currentPurchaseOrder.id
+                              )
+                            ),
+                          //I don't know why direct call to API doesn't have updated values
+                          1000
+                        )
+                      );
+                    }
                   })
                   .then(onEditSuccess)
                   .catch(onEditFailure)

@@ -9,8 +9,7 @@ import {
   Grid,
   Slide,
   styled,
-  Typography,
-  useTheme
+  Typography
 } from '@mui/material';
 import { deleteRole, getRoles } from '../../../../slices/role';
 import { useDispatch, useSelector } from '../../../../store';
@@ -23,6 +22,7 @@ import {
   Role
 } from '../../../../models/owns/role';
 import CloseIcon from '@mui/icons-material/Close';
+import { ERIONE_HIDDEN_MODULES } from '../../../../config/erioneModules';
 import {
   forwardRef,
   ReactElement,
@@ -46,7 +46,6 @@ import EditRole from './EditRole';
 import useAuth from '../../../../hooks/useAuth';
 import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
 import { defaultPermissions } from '../../../../utils/roles';
-import { PlanFeature } from '../../../../models/owns/subscriptionPlan';
 
 const DialogWrapper = styled(Dialog)(
   () => `
@@ -84,19 +83,8 @@ const ButtonError = styled(Button)(
        }
       `
 );
-const LabelWrapper = styled(Box)(
-  ({ theme }) => `
-    font-size: ${theme.typography.pxToRem(10)};
-    font-weight: bold;
-    text-transform: uppercase;
-    border-radius: ${theme.general.borderRadiusSm};
-    padding: ${theme.spacing(0.9, 1.5, 0.7)};
-    line-height: 1;
-  `
-);
 function Roles() {
   const { t }: { t: any } = useTranslation();
-  const theme = useTheme();
   const { companySettings } = useAuth();
   const [openDelete, setOpenDelete] = useState(false);
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
@@ -105,8 +93,6 @@ function Roles() {
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const dispatch = useDispatch();
   const { roles, loadingGet } = useSelector((state) => state.roles);
-  const { hasFeature } = useAuth();
-
   useEffect(() => {
     if (currentRole) {
       setCurrentRole(roles.find((role) => role.id == currentRole.id));
@@ -181,42 +167,22 @@ function Roles() {
         }
       ]
     ],
-    [
-      'deletePartsAndSets',
-      [
-        {
-          permissionsRoot: 'deleteOtherPermissions',
-          permissions: [PermissionEntity.PARTS_AND_MULTIPARTS]
-        }
-      ]
-    ],
-    [
-      'deletePurchaseOrders',
-      [
-        {
-          permissionsRoot: 'deleteOtherPermissions',
-          permissions: [PermissionEntity.PURCHASE_ORDERS]
-        }
-      ]
-    ],
-    [
-      'deleteMeters',
-      [
-        {
-          permissionsRoot: 'deleteOtherPermissions',
-          permissions: [PermissionEntity.METERS]
-        }
-      ]
-    ],
-    [
-      'deleteVendorsCustomers',
-      [
-        {
-          permissionsRoot: 'deleteOtherPermissions',
-          permissions: [PermissionEntity.VENDORS_AND_CUSTOMERS]
-        }
-      ]
-    ],
+    ...(!ERIONE_HIDDEN_MODULES.parts ? [['deletePartsAndSets', [{
+        permissionsRoot: 'deleteOtherPermissions' as PermissionRoot,
+        permissions: [PermissionEntity.PARTS_AND_MULTIPARTS]
+      }]]] as any : []),
+    ...(!ERIONE_HIDDEN_MODULES.meters ? [['deleteMeters', [{
+        permissionsRoot: 'deleteOtherPermissions' as PermissionRoot,
+        permissions: [PermissionEntity.METERS]
+      }]]] as any : []),
+    ...(!ERIONE_HIDDEN_MODULES.purchaseOrders ? [['deletePurchaseOrders', [{
+        permissionsRoot: 'deleteOtherPermissions' as PermissionRoot,
+        permissions: [PermissionEntity.PURCHASE_ORDERS]
+      }]]] as any : []),
+    ...(!ERIONE_HIDDEN_MODULES.vendors ? [['deleteVendorsCustomers', [{
+        permissionsRoot: 'deleteOtherPermissions' as PermissionRoot,
+        permissions: [PermissionEntity.VENDORS_AND_CUSTOMERS]
+      }]]] as any : []),
     [
       'deleteCategories',
       [
@@ -402,26 +368,6 @@ function Roles() {
       width: 150
     },
     {
-      field: 'paid',
-      headerName: t('type'),
-      description: t('type'),
-      width: 150,
-      renderCell: (params: GridRenderCellParams<string>) => (
-        <LabelWrapper
-          sx={{
-            background: params.value
-              ? `${theme.colors.info.main}`
-              : `${theme.colors.success.main}`,
-            color: `${theme.palette.getContrastText(
-              params.value ? theme.colors.info.dark : theme.colors.success.dark
-            )}`
-          }}
-        >
-          {params.value ? t('paid') : t('free')}
-        </LabelWrapper>
-      )
-    },
-    {
       field: 'actions',
       type: 'actions',
       headerName: t('actions'),
@@ -430,25 +376,13 @@ function Roles() {
         let actions = [
           <GridActionsCellItem
             key="edit"
-            disabled={!hasFeature(PlanFeature.ROLE)}
-            icon={
-              <EditTwoToneIcon
-                fontSize="small"
-                color={hasFeature(PlanFeature.ROLE) ? 'primary' : 'disabled'}
-              />
-            }
+            icon={<EditTwoToneIcon fontSize="small" color="primary" />}
             onClick={() => handleOpenUpdate(Number(params.id))}
             label={t('edit')}
           />,
           <GridActionsCellItem
             key="delete"
-            disabled={!hasFeature(PlanFeature.ROLE)}
-            icon={
-              <DeleteTwoToneIcon
-                fontSize="small"
-                color={hasFeature(PlanFeature.ROLE) ? 'error' : 'disabled'}
-              />
-            }
+            icon={<DeleteTwoToneIcon fontSize="small" color="error" />}
             onClick={() => handleOpenDelete(Number(params.id))}
             label={t('to_delete')}
           />

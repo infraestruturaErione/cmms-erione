@@ -2,7 +2,17 @@ import * as ImagePicker from 'expo-image-picker';
 import mime from 'mime';
 import { useContext, useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Button, Chip, Dialog, Divider, IconButton, Portal, Text, TextInput, useTheme } from 'react-native-paper';
+import {
+  Button,
+  Chip,
+  Dialog,
+  Divider,
+  IconButton,
+  Portal,
+  Text,
+  TextInput,
+  useTheme
+} from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import InAppCamera from '../../components/InAppCamera';
 import Comment from '../../models/comment';
@@ -24,8 +34,15 @@ import {
   getRecommendedFieldAction,
   RecommendedFieldActionType
 } from '../../utils/fieldExecutionRules';
+import {
+  ErioneCard,
+  ErionePrimaryButton,
+  ErioneSectionHeader
+} from '../../components/erione/ErioneUI';
+import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
 
 const FIELD_REPORT_PREFIX = '[Relato em campo]';
+const colors = ERIONE_MOBILE_IDENTITY.colors;
 
 type FieldAction = Extract<
   RecommendedFieldActionType,
@@ -106,7 +123,9 @@ export default function FieldExecutionSection({
   const durations = getFieldDurations(workOrder);
   const reportRegistered = hasFieldReport(comments);
   const evidenceRegistered =
-    !!workOrder.image || !!workOrder.files?.length || hasFieldReportEvidence(comments);
+    !!workOrder.image ||
+    !!workOrder.files?.length ||
+    hasFieldReportEvidence(comments);
 
   const runFieldAction = async (action: FieldAction) => {
     setLoadingAction(action);
@@ -162,7 +181,8 @@ export default function FieldExecutionSection({
     setEvidenceFiles((current) => [
       ...current,
       ...result.assets.map((asset) => {
-        const fileName = asset.fileName || asset.uri.split('/').pop() || 'photo.jpg';
+        const fileName =
+          asset.fileName || asset.uri.split('/').pop() || 'photo.jpg';
         return {
           uri: asset.uri,
           name: fileName,
@@ -192,7 +212,9 @@ export default function FieldExecutionSection({
       await dispatch(
         createComment({
           workOrder: { id: workOrder.id },
-          content: `${FIELD_REPORT_PREFIX} ${fieldReport.trim() || t('field_report_photo_only')}`,
+          content: `${FIELD_REPORT_PREFIX} ${
+            fieldReport.trim() || t('field_report_photo_only')
+          }`,
           files: fileIds
         })
       );
@@ -250,84 +272,92 @@ export default function FieldExecutionSection({
       title: t('field_report'),
       done: reportRegistered,
       date: null,
-      detail: reportRegistered ? t('field_report_registered') : t('field_report_pending')
+      detail: reportRegistered
+        ? t('field_report_registered')
+        : t('field_report_pending')
     }
   ];
 
   return (
-    <View style={styles.card}>
+    <ErioneCard style={styles.card}>
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text variant="titleMedium" style={styles.title}>
-            {t('field_execution')}
-          </Text>
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            {t('field_execution_mobile_helper')}
-          </Text>
+          <ErioneSectionHeader
+            title={t('field_execution')}
+            subtitle={t('field_execution_mobile_helper')}
+          />
         </View>
-        <Chip compact>{t(status)}</Chip>
+        <Chip compact style={styles.statusChip} textStyle={styles.statusChipText}>
+          {t(status)}
+        </Chip>
       </View>
 
       <View style={styles.nextActionBox}>
-        <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+        <Text variant="labelMedium" style={styles.nextActionLabel}>
           {t('next_action')}
         </Text>
-        <Text variant="titleMedium" style={{ fontWeight: 'bold' }}>
+        <Text variant="titleMedium" style={styles.nextActionTitle}>
           {t(recommendedAction.labelKey)}
         </Text>
         {recommendedAction.helperKey && (
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+          <Text variant="bodySmall" style={styles.nextActionHelper}>
             {t(recommendedAction.helperKey)}
           </Text>
         )}
         {recommendedAction.isFieldAction && canEdit && (
-          <Button
-            mode="contained"
-            style={{ marginTop: 10 }}
+          <ErionePrimaryButton
             loading={loadingAction === recommendedAction.type}
             disabled={!!loadingAction}
             onPress={() => runFieldAction(recommendedAction.type as FieldAction)}
+            style={styles.nextActionButton}
           >
             {t(recommendedAction.labelKey)}
-          </Button>
+          </ErionePrimaryButton>
         )}
       </View>
 
       <View style={styles.metricsRow}>
         <View style={styles.metric}>
-          <Text variant="labelSmall">{t('travel_duration')}</Text>
-          <Text variant="bodyMedium">
+          <Text variant="labelSmall" style={styles.metricLabel}>
+            {t('travel_duration')}
+          </Text>
+          <Text variant="bodyMedium" style={styles.metricValue}>
             {formatDuration(durations.travel.seconds, durations.travel.inProgress)}
           </Text>
         </View>
         <View style={styles.metric}>
-          <Text variant="labelSmall">{t('total_field_duration')}</Text>
-          <Text variant="bodyMedium">
+          <Text variant="labelSmall" style={styles.metricLabel}>
+            {t('total_field_duration')}
+          </Text>
+          <Text variant="bodyMedium" style={styles.metricValue}>
             {formatDuration(durations.total.seconds, durations.total.inProgress)}
           </Text>
         </View>
       </View>
 
-      <Divider style={{ marginVertical: 12 }} />
+      <Divider style={{ marginVertical: 14 }} />
 
       {timelineItems.map((item) => (
         <View key={item.key} style={styles.timelineItem}>
           <IconButton
             icon={item.done ? 'check-circle' : 'circle-outline'}
-            size={20}
+            size={22}
             iconColor={item.done ? theme.colors.primary : theme.colors.outline}
-            style={{ margin: 0, marginRight: 6 }}
+            style={styles.timelineIcon}
           />
           <View style={{ flex: 1 }}>
-            <Text variant="bodyMedium" style={{ fontWeight: item.done ? '700' : '400' }}>
+            <Text
+              variant="bodyMedium"
+              style={[styles.timelineTitle, item.done && styles.timelineDone]}
+            >
               {item.title}
             </Text>
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+            <Text variant="bodySmall" style={styles.timelineMeta}>
               {item.done ? t('completed_step') : t('pending_step')}
-              {item.date ? ` · ${getFormattedDate(item.date)}` : ''}
+              {item.date ? ` - ${getFormattedDate(item.date)}` : ''}
             </Text>
             {!!item.detail && (
-              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              <Text variant="bodySmall" style={styles.timelineMeta}>
                 {item.detail}
               </Text>
             )}
@@ -348,7 +378,7 @@ export default function FieldExecutionSection({
         <Button
           mode="outlined"
           icon="camera-plus-outline"
-          style={{ marginTop: 12 }}
+          style={styles.reportButton}
           onPress={() => setReportOpen(true)}
         >
           {t('register_field_report_photo')}
@@ -410,57 +440,97 @@ export default function FieldExecutionSection({
         onCapture={handleCameraCapture}
         onClose={() => setCameraOpen(false)}
       />
-    </View>
+    </ErioneCard>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
     marginVertical: 10,
-    marginHorizontal: 5,
-    elevation: 3,
-    backgroundColor: '#fff'
+    marginHorizontal: 0
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start'
   },
-  title: {
-    fontWeight: 'bold'
+  statusChip: {
+    backgroundColor: '#E7F3F1'
+  },
+  statusChipText: {
+    color: colors.primary,
+    fontWeight: '700'
   },
   nextActionBox: {
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: '#F7FAFC'
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#BFE7DE',
+    backgroundColor: '#EFFAF7'
+  },
+  nextActionLabel: {
+    color: colors.primary,
+    fontWeight: '800'
+  },
+  nextActionTitle: {
+    color: colors.text,
+    fontWeight: '800',
+    marginTop: 2
+  },
+  nextActionHelper: {
+    color: colors.muted,
+    marginTop: 3
+  },
+  nextActionButton: {
+    marginTop: 12
   },
   metricsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 10
+    marginTop: 12
   },
   metric: {
     flex: 1,
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: '#F7FAFC'
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#F6F9FA'
+  },
+  metricLabel: {
+    color: colors.muted
+  },
+  metricValue: {
+    color: colors.text,
+    fontWeight: '700',
+    marginTop: 3
   },
   timelineItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginVertical: 4
+    marginVertical: 6
+  },
+  timelineIcon: {
+    margin: 0,
+    marginRight: 8
+  },
+  timelineTitle: {
+    color: colors.text,
+    fontWeight: '500'
+  },
+  timelineDone: {
+    fontWeight: '800'
+  },
+  timelineMeta: {
+    color: colors.muted,
+    marginTop: 2
   },
   checklistRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 10
+  },
+  reportButton: {
+    marginTop: 14,
+    borderRadius: 14
   },
   evidenceActions: {
     flexDirection: 'row',
@@ -471,7 +541,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 8,
-    backgroundColor: '#F7FAFC',
+    backgroundColor: '#F6F9FA',
     marginTop: 6,
     paddingLeft: 8
   }
