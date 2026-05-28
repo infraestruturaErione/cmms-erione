@@ -7,6 +7,7 @@ import { RootStackParamList, RootTabScreenProps } from '../types';
 import useAuth from '../hooks/useAuth';
 import { PermissionEntity } from '../models/role';
 import { UiConfiguration } from '../models/uiConfiguration';
+import { isErioneModuleHidden } from '../config/erioneModules';
 
 export default function MoreEntitiesScreen({
   navigation
@@ -47,7 +48,9 @@ export default function MoreEntitiesScreen({
       color: '#8324d1',
       backgroundColor: '#cfc8d3',
       link: 'Parts',
-      visible: hasViewPermission(PermissionEntity.PARTS_AND_MULTIPARTS)
+      visible:
+        !isErioneModuleHidden('parts') &&
+        hasViewPermission(PermissionEntity.PARTS_AND_MULTIPARTS)
     },
     {
       label: 'meters',
@@ -55,7 +58,9 @@ export default function MoreEntitiesScreen({
       color: '#d12444',
       backgroundColor: '#d3c8ca',
       link: 'Meters',
-      visible: hasViewPermission(PermissionEntity.METERS),
+      visible:
+        !isErioneModuleHidden('meters') &&
+        hasViewPermission(PermissionEntity.METERS),
       uiConfigKey: 'meters'
     },
     {
@@ -67,7 +72,7 @@ export default function MoreEntitiesScreen({
       visible: hasViewPermission(PermissionEntity.PEOPLE_AND_TEAMS)
     },
     {
-      label: 'vendors_and_customers',
+      label: isErioneModuleHidden('vendors') ? 'customers' : 'vendors_and_customers',
       icon: 'vector-circle',
       //@ts-ignore
       color: theme.colors.warning,

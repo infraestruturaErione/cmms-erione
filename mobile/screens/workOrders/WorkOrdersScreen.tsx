@@ -38,6 +38,12 @@ import {
   ErioneStatusBadge
 } from '../../components/erione/ErioneUI';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
+import {
+  getNextActionKey,
+  isPastDue,
+  isPendingCompletion,
+  isWorkOrderInField
+} from '../../utils/workOrderFieldUx';
 
 const colors = ERIONE_MOBILE_IDENTITY.colors;
 
@@ -96,8 +102,19 @@ export default function WorkOrdersScreen({
       filterFields: [...newFilterFields, ...filterFields]
     };
   };
+  const getDefaultFilterFields = (): FilterField[] => {
+    const fields: FilterField[] = [];
+    if (hasViewOtherPermission(PermissionEntity.WORK_ORDERS)) {
+      fields.push({
+        field: 'assignedToUser',
+        operation: 'eq',
+        value: user.id
+      });
+    }
+    return fields;
+  };
   const [criteria, setCriteria] = useState<SearchCriteria>(
-    getCriteriaFromFilterFields([])
+    getCriteriaFromFilterFields(getDefaultFilterFields())
   );
   useEffect(() => {
     if (route.params?.fromHome && !fromHomeInit.current) {
@@ -122,7 +139,12 @@ export default function WorkOrdersScreen({
   }, [route]);
 
   const onRefresh = () => {
-    setCriteria(getCriteriaFromFilterFields(route.params?.filterFields ?? []));
+    setCriteria(
+      getCriteriaFromFilterFields([
+        ...getDefaultFilterFields(),
+        ...(route.params?.filterFields ?? [])
+      ])
+    );
   };
   const onFilterChange = (newFilters: FilterField[]) => {
     const newCriteria = { ...criteria };
@@ -292,10 +314,12 @@ export default function WorkOrdersScreen({
           {!!workOrders.content.length ? (
             workOrders.content.map((workOrder) => {
               const statusColor = getStatusColor(workOrder.status, theme);
+              const inField = isWorkOrderInField(workOrder);
+              const pendingCompletion = isPendingCompletion(workOrder);
               const dueSoon =
                 workOrder.dueDate &&
                 (dayDiff(new Date(workOrder.dueDate), new Date()) <= 2 ||
-                  new Date() > new Date(workOrder.dueDate)) &&
+                  isPastDue(workOrder)) &&
                 workOrder.status !== 'COMPLETE';
 
               return (
@@ -309,7 +333,13 @@ export default function WorkOrdersScreen({
                   key={workOrder.id}
                   activeOpacity={0.82}
                 >
-                  <ErioneCard style={styles.card}>
+                  <ErioneCard
+                    style={[
+                      styles.card,
+                      inField && styles.activeCard,
+                      pendingCompletion && styles.pendingCompletionCard
+                    ]}
+                  >
                     <View style={styles.cardTopRow}>
                       {workOrder.image ? (
                         <Avatar.Image
@@ -358,6 +388,13 @@ export default function WorkOrdersScreen({
                           color={colors.muted}
                         />
                       )}
+                      {workOrder.location?.address && (
+                        <IconWithLabel
+                          label={workOrder.location.address}
+                          icon="map-marker-radius-outline"
+                          color={colors.muted}
+                        />
+                      )}
                       {workOrder.asset && (
                         <IconWithLabel
                           label={workOrder.asset.name}
@@ -369,6 +406,17 @@ export default function WorkOrdersScreen({
 
                     <View style={styles.cardFooter}>
                       <View style={styles.footerMeta}>
+                        <ErioneStatusBadge
+                          label={t(getNextActionKey(workOrder))}
+                          color={
+                            pendingCompletion
+                              ? theme.colors.error
+                              : inField
+                              ? colors.primary
+                              : colors.muted
+                          }
+                          subtle
+                        />
                         {workOrder.priority &&
                           workOrder.priority !== 'NONE' && (
                             <ErioneStatusBadge
@@ -441,6 +489,14 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 12
+  },
+  activeCard: {
+    borderColor: '#2B8F7E',
+    backgroundColor: '#F7FFFC'
+  },
+  pendingCompletionCard: {
+    borderColor: '#D97706',
+    backgroundColor: '#FFFBEB'
   },
   cardTopRow: {
     flexDirection: 'row',

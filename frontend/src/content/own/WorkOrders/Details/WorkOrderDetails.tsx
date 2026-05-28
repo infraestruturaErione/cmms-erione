@@ -96,13 +96,18 @@ import { PlanFeature } from '../../../../models/owns/subscriptionPlan';
 import PartQuantitiesList from '../../components/PartQuantitiesList';
 import AddFileModal from './AddFileModal';
 import CommentsSection from './CommentsSection';
+import FieldEvidenceSection from './FieldEvidenceSection';
+import FieldReportSection from './FieldReportSection';
 import FieldExecutionSection from './FieldExecutionSection';
 import { ERIONE_HIDDEN_MODULES } from '../../../../config/erioneModules';
 import { useBrand } from '../../../../hooks/useBrand';
 import { useLicenseEntitlement } from '../../../../hooks/useLicenseEntitlement';
 import { getCustomFieldValuesForDetails } from '../../type';
 import { getErrorMessage } from '../../../../utils/api';
-import { getCommentsCountByWorkOrder } from '../../../../slices/comment';
+import {
+  getCommentsByWorkOrder,
+  getCommentsCountByWorkOrder
+} from '../../../../slices/comment';
 
 const LabelWrapper = styled(Box)(
   ({ theme }) => `
@@ -166,7 +171,10 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
     (state) => state.additionalCosts
   );
   const additionalCosts = costsByWorkOrder[workOrder.id] ?? [];
-  const { commentsCountByWorkOrder } = useSelector((state) => state.comments);
+  const { commentsByWorkOrder, commentsCountByWorkOrder } = useSelector(
+    (state) => state.comments
+  );
+  const comments = commentsByWorkOrder[workOrder.id] ?? [];
   const commentsCount = commentsCountByWorkOrder[workOrder.id] ?? 0;
   const dispatch = useDispatch();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -183,6 +191,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
 
   useEffect(() => {
     dispatch(getCommentsCountByWorkOrder(workOrder.id));
+    dispatch(getCommentsByWorkOrder(workOrder.id));
   }, [workOrder.id, dispatch]);
 
   useEffect(() => {
@@ -205,6 +214,11 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
       }
     );
   }, []);
+
+  const fieldReportText = comments
+    .find((c) => c.content?.startsWith('[Relato em campo]'))
+    ?.content?.replace('[Relato em campo]', '')
+    .trim();
 
   const { usersMini } = useSelector((state) => state.users);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState<boolean>(false);
@@ -672,12 +686,13 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                       onChange={(event) => {
                         if (event.target.value === 'COMPLETE') {
                           if (canComplete()) {
-                            if (
-                              generalPreferences.askFeedBackOnWOClosed ||
-                              workOrder.requiredSignature
-                            ) {
+                            const needsSignature = workOrder.requiredSignature;
+                            const needsFeedback =
+                              generalPreferences.askFeedBackOnWOClosed && !fieldReportText;
+
+                            if (needsSignature || needsFeedback) {
                               let error;
-                              if (workOrder.requiredSignature) {
+                              if (needsSignature) {
                                 if (!hasFeature(PlanFeature.SIGNATURE)) {
                                   error =
                                     'Signature on Work Order completion is not available in your current subscription plan.';
@@ -1423,6 +1438,15 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 </Button>
               )}
             </Box>
+            <FieldReportSection
+              comments={comments}
+              getFormattedDate={getFormattedDate}
+            />
+            <FieldEvidenceSection
+              comments={comments}
+              workOrder={workOrder}
+              onOpenImage={setImageState}
+            />
           </Box>
         )}
         {currentTab == 'comments' && (
@@ -1476,9 +1500,10 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
         open={openCompleteModal}
         onClose={() => setOpenCompleteModal(false)}
         fieldsConfig={{
-          feedback: generalPreferences.askFeedBackOnWOClosed,
+          feedback: generalPreferences.askFeedBackOnWOClosed && !fieldReportText,
           signature: workOrder.requiredSignature
         }}
+        initialFeedback={fieldReportText || undefined}
         onComplete={onCompleteWO}
       />
       <Menu anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu}>

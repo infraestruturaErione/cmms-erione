@@ -35,13 +35,17 @@ import {
   RecommendedFieldActionType
 } from '../../utils/fieldExecutionRules';
 import {
+  FIELD_REPORT_PREFIX,
+  hasFieldReportComment,
+  hasFieldReportEvidence
+} from '../../utils/workOrderFieldUx';
+import {
   ErioneCard,
   ErionePrimaryButton,
   ErioneSectionHeader
 } from '../../components/erione/ErioneUI';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
 
-const FIELD_REPORT_PREFIX = '[Relato em campo]';
 const colors = ERIONE_MOBILE_IDENTITY.colors;
 
 type FieldAction = Extract<
@@ -90,14 +94,10 @@ const getCoordinates = async (): Promise<{
   });
 };
 
-const isFieldReport = (comment: Comment) =>
-  comment.content?.startsWith(FIELD_REPORT_PREFIX);
-
 export const hasFieldReport = (comments: Comment[]) =>
-  comments.some(isFieldReport);
+  hasFieldReportComment(comments);
 
-export const hasFieldReportEvidence = (comments: Comment[]) =>
-  comments.some((comment) => isFieldReport(comment) && !!comment.files?.length);
+export { hasFieldReportEvidence };
 
 export default function FieldExecutionSection({
   workOrder,
@@ -128,6 +128,7 @@ export default function FieldExecutionSection({
     hasFieldReportEvidence(comments);
 
   const runFieldAction = async (action: FieldAction) => {
+    if (loadingAction) return;
     setLoadingAction(action);
     try {
       const { latitude, longitude } = await getCoordinates();
@@ -202,6 +203,7 @@ export default function FieldExecutionSection({
   };
 
   const submitFieldReport = async () => {
+    if (savingReport) return;
     if (!fieldReport.trim() && !evidenceFiles.length) return;
     setSavingReport(true);
     try {

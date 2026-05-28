@@ -14,7 +14,7 @@ export default function CompleteWorkOrderModal({
   navigation,
   route
 }: RootStackScreenProps<'CompleteWorkOrder'>) {
-  const { onComplete, fieldsConfig } = route.params;
+  const { onComplete, fieldsConfig, initialFeedback } = route.params;
   const { t }: { t: any } = useTranslation();
   const { uploadFiles } = useContext(CompanySettingsContext);
   const { showSnackBar } = useContext(CustomSnackBarContext);
@@ -30,7 +30,7 @@ export default function CompleteWorkOrderModal({
         placeholder: t('feedback_description'),
         multiple: true
       });
-      shape = { feedback: Yup.string().required(t('required_feedback')) };
+      shape = { feedback: Yup.string() };
     }
     if (fieldsConfig.signature) {
       fields.push({
@@ -45,17 +45,18 @@ export default function CompleteWorkOrderModal({
     }
     return [fields, shape];
   };
+  const initialValues = initialFeedback ? { feedback: initialFeedback } : {};
   return (
     <View style={styles.container}>
       <Form
         fields={getFieldsAndShape()[0]}
         validation={Yup.object().shape(getFieldsAndShape()[1])}
         submitText={t('complete_work_order')}
-        values={{}}
+        values={initialValues}
         navigation={navigation}
         onChange={({ field, e }) => {}}
         onSubmit={async (values) => {
-          return onComplete(values.signature, values.feedback).catch((err) =>
+          return onComplete(values.signature, values.feedback || undefined).catch((err) =>
             showSnackBar(getErrorMessage(err), 'error')
           );
         }}

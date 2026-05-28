@@ -2,11 +2,14 @@
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
+**Project environment (Obsidian vault):** `C:\Users\caios_\Documents\ObsidianVault\Projetos\Atlas-CMMS`
+
 Rules:
 - ALWAYS read graphify-out/GRAPH_REPORT.md before reading any source files, running grep/glob searches, or answering codebase questions. The graph is your primary map of the codebase.
 - IF graphify-out/wiki/index.md EXISTS, navigate it instead of reading raw files
 - For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- For project analysis docs, reference `C:\Users\caios_\Documents\ObsidianVault\Projetos\Atlas-CMMS\` (e.g. `Auditoria-Roles-Permissoes-Erione-CMMS.md`).
 
 ## Mobile — CORS
 
@@ -108,9 +111,21 @@ Regras:
 - Usar `ERIONE_HIDDEN_MODULES` para esconder UI; código compilado mas não renderizado
 - Após alterar gating, rodar `npm run build` no frontend
 
+## Mobile — QuickFilter "Minhas OS"
+
+O mobile tem um QuickFilter para `assignedToUser` ativado por padrão para qualquer usuário com `viewOtherPermissions.WORK_ORDERS`.
+
+**Comportamento:**
+- Técnico abre o app → vê **apenas OS atribuídas a ele** (filtro `assignedToUser = user.id`)
+- Pode desligar o toggle para ver todas as OS da empresa
+- `onRefresh()` preserva o filtro (pull-to-refresh não remove "Minhas OS")
+
+**Implementação:**
+- `mobile/screens/workOrders/WorkOrdersScreen.tsx`: função `getDefaultFilterFields()` + usado no `useState` inicial do `criteria` e no `onRefresh()`
+
 ## Roles & Permissions — Auditoria Concluída
 
-Relatório completo: `ObsidianVault/Projetos/Atlas-CMMS/Auditoria-Roles-Permissoes-Erione-CMMS.md`
+Relatório completo: `C:\Users\caios_\Documents\ObsidianVault\Projetos\Atlas-CMMS\Auditoria-Roles-Permissoes-Erione-CMMS.md`
 
 ### Arquitetura de permissões
 - Role define **o que** o usuário pode fazer (via 5 sets de `PermissionEntity`)

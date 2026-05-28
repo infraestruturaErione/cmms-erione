@@ -590,6 +590,12 @@ const ptBRJSON = {
   check_in_done: 'Check-in realizado',
   check_out_done: 'Check-out realizado',
   evidence_registered: 'Evidências/fotos registradas',
+  field_evidence: 'Evidências de Campo',
+  field_evidence_helper:
+    'Fotos e arquivos anexados diretamente na OS ou nos relatos de campo do técnico.',
+  field_evidence_count: '{{count}} evidência(s)',
+  file_without_url: 'Arquivo indisponível para abertura.',
+  no_field_evidence: 'Nenhuma evidência de campo registrada.',
   signature_registered: 'Assinatura registrada',
   departure_latitude: 'Latitude saída',
   departure_longitude: 'Longitude saída',
@@ -602,6 +608,7 @@ const ptBRJSON = {
   field_report_placeholder:
     'Descreva o que foi observado ou executado em campo',
   register_field_report: 'Registrar relato',
+  open: 'Abrir',
   with_field_report: 'Com relato',
   no_operational_report_rows: 'Nenhuma OS encontrada para estes filtros',
   report_filters: 'Filtros do relatório',

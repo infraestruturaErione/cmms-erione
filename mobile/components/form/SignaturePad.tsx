@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import SignatureScreen, {
   SignatureViewRef
 } from 'react-native-signature-canvas';
 import { Button, Text, useTheme } from 'react-native-paper';
-import { IHash } from '../../models/form';
+import { useTranslation } from 'react-i18next';
 
 interface SignaturePadProps {
   label: string;
@@ -19,6 +19,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
 }) => {
   const ref = useRef<SignatureViewRef>(null);
   const theme = useTheme();
+  const { t } = useTranslation();
   const [hasChanged, setHasChanged] = useState(false);
 
   const handleOK = (signature: string) => {
@@ -68,7 +69,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
       </View>
       <View style={styles.buttonContainer}>
         <Button mode="outlined" onPress={handleClear} style={styles.button}>
-          Clear
+          {t('clear')}
         </Button>
         {hasChanged && (
           <Button
@@ -76,7 +77,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
             onPress={saveSignature}
             style={styles.button}
           >
-            Save Signature
+            {t('save_signature')}
           </Button>
         )}
       </View>

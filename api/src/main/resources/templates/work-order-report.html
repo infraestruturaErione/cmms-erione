@@ -311,10 +311,8 @@
     <br>
     <hr>
     <div class="text-center">
-        <span th:text="#{this_wo_created}"></span><br/>
-        <img th:src="@{${#strings.isEmpty(environment.getProperty('white-labeling.logo-paths')) ?
-environment.getProperty('api.host') + '/images/logo.png' :
-environment.getProperty('api.host') + '/images/custom-logo.png'}}" width="75" height="75" style="margin-top: 10px;"/>
+        <span>Erione CMMS</span><br/>
+        <img th:if="${companyLogo!=null}" th:src="@{${companyLogo}}" height="50" style="margin-top: 10px;"/>
     </div>
 </div>
 </body>

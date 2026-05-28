@@ -8,6 +8,7 @@ import { TabBar, TabView } from 'react-native-tab-view';
 import CustomersScreen from './CustomersScreen';
 import VendorsScreen from './VendorsScreen';
 import { useTheme } from 'react-native-paper';
+import { isErioneModuleHidden } from '../../config/erioneModules';
 
 export default function VendorsCustomers(
   props: RootStackScreenProps<'VendorsCustomers'>
@@ -16,10 +17,18 @@ export default function VendorsCustomers(
   const { t } = useTranslation();
   const theme = useTheme();
   const layout = useWindowDimensions();
-  const [tabs] = useState([
-    { key: 'vendors', title: t('vendors') },
-    { key: 'customers', title: t('customers') }
-  ]);
+  const tabs = React.useMemo(
+    () => [
+      ...(!isErioneModuleHidden('vendors')
+        ? [{ key: 'vendors', title: t('vendors') }]
+        : []),
+      { key: 'customers', title: t('customers') }
+    ],
+    [t]
+  );
+  React.useEffect(() => {
+    if (tabIndex >= tabs.length) setTabIndex(0);
+  }, [tabIndex, tabs.length]);
   const renderScene = ({ route, jumpTo }) => {
     switch (route.key) {
       case 'customers':

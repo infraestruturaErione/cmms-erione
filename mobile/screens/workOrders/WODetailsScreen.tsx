@@ -33,6 +33,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import { useTranslation } from 'react-i18next';
 import * as React from 'react';
+import mime from 'mime';
 import {
   Fragment,
   useCallback,
@@ -83,6 +84,7 @@ import CommentItem from '../../components/CommentItem';
 import { downloadFile } from '../../utils/fileDownload';
 import { getCommentsByWorkOrder, createComment } from '../../slices/comment';
 import { getUsersMini } from '../../slices/user';
+import File from '../../models/file';
 import { TriggersConfig } from 'react-native-controlled-mentions/dist/types/types';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -90,6 +92,7 @@ import FieldExecutionSection, {
   hasFieldReport,
   hasFieldReportEvidence
 } from './FieldExecutionSection';
+import { getFieldEvidenceItems } from '../../utils/workOrderFieldUx';
 import {
   ErioneCard,
   ErionePrimaryButton,
@@ -97,6 +100,7 @@ import {
   ErioneStatusBadge
 } from '../../components/erione/ErioneUI';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
+import { isErioneModuleHidden } from '../../config/erioneModules';
 
 const erioneColors = ERIONE_MOBILE_IDENTITY.colors;
 
@@ -168,6 +172,8 @@ export default function WODetailsScreen({
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState<boolean>(false);
+  const [imageViewImages, setImageViewImages] = useState<{ uri: string }[]>([]);
+  const [imageViewIndex, setImageViewIndex] = useState<number>(0);
   const dispatch = useDispatch();
   const { partQuantitiesByWorkOrder, loadingPartQuantities } = useSelector(
     (state) => state.partQuantities
@@ -214,6 +220,9 @@ export default function WODetailsScreen({
     !!workOrder?.image ||
     !!workOrder?.files?.length ||
     hasFieldReportEvidence(comments);
+  const fieldEvidenceItems = workOrder
+    ? getFieldEvidenceItems(workOrder, comments)
+    : [];
   const [openDelete, setOpenDelete] = React.useState(false);
   const [openArchive, setOpenArchive] = React.useState(false);
   const remainingTasksLength = getRemainingTasksLength(tasks);
@@ -300,6 +309,7 @@ export default function WODetailsScreen({
     )?.fieldType === 'HIDDEN';
 
   const showPartsSection =
+    !isErioneModuleHidden('parts') &&
     !generalPreferences.simplifiedWorkOrder &&
     !isWorkOrderFieldHidden('completeParts');
 
@@ -515,15 +525,23 @@ export default function WODetailsScreen({
       })
     ).then(() => navigation.navigate('Root'));
   };
+  const existingFieldReport = comments.find((c) =>
+    c.content?.startsWith('[Relato em campo]')
+  );
+  const fieldReportContent = existingFieldReport
+    ? existingFieldReport.content.replace('[Relato em campo]', '').trim()
+    : '';
+
   const onStatusChange = (status: string) => {
     if (status === 'COMPLETE') {
       if (canComplete()) {
-        if (
-          generalPreferences.askFeedBackOnWOClosed ||
-          workOrder?.requiredSignature
-        ) {
+        const needsSignature = workOrder?.requiredSignature;
+        const needsFeedback =
+          generalPreferences.askFeedBackOnWOClosed && !fieldReportContent;
+
+        if (needsSignature || needsFeedback) {
           let error;
-          if (workOrder?.requiredSignature) {
+          if (needsSignature) {
             if (!hasFeature(PlanFeature.SIGNATURE)) {
               error =
                 'Signature on Work Order completion is not available in your current subscription plan.';
@@ -535,9 +553,10 @@ export default function WODetailsScreen({
             navigation.navigate('CompleteWorkOrder', {
               onComplete: onCompleteWO,
               fieldsConfig: {
-                feedback: generalPreferences.askFeedBackOnWOClosed,
-                signature: workOrder?.requiredSignature
-              }
+                feedback: needsFeedback,
+                signature: needsSignature
+              },
+              initialFeedback: fieldReportContent || undefined
             });
             return;
           }
@@ -634,6 +653,7 @@ export default function WODetailsScreen({
   }));
 
   const handleCommentSubmit = async () => {
+    if (loadingCreate) return;
     if (!commentContent.trim()) return;
     try {
       let fileIds: { id: number }[] = [];
@@ -680,9 +700,16 @@ export default function WODetailsScreen({
   };
 
   useEffect(() => {
-    if (dropDownValue !== workOrder?.status && dropDownValue)
-      onStatusChange(dropDownValue);
-  }, [dropDownValue]);
+    if (workOrder?.status && dropDownValue !== workOrder.status) {
+      setDropdownValue(workOrder.status);
+    }
+  }, [workOrder?.status]);
+
+  const handleStatusSelect = (status: string) => {
+    if (status === workOrder?.status) return;
+    setDropdownValue(status);
+    onStatusChange(status);
+  };
 
   function ObjectField({
     label,
@@ -802,6 +829,74 @@ export default function WODetailsScreen({
       </View>
     );
   }
+
+  const openImageViewer = (urls: string[], url: string) => {
+    setImageViewImages(urls.map((uri) => ({ uri })));
+    setImageViewIndex(Math.max(0, urls.indexOf(url)));
+    setIsImageViewerOpen(true);
+  };
+
+  const renderEvidenceGallery = () => {
+    const isEvidenceImage = (file: File) =>
+      file.type === 'IMAGE' || mime.getType(file.name)?.startsWith('image/');
+    const imageUrls = fieldEvidenceItems
+      .filter((item) => item.file?.url && isEvidenceImage(item.file))
+      .map((item) => item.file.url);
+
+    return (
+      <ErioneCard style={styles.detailsCard}>
+        <ErioneSectionHeader
+          title={t('work_order_evidence')}
+          subtitle={t('work_order_evidence_helper')}
+        />
+        {!fieldEvidenceItems.length ? (
+          <Text style={styles.emptyStateText}>{t('no_work_order_evidence')}</Text>
+        ) : (
+          <View style={styles.evidenceGrid}>
+            {fieldEvidenceItems.map((item) => {
+              const isImage = isEvidenceImage(item.file);
+              const canOpen = !!item.file.url;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  disabled={!canOpen}
+                  style={styles.evidenceTile}
+                  onPress={() => {
+                    if (!canOpen) return;
+                    if (isImage) openImageViewer(imageUrls, item.file.url);
+                    else Linking.openURL(item.file.url);
+                  }}
+                >
+                  {isImage && canOpen ? (
+                    <Image source={{ uri: item.file.url }} style={styles.evidenceImage} />
+                  ) : (
+                    <View style={styles.evidenceFileIcon}>
+                      <IconButton icon="file-outline" iconColor={erioneColors.primary} />
+                    </View>
+                  )}
+                  <View style={styles.evidenceInfo}>
+                    <Text variant="labelMedium" numberOfLines={1} style={styles.evidenceName}>
+                      {item.file.name}
+                    </Text>
+                    <Text variant="bodySmall" style={styles.evidenceMeta} numberOfLines={2}>
+                      {item.source === 'fieldComment' ? t('field_report') : t('files')}
+                      {item.author ? ` - ${item.author}` : ''}
+                      {item.date ? ` - ${getFormattedDate(item.date)}` : ''}
+                    </Text>
+                    {!canOpen && (
+                      <Text variant="bodySmall" style={styles.evidenceMeta}>
+                        {t('file_without_url')}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </ErioneCard>
+    );
+  };
 
   const renderConfirmArchive = () => {
     return (
@@ -927,15 +1022,45 @@ export default function WODetailsScreen({
                 </View>
               </ErioneCard>
               {workOrder.image && (
-                <TouchableOpacity onPress={() => setIsImageViewerOpen(true)}>
+                <TouchableOpacity
+                  onPress={() =>
+                    openImageViewer([workOrder.image.url], workOrder.image.url)
+                  }
+                >
                   <Image
                     style={styles.workOrderImage}
                     source={{ uri: workOrder.image.url }}
                   />
                 </TouchableOpacity>
               )}
+              <FieldExecutionSection
+                workOrder={workOrder}
+                comments={comments}
+                canEdit={hasEditPermission(
+                  PermissionEntity.WORK_ORDERS,
+                  workOrder
+                )}
+              />
+              {renderEvidenceGallery()}
+              {workOrder.status !== 'COMPLETE' &&
+                workOrder.checkOutAt &&
+                hasEditPermission(
+                  PermissionEntity.WORK_ORDERS,
+                  workOrder
+                ) && (
+                  <ErionePrimaryButton
+                    icon="check-circle"
+                    style={styles.completeButton}
+                    onPress={() => onStatusChange('COMPLETE')}
+                  >
+                    Concluir OS
+                  </ErionePrimaryButton>
+                )}
               <ErioneCard style={styles.detailsCard}>
-                <ErioneSectionHeader title="Detalhes da OS" />
+                <ErioneSectionHeader
+                  title={t('work_order_problem')}
+                  subtitle={t('work_order_problem_helper')}
+                />
                 <TouchableOpacity
                   disabled={
                     !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
@@ -946,7 +1071,7 @@ export default function WODetailsScreen({
                       payload: {
                         items: statuses,
                         value: workOrder.status,
-                        setValue: setDropdownValue
+                        setValue: handleStatusSelect
                       }
                     })
                   }
@@ -1087,28 +1212,6 @@ export default function WODetailsScreen({
                     </View>
                   </ErioneCard>
                 )}
-                <FieldExecutionSection
-                  workOrder={workOrder}
-                  comments={comments}
-                  canEdit={hasEditPermission(
-                    PermissionEntity.WORK_ORDERS,
-                    workOrder
-                  )}
-                />
-                {workOrder.status !== 'COMPLETE' &&
-                  workOrder.checkOutAt &&
-                  hasEditPermission(
-                    PermissionEntity.WORK_ORDERS,
-                    workOrder
-                  ) && (
-                    <ErionePrimaryButton
-                      icon="check-circle"
-                      style={styles.completeButton}
-                      onPress={() => onStatusChange('COMPLETE')}
-                    >
-                      Concluir OS
-                    </ErionePrimaryButton>
-                  )}
                 {(showPartsSection || showAdditionalCostsSection) && (
                   <View>
                     {showPartsSection && (
@@ -1576,10 +1679,10 @@ export default function WODetailsScreen({
                 style={[styles.fabStyle]}
               />
             )}
-          {workOrder.image && (
+          {!!imageViewImages.length && (
             <ImageView
-              images={[{ uri: workOrder.image.url }]}
-              imageIndex={0}
+              images={imageViewImages}
+              imageIndex={imageViewIndex}
               visible={isImageViewerOpen}
               onRequestClose={() => setIsImageViewerOpen(false)}
             />
@@ -1664,6 +1767,48 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 12,
     backgroundColor: '#FFFFFF'
+  },
+  emptyStateText: {
+    color: erioneColors.muted,
+    paddingVertical: 6
+  },
+  evidenceGrid: {
+    gap: 10
+  },
+  evidenceTile: {
+    flexDirection: 'row',
+    gap: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    padding: 10
+  },
+  evidenceImage: {
+    width: 82,
+    height: 82,
+    borderRadius: 10,
+    backgroundColor: '#E2E8F0'
+  },
+  evidenceFileIcon: {
+    width: 82,
+    height: 82,
+    borderRadius: 10,
+    backgroundColor: '#E7F3F1',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  evidenceInfo: {
+    flex: 1,
+    justifyContent: 'center'
+  },
+  evidenceName: {
+    color: erioneColors.text,
+    fontWeight: '800'
+  },
+  evidenceMeta: {
+    color: erioneColors.muted,
+    marginTop: 3
   },
   separator: {
     marginVertical: 30,

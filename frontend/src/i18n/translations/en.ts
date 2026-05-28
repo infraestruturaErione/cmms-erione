@@ -560,6 +560,12 @@ const locale = {
   check_in_done: 'Check-in completed',
   check_out_done: 'Check-out completed',
   evidence_registered: 'Evidence/photos registered',
+  field_evidence: 'Field Evidence',
+  field_evidence_helper:
+    'Photos and files attached directly to the work order or to technician field reports.',
+  field_evidence_count: '{{count}} evidence item(s)',
+  file_without_url: 'File unavailable for opening.',
+  no_field_evidence: 'No field evidence registered.',
   signature_registered: 'Signature registered',
   departure_latitude: 'Departure latitude',
   departure_longitude: 'Departure longitude',
@@ -572,6 +578,7 @@ const locale = {
   field_report_placeholder:
     'Describe what was observed or executed in the field',
   register_field_report: 'Register field report',
+  open: 'Open',
   with_field_report: 'With field report',
   no_operational_report_rows: 'No work orders found for these filters',
   report_filters: 'Report filters',

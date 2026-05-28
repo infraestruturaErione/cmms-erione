@@ -35,12 +35,14 @@ import VisibilityTwoToneIcon from '@mui/icons-material/VisibilityTwoTone';
 import PictureAsPdfTwoToneIcon from '@mui/icons-material/PictureAsPdfTwoTone';
 import TableChartTwoToneIcon from '@mui/icons-material/TableChartTwoTone';
 import { TitleContext } from '../../../../contexts/TitleContext';
+import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
 import { useDispatch, useSelector } from '../../../../store';
 import { getCustomersMini } from '../../../../slices/customer';
 import { getLocationsMini } from '../../../../slices/location';
 import { getAssetsMini } from '../../../../slices/asset';
 import { getUsersMini } from '../../../../slices/user';
 import { getSingleWorkOrder, clearSingleWorkOrder } from '../../../../slices/workOrder';
+import { getErrorMessage } from '../../../../utils/api';
 import WorkOrder from '../../../../models/owns/workOrder';
 import WorkOrderDetails from '../../WorkOrders/Details/WorkOrderDetails';
 import { FilterField, SearchCriteria } from '../../../../models/owns/page';
@@ -50,6 +52,7 @@ import {
   WorkOrderOperationalReportSummary
 } from '../../../../models/owns/workOrderOperationalReport';
 import { getWorkOrderOperationalReport } from '../../../../slices/workOrderOperationalReport';
+import { getPDFReport } from '../../../../slices/workOrder';
 import CustomDatagrid2, {
   CustomDatagridColumn2
 } from '../../components/CustomDatagrid2';
@@ -151,6 +154,7 @@ function WorkOrderOperationalReport() {
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
   const { setTitle } = useContext(TitleContext);
+  const { showSnackBar } = useContext(CustomSnackBarContext);
   const { getFormattedDate } = useContext(CompanySettingsContext);
   const { customersMini } = useSelector((state) => state.customers);
   const { locationsMini } = useSelector((state) => state.locations);
@@ -174,6 +178,7 @@ function WorkOrderOperationalReport() {
     useState<boolean>(false);
   const [exportingPdf, setExportingPdf] = useState<boolean>(false);
   const [exportingExcel, setExportingExcel] = useState<boolean>(false);
+  const [generatingPdfFor, setGeneratingPdfFor] = useState<number | null>(null);
   const { singleWorkOrder } = useSelector((state) => state.workOrders);
   const { tasksByWorkOrder } = useSelector((state) => state.tasks);
   const tasks = tasksByWorkOrder[currentWorkOrder?.id] ?? [];
@@ -423,6 +428,16 @@ function WorkOrderOperationalReport() {
     }
   };
 
+  const handleGeneratePdf = (workOrderId: number) => {
+    setGeneratingPdfFor(workOrderId);
+    dispatch(getPDFReport(workOrderId))
+      .then((url: string) => {
+        window.open(url);
+      })
+      .catch((err) => showSnackBar(getErrorMessage(err), 'error'))
+      .finally(() => setGeneratingPdfFor(null));
+  };
+
   const summary: WorkOrderOperationalReportSummary = report.summary;
   const columnHelper = createColumnHelper<WorkOrderOperationalReportRow>();
   const statusColor = (status: string) => {
@@ -436,19 +451,32 @@ function WorkOrderOperationalReport() {
       columnHelper.display({
         id: 'actions',
         header: '',
-        size: 50,
+        size: 100,
         cell: (info) => (
-          <Tooltip title={t('view_details')}>
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleOpenDetails(info.row.original.id);
-              }}
-            >
-              <VisibilityTwoToneIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          <Stack direction="row" spacing={0.5}>
+            <Tooltip title={t('view_details')}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenDetails(info.row.original.id);
+                }}
+              >
+                <VisibilityTwoToneIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('pdf_report')}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleGeneratePdf(info.row.original.id);
+                }}
+              >
+                <PictureAsPdfTwoToneIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
         )
       }),
       columnHelper.accessor('customId', {

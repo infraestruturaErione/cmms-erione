@@ -127,6 +127,7 @@ export type RootStackParamList = {
       feedback: string | undefined
     ) => Promise<any>;
     fieldsConfig: { feedback: boolean; signature: boolean };
+    initialFeedback?: string;
   };
   NotFound: undefined;
   Meters: undefined;

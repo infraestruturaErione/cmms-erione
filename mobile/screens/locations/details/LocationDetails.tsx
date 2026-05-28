@@ -20,6 +20,7 @@ import ListField from '../../../components/ListField';
 import BasicField from '../../../components/BasicField';
 import { CompanySettingsContext } from '../../../contexts/CompanySettingsContext';
 import { getCustomFieldValuesForDetails } from '../../../models/form';
+import { isErioneModuleHidden } from '../../../config/erioneModules';
 
 export default function LocationDetails({ location }: { location: Location }) {
   const { t } = useTranslation();
@@ -67,12 +68,14 @@ export default function LocationDetails({ location }: { location: Location }) {
         getHref={(customer: Customer) => getCustomerUrl(customer.id)}
         getValueLabel={(customer: Customer) => customer.name}
       />
-      <ListField
-        values={location?.vendors}
-        label={t('vendors')}
-        getHref={(vendor: Vendor) => getVendorUrl(vendor.id)}
-        getValueLabel={(vendor: Vendor) => vendor.companyName}
-      />
+      {!isErioneModuleHidden('vendors') && (
+        <ListField
+          values={location?.vendors}
+          label={t('vendors')}
+          getHref={(vendor: Vendor) => getVendorUrl(vendor.id)}
+          getValueLabel={(vendor: Vendor) => vendor.companyName}
+        />
+      )}
       <ListField
         values={location?.teams}
         label={t('teams')}

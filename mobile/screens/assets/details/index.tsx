@@ -23,6 +23,7 @@ import AssetWorkOrders from './AssetWorkOrders';
 import AssetFiles from './AssetFiles';
 import AssetParts from './AssetParts';
 import { CustomSnackBarContext } from '../../../contexts/CustomSnackBarContext';
+import { isErioneModuleHidden } from '../../../config/erioneModules';
 
 export default function AssetDetailsHome({
                                            navigation,
@@ -39,12 +40,20 @@ export default function AssetDetailsHome({
   const [tabIndex, setTabIndex] = useState(0);
   const [openDelete, setOpenDelete] = useState<boolean>(false);
   const { showSnackBar } = useContext(CustomSnackBarContext);
-  const [tabs] = useState([
-    { key: 'details', title: t('details') },
-    { key: 'work-orders', title: t('work_orders') },
-    { key: 'files', title: t('files') },
-    { key: 'parts', title: t('parts') }
-  ]);
+  const tabs = React.useMemo(
+    () => [
+      { key: 'details', title: t('details') },
+      { key: 'work-orders', title: t('work_orders') },
+      { key: 'files', title: t('files') },
+      ...(!isErioneModuleHidden('parts')
+        ? [{ key: 'parts', title: t('parts') }]
+        : [])
+    ],
+    [t]
+  );
+  useEffect(() => {
+    if (tabIndex >= tabs.length) setTabIndex(0);
+  }, [tabIndex, tabs.length]);
   const renderScene = ({ route, jumpTo }) => {
     switch (route.key) {
       case 'details':

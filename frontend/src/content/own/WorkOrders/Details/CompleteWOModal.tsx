@@ -13,6 +13,7 @@ interface SignatureProps {
   open: boolean;
   onClose: () => void;
   fieldsConfig: { feedback: boolean; signature: boolean };
+  initialFeedback?: string;
   onComplete: (
     signature: string | undefined,
     feedback: string
@@ -22,7 +23,8 @@ export default function CompleteWOModal({
   open,
   onClose,
   onComplete,
-  fieldsConfig
+  fieldsConfig,
+  initialFeedback
 }: SignatureProps) {
   const { t }: { t: any } = useTranslation();
   const { uploadFiles } = useContext(CompanySettingsContext);
@@ -39,7 +41,7 @@ export default function CompleteWOModal({
         placeholder: t('feedback_description'),
         multiple: true
       });
-      shape = { feedback: Yup.string().required(t('required_feedback')) };
+      shape = { feedback: Yup.string() };
     }
     if (fieldsConfig.signature) {
       fields.push({
@@ -54,6 +56,7 @@ export default function CompleteWOModal({
     }
     return [fields, shape];
   };
+  const formValues = initialFeedback ? { feedback: initialFeedback } : {};
   return (
     <Dialog fullWidth maxWidth="sm" open={open} onClose={onClose}>
       <DialogTitle
@@ -75,7 +78,7 @@ export default function CompleteWOModal({
           fields={getFieldsAndShape()[0]}
           validation={Yup.object().shape(getFieldsAndShape()[1])}
           submitText={t('close')}
-          values={{}}
+          values={formValues}
           onChange={({ field, e }) => {}}
           onSubmit={async (values) => {
             return onComplete(values.signature, values.feedback)

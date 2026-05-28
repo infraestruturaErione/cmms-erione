@@ -105,6 +105,7 @@ import SwitchAccountScreen from '../screens/superUser/SwitchAccountScreen';
 import { FontAwesome, Ionicons, Feather } from '@expo/vector-icons';
 import { Fragment, ReactElement, ReactNode } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { isErioneModuleHidden } from '../config/erioneModules';
 
 export default function Navigation({
   colorScheme
@@ -253,7 +254,12 @@ function RootNavigator() {
       <Stack.Screen
         name="VendorsCustomers"
         component={VendorsAndCustomersScreen}
-        options={{ title: t('vendors_and_customers'), contentStyle: Platform.OS === 'ios' ? { paddingTop: 10 } : undefined }}
+        options={{
+          title: isErioneModuleHidden('vendors')
+            ? t('customers')
+            : t('vendors_and_customers'),
+          contentStyle: Platform.OS === 'ios' ? { paddingTop: 10 } : undefined
+        }}
       />
       <Stack.Screen
         name="CustomerDetails"

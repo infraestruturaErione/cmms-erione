@@ -188,8 +188,16 @@ export default function FieldExecutionSection({
   const hasFieldReport = comments.some((comment) =>
     comment.content?.startsWith('[Relato em campo]')
   );
+  const hasFieldEvidence = comments.some(
+    (comment) =>
+      comment.content?.startsWith('[Relato em campo]') && !!comment.files?.length
+  );
   const summary = getFieldExecutionSummary(workOrder);
-  const checklist = getFieldClosureChecklist(workOrder, hasFieldReport);
+  const checklist = getFieldClosureChecklist(
+    workOrder,
+    hasFieldReport,
+    hasFieldEvidence
+  );
   const durations = getFieldDurations(workOrder, now);
   const recommendedAction = summary.recommendedAction;
   const isRunnableFieldAction = fieldActionTypes.includes(

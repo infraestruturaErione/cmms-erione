@@ -19,6 +19,7 @@ import {
 import ListField from '../../../components/ListField';
 import BasicField from '../../../components/BasicField';
 import { getCustomFieldValuesForDetails } from '../../../models/form';
+import { isErioneModuleHidden } from '../../../config/erioneModules';
 
 export default function AssetDetails({
   asset,
@@ -157,12 +158,14 @@ export default function AssetDetails({
         getHref={(customer: Customer) => getCustomerUrl(customer.id)}
         getValueLabel={(customer: Customer) => customer.name}
       />
-      <ListField
-        values={asset?.vendors}
-        label={t('vendors')}
-        getHref={(vendor: Vendor) => getVendorUrl(vendor.id)}
-        getValueLabel={(vendor: Vendor) => vendor.companyName}
-      />
+      {!isErioneModuleHidden('vendors') && (
+        <ListField
+          values={asset?.vendors}
+          label={t('vendors')}
+          getHref={(vendor: Vendor) => getVendorUrl(vendor.id)}
+          getValueLabel={(vendor: Vendor) => vendor.companyName}
+        />
+      )}
       <ListField
         values={asset?.teams}
         label={t('teams')}

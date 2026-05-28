@@ -1,359 +1,434 @@
-import {
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity
-} from 'react-native';
-import { View } from '../components/Themed';
-import { RootTabScreenProps } from '../types';
-import { Badge, IconButton, Switch, Text, useTheme } from 'react-native-paper';
+import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Badge, IconButton, Text, useTheme } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { ExtendedWorkOrderStatus, getStatusColor } from '../utils/overall';
-import { FilterField, SearchCriteria } from '../models/page';
-import useAuth from '../hooks/useAuth';
-import * as React from 'react';
-import { useContext, useEffect, useState } from 'react';
-import { getMobileOverviewStats } from '../slices/analytics/workOrder';
-import { useDispatch, useSelector } from '../store';
-import { getNotifications } from '../slices/notification';
+import { useContext, useEffect, useMemo } from 'react';
 import { useNetInfo } from '@react-native-community/netinfo';
-import { CustomSnackBarContext } from '../contexts/CustomSnackBarContext';
+import { RootTabScreenProps } from '../types';
+import useAuth from '../hooks/useAuth';
 import { PermissionEntity } from '../models/role';
-import { useAppTheme } from '../custom-theme';
+import { SearchCriteria } from '../models/page';
+import WorkOrder from '../models/workOrder';
+import { getNotifications } from '../slices/notification';
+import { getWorkOrders } from '../slices/workOrder';
+import { useDispatch, useSelector } from '../store';
+import { CustomSnackBarContext } from '../contexts/CustomSnackBarContext';
+import { CompanySettingsContext } from '../contexts/CompanySettingsContext';
+import {
+  ErioneCard,
+  ErionePrimaryButton,
+  ErioneScreen,
+  ErioneSectionHeader,
+  ErioneStatusBadge
+} from '../components/erione/ErioneUI';
+import { IconWithLabel } from '../components/IconWithLabel';
+import { ERIONE_MOBILE_IDENTITY } from '../config/erioneVisualIdentity';
+import { getStatusColor } from '../utils/overall';
+import {
+  getNextActionKey,
+  isPastDue,
+  isPendingCompletion,
+  isWorkOrderInField,
+  sortWorkOrdersForField
+} from '../utils/workOrderFieldUx';
+
+const colors = ERIONE_MOBILE_IDENTITY.colors;
 
 export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
-  const theme = useAppTheme();
+  const theme = useTheme();
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const netInfo = useNetInfo();
+  const { showSnackBar } = useContext(CustomSnackBarContext);
+  const { getFormattedDate } = useContext(CompanySettingsContext);
   const {
-    userSettings,
     fetchUserSettings,
     hasViewPermission,
     hasViewOtherPermission,
-    patchUserSettings,
     user
   } = useAuth();
-  const { showSnackBar } = useContext(CustomSnackBarContext);
   const { notifications } = useSelector((state) => state.notifications);
-  const { mobileOverview, loading } = useSelector((state) => state.woAnalytics);
-  const iconButtonStyle = {
-    ...styles.iconButton,
-    backgroundColor: theme.colors.background
-  };
-  const [assignedToMe, setAssignedToMe] = useState<boolean>(
-    userSettings?.statsForAssignedWorkOrders
-  );
+  const { workOrders, loadingGet } = useSelector((state) => state.workOrders);
+
   const notificationsCriteria: SearchCriteria = {
     filterFields: [],
     pageSize: 15,
     pageNum: 0,
     direction: 'DESC'
   };
-  const getTodayDates = () => {
-    const date1 = new Date();
-    const date2 = new Date();
-    date1.setHours(0, 0, 0, 0);
-    date2.setHours(24, 0, 0, 0);
-    return [date1, date2];
+
+  const getShiftCriteria = (): SearchCriteria => {
+    const filterFields: SearchCriteria['filterFields'] = [
+      {
+        field: 'status',
+        operation: 'in',
+        value: '',
+        values: ['OPEN', 'IN_PROGRESS', 'ON_HOLD'],
+        enumName: 'STATUS'
+      },
+      {
+        field: 'archived',
+        operation: 'eq',
+        value: false
+      }
+    ];
+
+    if (!hasViewOtherPermission(PermissionEntity.WORK_ORDERS)) {
+      filterFields.push({
+        field: 'assignedToUser',
+        operation: 'eq',
+        value: user.id
+      });
+    }
+
+    return {
+      filterFields,
+      pageSize: 30,
+      pageNum: 0,
+      direction: 'DESC'
+    };
+  };
+
+  const loadHome = () => {
+    dispatch(getNotifications(notificationsCriteria));
+    dispatch(getWorkOrders(getShiftCriteria())).catch(() =>
+      showSnackBar(t('work_orders_load_error'), 'error')
+    );
   };
 
   useEffect(() => {
     fetchUserSettings();
-    dispatch(getNotifications(notificationsCriteria));
+    loadHome();
   }, []);
 
-  useEffect(() => {
-    if (userSettings?.statsForAssignedWorkOrders !== undefined) {
-      dispatch(getMobileOverviewStats(userSettings.statsForAssignedWorkOrders));
-      setAssignedToMe(userSettings.statsForAssignedWorkOrders);
-    }
-  }, [userSettings]);
+  const sortedWorkOrders = useMemo(
+    () => sortWorkOrdersForField(workOrders.content),
+    [workOrders.content]
+  );
 
-  const onRefresh = () => {
-    if (userSettings)
-      dispatch(getMobileOverviewStats(userSettings.statsForAssignedWorkOrders));
+  const activeWorkOrder = sortedWorkOrders.find(isWorkOrderInField);
+  const nextWorkOrder = activeWorkOrder ?? sortedWorkOrders[0];
+  const pendingCheckIn = sortedWorkOrders.filter(
+    (wo) => wo.departureAt && !wo.checkInAt && wo.status !== 'COMPLETE'
+  ).length;
+  const pendingCheckOut = sortedWorkOrders.filter(
+    (wo) => wo.checkInAt && !wo.checkOutAt && wo.status !== 'COMPLETE'
+  ).length;
+  const pendingConclusion = sortedWorkOrders.filter(isPendingCompletion).length;
+  const highOrLate = sortedWorkOrders.filter(
+    (wo) => wo.priority === 'HIGH' || isPastDue(wo)
+  ).length;
+
+  const openWorkOrder = (workOrder?: WorkOrder) => {
+    if (!workOrder) return;
+    navigation.navigate('WODetails', {
+      id: workOrder.id,
+      workOrderProp: workOrder
+    });
   };
-  const stats: {
-    label: ExtendedWorkOrderStatus;
-    value: number;
-    filterFields: FilterField[];
-  }[] = [
-    {
-      label: 'OPEN',
-      value: mobileOverview.open,
-      filterFields: [
-        {
-          field: 'status',
-          operation: 'in',
-          value: '',
-          values: ['OPEN'],
-          enumName: 'STATUS'
-        }
-      ]
-    },
-    {
-      label: 'ON_HOLD',
-      value: mobileOverview.onHold,
-      filterFields: [
-        {
-          field: 'status',
-          operation: 'in',
-          value: '',
-          values: ['ON_HOLD'],
-          enumName: 'STATUS'
-        }
-      ]
-    },
-    {
-      label: 'IN_PROGRESS',
-      value: mobileOverview.inProgress,
-      filterFields: [
-        {
-          field: 'status',
-          operation: 'in',
-          value: '',
-          values: ['IN_PROGRESS'],
-          enumName: 'STATUS'
-        }
-      ]
-    },
-    {
-      label: 'COMPLETE',
-      value: mobileOverview.complete,
-      filterFields: [
-        {
-          field: 'status',
-          operation: 'in',
-          value: '',
-          values: ['COMPLETE'],
-          enumName: 'STATUS'
-        }
-      ]
-    },
-    // {
-    //   label: 'LATE_WO', value: 3,
-    //   filterField: {
-    //     field: 'dueDate',
-    //     operation: 'ge',
-    //     value: 'ON_HOLD'
-    //   }
-    // },
-    {
-      label: 'TODAY_WO',
-      value: mobileOverview.today,
-      filterFields: [
-        {
-          field: 'dueDate',
-          operation: 'ge',
-          value: getTodayDates()[0],
-          enumName: 'JS_DATE'
-        },
-        {
-          field: 'dueDate',
-          operation: 'le',
-          value: getTodayDates()[1],
-          enumName: 'JS_DATE'
-        }
-      ]
-    },
-    {
-      label: 'HIGH_WO',
-      value: mobileOverview.high,
-      filterFields: [
-        {
-          field: 'priority',
-          operation: 'in',
-          value: '',
-          values: ['HIGH'],
-          enumName: 'PRIORITY'
-        }
-      ]
-    }
-  ];
-  return (
-    <ScrollView
-      contentContainerStyle={{ paddingBottom: 100 }}
-      style={{ ...styles.container, backgroundColor: theme.colors.background }}
-      refreshControl={
-        <RefreshControl
-          refreshing={loading.mobileOverview}
-          colors={[theme.colors.primary]}
-          onRefresh={onRefresh}
-        />
-      }
-    >
-      <View
-        style={{
-          display: 'flex',
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}
-      >
-        {hasViewPermission(PermissionEntity.ASSETS) && (
-          <IconButton
-            style={iconButtonStyle}
-            icon={'magnify-scan'}
-            onPress={() => {
-              if (netInfo.isInternetReachable) {
-                navigation.navigate('ScanAsset');
-              } else {
-                showSnackBar(t('no_internet_connection'), 'error');
-              }
-            }}
-          />
-        )}
-        <IconButton
-          style={iconButtonStyle}
-          icon={'poll'}
-          onPress={() => {
-            navigation.navigate('WorkOrderStats');
-          }}
-        />
-        <View style={{ ...iconButtonStyle, position: 'relative' }}>
-          <IconButton
-            icon={'bell-outline'}
-            onPress={() => navigation.navigate('Notifications')}
-          />
-          <Badge
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              right: 0,
-              backgroundColor: theme.colors.error
-            }}
-            visible={
-              notifications.content.filter((notification) => !notification.seen)
-                .length > 0
-            }
-          >
-            {
-              notifications.content.filter((notification) => !notification.seen)
-                .length
-            }
-          </Badge>
-        </View>
-        {hasViewPermission(PermissionEntity.ASSETS) && (
-          <IconButton
-            style={iconButtonStyle}
-            icon={'package-variant-closed'}
-            onPress={() => navigation.navigate('Assets')}
-          />
-        )}
-      </View>
-      {hasViewOtherPermission(PermissionEntity.WORK_ORDERS) && (
-        <View
-          style={{
-            marginHorizontal: 10,
-            marginTop: 20,
-            paddingHorizontal: 10,
-            paddingVertical: 5,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            borderRadius: 10,
-            alignItems: 'center'
-          }}
-        >
-          <Text style={{ color: theme.colors.grey }}>
-            {t('only_assigned_to_me')}
-          </Text>
-          <Switch
-            value={assignedToMe}
-            onValueChange={(value) => {
-              patchUserSettings({
-                ...userSettings,
-                statsForAssignedWorkOrders: value
-              });
-              setAssignedToMe(value);
-            }}
-          />
-        </View>
-      )}
-      {stats.map((stat) => (
-        <View
-          key={stat.label}
-          style={{
-            marginHorizontal: 10,
-            marginTop: 20,
-            paddingHorizontal: 10,
-            paddingVertical: 5,
-            borderRadius: 10
-          }}
-        >
-          <TouchableOpacity
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              width: '100%'
-            }}
-            onPress={() => {
-              if (userSettings) {
-                const filterFields = stat.filterFields;
-                if (userSettings.statsForAssignedWorkOrders) {
-                  filterFields.push({
-                    field: 'assignedToUser',
-                    operation: 'eq',
-                    value: user.id
-                  });
-                }
-                navigation.navigate('WorkOrders', {
-                  filterFields,
-                  fromHome: true
-                });
-              }
-            }}
-          >
-            <View
-              style={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: 'flex-start',
-                alignItems: 'center'
-              }}
-            >
-              <View
-                style={{
-                  width: 2,
-                  height: 30,
-                  backgroundColor: getStatusColor(stat.label, theme)
-                }}
-              >
-                {null}
-              </View>
-              <Text
-                variant={'titleSmall'}
-                style={{ fontWeight: 'bold', marginLeft: 10 }}
-              >
-                {t(stat.label)}
+
+  const WorkOrderSummaryCard = ({
+    title,
+    workOrder,
+    emptyText
+  }: {
+    title: string;
+    workOrder?: WorkOrder;
+    emptyText: string;
+  }) => (
+    <ErioneCard style={styles.sectionCard}>
+      <ErioneSectionHeader title={title} />
+      {workOrder ? (
+        <TouchableOpacity activeOpacity={0.86} onPress={() => openWorkOrder(workOrder)}>
+          <View style={styles.orderHeader}>
+            <View style={{ flex: 1 }}>
+              <Text variant="labelMedium" style={styles.orderCode}>
+                #{workOrder.customId}
+              </Text>
+              <Text variant="titleMedium" style={styles.orderTitle} numberOfLines={2}>
+                {workOrder.title}
               </Text>
             </View>
-            <View
-              style={{
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'flex-start'
-              }}
-            >
-              <Text style={{ color: theme.colors.grey }}>{stat.value}</Text>
-              <IconButton
-                icon={'chevron-double-right'}
-                iconColor={theme.colors.grey}
+            <ErioneStatusBadge
+              label={t(workOrder.status)}
+              color={getStatusColor(workOrder.status, theme)}
+              subtle
+            />
+          </View>
+          <View style={styles.orderMeta}>
+            {!!workOrder.customers?.length && (
+              <IconWithLabel
+                icon="domain"
+                label={workOrder.customers[0].name}
+                color={colors.muted}
               />
+            )}
+            {workOrder.location && (
+              <IconWithLabel
+                icon="map-marker-outline"
+                label={workOrder.location.name}
+                color={colors.muted}
+              />
+            )}
+            {workOrder.location?.address && (
+              <IconWithLabel
+                icon="map-marker-radius-outline"
+                label={workOrder.location.address}
+                color={colors.muted}
+              />
+            )}
+            {workOrder.asset && (
+              <IconWithLabel
+                icon="package-variant-closed"
+                label={workOrder.asset.name}
+                color={colors.muted}
+              />
+            )}
+          </View>
+          <View style={styles.actionRow}>
+            <Text variant="labelMedium" style={styles.nextActionLabel}>
+              {t('next_action')}
+            </Text>
+            <ErioneStatusBadge
+              label={t(getNextActionKey(workOrder))}
+              color={isPendingCompletion(workOrder) ? theme.colors.error : colors.primary}
+              subtle={!isPendingCompletion(workOrder)}
+            />
+          </View>
+          <ErionePrimaryButton
+            icon="arrow-right-circle"
+            onPress={() => openWorkOrder(workOrder)}
+            style={styles.continueButton}
+          >
+            {t('continue_service')}
+          </ErionePrimaryButton>
+        </TouchableOpacity>
+      ) : (
+        <Text variant="bodyMedium" style={styles.emptyText}>
+          {emptyText}
+        </Text>
+      )}
+    </ErioneCard>
+  );
+
+  return (
+    <ErioneScreen>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={loadingGet}
+            colors={[theme.colors.primary]}
+            onRefresh={loadHome}
+          />
+        }
+      >
+        <View style={styles.header}>
+          <View>
+            <Text variant="labelMedium" style={styles.kicker}>
+              Erione CMMS
+            </Text>
+            <Text variant="headlineSmall" style={styles.title}>
+              {t('my_shift')}
+            </Text>
+            <Text variant="bodySmall" style={styles.subtitle}>
+              {netInfo.isInternetReachable === false
+                ? t('offline_shift_helper')
+                : t('my_shift_helper')}
+            </Text>
+          </View>
+          <View style={styles.headerActions}>
+            {hasViewPermission(PermissionEntity.ASSETS) && (
+              <IconButton
+                icon="magnify-scan"
+                style={styles.iconButton}
+                iconColor={colors.primary}
+                onPress={() => {
+                  if (netInfo.isInternetReachable) navigation.navigate('ScanAsset');
+                  else showSnackBar(t('no_internet_connection'), 'error');
+                }}
+              />
+            )}
+            <View style={styles.notificationBox}>
+              <IconButton
+                icon="bell-outline"
+                iconColor={colors.primary}
+                onPress={() => navigation.navigate('Notifications')}
+              />
+              <Badge
+                style={styles.badge}
+                visible={
+                  notifications.content.filter((notification) => !notification.seen)
+                    .length > 0
+                }
+              >
+                {
+                  notifications.content.filter((notification) => !notification.seen)
+                    .length
+                }
+              </Badge>
             </View>
-          </TouchableOpacity>
+          </View>
         </View>
-      ))}
-    </ScrollView>
+
+        <WorkOrderSummaryCard
+          title={t('active_service_now')}
+          workOrder={activeWorkOrder}
+          emptyText={t('no_active_service_now')}
+        />
+
+        <WorkOrderSummaryCard
+          title={t('next_work_order')}
+          workOrder={nextWorkOrder}
+          emptyText={loadingGet ? t('loading_work_orders') : t('no_work_orders_for_shift')}
+        />
+
+        <ErioneCard style={styles.sectionCard}>
+          <ErioneSectionHeader
+            title={t('pending_items')}
+            subtitle={t('pending_items_shift_helper')}
+          />
+          <View style={styles.pendingGrid}>
+            <PendingItem label={t('pending_check_in')} value={pendingCheckIn} />
+            <PendingItem label={t('pending_check_out')} value={pendingCheckOut} />
+            <PendingItem label={t('pending_completion')} value={pendingConclusion} />
+            <PendingItem label={t('high_priority_or_late')} value={highOrLate} />
+          </View>
+        </ErioneCard>
+
+        <ErionePrimaryButton
+          icon="clipboard-text-outline"
+          onPress={() =>
+            navigation.navigate('WorkOrders', {
+              filterFields: [],
+              fromHome: true
+            })
+          }
+          style={styles.allButton}
+        >
+          {t('view_all_work_orders')}
+        </ErionePrimaryButton>
+      </ScrollView>
+    </ErioneScreen>
+  );
+}
+
+function PendingItem({ label, value }: { label: string; value: number }) {
+  return (
+    <View style={styles.pendingItem}>
+      <Text variant="headlineSmall" style={styles.pendingValue}>
+        {value}
+      </Text>
+      <Text variant="bodySmall" style={styles.pendingLabel}>
+        {label}
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 110
   },
-  iconButton: { width: 50, height: 50, borderRadius: 25 }
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+    gap: 12
+  },
+  kicker: {
+    color: colors.primary,
+    fontWeight: '800'
+  },
+  title: {
+    color: colors.text,
+    fontWeight: '800',
+    letterSpacing: 0,
+    marginTop: 2
+  },
+  subtitle: {
+    color: colors.muted,
+    marginTop: 3,
+    maxWidth: 245
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  iconButton: {
+    backgroundColor: '#E7F3F1'
+  },
+  notificationBox: {
+    position: 'relative',
+    backgroundColor: '#E7F3F1',
+    borderRadius: 999
+  },
+  badge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0
+  },
+  sectionCard: {
+    marginBottom: 12
+  },
+  orderHeader: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start'
+  },
+  orderCode: {
+    color: colors.primary,
+    fontWeight: '800'
+  },
+  orderTitle: {
+    color: colors.text,
+    fontWeight: '800',
+    marginTop: 2
+  },
+  orderMeta: {
+    gap: 7,
+    marginTop: 12
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 14,
+    gap: 10
+  },
+  nextActionLabel: {
+    color: colors.muted,
+    fontWeight: '700'
+  },
+  continueButton: {
+    marginTop: 12
+  },
+  emptyText: {
+    color: colors.muted
+  },
+  pendingGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8
+  },
+  pendingItem: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: '#F6F9FA'
+  },
+  pendingValue: {
+    color: colors.primary,
+    fontWeight: '800'
+  },
+  pendingLabel: {
+    color: colors.muted,
+    marginTop: 2
+  },
+  allButton: {
+    marginTop: 2
+  }
 });
