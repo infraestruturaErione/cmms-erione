@@ -1,5 +1,5 @@
 {
-  "name": "atlas",
+  "name": "erione-cmms",
   "version": "1.0.40",
   "scripts": {
     "start": "expo start --dev-client",

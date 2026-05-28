@@ -21,7 +21,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   splash: {
     image: './assets/images/splash.png',
     resizeMode: 'contain',
-    backgroundColor: '#F4F7FB'
+    backgroundColor: '#07090e'
   },
   updates: {
     fallbackToCacheTimeout: 0,
@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     assetPatternsToBeBundled: ['**/*']
   },
   ios: {
-    bundleIdentifier: 'com.cmms.atlas',
+    bundleIdentifier: 'com.erione.cmms',
     buildNumber: '2',
     jsEngine: 'hermes',
     supportsTablet: false,
@@ -45,7 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#ffffff'
     },
     versionCode: 31,
-    package: 'com.atlas.cmms',
+    package: 'com.erione.cmms',
     jsEngine: 'hermes',
     googleServicesFile:
       googleServicesJson ?? './android/app/google-services.json',

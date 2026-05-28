@@ -15,7 +15,7 @@ const trJSON = {
   'home.built': 'Bakım Yönetimini Kolaylaştırmak için Tasarlandı',
   home_description:
     "Beyaz tahtalar ve yapışkan notlar kaosa dönüştüğünde ve ekibinizin gerçekten kullanabileceği kadar kolay bir CMMS yazılımına ihtiyaç duyduğunuzda Atlas'ı deneyin",
-  try_grash: "Atlas'ı deneyin",
+  try_grash: "Acessar Erione CMMS",
   login: 'Giriş',
   start_trial: 'Ücretsiz denemeyi başlatın',
   'home.what': 'Ne',
@@ -1042,7 +1042,7 @@ const trJSON = {
   your_payment_secure: 'Ödeme verileriniz şifrelenir ve güvenlidir.',
   plan: 'Plan',
   current_plan: 'Mevcut Plan',
-  number_users_who_will_use_grash: "Atlas'ı kullanacak kullanıcı sayısı",
+  number_users_who_will_use_grash: "Number of users who will use Erione CMMS",
   admin_role: 'Yönetici',
   technical_role: 'Teknik',
   limited_technical_role: 'Sınırlı Teknik',

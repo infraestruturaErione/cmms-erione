@@ -111,6 +111,18 @@ Regras:
 - Usar `ERIONE_HIDDEN_MODULES` para esconder UI; código compilado mas não renderizado
 - Após alterar gating, rodar `npm run build` no frontend
 
+## Mobile — Login escuro (v2)
+
+O login mobile foi redesenhado em 2026-05-28 com fundo escuro `#07090e`, glows rosa/azul, card escuro e botão rosa `#ef3b63`.
+
+**Arquivo:** `mobile/screens/auth/LoginScreen.tsx`
+
+**Lógica preservada:** `useAuth().login`, Formik/Yup, LDAP, i18n, `getErrorMessage`.
+
+**Asset:** `mobile/assets/images/erione-logo.png` (não há variante dark — pendente).
+
+**Responsividade:** `compact` (< 760px) reduz escalas; `desktop` (web ≥ 720px) centraliza com `maxWidth: 430`.
+
 ## Mobile — QuickFilter "Minhas OS"
 
 O mobile tem um QuickFilter para `assignedToUser` ativado por padrão para qualquer usuário com `viewOtherPermissions.WORK_ORDERS`.

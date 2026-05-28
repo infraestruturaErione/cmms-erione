@@ -15,7 +15,7 @@ const locale = {
   'home.built': '为简化维护管理而打造',
   home_description:
     '当白板和便签变成混乱，而你需要一款团队真正能用的简易CMMS软件时——试试Atlas',
-  try_grash: '试用Atlas',
+  try_grash: 'Acessar Erione CMMS',
   login: '登录',
   start_trial: '开始免费试用',
   'home.what': '什么',
@@ -959,7 +959,7 @@ const locale = {
   your_payment_secure: '您的支付数据已加密且安全。',
   plan: '方案',
   current_plan: '当前方案',
-  number_users_who_will_use_grash: '将使用Atlas的用户数量',
+  number_users_who_will_use_grash: 'Number of users who will use Erione CMMS',
   admin_role: '管理员',
   technical_role: '技术人员',
   limited_technical_role: '有限技术人员',

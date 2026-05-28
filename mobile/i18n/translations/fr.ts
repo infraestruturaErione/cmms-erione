@@ -123,7 +123,7 @@ const frJSON = {
   'home.built': 'Conçu pour faciliter la gestion de la maintenance',
   home_description:
     "Lorsque les tableaux blancs et les notes autocollantes sont chaotiques et que vous avez besoin d'un logiciel de GMAO suffisamment facile à utiliser pour votre équipe, essayez Atlas",
-  try_grash: 'Essayer Atlas',
+  try_grash: 'Acessar Erione CMMS',
   login: 'Se connecter',
   start_trial: 'Commencez un essai gratuit',
   'home.what': 'Ce que',

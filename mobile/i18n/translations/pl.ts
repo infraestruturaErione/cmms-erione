@@ -15,7 +15,7 @@ const plJSON = {
   'home.built': 'Zbudowany, aby ułatwić zarządzanie konserwacją',
   home_description:
     'Gdy tablice i karteczki samoprzylepne powodują chaos, a Ty potrzebujesz oprogramowania CMMS, które będzie wystarczająco łatwe w obsłudze dla Twojego zespołu, wypróbuj Atlas',
-  try_grash: 'Wypróbuj Atlas',
+  try_grash: 'Acessar Erione CMMS',
   login: 'Zaloguj się',
   start_trial: 'Rozpocznij bezpłatny okres próbny',
   'home.what': 'Co',

@@ -15,7 +15,7 @@ const locale = {
   'home.built': 'Byggd för att göra underhållshantering enklare',
   home_description:
     'När whiteboardtavlor och post-it-lappar är kaos, och du behöver en CMMS-programvara som är tillräckligt enkel för ditt team att faktiskt använda – prova Atlas',
-  try_grash: 'Prova Atlas',
+  try_grash: 'Acessar Erione CMMS',
   login: 'Logga in',
   start_trial: 'Starta en gratis provperiod',
   'home.what': 'Vad',

@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.atlas.cmms'
+    namespace 'com.erione.cmms'
     defaultConfig {
-        applicationId 'com.atlas.cmms'
+        applicationId 'com.erione.cmms'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 31

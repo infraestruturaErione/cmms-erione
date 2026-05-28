@@ -15,7 +15,7 @@ const locale = {
   'home.built': 'Napravljeno da olakša upravljanje održavanjem',
   home_description:
     'Kada su bijele table i ljepljive bilješke haos, a potreban vam je CMMS softver koji je dovoljno jednostavan da ga vaš tim zaista koristi - isprobajte Atlas',
-  try_grash: 'Isprobajte Atlas',
+  try_grash: 'Acessar Erione CMMS',
   login: 'Prijava',
   start_trial: 'Započnite besplatni probni period',
   'home.what': 'Šta',
@@ -1070,7 +1070,7 @@ const locale = {
   your_payment_secure: 'Vaši podaci o plaćanju su šifrovani i sigurni.',
   plan: 'Paket',
   current_plan: 'Trenutni paket',
-  number_users_who_will_use_grash: 'Broj korisnika koji će koristiti Atlas',
+  number_users_who_will_use_grash: 'Number of users who will use Erione CMMS',
   admin_role: 'Admin',
   technical_role: 'Tehnički',
   limited_technical_role: 'Ograničeni tehnički',

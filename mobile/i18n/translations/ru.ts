@@ -16,7 +16,7 @@ const ruJSON = {
   'home.built': 'Создано, чтобы упростить управление обслуживанием',
   home_description:
     'Когда доски и стикеры превращаются в хаос, а вам нужна CMMS-система, которую команда реально сможет использовать — попробуйте {{shortBrandName}}',
-  try_grash: 'Попробовать {{shortBrandName}}',
+  try_grash: 'Acessar Erione CMMS',
   login: 'Войти',
   start_trial: 'Начать бесплатный пробный период',
 

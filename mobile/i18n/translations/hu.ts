@@ -15,7 +15,7 @@ const locale = {
   'home.built': 'Az Atlas karbantartás-kezelés egyszerűsítésére készült',
   home_description:
     'Amikor a fehértáblák és a cetlik káoszt okoznak, és olyan CMMS szoftverre van szüksége, amit a csapata valóban használni tud – próbálja ki az Atlas-t',
-  try_grash: 'Próbálja ki az Atlas-t',
+  try_grash: 'Acessar Erione CMMS',
   login: 'Bejelentkezés',
   start_trial: 'Ingyenes próba indítása',
   'home.what': 'Mi',
@@ -1062,7 +1062,7 @@ const locale = {
   your_payment_secure: 'Fizetési adatai titkosítva és biztonságban vannak.',
   plan: 'Előfizetés',
   current_plan: 'Jelenlegi előfizetés',
-  number_users_who_will_use_grash: 'Az Atlas-t használó felhasználók száma',
+  number_users_who_will_use_grash: 'Number of users who will use Erione CMMS',
   admin_role: 'Adminisztrátor',
   technical_role: 'Technikai',
   limited_technical_role: 'Korlátozott technikai',

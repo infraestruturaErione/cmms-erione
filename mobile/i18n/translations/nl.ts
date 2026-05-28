@@ -15,7 +15,7 @@ const locale = {
   'home.built': 'Ontworpen om onderhoud eenvoudiger te beheren',
   home_description:
     'Wanneer whiteboards en plakbriefjes chaos veroorzaken, en je een CMMS-software nodig hebt die eenvoudig genoeg is voor je team om daadwerkelijk te gebruiken - probeer Atlas',
-  try_grash: 'Probeer Atlas',
+  try_grash: 'Acessar Erione CMMS',
   login: 'Inloggen',
   start_trial: 'Start een gratis proefperiode',
   'home.what': 'Wat',

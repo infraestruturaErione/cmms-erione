@@ -15,7 +15,7 @@ const locale = {
   'home.built': 'تم تصميمه لتسهيل إدارة الصيانة',
   home_description:
     'عندما تكون السبورة البيضاء والملاحظات اللاصقة فوضوية، وتحتاج إلى برنامج CMMS سهل الاستخدام بما يكفي لفريقك - جرب Atlas',
-  try_grash: 'جرب أطلس',
+  try_grash: 'Acessar Erione CMMS',
   login: 'تسجيل الدخول',
   start_trial: 'ابدأ تجربة مجانية',
   'home.what': 'ماذا',
@@ -1008,7 +1008,7 @@ const locale = {
   your_payment_secure: 'بيانات الدفع الخاصة بك مشفرة وآمنة.',
   plan: 'يخطط',
   current_plan: 'الخطة الحالية',
-  number_users_who_will_use_grash: 'عدد المستخدمين الذين سيستخدمون Atlas',
+  number_users_who_will_use_grash: 'Number of users who will use Erione CMMS',
   admin_role: 'مسؤل',
   technical_role: 'اِصطِلاحِيّ',
   limited_technical_role: 'تقنية محدودة',

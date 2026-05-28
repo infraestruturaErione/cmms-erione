@@ -27,14 +27,14 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>atlascmms</string>
-          <string>com.cmms.atlas</string>
+          <string>erionecmms</string>
+          <string>com.erione.cmms</string>
         </array>
       </dict>
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>exp+atlas-cmms</string>
+          <string>exp+erione-cmms</string>
         </array>
       </dict>
     </array>

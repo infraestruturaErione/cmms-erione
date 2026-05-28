@@ -15,7 +15,7 @@ const locale = {
   'home.built': 'Progettato per semplificare la gestione della manutenzione',
   home_description:
     'Quando lavagne e post-it sono un caos e hai bisogno di un software CMMS abbastanza semplice da utilizzare per il tuo team, prova Atlas',
-  try_grash: 'Prova Atlas',
+  try_grash: 'Acessar Erione CMMS',
   login: 'Login',
   start_trial: 'Inizia una prova gratuita',
   'home.what': 'Che cosa',
@@ -1071,7 +1071,7 @@ const locale = {
   your_payment_secure: 'I tuoi dati di pagamento sono crittografati e sicuri.',
   plan: 'Piano',
   current_plan: 'Piano attuale',
-  number_users_who_will_use_grash: 'Numero di utenti che utilizzeranno Atlas',
+  number_users_who_will_use_grash: 'Number of users who will use Erione CMMS',
   admin_role: 'Amministratore',
   technical_role: 'Tecnico',
   limited_technical_role: 'Tecnico limitato',

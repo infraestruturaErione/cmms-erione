@@ -15,7 +15,7 @@ const deJSON = {
   'home.built': 'Entwickelt, um die Wartungsverwaltung zu erleichtern ',
   home_description:
     'Wenn Whiteboards und Haftnotizen Chaos sind und Sie eine CMMS-Software benötigen, die einfach genug ist, damit Ihr Team sie tatsächlich nutzt - probieren Sie Atlas ',
-  try_grash: 'Probieren Sie Atlas ',
+  try_grash: 'Acessar Erione CMMS',
   login: 'Einloggen ',
   start_trial: 'Kostenlose Testversion starten ',
   'home.what': 'Was ',

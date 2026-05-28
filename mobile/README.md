@@ -1,10 +1,6 @@
-# Atlas CMMS Mobile App
+# Erione CMMS Mobile App
 
-This project aims to help manage assets, schedule maintenance and track work orders. This is the mobile app developed
-with React Native.
-You can use the [live app](https://play.google.com/store/apps/details?id=com.atlas.cmms) and configure it with your custom server url, or build the app locally
-
-**And please star the repo**.
+App mobile do Erione CMMS — gestão de ordens de serviço, execução em campo e checklists.
 
 **Screenshot**:
 
