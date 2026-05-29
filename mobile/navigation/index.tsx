@@ -29,15 +29,11 @@ import EditWorkOrder from '../screens/workOrders/EditWorkOrderScreen';
 import CreateRequestScreen from '../screens/requests/CreateRequestScreen';
 import CreateAssetScreen from '../screens/assets/CreateAssetScreen';
 import CreateLocationScreen from '../screens/locations/CreateLocationScreen';
-import CreateMeterScreen from '../screens/meters/CreateMeterScreen';
-import CreatePartScreen from '../screens/parts/CreatePartScreen';
-import WorkOrderStatsScreen from '../screens/WorkOrderStatsScreen';
 import {
   AuthStackParamList,
   RootStackParamList,
   RootTabParamList,
-  RootTabScreenProps,
-  SuperUserStackParamList
+  RootTabScreenProps
 } from '../types';
 import LinkingConfiguration from './LinkingConfiguration';
 import useAuth from '../hooks/useAuth';
@@ -45,7 +41,7 @@ import { useTranslation } from 'react-i18next';
 import { IconButton, Text, useTheme } from 'react-native-paper';
 import { IconSource } from 'react-native-paper/lib/typescript/components/Icon';
 import MoreEntitiesScreen from '../screens/MoreEntitiesScreen';
-import MetersScreen from '../screens/meters/MetersScreen';
+
 import WorkOrdersScreen from '../screens/workOrders/WorkOrdersScreen';
 import { SheetManager } from 'react-native-actions-sheet';
 import CompleteWorkOrderModal from '../screens/workOrders/CompleteWorkOrderModal';
@@ -61,7 +57,7 @@ import SelectCategoriesModal from '../screens/modals/SelectCategoryModal';
 import SelectTasksModal from '../screens/modals/SelectTasksModal';
 import SelectChecklistsModal from '../screens/modals/SelectChecklistsModal';
 import SelectTasksOrChecklistModal from '../screens/modals/SelectTasksOrChecklistModal';
-import PartsScreen from '../screens/parts/PartsScreen';
+
 import VendorsAndCustomersScreen from '../screens/vendorsCustomers';
 import PeopleAndTeamsScreen from '../screens/peopleTeams';
 import NotificationsScreen from '../screens/NotificationsScreen';
@@ -71,14 +67,9 @@ import AssetDetails from '../screens/assets/details';
 import EditAssetScreen from '../screens/assets/EditAssetScreen';
 import LocationDetails from '../screens/locations/details';
 import EditLocationScreen from '../screens/locations/EditLocationScreen';
-import PartDetails from '../screens/parts/details';
-import EditPartScreen from '../screens/parts/EditPartScreen';
+
 import CustomerDetailsScreen from '../screens/vendorsCustomers/details/CustomerDetailsScreen';
 import EditCustomerScreen from '../screens/vendorsCustomers/EditCustomerScreen';
-import VendorDetailsScreen from '../screens/vendorsCustomers/details/VendorDetailsScreen';
-import EditVendorScreen from '../screens/vendorsCustomers/EditVendorScreen';
-import MeterDetails from '../screens/meters/MeterDetails';
-import EditMeterScreen from '../screens/meters/EditMeterScreen';
 import TeamDetails from '../screens/peopleTeams/TeamDetails';
 import EditTeamScreen from '../screens/peopleTeams/EditTeamScreen';
 import RequestDetails from '../screens/requests/RequestDetails';
@@ -101,7 +92,7 @@ import {
   viewMoreEntities
 } from '../models/role';
 import RequestsScreen from '../screens/requests/RequestsScreen';
-import SwitchAccountScreen from '../screens/superUser/SwitchAccountScreen';
+
 import { FontAwesome, Ionicons, Feather } from '@expo/vector-icons';
 import { Fragment, ReactElement, ReactNode } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -112,7 +103,7 @@ export default function Navigation({
 }: {
   colorScheme: ColorSchemeName;
 }) {
-  const { isAuthenticated, isInitialized, user } = useAuth();
+  const { isAuthenticated, isInitialized } = useAuth();
   return (
     <NavigationContainer
       ref={navigationRef}
@@ -121,11 +112,7 @@ export default function Navigation({
     >
       {isInitialized ? (
         isAuthenticated ? (
-          user.superAccountRelations.length ? (
-            <SuperUserNavigator />
-          ) : (
-            <RootNavigator />
-          )
+          <RootNavigator />
         ) : (
           <AuthNavigator />
         )
@@ -192,49 +179,9 @@ function RootNavigator() {
         options={{ title: t('create_location') }}
       />
       <Stack.Screen
-        name="AddPart"
-        component={CreatePartScreen}
-        options={{ title: t('create_part') }}
-      />
-      <Stack.Screen
-        name="AddMeter"
-        component={CreateMeterScreen}
-        options={{ title: t('create_meter') }}
-      />
-      <Stack.Screen
         name="AddUser"
         component={InviteUserScreen}
         options={{ title: t('invite_users') }}
-      />
-      <Stack.Screen
-        name="WorkOrderStats"
-        component={WorkOrderStatsScreen}
-        options={{ title: t('stats') }}
-      />
-      <Stack.Screen
-        name="Meters"
-        component={MetersScreen}
-        options={{ title: t('meters') }}
-      />
-      <Stack.Screen
-        name="MeterDetails"
-        component={MeterDetails}
-        options={{ title: t('meter_details') }}
-      />
-      <Stack.Screen
-        name="EditMeter"
-        component={EditMeterScreen}
-        options={{ title: t('edit_meter') }}
-      />
-      <Stack.Screen
-        name="Parts"
-        component={PartsScreen}
-        options={{ title: t('parts') }}
-      />
-      <Stack.Screen
-        name="PartDetails"
-        component={PartDetails}
-        options={{ title: t('part') }}
       />
       <Stack.Screen
         name="RequestDetails"
@@ -245,11 +192,6 @@ function RootNavigator() {
         name="EditRequest"
         component={EditRequestScreen}
         options={{ title: t('edit_request') }}
-      />
-      <Stack.Screen
-        name="EditPart"
-        component={EditPartScreen}
-        options={{ title: t('update_part') }}
       />
       <Stack.Screen
         name="VendorsCustomers"
@@ -270,16 +212,6 @@ function RootNavigator() {
         name="EditCustomer"
         component={EditCustomerScreen}
         options={{ title: t('edit_customer') }}
-      />
-      <Stack.Screen
-        name="VendorDetails"
-        component={VendorDetailsScreen}
-        options={{ title: t('vendor') }}
-      />
-      <Stack.Screen
-        name="EditVendor"
-        component={EditVendorScreen}
-        options={{ title: t('edit_vendor') }}
       />
       <Stack.Screen
         name="Assets"
@@ -454,7 +386,6 @@ function RootNavigator() {
 }
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
-const SuperUserStack = createNativeStackNavigator<SuperUserStackParamList>();
 
 function AuthNavigator() {
   const { t } = useTranslation();
@@ -478,19 +409,6 @@ function AuthNavigator() {
         options={{ title: t('verify_email_title') }}
       />
     </AuthStack.Navigator>
-  );
-}
-
-function SuperUserNavigator() {
-  const { t } = useTranslation();
-  return (
-    <SuperUserStack.Navigator>
-      <SuperUserStack.Screen
-        name="SwitchAccount"
-        component={SwitchAccountScreen}
-        options={{ title: t('switch_account') }}
-      />
-    </SuperUserStack.Navigator>
   );
 }
 

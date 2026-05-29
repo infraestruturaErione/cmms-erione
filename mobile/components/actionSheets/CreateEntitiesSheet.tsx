@@ -52,24 +52,6 @@ export default function CreateEntitiesSheet(
       goTo: 'AddLocation',
       entity: PermissionEntity.LOCATIONS
     },
-    {
-      title: t('part'),
-      icon: 'archive-outline',
-      goTo: 'AddPart',
-      entity: PermissionEntity.PARTS_AND_MULTIPARTS
-    },
-    {
-      title: t('meter'),
-      icon: 'gauge',
-      goTo: 'AddMeter',
-      entity: PermissionEntity.METERS
-    },
-    {
-      title: t('user'),
-      icon: 'account-outline',
-      goTo: 'AddUser',
-      entity: PermissionEntity.PEOPLE_AND_TEAMS
-    }
   ];
   return (
     <ActionSheet ref={actionSheetRef}>

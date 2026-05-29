@@ -1,6 +1,7 @@
 package com.grash.utils;
 
 import com.grash.model.enums.DateFormat;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
@@ -14,6 +15,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.Random;
 
+@Slf4j
 @Component
 public class Utils {
     private final Random RANDOM = new SecureRandom();
@@ -37,7 +39,7 @@ public class Utils {
             }
             in.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Failed to read file: {}", filename, e);
         }
         return contentBuilder.toString();
     }

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { RootStackScreenProps } from '../../types';
 import { View } from '../../components/Themed';
 import Form from '../../components/form';

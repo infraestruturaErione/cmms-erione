@@ -32,6 +32,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.util.Pair;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -294,7 +295,12 @@ public class WorkOrderService {
         searchCriteria.getFilterFields().forEach(builder::with);
         Pageable page = PageRequest.of(searchCriteria.getPageNum(), searchCriteria.getPageSize(),
                 searchCriteria.getDirection(), searchCriteria.getSortField());
-        return workOrderRepository.findAll(builder.build(), page);
+        Specification<WorkOrder> spec = builder.build();
+        Specification<WorkOrder> distinctSpec = (root, query, cb) -> {
+            query.distinct(true);
+            return spec.toPredicate(root, query, cb);
+        };
+        return workOrderRepository.findAll(distinctSpec, page);
     }
 
     public void save(WorkOrder workOrder) {

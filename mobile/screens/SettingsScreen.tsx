@@ -1,7 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { View } from '../components/Themed';
 import {
-  ActivityIndicator,
   Avatar,
   Button,
   Dialog,
@@ -27,8 +26,7 @@ export default function SettingsScreen({
                                          navigation
                                        }: RootStackScreenProps<'Settings'>) {
   const theme = useTheme();
-  const { user, switchAccount, logout } = useAuth();
-  const [switchingAccount, setSwitchingAccount] = useState<boolean>(false);
+  const { user, logout } = useAuth();
   const { t } = useTranslation();
   const [versionPressCount, setVersionPressCount] = useState<number>(0);
   const [openLogout, setOpenLogout] = useState<boolean>(false);
@@ -94,17 +92,6 @@ export default function SettingsScreen({
           description={t('update_profile')}
           onPress={() => navigation.navigate('UserProfile')}
         />
-        {user.parentSuperAccount && <List.Item
-          style={{ paddingHorizontal: 20 }}
-          left={(props) => <IconButton icon={'swap-horizontal'} />}
-          title={t('switch_to_super_user')}
-          right={(props) => switchingAccount && <ActivityIndicator />}
-          onPress={() => {
-            setSwitchingAccount(true);
-            switchAccount(user.parentSuperAccount.superUserId)
-              .finally(() => setSwitchingAccount(false));
-          }}
-        />}
         <List.Item
           style={{ paddingHorizontal: 20 }}
           left={(props) => (

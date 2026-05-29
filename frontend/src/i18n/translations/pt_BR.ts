@@ -1576,6 +1576,8 @@ const ptBRJSON = {
   assign_asset: 'Atribuir Ativo',
   required_files_on_completion:
     'Arquivos são necessários na conclusão da Ordem de Serviço',
+  field_report_required_on_completion:
+    'É necessário preencher um relato técnico antes de concluir a OS',
   required_tasks_on_completion: 'O checklist de execução deve ser preenchido',
   required_labor_on_completion: 'Você deve registrar o tempo',
   required_part_on_completion: 'Nenhuma peça foi usada nesta Ordem de Serviço',
@@ -2125,7 +2127,8 @@ const ptBRJSON = {
   type_enter_to_add_option: 'Digite e pressione enter para adicionar uma opção',
   customers_settings_description:
     'Gerencie clientes atendidos pela operação.',
-  vendors_settings_description: 'Personalize configurações relacionadas a fornecedores'
+  vendors_settings_description: 'Personalize configurações relacionadas a fornecedores',
+  mobile_app_unavailable_description: 'O aplicativo móvel Erione estará disponível em breve nas lojas oficiais.'
 };
 
 export default ptBRJSON;

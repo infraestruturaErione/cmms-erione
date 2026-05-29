@@ -92,7 +92,11 @@ import FieldExecutionSection, {
   hasFieldReport,
   hasFieldReportEvidence
 } from './FieldExecutionSection';
-import { getFieldEvidenceItems } from '../../utils/workOrderFieldUx';
+import {
+  FIELD_REPORT_PREFIX,
+  getFieldEvidenceItems,
+  getFirstFieldReportText
+} from '../../utils/workOrderFieldUx';
 import {
   ErioneCard,
   ErionePrimaryButton,
@@ -212,6 +216,9 @@ export default function WODetailsScreen({
   );
   const { usersMini } = useSelector((state) => state.users);
   const comments = commentsByWorkOrder[id] ?? [];
+  const adminComments = comments.filter(
+    (c) => !c.content?.startsWith(FIELD_REPORT_PREFIX)
+  );
   const statuses = ['OPEN', 'ON_HOLD', 'IN_PROGRESS', 'COMPLETE'].map(
     (status) => ({ value: status, label: t(status) })
   );
@@ -322,7 +329,11 @@ export default function WODetailsScreen({
     !isWorkOrderFieldHidden('completeTime');
 
   const getInfos = () => {
-    if (!workOrderProp) dispatch(getWorkOrderDetails(id));
+    if (!workOrderProp) {
+      dispatch(getWorkOrderDetails(id)).catch((err) => {
+        showSnackBar(getErrorMessage(err), 'error');
+      });
+    }
     if (showPartsSection) {
       dispatch(getPartQuantitiesByWorkOrder(id));
     }
@@ -462,11 +473,15 @@ export default function WODetailsScreen({
       .finally(() => setLoading(false));
   };
   const canComplete = (): boolean => {
+    if (!fieldReportRegistered) {
+      showSnackBar(t('field_report_required_on_completion'), 'error');
+      return false;
+    }
     let error;
     const fieldsToTest = [
       {
         name: 'completeFiles',
-        condition: !fieldEvidenceRegistered || !fieldReportRegistered,
+        condition: !fieldEvidenceRegistered,
         message: 'required_files_on_completion'
       },
       {
@@ -525,12 +540,7 @@ export default function WODetailsScreen({
       })
     ).then(() => navigation.navigate('Root'));
   };
-  const existingFieldReport = comments.find((c) =>
-    c.content?.startsWith('[Relato em campo]')
-  );
-  const fieldReportContent = existingFieldReport
-    ? existingFieldReport.content.replace('[Relato em campo]', '').trim()
-    : '';
+  const fieldReportContent = getFirstFieldReportText(comments);
 
   const onStatusChange = (status: string) => {
     if (status === 'COMPLETE') {
@@ -1519,7 +1529,7 @@ export default function WODetailsScreen({
                           size="small"
                           color={theme.colors.primary}
                         />
-                      ) : comments.length === 0 ? (
+                      ) : adminComments.length === 0 ? (
                         <Text
                           style={{
                             textAlign: 'center',
@@ -1530,7 +1540,7 @@ export default function WODetailsScreen({
                           {t('no_comments')}
                         </Text>
                       ) : (
-                        comments.map((comment) => (
+                        adminComments.map((comment) => (
                           <CommentItem
                             key={comment.id}
                             comment={comment}

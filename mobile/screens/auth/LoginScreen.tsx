@@ -29,7 +29,7 @@ export default function LoginScreen({
   const { height, width } = useWindowDimensions();
   const compact = height < 760;
   const desktop = Platform.OS === 'web' && width >= 720;
-  const shouldShowRegistration = Platform.OS !== 'ios';
+  const shouldShowRegistration = false;
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const dispatch = useDispatch();
@@ -113,13 +113,13 @@ export default function LoginScreen({
                 } catch (err) {
                   if (err instanceof TypeError) {
                     setLoginError(
-                      'Servidor inacessivel. Verifique a conexao com a API.'
+                      'Servidor inacessível. Verifique a conexão com a API.'
                     );
                   } else {
                     setLoginError(
                       getErrorMessage(
                         err,
-                        'Credenciais invalidas. Confira e-mail e senha.'
+                        'Credenciais inválidas. Confira e-mail e senha.'
                       )
                     );
                   }
@@ -205,7 +205,7 @@ export default function LoginScreen({
                         style={styles.showToggle}
                       >
                         <Text style={styles.showToggleText}>
-                          {showPassword ? 'OCULTAR' : 'MOSTRAR'}
+                          {t(showPassword ? 'show_password' : 'hide_password')}
                         </Text>
                       </Pressable>
                     </View>

@@ -1,6 +1,7 @@
 package com.grash.exception;
 
 import com.grash.dto.SuccessResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.error.ErrorAttributeOptions;
 import org.springframework.boot.web.servlet.error.DefaultErrorAttributes;
 import org.springframework.boot.web.servlet.error.ErrorAttributes;
@@ -21,12 +22,12 @@ import jakarta.xml.bind.ValidationException;
 
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandlerController {
 
     @Bean
     public ErrorAttributes errorAttributes() {
-        // Hide exception field in the return object
         return new DefaultErrorAttributes() {
             @Override
             public Map<String, Object> getErrorAttributes(WebRequest webRequest, ErrorAttributeOptions options) {
@@ -38,7 +39,7 @@ public class GlobalExceptionHandlerController {
 
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<SuccessResponse> handleCustomException(HttpServletResponse res, CustomException ex) {
-        ex.printStackTrace();
+        log.warn("Business rule violation: {}", ex.getMessage());
         return new ResponseEntity<>(new SuccessResponse(false, ex.getMessage()), ex.getHttpStatus());
     }
 
@@ -69,8 +70,8 @@ public class GlobalExceptionHandlerController {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<SuccessResponse> handleException(HttpServletResponse res, Exception ex) {
-        ex.printStackTrace();
-        return new ResponseEntity<>(new SuccessResponse(false, ex.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
+        log.error("Unexpected error", ex);
+        return new ResponseEntity<>(new SuccessResponse(false, "Erro interno do servidor."), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
 }

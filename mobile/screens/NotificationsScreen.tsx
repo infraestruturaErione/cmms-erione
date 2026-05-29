@@ -9,6 +9,7 @@ import { View } from '../components/Themed';
 import { IconSource } from 'react-native-paper/lib/typescript/components/Icon';
 import Notification, { NotificationType } from '../models/notification';
 import {
+  clearAllNotifications,
   editNotification,
   getMoreNotifications,
   readAllNotifications
@@ -42,20 +43,30 @@ export default function NotificationsScreen({
   const { getFormattedDate } = useContext(CompanySettingsContext);
 
   useEffect(() => {
-    if (notifications.content.some((notification) => !notification.seen))
-      navigation.setOptions({
-        headerRight: () => (
-          <TouchableOpacity
-            onPress={() => {
-              dispatch(readAllNotifications());
-            }}
-          >
-            <Text style={{ color: theme.colors.primary }} variant="titleMedium">
-              {t('mark_all_as_seen')}
-            </Text>
-          </TouchableOpacity>
-        )
-      });
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={{ flexDirection: 'row', gap: 12, marginRight: 8 }}>
+          {notifications.content.some((n) => !n.seen) && (
+            <TouchableOpacity
+              onPress={() => dispatch(readAllNotifications())}
+            >
+              <Text style={{ color: theme.colors.primary }} variant="titleMedium">
+                {t('mark_all_as_seen')}
+              </Text>
+            </TouchableOpacity>
+          )}
+          {notifications.content.length > 0 && (
+            <TouchableOpacity
+              onPress={() => dispatch(clearAllNotifications())}
+            >
+              <Text style={{ color: theme.colors.error }} variant="titleMedium">
+                {t('clear_all')}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )
+    });
   }, [notifications]);
 
   const onReadNotification = (notification: Notification) => {

@@ -81,6 +81,14 @@ const slice = createSlice({
         }
       );
     },
+    clearNotifications(
+      state: NotificationState,
+      _action: PayloadAction<{}>
+    ) {
+      state.notifications.content = [];
+      state.currentPageNum = 0;
+      state.lastPage = true;
+    },
     setLoadingGet(
       state: NotificationState,
       action: PayloadAction<{ loading: boolean }>
@@ -144,6 +152,14 @@ export const readAllNotifications =
         dispatch(
           slice.actions.readAll({})
         );
+    };
+export const clearAllNotifications =
+  (): AppThunk =>
+    async (dispatch) => {
+      await api.get<{ success: boolean }>(
+        `${basePath}/read-all`
+      );
+      dispatch(slice.actions.clearNotifications({}));
     };
 export const newReceivedNotification =
   (notification: Notification): AppThunk =>

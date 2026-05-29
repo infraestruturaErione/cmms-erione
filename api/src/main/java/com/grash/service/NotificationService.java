@@ -9,8 +9,11 @@ import com.grash.model.Notification;
 import com.grash.model.User;
 import com.grash.model.PushNotificationToken;
 import com.grash.repository.NotificationRepository;
+import com.grash.repository.PushNotificationTokenRepository;
 import io.github.jav.exposerversdk.*;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +30,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional
 public class NotificationService {
     private final NotificationRepository notificationRepository;
@@ -54,7 +58,7 @@ public class NotificationService {
                             put("id", notifications.get(0).getResourceId());
                         }});
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Failed to send push notification", e);
             }
     }
 
@@ -128,7 +132,7 @@ public class NotificationService {
             try {
                 allTickets.addAll(messageReplyFuture.get());
             } catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
+                log.error("Failed to get push notification reply", e);
             }
         }
 

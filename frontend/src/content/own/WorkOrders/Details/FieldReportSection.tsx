@@ -13,6 +13,16 @@ import { CompanySettingsContext } from '../../../../contexts/CompanySettingsCont
 import Comment from '../../../../models/owns/comment';
 
 const FIELD_REPORT_PREFIX = '[Relato em campo]';
+const PHOTO_ONLY_FIELD_REPORT_TEXTS = [
+  'Photo evidence registered.',
+  'Evidência fotográfica registrada.'
+];
+
+const getFieldReportText = (content?: string) => {
+  if (!content?.startsWith(FIELD_REPORT_PREFIX)) return '';
+  const text = content.replace(FIELD_REPORT_PREFIX, '').trim();
+  return PHOTO_ONLY_FIELD_REPORT_TEXTS.includes(text) ? '' : text;
+};
 
 interface FieldReportSectionProps {
   comments: Comment[];
@@ -26,9 +36,7 @@ export default function FieldReportSection({
   const { t } = useTranslation();
   const theme = useTheme();
 
-  const fieldReports = comments.filter((c) =>
-    c.content?.startsWith(FIELD_REPORT_PREFIX)
-  );
+  const fieldReports = comments.filter((c) => getFieldReportText(c.content));
 
   if (!fieldReports.length) return null;
 
@@ -51,9 +59,7 @@ export default function FieldReportSection({
       </Stack>
       <Stack spacing={1.5}>
         {fieldReports.map((report) => {
-          const text = report.content
-            .replace(FIELD_REPORT_PREFIX, '')
-            .trim();
+          const text = getFieldReportText(report.content);
           return (
             <Box
               key={report.id}

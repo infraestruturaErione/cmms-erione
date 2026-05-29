@@ -53,6 +53,17 @@ const fieldActionTypes: RecommendedFieldActionType[] = [
   'check-in',
   'check-out'
 ];
+const FIELD_REPORT_PREFIX = '[Relato em campo]';
+const PHOTO_ONLY_FIELD_REPORT_TEXTS = [
+  'Photo evidence registered.',
+  'Evidência fotográfica registrada.'
+];
+
+const getFieldReportText = (content?: string) => {
+  if (!content?.startsWith(FIELD_REPORT_PREFIX)) return '';
+  const text = content.replace(FIELD_REPORT_PREFIX, '').trim();
+  return PHOTO_ONLY_FIELD_REPORT_TEXTS.includes(text) ? '' : text;
+};
 
 const formatCoordinate = (value?: number | null): string =>
   typeof value === 'number' ? value.toFixed(6) : '-';
@@ -155,7 +166,7 @@ export default function FieldExecutionSection({
       await dispatch(
         createComment({
           workOrder: { id: workOrder.id },
-          content: `[Relato em campo] ${fieldReport.trim()}`,
+          content: `${FIELD_REPORT_PREFIX} ${fieldReport.trim()}`,
           files: []
         })
       );
@@ -185,12 +196,12 @@ export default function FieldExecutionSection({
     </Grid>
   );
 
-  const hasFieldReport = comments.some((comment) =>
-    comment.content?.startsWith('[Relato em campo]')
+  const hasFieldReport = comments.some(
+    (comment) => getFieldReportText(comment.content).length > 0
   );
   const hasFieldEvidence = comments.some(
     (comment) =>
-      comment.content?.startsWith('[Relato em campo]') && !!comment.files?.length
+      comment.content?.startsWith(FIELD_REPORT_PREFIX) && !!comment.files?.length
   );
   const summary = getFieldExecutionSummary(workOrder);
   const checklist = getFieldClosureChecklist(

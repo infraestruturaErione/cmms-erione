@@ -43,27 +43,6 @@ export default function MoreEntitiesScreen({
       visible: hasViewPermission(PermissionEntity.ASSETS)
     },
     {
-      label: 'parts',
-      icon: 'archive-outline',
-      color: '#8324d1',
-      backgroundColor: '#cfc8d3',
-      link: 'Parts',
-      visible:
-        !isErioneModuleHidden('parts') &&
-        hasViewPermission(PermissionEntity.PARTS_AND_MULTIPARTS)
-    },
-    {
-      label: 'meters',
-      icon: 'gauge',
-      color: '#d12444',
-      backgroundColor: '#d3c8ca',
-      link: 'Meters',
-      visible:
-        !isErioneModuleHidden('meters') &&
-        hasViewPermission(PermissionEntity.METERS),
-      uiConfigKey: 'meters'
-    },
-    {
       label: 'people_teams',
       icon: 'account',
       color: '#245bd1',

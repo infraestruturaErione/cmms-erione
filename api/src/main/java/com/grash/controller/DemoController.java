@@ -8,12 +8,18 @@ import com.grash.model.Asset;
 import com.grash.model.Company;
 import com.grash.model.User;
 import com.grash.model.enums.Language;
+import com.grash.exception.CustomException;
 import com.grash.security.CurrentUser;
 import com.grash.security.CustomUserDetail;
 import com.grash.service.*;
 import com.grash.utils.Helper;
 import io.swagger.v3.oas.annotations.Hidden;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -26,7 +32,6 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import io.swagger.v3.oas.annotations.Parameter;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -41,6 +46,7 @@ import java.util.stream.StreamSupport;
 @RequestMapping("/demo")
 @Hidden
 @RequiredArgsConstructor
+@Slf4j
 public class DemoController {
 
     private final UserService userService;
@@ -106,8 +112,7 @@ public class DemoController {
             importParts(company);
             importWorkOrders(company);
         } catch (IOException e) {
-            // In a real application, you'd want to handle this exception more gracefully
-            e.printStackTrace();
+            log.error("Failed to import demo data", e);
         }
     }
 

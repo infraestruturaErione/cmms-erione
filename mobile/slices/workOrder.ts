@@ -2,7 +2,7 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 import { createSlice } from '@reduxjs/toolkit';
 import type { AppThunk } from '../store';
 import WorkOrder from '../models/workOrder';
-import api from '../utils/api';
+import api, { getErrorMessage } from '../utils/api';
 import { Task } from '../models/tasks';
 import { getInitialPage, Page, SearchCriteria } from '../models/page';
 import { revertAll } from '../utils/redux';
@@ -32,6 +32,7 @@ interface WorkOrderState {
   workOrdersByPart: { [key: number]: WorkOrder[] };
   workOrderInfos: { [key: number]: { workOrder?: WorkOrder } };
   loadingGet: boolean;
+  errorGet: string | null;
   currentPageNum: number;
   lastPage: boolean;
   calendar: {
@@ -45,6 +46,7 @@ const initialState: WorkOrderState = {
   workOrdersByPart: {},
   workOrderInfos: {},
   loadingGet: false,
+  errorGet: null,
   currentPageNum: 0,
   lastPage: true,
   calendar: {
@@ -71,9 +73,12 @@ const slice = createSlice({
       action: PayloadAction<{ workOrders: Page<WorkOrder> }>
     ) {
       const { workOrders } = action.payload;
-      state.workOrders.content = state.workOrders.content.concat(
-        workOrders.content
+      const existingIds = new Set(state.workOrders.content.map((wo) => wo.id));
+      const newItems = workOrders.content.filter(
+        (wo) => !existingIds.has(wo.id)
       );
+      state.workOrders.content =
+        state.workOrders.content.concat(newItems);
       state.currentPageNum = state.currentPageNum + 1;
       state.lastPage = workOrders.last;
     },
@@ -146,6 +151,15 @@ const slice = createSlice({
     ) {
       const { loading } = action.payload;
       state.loadingGet = loading;
+    },
+    clearError(state: WorkOrderState) {
+      state.errorGet = null;
+    },
+    setError(
+      state: WorkOrderState,
+      action: PayloadAction<string>
+    ) {
+      state.errorGet = action.payload;
     }
   }
 });
@@ -157,11 +171,14 @@ export const getWorkOrders =
   async (dispatch) => {
     try {
       dispatch(slice.actions.setLoadingGet({ loading: true }));
+      dispatch(slice.actions.clearError());
       const workOrders = await api.post<Page<WorkOrder>>(
         `${basePath}/search`,
         criteria
       );
       dispatch(slice.actions.getWorkOrders({ workOrders }));
+    } catch (e) {
+      dispatch(slice.actions.setError(getErrorMessage(e, 'Falha ao carregar OS')));
     } finally {
       dispatch(slice.actions.setLoadingGet({ loading: false }));
     }
@@ -177,6 +194,8 @@ export const getMoreWorkOrders =
         criteria
       );
       dispatch(slice.actions.getMoreWorkOrders({ workOrders }));
+    } catch (e) {
+      console.error('Falha ao carregar mais OS:', e);
     } finally {
       dispatch(slice.actions.setLoadingGet({ loading: false }));
     }
@@ -184,15 +203,21 @@ export const getMoreWorkOrders =
 export const getWorkOrderDetails =
   (id: number): AppThunk =>
   async (dispatch) => {
-    dispatch(slice.actions.setLoadingGet({ loading: true }));
-    const workOrder = await api.get<WorkOrder>(`${basePath}/${id}`);
-    dispatch(
-      slice.actions.getWorkOrderDetails({
-        id,
-        workOrder
-      })
-    );
-    dispatch(slice.actions.setLoadingGet({ loading: false }));
+    try {
+      dispatch(slice.actions.setLoadingGet({ loading: true }));
+      const workOrder = await api.get<WorkOrder>(`${basePath}/${id}`);
+      dispatch(
+        slice.actions.getWorkOrderDetails({
+          id,
+          workOrder
+        })
+      );
+    } catch (e) {
+      console.error('Falha ao carregar detalhes da OS:', e);
+      throw e;
+    } finally {
+      dispatch(slice.actions.setLoadingGet({ loading: false }));
+    }
   };
 export const addWorkOrder =
   (workOrder): AppThunk =>

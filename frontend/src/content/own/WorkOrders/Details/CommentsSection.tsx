@@ -24,6 +24,8 @@ import { MentionsTextField } from '@jackstenglein/mui-mentions';
 import { getUsersMini } from '../../../../slices/user';
 import { useSearchParams } from 'react-router-dom';
 
+const FIELD_REPORT_PREFIX = '[Relato em campo]';
+
 interface CommentsSectionProps {
   workOrderId: number;
   commentId?: number;
@@ -44,6 +46,9 @@ export default function CommentsSection(props: CommentsSectionProps) {
   const [showFileUpload, setShowFileUpload] = useState<boolean>(false);
   const theme = useTheme();
   const comments = commentsByWorkOrder[workOrderId] ?? [];
+  const adminComments = comments.filter(
+    (c) => !c.content?.startsWith(FIELD_REPORT_PREFIX)
+  );
 
   useEffect(() => {
     dispatch(getCommentsByWorkOrder(workOrderId));
@@ -180,7 +185,7 @@ export default function CommentsSection(props: CommentsSectionProps) {
         >
           <CircularProgress />
         </Box>
-      ) : comments.length === 0 ? (
+      ) : adminComments.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 4 }}>
           <Typography variant="body1" color="text.secondary">
             {t('no_comments') || 'No comments yet'}
@@ -188,7 +193,7 @@ export default function CommentsSection(props: CommentsSectionProps) {
         </Box>
       ) : (
         <Stack spacing={2}>
-          {comments.map((comment) => (
+          {adminComments.map((comment) => (
             <CommentItem
               key={comment.id}
               comment={comment}

@@ -1378,6 +1378,8 @@ const ptBRJSON = {
   stop_work_order: 'Parar temporizador',
   required_files_on_completion:
     'Arquivos são necessários na conclusão da Ordem de Serviço',
+  field_report_required_on_completion:
+    'É necessário preencher um relato técnico antes de concluir a OS',
   required_tasks_on_completion: 'As tarefas devem ser concluídas',
   required_labor_on_completion: 'Você deve registrar o tempo',
   required_part_on_completion: 'Nenhuma peça foi usada nesta Ordem de Serviço',
@@ -1494,6 +1496,7 @@ const ptBRJSON = {
     'O tamanho do arquivo não deve ser maior que {{size}} MB',
   assignedToUser: 'Meu Trabalho',
   mark_all_as_seen: 'Marcar todos como visto',
+  clear_all: 'Limpar todas',
   estimated_start_date: 'Data de início esperada',
   audio_description: 'Descrição de áudio',
   start_recording: 'Iniciar gravação',
@@ -1540,6 +1543,7 @@ const ptBRJSON = {
   next_work_order: 'Próxima OS',
   loading_work_orders: 'Carregando OS...',
   no_work_orders_for_shift: 'Nenhuma OS atribuída para este turno.',
+  no_next_work_order: 'Nenhuma próxima OS no momento.',
   pending_items: 'Pendências',
   pending_items_shift_helper: 'Itens operacionais que precisam de atenção antes de fechar o turno.',
   pending_check_in: 'Check-in pendente',
@@ -1596,7 +1600,9 @@ const ptBRJSON = {
   field_report_save_success: 'Relato em campo salvo',
   field_execution_action_success: 'Execução em campo atualizada',
   service_checklist: 'Checklist de Atendimento',
-  remaining_service_checklist_items: '{{count}} itens pendentes'
+  remaining_service_checklist_items: '{{count}} itens pendentes',
+  show_password: 'OCULTAR',
+  hide_password: 'MOSTRAR'
 };
 
 export default ptBRJSON;

@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -53,13 +54,14 @@ export default function WorkOrdersScreen({
 }: RootTabScreenProps<'WorkOrders'>) {
   const { t } = useTranslation();
   const [startedSearch, setStartedSearch] = useState<boolean>(false);
-  const { workOrders, loadingGet, currentPageNum, lastPage } = useSelector(
+  const { workOrders, loadingGet, currentPageNum, lastPage, errorGet } = useSelector(
     (state) => state.workOrders
   );
   const theme = useAppTheme();
   const dispatch = useDispatch();
   const [searchQuery, setSearchQuery] = useState('');
   const fromHomeInit = useRef<boolean>(false);
+  const loadingMoreRef = useRef<boolean>(false);
   const { getFormattedDate } = useContext(CompanySettingsContext);
   const { user, hasViewOtherPermission } = useAuth();
   const defaultFilterFields: FilterField[] = [
@@ -139,10 +141,13 @@ export default function WorkOrdersScreen({
   }, [route]);
 
   const onRefresh = () => {
+    const currentFilters = criteria.filterFields.filter(
+      (ff) => ff.field !== 'assignedToUser'
+    );
     setCriteria(
       getCriteriaFromFilterFields([
         ...getDefaultFilterFields(),
-        ...(route.params?.filterFields ?? [])
+        ...currentFilters
       ])
     );
   };
@@ -230,8 +235,11 @@ export default function WorkOrdersScreen({
           style={styles.scrollView}
           onScroll={({ nativeEvent }) => {
             if (isCloseToBottom(nativeEvent)) {
-              if (!loadingGet && !lastPage)
-                dispatch(getMoreWorkOrders(criteria, currentPageNum + 1));
+              if (!loadingGet && !lastPage && !loadingMoreRef.current) {
+                loadingMoreRef.current = true;
+                dispatch(getMoreWorkOrders(criteria, currentPageNum + 1))
+                  .finally(() => { loadingMoreRef.current = false; });
+              }
             }
           }}
           refreshControl={
@@ -311,7 +319,16 @@ export default function WorkOrdersScreen({
               />
             )}
           </ScrollView>
-          {!!workOrders.content.length ? (
+          {errorGet ? (
+            <ErioneCard style={styles.emptyCard}>
+              <Text variant="titleMedium" style={styles.emptyTitle}>
+                {errorGet}
+              </Text>
+              <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
+                <Text style={styles.retryText}>Tentar novamente</Text>
+              </TouchableOpacity>
+            </ErioneCard>
+          ) : !!workOrders.content.length ? (
             workOrders.content.map((workOrder) => {
               const statusColor = getStatusColor(workOrder.status, theme);
               const inField = isWorkOrderInField(workOrder);
@@ -449,6 +466,11 @@ export default function WorkOrdersScreen({
               </Text>
             </ErioneCard>
           )}
+          {loadingGet && !!workOrders.content.length && (
+            <View style={styles.bottomLoader}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          )}
         </ScrollView>
       </Fragment>
     </ErioneScreen>
@@ -549,6 +571,23 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: colors.text,
-    fontWeight: '700'
+    fontWeight: '700',
+    marginBottom: 12
+  },
+  bottomLoader: {
+    alignItems: 'center',
+    paddingVertical: 16
+  },
+  retryButton: {
+    alignSelf: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15
   }
 });

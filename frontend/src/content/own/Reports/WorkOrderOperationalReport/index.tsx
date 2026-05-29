@@ -412,7 +412,7 @@ function WorkOrderOperationalReport() {
         row.completedOn ? getFormattedDate(row.completedOn) : '',
         formatDuration(row.travelDurationSeconds),
         formatDuration(row.siteDurationSeconds),
-        (row.fieldReport || '').substring(0, 60)
+        (row.fieldReport || '').substring(0, 200)
       ]);
       autoTable(doc, {
         head: [headers],

@@ -1504,6 +1504,8 @@ const locale = {
   assign_user: 'Assign User',
   assign_asset: 'Assign Asset',
   required_files_on_completion: 'Files are required on Work Order Completion',
+  field_report_required_on_completion:
+    'A written field report is required before completing the Work Order',
   required_tasks_on_completion: 'The execution checklist must be filled out',
   required_labor_on_completion: 'You must log time',
   required_part_on_completion: 'No Part has been used in this Work Order',
@@ -2050,7 +2052,8 @@ const locale = {
   type_enter_to_add_option: 'Type and press enter to add an option',
   customers_settings_description:
     'Manage customers served by your operation.',
-  vendors_settings_description: 'Customize vendor-related settings'
+  vendors_settings_description: 'Customize vendor-related settings',
+  mobile_app_unavailable_description: 'The Erione mobile app will be available soon on official stores.'
 };
 
 export default locale;

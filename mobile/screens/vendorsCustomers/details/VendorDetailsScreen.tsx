@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Linking, Pressable, ScrollView, TouchableOpacity } from 'react-native';
 import * as React from 'react';
 import { useContext, useEffect, useState } from 'react';

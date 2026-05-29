@@ -2,6 +2,7 @@ package com.grash.utils;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -13,6 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
+@Slf4j
 @Component
 public class LogoSetupComponent implements ApplicationRunner {
 
@@ -52,8 +54,7 @@ public class LogoSetupComponent implements ApplicationRunner {
 
             System.out.println("Custom logo copied to static resources at " + target);
         } catch (IOException e) {
-            e.printStackTrace();
-            System.err.println("Failed to copy custom logo: " + e.getMessage());
+            log.error("Failed to copy custom logo", e);
         }
     }
 }

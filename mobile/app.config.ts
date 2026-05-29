@@ -44,6 +44,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#ffffff'
     },
+    permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION', 'CAMERA', 'NFC'],
     versionCode: 31,
     package: 'com.erione.cmms',
     jsEngine: 'hermes',

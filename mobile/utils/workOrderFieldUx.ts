@@ -4,6 +4,11 @@ import File from '../models/file';
 
 export const FIELD_REPORT_PREFIX = '[Relato em campo]';
 
+const PHOTO_ONLY_FIELD_REPORT_TEXTS = [
+  'Photo evidence registered.',
+  'Evidência fotográfica registrada.'
+];
+
 export type WorkOrderNextAction =
   | 'start_travel'
   | 'make_check_in'
@@ -24,8 +29,17 @@ export interface FieldEvidenceItem {
 export const isFieldReportComment = (comment: Comment) =>
   comment.content?.startsWith(FIELD_REPORT_PREFIX);
 
+export const getFieldReportText = (comment: Comment) => {
+  if (!isFieldReportComment(comment)) return '';
+  const text = comment.content.replace(FIELD_REPORT_PREFIX, '').trim();
+  return PHOTO_ONLY_FIELD_REPORT_TEXTS.includes(text) ? '' : text;
+};
+
 export const hasFieldReportComment = (comments: Comment[]) =>
-  comments.some(isFieldReportComment);
+  comments.some((comment) => getFieldReportText(comment).length > 0);
+
+export const getFirstFieldReportText = (comments: Comment[]) =>
+  comments.map(getFieldReportText).find(Boolean) ?? '';
 
 export const hasFieldReportEvidence = (comments: Comment[]) =>
   comments.some(
@@ -44,7 +58,7 @@ export const getNextActionKey = (
 ): WorkOrderNextAction => {
   if (workOrder.status === 'COMPLETE') return 'work_order_completed';
   if (workOrder.checkOutAt) return 'complete_work_order';
-  if (workOrder.checkInAt && !hasAnyEvidence(workOrder, comments)) {
+  if (workOrder.checkInAt && !hasFieldReportComment(comments)) {
     return 'register_field_report_photo';
   }
   if (workOrder.checkInAt) return 'make_check_out';
@@ -64,8 +78,20 @@ export const isPastDue = (workOrder: WorkOrder) =>
   workOrder.status !== 'COMPLETE' &&
   new Date(workOrder.dueDate).getTime() < new Date().setHours(0, 0, 0, 0);
 
+export const dedupeWorkOrdersById = (items: WorkOrder[]) => {
+  const seen = new Set<number>();
+  return items.filter((workOrder) => {
+    if (seen.has(workOrder.id)) return false;
+    seen.add(workOrder.id);
+    return true;
+  });
+};
+
+export const isSelectableHomeWorkOrder = (workOrder: WorkOrder) =>
+  workOrder.status !== 'COMPLETE' && !(workOrder as WorkOrder & { archived?: boolean }).archived;
+
 export const sortWorkOrdersForField = (items: WorkOrder[]) =>
-  [...items].sort((a, b) => {
+  dedupeWorkOrdersById(items).filter(isSelectableHomeWorkOrder).sort((a, b) => {
     const score = (workOrder: WorkOrder) => {
       if (isPendingCompletion(workOrder)) return 0;
       if (isWorkOrderInField(workOrder)) return 1;

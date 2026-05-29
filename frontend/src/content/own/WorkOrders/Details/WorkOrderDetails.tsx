@@ -109,6 +109,18 @@ import {
   getCommentsCountByWorkOrder
 } from '../../../../slices/comment';
 
+const FIELD_REPORT_PREFIX = '[Relato em campo]';
+const PHOTO_ONLY_FIELD_REPORT_TEXTS = [
+  'Photo evidence registered.',
+  'Evidência fotográfica registrada.'
+];
+
+const getFieldReportText = (content?: string) => {
+  if (!content?.startsWith(FIELD_REPORT_PREFIX)) return '';
+  const text = content.replace(FIELD_REPORT_PREFIX, '').trim();
+  return PHOTO_ONLY_FIELD_REPORT_TEXTS.includes(text) ? '' : text;
+};
+
 const LabelWrapper = styled(Box)(
   ({ theme }) => `
     font-size: ${theme.typography.pxToRem(10)};
@@ -215,10 +227,9 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
     );
   }, []);
 
-  const fieldReportText = comments
-    .find((c) => c.content?.startsWith('[Relato em campo]'))
-    ?.content?.replace('[Relato em campo]', '')
-    .trim();
+  const fieldReportText =
+    comments.map((comment) => getFieldReportText(comment.content)).find(Boolean) ??
+    '';
 
   const { usersMini } = useSelector((state) => state.users);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState<boolean>(false);
@@ -274,6 +285,10 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
     setIsImageViewerOpen(true);
   };
   const canComplete = (): boolean => {
+    if (!fieldReportText) {
+      showSnackBar(t('field_report_required_on_completion'), 'error');
+      return false;
+    }
     let error;
     const fieldsToTest = [
       {

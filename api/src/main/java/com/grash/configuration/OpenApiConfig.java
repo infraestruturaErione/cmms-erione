@@ -33,19 +33,19 @@ import java.util.LinkedHashMap;
 @Configuration
 @OpenAPIDefinition(
         info = @Info(
-                title = "Atlas CMMS API",
+                title = "Erione CMMS API",
                 version = "v1",
                 description = """
                          ## Getting Started
                         
-                         Welcome to the **Atlas CMMS API** documentation. This RESTful API provides programmatic access to all features of the Atlas Computerized Maintenance Management System (CMMS).
+                         Welcome to the **Erione CMMS API** documentation. This RESTful API provides programmatic access to all features of the Erione Computerized Maintenance Management System (CMMS).
                         
                          ### Base URL
                         
                          All API requests should be made to:
                         
                          ```
-                         https://api.atlas-cmms.com
+                         https://api.erione.com.br
                          ```
                         
                          ---
@@ -64,7 +64,7 @@ import java.util.LinkedHashMap;
                         
                          ### Obtaining an API Key
                         
-                         1. Log in to your Atlas CMMS account
+                         1. Log in to your Erione CMMS account
                          2. Navigate to **Settings > Integrations > API Keys**
                          3. Click **Generate New Key**
                          4. Copy and securely store your key (it will only be shown once)
@@ -73,7 +73,7 @@ import java.util.LinkedHashMap;
                          ### Example Request
                         
                          ```bash
-                         curl -X GET "https://api.atlas-cmms.com/locations" \\
+                         curl -X GET "https://api.erione.com.br/locations" \
                            -H "x-api-key: your_api_key_here"
                          ```
                         
@@ -89,9 +89,9 @@ import java.util.LinkedHashMap;
                          ### Using Postman or Insomnia
                         
                          1. Download and install Postman or Insomnia
-                         2. Import the OpenAPI specification from: `https://api.atlas-cmms.com/v3/api-docs/atlas-cmms`
+                         2. Import the OpenAPI specification from: `https://api.erione.com.br/v3/api-docs/erione-cmms`
                          3. Set up environment variables:
-                            - `baseUrl`: Your API base URL (e.g., `https://api.atlas-cmms.com`)
+                            - `baseUrl`: Your API base URL (e.g., `https://api.erione.com.br`)
                             - `apiKey`: Your API key
                         
                          ### Testing Your Setup
@@ -106,12 +106,12 @@ import java.util.LinkedHashMap;
                         
                          ### Rate Limiting
                         
-                         The Atlas CMMS API implements rate limiting to ensure fair usage and system stability.
+                         The Erione CMMS API implements rate limiting to ensure fair usage and system stability.
                         
                         """,
                 contact = @Contact(
-                        name = "Atlas CMMS Support",
-                        email = "contact@atlas-cmms.com"
+                        name = "Erione CMMS Support",
+                        email = "contato@erione.com.br"
                 ),
                 license = @License(
                         name = "Proprietary"
@@ -121,7 +121,7 @@ import java.util.LinkedHashMap;
                 @SecurityRequirement(name = "apiKey")
         },
         servers = {
-                @Server(url = "https://api.atlas-cmms.com", description = "Production server"),
+                @Server(url = "https://api.erione.com.br", description = "Production server"),
                 @Server(url = "http://localhost:8080", description = "Development server")
         }
 )
@@ -130,7 +130,7 @@ import java.util.LinkedHashMap;
         type = SecuritySchemeType.APIKEY,
         in = SecuritySchemeIn.HEADER,
         paramName = "x-api-key",
-        description = "Enter your API key. You can generate one from Settings > Integrations > API Keys in your Atlas" +
+        description = "Enter your API key. You can generate one from Settings > Integrations > API Keys in your Erione" +
                 " CMMS account."
 )
 public class OpenApiConfig {
@@ -762,16 +762,16 @@ public class OpenApiConfig {
                 .pathsToMatch("/webhook-endpoints/**")
                 .addOpenApiCustomizer(openApi -> openApi.info(
                         new io.swagger.v3.oas.models.info.Info()
-                                .title("Atlas CMMS Webhooks API")
+                                .title("Erione CMMS Webhooks API")
                                 .version("v1")
                                 .description("""
-                                        ## Webhooks in Atlas CMMS
+                                        ## Webhooks in Erione CMMS
                                         
                                         Webhooks are HTTP callbacks that allow different systems to communicate with each other in real-time.
                                         They're like automated messengers that deliver information when something happens, rather than requiring
                                         you to ask for it.
                                         
-                                        In the context of Atlas CMMS, webhooks are a way for our system to automatically notify your application
+                                        In the context of Erione CMMS, webhooks are a way for our system to automatically notify your application
                                         when specific events occur in your account. Instead of your application repeatedly checking our API for
                                         updates (a process known as "polling"), webhooks allow you to receive real-time notifications about important
                                         events like:
@@ -782,9 +782,9 @@ public class OpenApiConfig {
                                         - Part quantity changes
                                         - And more...
                                         
-                                        When an event occurs, Atlas CMMS sends an HTTP POST request to the endpoint you specify.
+                                        When an event occurs, Erione CMMS sends an HTTP POST request to the endpoint you specify.
                                         The request contains details about the event. It allows your application to react immediately
-                                        to changes in Atlas CMMS.
+                                        to changes in Erione CMMS.
                                         
                                         See the top-level `webhooks` section for detailed documentation of all webhook event types and their payload schemas.
                                         """)

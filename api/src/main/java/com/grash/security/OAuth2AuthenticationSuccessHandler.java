@@ -169,7 +169,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
             return savedUser;
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Failed to create user from SSO", e);
             throw new CustomException("Error creating user from SSO: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }

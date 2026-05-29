@@ -8,13 +8,11 @@ import { Divider, Text, useTheme } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { UserMiniDTO } from '../../../models/user';
 import { Customer } from '../../../models/customer';
-import { Vendor } from '../../../models/vendor';
 import Team from '../../../models/team';
 import {
   getCustomerUrl,
   getTeamUrl,
-  getUserUrl,
-  getVendorUrl
+  getUserUrl
 } from '../../../utils/urlPaths';
 import ListField from '../../../components/ListField';
 import BasicField from '../../../components/BasicField';
@@ -68,14 +66,6 @@ export default function LocationDetails({ location }: { location: Location }) {
         getHref={(customer: Customer) => getCustomerUrl(customer.id)}
         getValueLabel={(customer: Customer) => customer.name}
       />
-      {!isErioneModuleHidden('vendors') && (
-        <ListField
-          values={location?.vendors}
-          label={t('vendors')}
-          getHref={(vendor: Vendor) => getVendorUrl(vendor.id)}
-          getValueLabel={(vendor: Vendor) => vendor.companyName}
-        />
-      )}
       <ListField
         values={location?.teams}
         label={t('teams')}

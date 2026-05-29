@@ -2,6 +2,7 @@ package com.grash.configuration;
 
 import com.grash.dto.license.LicenseEntitlement;
 import com.grash.service.LicenseService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 
 @Configuration
 @ConditionalOnProperty(name = "ldap.enabled", havingValue = "true")
+@Slf4j
 public class LdapSecurityConfig {
 
     @Value("${ldap.url}")
@@ -106,7 +108,7 @@ public class LdapSecurityConfig {
                     try {
                         return auth.authenticate(authentication);
                     } catch (Exception ignored) {
-                        ignored.printStackTrace();
+                        log.warn("LDAP authenticator failed", ignored);
                     }
                 }
                 throw new BadCredentialsException("User not found in any allowed OU");

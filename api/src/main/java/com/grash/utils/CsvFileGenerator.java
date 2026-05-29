@@ -3,6 +3,7 @@ package com.grash.utils;
 import com.grash.model.*;
 import com.grash.service.AssetDowntimeService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.springframework.context.MessageSource;
@@ -18,6 +19,7 @@ import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class CsvFileGenerator {
     private final MessageSource messageSource;
     private final AssetDowntimeService assetDowntimeService;
@@ -59,7 +61,7 @@ public class CsvFileGenerator {
             }
             writer.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Failed to write work orders CSV", e);
         }
     }
 
@@ -116,7 +118,7 @@ public class CsvFileGenerator {
             }
             writer.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Failed to write assets CSV", e);
         }
     }
 
@@ -145,7 +147,7 @@ public class CsvFileGenerator {
             }
             writer.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Failed to write locations CSV", e);
         }
     }
 
@@ -189,7 +191,7 @@ public class CsvFileGenerator {
             }
             writer.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Failed to write parts CSV", e);
         }
     }
 
@@ -218,7 +220,7 @@ public class CsvFileGenerator {
             }
             writer.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Failed to write meters CSV", e);
         }
     }
 
@@ -254,7 +256,7 @@ public class CsvFileGenerator {
             }
             writer.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Failed to write preventive maintenance CSV", e);
         }
     }
 }

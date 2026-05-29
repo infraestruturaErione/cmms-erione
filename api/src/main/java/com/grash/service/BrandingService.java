@@ -6,11 +6,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.grash.dto.BrandConfig;
 import com.grash.dto.license.LicenseEntitlement;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BrandingService {
 
     private final ObjectMapper objectMapper;
@@ -28,7 +30,7 @@ public class BrandingService {
                 JsonNode node = mapper.readTree(customColors);
                 backgroundColor = node.get("emailColors").asText();
             } catch (Exception e) {
-                e.printStackTrace();
+                log.warn("Failed to parse custom branding colors", e);
             }
         }
         return backgroundColor;
@@ -36,13 +38,13 @@ public class BrandingService {
 
     public BrandConfig getBrandConfig() {
         BrandConfig defaultConfig = BrandConfig.builder()
-                .name("Atlas CMMS")
-                .shortName("Atlas")
-                .website("https://www.atlas-cmms.com")
-                .mail("contact@atlas-cmms.com")
-                .phone("+212 6 30 69 00 50")
-                .addressStreet("410, Boulevard Zerktouni, Hamad, №1")
-                .addressCity("Casablanca-Morocco 20040")
+                .name("Erione CMMS")
+                .shortName("Erione")
+                .website("https://erione.com.br")
+                .mail("contato@erione.com.br")
+                .phone("")
+                .addressStreet("")
+                .addressCity("")
                 .build();
         if (!licenseService.hasEntitlement(LicenseEntitlement.BRANDING)) return defaultConfig;
         if (brandRawConfig == null || brandRawConfig.isEmpty()) {

@@ -214,9 +214,7 @@ export default function FieldExecutionSection({
       await dispatch(
         createComment({
           workOrder: { id: workOrder.id },
-          content: `${FIELD_REPORT_PREFIX} ${
-            fieldReport.trim() || t('field_report_photo_only')
-          }`,
+          content: `${FIELD_REPORT_PREFIX} ${fieldReport.trim()}`.trim(),
           files: fileIds
         })
       );

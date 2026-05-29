@@ -1332,6 +1332,8 @@
   priority_label: '{{priority}} priority',
   stop_work_order: 'Stop timer',
   required_files_on_completion: 'Files are required on Work Order Completion',
+  field_report_required_on_completion:
+    'A written field report is required before completing the Work Order',
   required_tasks_on_completion: 'Tasks must be completed',
   required_labor_on_completion: 'You must log time',
   required_part_on_completion: 'No Part has been used in this Work Order',
@@ -1444,6 +1446,7 @@
   max_file_size_error: 'The file size should not be greater than {{size}} MB',
   assignedToUser: 'My Work',
   mark_all_as_seen: 'Mark all as seen',
+  clear_all: 'Clear all',
   estimated_start_date: 'Expected start date',
   audio_description: 'Audio description',
   start_recording: 'Start recording',
@@ -1491,6 +1494,7 @@
   next_work_order: 'Next Work Order',
   loading_work_orders: 'Loading Work Orders...',
   no_work_orders_for_shift: 'No Work Orders assigned to this shift.',
+  no_next_work_order: 'No next Work Order at the moment.',
   pending_items: 'Pending items',
   pending_items_shift_helper: 'Operational items that need attention before closing the shift.',
   pending_check_in: 'Pending check-in',
@@ -1547,6 +1551,8 @@
   field_execution_action_success: 'Field execution updated',
   service_checklist: 'Service checklist',
   remaining_service_checklist_items: '{{count}} checklist items remaining',
-  id_required: 'ID is required'
+  id_required: 'ID is required',
+  show_password: 'HIDE',
+  hide_password: 'SHOW'
 };
 export default locale;

@@ -19,6 +19,8 @@ import com.grash.service.AssetService;
 import com.grash.service.WorkOrderCategoryService;
 import com.grash.security.CustomUserDetail;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.http.CacheControl;
@@ -49,6 +51,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class Helper {
+
+    private static final Logger log = LoggerFactory.getLogger(Helper.class);
 
     public String generateString() {
         return UUID.randomUUID().toString();
@@ -338,7 +342,7 @@ public class Helper {
             return address.isLoopbackAddress();
 
         } catch (MalformedURLException | UnknownHostException e) {
-            e.printStackTrace();
+            log.warn("Failed to check if URL is local: {}", urlString, e);
         }
         return false;
     }

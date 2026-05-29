@@ -26,6 +26,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
@@ -57,6 +58,7 @@ import static com.grash.utils.Consts.usageBasedLicenseLimits;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional
 public class UserService {
 
@@ -451,7 +453,7 @@ public class UserService {
             String body = buildRegistrationEmailBody(user, userSignupRequest);
             mailServiceFactory.getMailService().sendHtmlMessage(recipients, subject, body, null);
         } catch (MessagingException | IOException e) {
-            e.printStackTrace();
+            log.error("Failed to send registration email", e);
         }
     }
 

@@ -27,6 +27,7 @@ import {
   getNextActionKey,
   isPastDue,
   isPendingCompletion,
+  isSelectableHomeWorkOrder,
   isWorkOrderInField,
   sortWorkOrdersForField
 } from '../utils/workOrderFieldUx';
@@ -106,7 +107,10 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
   );
 
   const activeWorkOrder = sortedWorkOrders.find(isWorkOrderInField);
-  const nextWorkOrder = activeWorkOrder ?? sortedWorkOrders[0];
+  const nextWorkOrder = sortedWorkOrders.find(
+    (workOrder) =>
+      isSelectableHomeWorkOrder(workOrder) && workOrder.id !== activeWorkOrder?.id
+  );
   const pendingCheckIn = sortedWorkOrders.filter(
     (wo) => wo.departureAt && !wo.checkInAt && wo.status !== 'COMPLETE'
   ).length;
@@ -279,7 +283,7 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
         <WorkOrderSummaryCard
           title={t('next_work_order')}
           workOrder={nextWorkOrder}
-          emptyText={loadingGet ? t('loading_work_orders') : t('no_work_orders_for_shift')}
+          emptyText={loadingGet ? t('loading_work_orders') : t('no_next_work_order')}
         />
 
         <ErioneCard style={styles.sectionCard}>

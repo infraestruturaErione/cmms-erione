@@ -26,16 +26,6 @@ export const getWorkOrderUrl = (
 ): { route: keyof RootStackParamList; params: {} } => {
   return { route: 'WODetails', params: { id } };
 };
-export const getPartUrl = (
-  id
-): { route: keyof RootStackParamList; params: {} } => {
-  return { route: 'PartDetails', params: { id } };
-};
-export const getMeterUrl = (
-  id
-): { route: keyof RootStackParamList; params: {} } => {
-  return { route: 'MeterDetails', params: { id } };
-};
 export const getUserUrl = (
   id
 ): { route: keyof RootStackParamList; params: {} } => {
@@ -46,12 +36,6 @@ export const getCustomerUrl = (
 ): { route: keyof RootStackParamList; params: {} } => {
   return { route: 'CustomerDetails', params: { id } };
 };
-export const getVendorUrl = (
-  id
-): { route: keyof RootStackParamList; params: {} } => {
-  return { route: 'VendorDetails', params: { id } };
-};
-
 export const getNotificationUrl = (
   type: NotificationType,
   id: number
@@ -68,12 +52,6 @@ export const getNotificationUrl = (
       break;
     case 'WORK_ORDER':
       url = getWorkOrderUrl(id);
-      break;
-    case 'PART':
-      url = getPartUrl(id);
-      break;
-    case 'METER':
-      url = getMeterUrl(id);
       break;
     case 'LOCATION':
       url = getLocationUrl(id);

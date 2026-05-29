@@ -10,10 +10,10 @@ import {
 } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import WorkOrder from './models/workOrder';
-import Part, { PartMiniDTO } from './models/part';
+import { PartMiniDTO } from './models/part';
 import { Task } from './models/tasks';
 import { Customer, CustomerMiniDTO } from './models/customer';
-import { Vendor, VendorMiniDTO } from './models/vendor';
+import { VendorMiniDTO } from './models/vendor';
 import User, { OwnUser, UserMiniDTO } from './models/user';
 import Team, { TeamMiniDTO } from './models/team';
 import Location, { LocationMiniDTO } from './models/location';
@@ -21,7 +21,7 @@ import { AssetDTO, AssetMiniDTO } from './models/asset';
 import Category from './models/category';
 import { FilterField } from './models/page';
 import Request from './models/request';
-import Meter, { MeterMiniDTO } from './models/meter';
+import { MeterMiniDTO } from './models/meter';
 
 declare global {
   namespace ReactNavigation {
@@ -32,16 +32,12 @@ declare global {
 export type RootStackParamList = {
   Root: NavigatorScreenParams<RootTabParamList> | undefined;
   AddWorkOrder: { location?: Location; asset?: AssetDTO };
-  WorkOrderStats: undefined;
   EditWorkOrder: { workOrder: WorkOrder; tasks: Task[] };
   EditRequest: { request: Request };
   EditAsset: { asset: AssetDTO };
   EditLocation: { location: Location };
-  EditPart: { part: Part };
-  EditMeter: { meter: Meter };
   EditUser: { user: User };
   EditCustomer: { customer: Customer };
-  EditVendor: { vendor: Vendor };
   EditTeam: { team: Team };
   AddRequest: undefined;
   AddAsset: {
@@ -51,8 +47,6 @@ export type RootStackParamList = {
     barCode?: string;
   };
   AddLocation: undefined;
-  AddPart: undefined;
-  AddMeter: undefined;
   AddUser: undefined;
   WODetails: { id: number; workOrderProp?: WorkOrder };
   AssetDetails: { id: number; assetProp?: AssetDTO };
@@ -61,10 +55,7 @@ export type RootStackParamList = {
   UserDetails: { id: number; userProp?: OwnUser };
   UserProfile: undefined;
   TeamDetails: { id: number; teamProp?: Team };
-  PartDetails: { id: number; partProp?: Part };
-  MeterDetails: { id: number; meterProp?: Meter };
   CustomerDetails: { id: number; customerProp?: Customer };
-  VendorDetails: { id: number; vendorProp?: Vendor };
   Modal: undefined;
   Tasks: {
     tasksProps: Task[];
@@ -130,8 +121,6 @@ export type RootStackParamList = {
     initialFeedback?: string;
   };
   NotFound: undefined;
-  Meters: undefined;
-  Parts: undefined;
   Locations: { id?: number; hierarchy?: number[] };
   Assets: { id?: number; hierarchy?: number[] };
   PeopleTeams: undefined;
@@ -172,12 +161,5 @@ export type AuthStackParamList = {
   Login: undefined;
   Verify: undefined;
 };
-export type SuperUserStackParamList = {
-  SwitchAccount: undefined;
-};
 export type AuthStackScreenProps<Screen extends keyof AuthStackParamList> =
   NativeStackScreenProps<AuthStackParamList, Screen>;
-
-export type SuperUserStackScreenProps<
-  Screen extends keyof SuperUserStackParamList
-> = NativeStackScreenProps<SuperUserStackParamList, Screen>;

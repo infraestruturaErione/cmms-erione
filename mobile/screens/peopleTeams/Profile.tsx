@@ -1,23 +1,20 @@
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as React from 'react';
-import { Fragment, useContext, useEffect, useState } from 'react';
+import { Fragment, useContext, useState } from 'react';
 import { RootStackScreenProps } from '../../types';
 import {
   ActivityIndicator,
   Avatar,
   Button,
   Dialog,
-  Divider,
   HelperText,
   Portal,
-  Switch,
   Text,
   TextInput
 } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Formik } from 'formik';
 import useAuth from '../../hooks/useAuth';
-import UserSettings from '../../models/userSettings';
 import { getUserInitials } from '../../utils/displayers';
 import * as Yup from 'yup';
 import { CustomSnackBarContext } from '../../contexts/CustomSnackBarContext';
@@ -28,59 +25,18 @@ import { formatImages } from '../../utils/overall';
 import { useAppTheme } from '../../custom-theme';
 import { IconWithLabel } from '../../components/IconWithLabel';
 
-export default function UserProfile({
-  navigation,
-  route
-}: RootStackScreenProps<'UserProfile'>) {
+export default function UserProfile(_props: RootStackScreenProps<'UserProfile'>) {
   const {
     user,
-    fetchUserSettings,
-    patchUserSettings,
-    userSettings,
     updatePassword,
-    patchUser,
-    deleteAccount,
-    logout
+    patchUser
   } = useAuth();
   const theme = useAppTheme();
   const { t } = useTranslation();
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const [changingPicture, setChangingPicture] = useState<boolean>(false);
   const [openChangePassword, setOpenChangePassword] = useState<boolean>();
-  const [openDeleteAccountDialog, setOpenDeleteAccountDialog] =
-    useState<boolean>(false);
-  const [deletingAccount, setDeletingAccount] = useState<boolean>(false);
   const { uploadFiles } = useContext(CompanySettingsContext);
-  const switches: {
-    value: boolean;
-    title: string;
-    accessor: keyof UserSettings;
-  }[] = [
-    {
-      value: userSettings?.emailNotified,
-      title: t('email_notifications'),
-      accessor: 'emailNotified'
-    },
-    {
-      value: userSettings?.emailUpdatesForWorkOrders,
-      title: t('email_updates_wo'),
-      accessor: 'emailUpdatesForWorkOrders'
-    },
-    {
-      value: userSettings?.emailUpdatesForRequests,
-      title: t('email_updates_requests'),
-      accessor: 'emailUpdatesForRequests'
-    },
-    {
-      value: userSettings?.emailUpdatesForPurchaseOrders,
-      title: t('po_emails'),
-      accessor: 'emailUpdatesForPurchaseOrders'
-    }
-  ];
-
-  useEffect(() => {
-    fetchUserSettings();
-  }, []);
   const onPictureChange = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -221,65 +177,6 @@ export default function UserProfile({
     );
   };
 
-  const handleCloseDeleteAccountDialog = () => {
-    setOpenDeleteAccountDialog(false);
-    setDeletingAccount(false);
-  };
-
-  const handleConfirmDeleteAccount = async () => {
-    setDeletingAccount(true);
-
-    try {
-      await deleteAccount();
-      setOpenDeleteAccountDialog(false);
-      showSnackBar(t('account_deleted'), 'success');
-      await logout();
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Root' }]
-      });
-    } catch (err) {
-      showSnackBar(t('account_delete_error'), 'error');
-    } finally {
-      setDeletingAccount(false);
-    }
-  };
-
-  const renderDeleteAccountDialog = () => {
-    return (
-      <Portal theme={theme}>
-        <Dialog
-          visible={openDeleteAccountDialog}
-          onDismiss={handleCloseDeleteAccountDialog}
-          style={{ backgroundColor: 'white', borderRadius: 5 }}
-        >
-          <Dialog.Title>{t('delete_account')}</Dialog.Title>
-          <Dialog.Content>
-            <Text>{t('delete_account_confirmation')}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button
-              accessibilityLabel={t('cancel')}
-              onPress={handleCloseDeleteAccountDialog}
-            >
-              {t('cancel')}
-            </Button>
-            <Button
-              mode="contained"
-              buttonColor={theme.colors.error}
-              textColor={theme.colors.onError}
-              accessibilityLabel={t('confirm_delete_account')}
-              loading={deletingAccount}
-              disabled={deletingAccount}
-              onPress={handleConfirmDeleteAccount}
-            >
-              {t('confirm_delete_account')}
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    );
-  };
   return (
     <ScrollView
       style={{
@@ -288,7 +185,6 @@ export default function UserProfile({
       }}
     >
       {renderChangePassword()}
-      {renderDeleteAccountDialog()}
       <View
         style={{
           alignItems: 'center',
@@ -367,59 +263,15 @@ export default function UserProfile({
               color={theme.colors.grey}
             />
           )}
-          {user.rate > 0 && (
-            <IconWithLabel
-              label={`${user.rate} / ${t('hour')}`}
-              icon="currency-usd"
-              color={theme.colors.grey}
-            />
-          )}
         </View>
       </View>
 
-      {user?.role.code !== 'REQUESTER' && (
-        <View style={styles.section}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            {t('notifications')}
-          </Text>
-          <View style={styles.sectionContent}>
-            {switches.map(({ title, value, accessor }, index) => (
-              <Fragment key={accessor}>
-                <View style={styles.switchRow}>
-                  <Text style={{ flexShrink: 1, fontSize: 16 }}>{title}</Text>
-                  <Switch
-                    value={Boolean(
-                      userSettings ? userSettings[accessor] : false
-                    )}
-                    onValueChange={(checked) => {
-                      patchUserSettings({
-                        ...userSettings,
-                        [accessor]: checked
-                      });
-                    }}
-                  />
-                </View>
-              </Fragment>
-            ))}
-          </View>
-        </View>
-      )}
-
       <View style={{ padding: 20 }}>
         <Button
-          style={{ marginBottom: 12 }}
           mode={'outlined'}
           onPress={() => setOpenChangePassword(true)}
         >
           {t('change_password')}
-        </Button>
-        <Button
-          mode="contained"
-          buttonColor={theme.colors.error}
-          textColor={theme.colors.onError}
-          onPress={() => setOpenDeleteAccountDialog(true)}
-        >
-          {t('delete_account')}
         </Button>
       </View>
     </ScrollView>
@@ -441,10 +293,4 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 10
   },
-  infoRow: {},
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  }
 });

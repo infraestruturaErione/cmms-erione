@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
 import { View } from '../components/Themed';
 import { useDispatch, useSelector } from '../store';

@@ -8,13 +8,11 @@ import { View } from '../../../components/Themed';
 import { Divider, Text, useTheme } from 'react-native-paper';
 import { UserMiniDTO } from '../../../models/user';
 import { Customer } from '../../../models/customer';
-import { Vendor } from '../../../models/vendor';
 import Team from '../../../models/team';
 import {
   getCustomerUrl,
   getTeamUrl,
-  getUserUrl,
-  getVendorUrl
+  getUserUrl
 } from '../../../utils/urlPaths';
 import ListField from '../../../components/ListField';
 import BasicField from '../../../components/BasicField';
@@ -158,14 +156,6 @@ export default function AssetDetails({
         getHref={(customer: Customer) => getCustomerUrl(customer.id)}
         getValueLabel={(customer: Customer) => customer.name}
       />
-      {!isErioneModuleHidden('vendors') && (
-        <ListField
-          values={asset?.vendors}
-          label={t('vendors')}
-          getHref={(vendor: Vendor) => getVendorUrl(vendor.id)}
-          getValueLabel={(vendor: Vendor) => vendor.companyName}
-        />
-      )}
       <ListField
         values={asset?.teams}
         label={t('teams')}

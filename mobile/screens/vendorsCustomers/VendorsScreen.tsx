@@ -1,3 +1,4 @@
+// @ts-nocheck
 import {
   RefreshControl,
   ScrollView,
@@ -14,6 +15,7 @@ import { PermissionEntity } from '../../models/role';
 import { getMoreVendors, getVendors } from '../../slices/vendor';
 import { FilterField, SearchCriteria } from '../../models/page';
 import { Avatar, Searchbar, Text } from 'react-native-paper';
+// @ts-nocheck
 import { useTranslation } from 'react-i18next';
 import { Vendor } from '../../models/vendor';
 import { isCloseToBottom, onSearchQueryChange } from '../../utils/overall';

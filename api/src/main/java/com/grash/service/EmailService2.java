@@ -9,6 +9,7 @@ import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.util.ByteArrayDataSource;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.mail.MailProperties;
 import org.springframework.core.env.Environment;
@@ -24,6 +25,7 @@ import org.thymeleaf.context.Context;
 import org.thymeleaf.spring5.SpringTemplateEngine;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.util.Locale;
@@ -32,6 +34,7 @@ import java.util.Map;
 @Service
 @Transactional
 @RequiredArgsConstructor
+@Slf4j
 public class EmailService2 implements MailService {
 
     private final JavaMailSender emailSender;
@@ -73,7 +76,7 @@ public class EmailService2 implements MailService {
 
             emailSender.send(message);
         } catch (MailException exception) {
-            exception.printStackTrace();
+            log.error("Failed to send simple email to {}", Arrays.toString(to), exception);
         }
     }
 
@@ -103,7 +106,7 @@ public class EmailService2 implements MailService {
 
             emailSender.send(message);
         } catch (MessagingException e) {
-            e.printStackTrace();
+            log.error("Failed to send email with attachment to {}", to, e);
         }
     }
 
