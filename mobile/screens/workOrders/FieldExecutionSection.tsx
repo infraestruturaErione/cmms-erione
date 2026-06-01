@@ -35,6 +35,7 @@ import {
   RecommendedFieldActionType
 } from '../../utils/fieldExecutionRules';
 import {
+  FIELD_EVIDENCE_AUTO_TEXT,
   FIELD_REPORT_PREFIX,
   hasFieldReportComment,
   hasFieldReportEvidence
@@ -111,12 +112,14 @@ export default function FieldExecutionSection({
   const { getFormattedDate, uploadFiles } = useContext(CompanySettingsContext);
   const [loadingAction, setLoadingAction] = useState<FieldAction | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [fieldReport, setFieldReport] = useState('');
   const [evidenceFiles, setEvidenceFiles] = useState<
     { uri: string; name: string; type: string }[]
   >([]);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [savingReport, setSavingReport] = useState(false);
+  const [savingEvidence, setSavingEvidence] = useState(false);
 
   const recommendedAction = getRecommendedFieldAction(workOrder);
   const status = getFieldExecutionStatus(workOrder);
@@ -126,6 +129,19 @@ export default function FieldExecutionSection({
     !!workOrder.image ||
     !!workOrder.files?.length ||
     hasFieldReportEvidence(comments);
+  const currentTimelineKey = !workOrder.departureAt
+    ? 'departure'
+    : !workOrder.checkInAt
+    ? 'check-in'
+    : !reportRegistered
+    ? 'report'
+    : !evidenceRegistered
+    ? 'evidence'
+    : !workOrder.checkOutAt
+    ? 'check-out'
+    : workOrder.status !== 'COMPLETE'
+    ? 'complete'
+    : '';
 
   const runFieldAction = async (action: FieldAction) => {
     if (loadingAction) return;
@@ -204,28 +220,47 @@ export default function FieldExecutionSection({
 
   const submitFieldReport = async () => {
     if (savingReport) return;
-    if (!fieldReport.trim() && !evidenceFiles.length) return;
+    if (!fieldReport.trim()) return;
     setSavingReport(true);
     try {
-      const uploadedFiles = evidenceFiles.length
-        ? await uploadFiles(evidenceFiles, [], false)
-        : [];
-      const fileIds = uploadedFiles.map((file) => ({ id: file.id }));
       await dispatch(
         createComment({
           workOrder: { id: workOrder.id },
           content: `${FIELD_REPORT_PREFIX} ${fieldReport.trim()}`.trim(),
-          files: fileIds
+          files: []
         })
       );
       setFieldReport('');
-      setEvidenceFiles([]);
       setReportOpen(false);
       showSnackBar(t('field_report_save_success'), 'success');
     } catch (error) {
-      showSnackBar(getErrorMessage(error), 'error');
+      showSnackBar(getErrorMessage(error, t('field_report_save_error')), 'error');
     } finally {
       setSavingReport(false);
+    }
+  };
+
+  const submitEvidence = async () => {
+    if (savingEvidence) return;
+    if (!evidenceFiles.length) return;
+    setSavingEvidence(true);
+    try {
+      const uploadedFiles = await uploadFiles(evidenceFiles, [], false);
+      const fileIds = uploadedFiles.map((file) => ({ id: file.id }));
+      await dispatch(
+        createComment({
+          workOrder: { id: workOrder.id },
+          content: `${FIELD_REPORT_PREFIX} ${FIELD_EVIDENCE_AUTO_TEXT}`,
+          files: fileIds
+        })
+      );
+      setEvidenceFiles([]);
+      setEvidenceOpen(false);
+      showSnackBar(t('field_evidence_save_success'), 'success');
+    } catch (error) {
+      showSnackBar(getErrorMessage(error, t('field_evidence_save_error')), 'error');
+    } finally {
+      setSavingEvidence(false);
     }
   };
 
@@ -275,6 +310,25 @@ export default function FieldExecutionSection({
       detail: reportRegistered
         ? t('field_report_registered')
         : t('field_report_pending')
+    },
+    {
+      key: 'evidence',
+      title: t('work_order_evidence'),
+      done: evidenceRegistered,
+      date: null,
+      detail: evidenceRegistered
+        ? t('evidence_registered')
+        : t('evidence_pending')
+    },
+    {
+      key: 'complete',
+      title: t('work_order_completed'),
+      done: workOrder.status === 'COMPLETE',
+      date: null,
+      detail:
+        workOrder.status === 'COMPLETE'
+          ? t('completed_step')
+          : t('pending_completion')
     }
   ];
 
@@ -337,12 +391,24 @@ export default function FieldExecutionSection({
 
       <Divider style={{ marginVertical: 14 }} />
 
-      {timelineItems.map((item) => (
-        <View key={item.key} style={styles.timelineItem}>
+      {timelineItems.map((item) => {
+        const current = item.key === currentTimelineKey;
+
+        return (
+        <View
+          key={item.key}
+          style={[styles.timelineItem, current && styles.timelineItemCurrent]}
+        >
           <IconButton
-            icon={item.done ? 'check-circle' : 'circle-outline'}
+            icon={item.done ? 'check-circle' : current ? 'radiobox-marked' : 'circle-outline'}
             size={22}
-            iconColor={item.done ? theme.colors.primary : theme.colors.outline}
+            iconColor={
+              item.done
+                ? theme.colors.primary
+                : current
+                ? colors.primary
+                : theme.colors.outline
+            }
             style={styles.timelineIcon}
           />
           <View style={{ flex: 1 }}>
@@ -363,7 +429,8 @@ export default function FieldExecutionSection({
             )}
           </View>
         </View>
-      ))}
+        );
+      })}
 
       <View style={styles.checklistRow}>
         <Chip compact icon={reportRegistered ? 'check' : 'alert-circle-outline'}>
@@ -375,20 +442,37 @@ export default function FieldExecutionSection({
       </View>
 
       {canEdit && (
-        <Button
-          mode="outlined"
-          icon="camera-plus-outline"
-          style={styles.reportButton}
-          onPress={() => setReportOpen(true)}
-        >
-          {t('register_field_report_photo')}
-        </Button>
+        <View style={styles.fieldActionButtons}>
+          <Button
+            mode={reportRegistered ? 'outlined' : 'contained'}
+            icon="text-box-plus-outline"
+            style={styles.fieldActionButton}
+            buttonColor={reportRegistered ? undefined : colors.primary}
+            textColor={reportRegistered ? colors.primary : '#FFFFFF'}
+            onPress={() => setReportOpen(true)}
+          >
+            {t('add_field_report')}
+          </Button>
+          <Button
+            mode={evidenceRegistered ? 'outlined' : 'contained'}
+            icon="camera-plus-outline"
+            style={styles.fieldActionButton}
+            buttonColor={evidenceRegistered ? undefined : '#E7F3F1'}
+            textColor={colors.primary}
+            onPress={() => setEvidenceOpen(true)}
+          >
+            {t('add_field_evidence')}
+          </Button>
+        </View>
       )}
 
       <Portal>
         <Dialog visible={reportOpen} onDismiss={() => setReportOpen(false)}>
-          <Dialog.Title>{t('register_field_report_photo')}</Dialog.Title>
+          <Dialog.Title>{t('add_field_report')}</Dialog.Title>
           <Dialog.Content>
+            <Text variant="bodySmall" style={styles.dialogHelper}>
+              {t('field_report_input_helper')}
+            </Text>
             <TextInput
               mode="outlined"
               multiline
@@ -397,9 +481,31 @@ export default function FieldExecutionSection({
               value={fieldReport}
               onChangeText={setFieldReport}
             />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setReportOpen(false)}>{t('cancel')}</Button>
+            <Button
+              mode="contained"
+              loading={savingReport}
+              disabled={savingReport || !fieldReport.trim()}
+              onPress={submitFieldReport}
+            >
+              {t('save')}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      <Portal>
+        <Dialog visible={evidenceOpen} onDismiss={() => setEvidenceOpen(false)}>
+          <Dialog.Title>{t('add_field_evidence')}</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodySmall" style={styles.dialogHelper}>
+              {t('field_evidence_input_helper')}
+            </Text>
             <View style={styles.evidenceActions}>
               <Button icon="image" onPress={pickEvidenceImage}>
-                {t('select_photo')}
+                {t('choose_from_gallery')}
               </Button>
               <Button icon="camera" onPress={() => setCameraOpen(true)}>
                 {t('take_photo')}
@@ -423,12 +529,12 @@ export default function FieldExecutionSection({
             ))}
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setReportOpen(false)}>{t('cancel')}</Button>
+            <Button onPress={() => setEvidenceOpen(false)}>{t('cancel')}</Button>
             <Button
               mode="contained"
-              loading={savingReport}
-              disabled={savingReport || (!fieldReport.trim() && !evidenceFiles.length)}
-              onPress={submitFieldReport}
+              loading={savingEvidence}
+              disabled={savingEvidence || !evidenceFiles.length}
+              onPress={submitEvidence}
             >
               {t('save')}
             </Button>
@@ -462,7 +568,7 @@ const styles = StyleSheet.create({
   },
   nextActionBox: {
     padding: 14,
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#BFE7DE',
     backgroundColor: '#EFFAF7'
@@ -505,7 +611,13 @@ const styles = StyleSheet.create({
   timelineItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginVertical: 6
+    marginVertical: 5,
+    paddingVertical: 8,
+    paddingRight: 8,
+    borderRadius: 14
+  },
+  timelineItemCurrent: {
+    backgroundColor: '#EFFAF7'
   },
   timelineIcon: {
     margin: 0,
@@ -528,9 +640,16 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 10
   },
-  reportButton: {
-    marginTop: 14,
-    borderRadius: 14
+  fieldActionButtons: {
+    gap: 10,
+    marginTop: 14
+  },
+  fieldActionButton: {
+    borderRadius: 16
+  },
+  dialogHelper: {
+    color: colors.muted,
+    marginBottom: 10
   },
   evidenceActions: {
     flexDirection: 'row',

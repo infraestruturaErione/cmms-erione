@@ -19,6 +19,11 @@ public interface LocationRepository extends JpaRepository<Location, Long>, JpaSp
 
     List<Location> findByCompany_Id(Long id, Sort sort);
 
+    @Query("SELECT DISTINCT l FROM Location l JOIN l.customers c " +
+            "WHERE l.company.id = :companyId AND c.id IN :customerIds")
+    List<Location> findByCompanyAndCustomerIds(@Param("companyId") Long companyId,
+                                               @Param("customerIds") Collection<Long> customerIds);
+
     Page<Location> findDistinctByCustomers_IdAndCompany_Id(Long customerId, Long companyId, Pageable pageable);
 
     Page<Location> findDistinctByCustomers_IdAndCompany_IdAndCreatedBy(Long customerId, Long companyId, Long createdBy,

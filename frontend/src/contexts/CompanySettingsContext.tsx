@@ -40,8 +40,8 @@ export const CompanySettingsProvider: FC = ({ children }) => {
   const dispatch = useDispatch();
   const { generalPreferences } = companySettings ?? {
     dateFormat: 'DDMMYY',
-    currency: { code: '$' },
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    currency: { code: 'R$' },
+    timeZone: 'America/Sao_Paulo'
   };
   const { allUsersMini } = useSelector((state) => state.users);
   const { workOrderConfiguration } = companySettings ?? {

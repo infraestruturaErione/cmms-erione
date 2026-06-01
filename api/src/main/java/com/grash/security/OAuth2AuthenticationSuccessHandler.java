@@ -3,6 +3,7 @@ package com.grash.security;
 import com.grash.exception.CustomException;
 import com.grash.factory.MailServiceFactory;
 import com.grash.model.Company;
+import com.grash.model.GeneralPreferences;
 import com.grash.model.User;
 import com.grash.model.Subscription;
 import com.grash.repository.UserRepository;
@@ -140,7 +141,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
             subscriptionService.create(subscription);
 
             Company company = new Company("Organization " + emailDomain, 10, subscription);
-            company.getCompanySettings().getGeneralPreferences().setCurrency(currencyService.findByCode("$").get());
+            company.getCompanySettings().getGeneralPreferences().setCurrency(currencyService.findByCode(GeneralPreferences.DEFAULT_CURRENCY_CODE).get());
 
             companyService.create(company);
 

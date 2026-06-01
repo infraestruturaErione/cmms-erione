@@ -19,6 +19,7 @@ import {
   Tooltip,
   Typography
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { useTranslation } from 'react-i18next';
 import {
   getCustomFieldsIFields,
@@ -917,39 +918,39 @@ function WorkOrders() {
       <Helmet>
         <title>{t('work_orders')}</title>
       </Helmet>
-      <Box justifyContent="center" alignItems="stretch" paddingX={4}>
-        <Box
-          my={1}
-          display="flex"
-          flexDirection="row"
-          justifyContent="space-between"
+      <Box
+        sx={{
+          minHeight: '100%',
+          px: { xs: 2, md: 4 },
+          py: 2.5,
+          background: `linear-gradient(180deg, #F4F8F8 0%, #F8FBFB 48%, #FFFFFF 100%)`
+        }}
+      >
+        <Stack
+          direction="row"
+          justifyContent="flex-end"
           alignItems="center"
+          spacing={1}
+          sx={{ mb: 1.5 }}
         >
-          <Tabs
-            onChange={handleTabsChange}
-            value={currentTab}
-            variant="scrollable"
-            scrollButtons="auto"
-            textColor="primary"
-            indicatorColor="primary"
-          >
-            {tabs.map((tab) =>
-              tab.disabled ? (
-                <Tooltip title={t('Coming Soon')} placement="top">
-                  <span>
-                    <Tab
-                      key={tab.value}
-                      label={tab.label}
-                      value={tab.value}
-                      disabled={tab.disabled}
-                    />
-                  </span>
-                </Tooltip>
-              ) : (
-                <Tab key={tab.value} label={tab.label} value={tab.value} />
-              )
-            )}
-          </Tabs>
+          <Box sx={{ display: 'none' }}>
+            <Typography
+              variant="overline"
+              sx={{ color: '#128577', fontWeight: 900, letterSpacing: 0.4 }}
+            >
+              Erione CMMS
+            </Typography>
+            <Typography variant="h2" sx={{ color: '#173247', fontWeight: 900 }}>
+              {t('work_orders')}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: 'text.secondary', maxWidth: 760, mt: 0.5 }}
+            >
+              Crie, acompanhe e conclua ordens de serviço com foco no fluxo real
+              do técnico em campo.
+            </Typography>
+          </Box>
           <Stack direction={'row'} alignItems="center" spacing={1}>
             <IconButton onClick={handleOpenMenu} color="primary">
               <MoreVertTwoToneIcon />
@@ -958,7 +959,7 @@ function WorkOrders() {
               <SplitButton
                 onMainClick={() => setOpenAddModal(true)}
                 startIcon={<AddTwoToneIcon />}
-                sx={{ mx: 6, my: 1 }}
+                sx={{ my: 0.5 }}
                 label={t('work_order')}
                 menuItems={
                   hasViewPermission(PermissionEntity.SETTINGS) &&
@@ -974,15 +975,75 @@ function WorkOrders() {
               />
             )}
           </Stack>
-        </Box>
+        </Stack>
         <Card
           sx={{
             py: 2,
+            px: { xs: 1.25, md: 2 },
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center'
+            alignItems: 'center',
+            borderRadius: 2.5,
+            border: `1px solid ${alpha('#173247', 0.08)}`,
+            boxShadow: `0 18px 50px ${alpha('#173247', 0.08)}`
           }}
         >
+          <Box
+            sx={{
+              width: '95%',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: { xs: 'stretch', md: 'center' },
+              flexDirection: { xs: 'column', md: 'row' },
+              gap: 1.5,
+              mb: 1.5
+            }}
+          >
+            <Tabs
+              onChange={handleTabsChange}
+              value={currentTab}
+              variant="scrollable"
+              scrollButtons="auto"
+              textColor="primary"
+              TabIndicatorProps={{ sx: { display: 'none' } }}
+              sx={{
+                minHeight: 42,
+                p: 0.5,
+                borderRadius: 2,
+                backgroundColor: alpha('#128577', 0.07),
+                '& .MuiTab-root': {
+                  minHeight: 36,
+                  borderRadius: 1.5,
+                  px: 1.75,
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  color: 'text.secondary'
+                },
+                '& .MuiTab-root.Mui-selected': {
+                  color: '#0B6259',
+                  backgroundColor: '#FFFFFF',
+                  boxShadow: `0 6px 16px ${alpha('#173247', 0.08)}`
+                }
+              }}
+            >
+              {tabs.map((tab) =>
+                tab.disabled ? (
+                  <Tooltip title={t('Coming Soon')} placement="top">
+                    <span>
+                      <Tab
+                        key={tab.value}
+                        label={tab.label}
+                        value={tab.value}
+                        disabled={tab.disabled}
+                      />
+                    </span>
+                  </Tooltip>
+                ) : (
+                  <Tab key={tab.value} label={tab.label} value={tab.value} />
+                )
+              )}
+            </Tabs>
+          </Box>
           {currentTab !== 'calendar' && (
             <Stack
               sx={{ ml: 1 }}

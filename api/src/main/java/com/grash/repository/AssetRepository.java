@@ -20,6 +20,14 @@ public interface AssetRepository extends JpaRepository<Asset, Long>, JpaSpecific
 
     List<Asset> findByCompany_Id(Long id, Sort sort);
 
+    @Query("SELECT DISTINCT a FROM Asset a " +
+            "LEFT JOIN a.customers ac " +
+            "LEFT JOIN a.location l " +
+            "LEFT JOIN l.customers lc " +
+            "WHERE a.company.id = :companyId AND (ac.id IN :customerIds OR lc.id IN :customerIds)")
+    List<Asset> findByCompanyAndCustomerIds(@Param("companyId") Long companyId,
+                                            @Param("customerIds") Collection<Long> customerIds);
+
     long countDistinctByCustomers_IdAndCompany_Id(Long customerId, Long companyId);
 
     long countDistinctByCustomers_IdAndCompany_IdAndCreatedBy(Long customerId, Long companyId, Long createdBy);

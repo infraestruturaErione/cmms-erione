@@ -58,6 +58,7 @@ public class AssetController {
     private final RateLimiterService rateLimiterService;
     private final RequestPortalService requestPortalService;
     private final AssetRepository assetRepository;
+    private final CustomerScopeService customerScopeService;
 
     @PostMapping("/search")
     @PreAuthorize("permitAll()")
@@ -65,7 +66,10 @@ public class AssetController {
                                                      HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
-            if (user.getRole().getViewPermissions().contains(PermissionEntity.ASSETS)) {
+            if (customerScopeService.isRequester(user)) {
+                searchCriteria.filterCompany(user);
+                customerScopeService.addCustomerManyToManyScopeFilter(searchCriteria, user, "customers");
+            } else if (user.getRole().getViewPermissions().contains(PermissionEntity.ASSETS)) {
                 searchCriteria.filterCompany(user);
                 boolean canViewOthers = user.getRole().getViewOtherPermissions().contains(PermissionEntity.ASSETS);
                 if (!canViewOthers) {
@@ -107,6 +111,10 @@ public class AssetController {
     private AssetShowDTO getAsset(Optional<Asset> optionalAsset, User user) {
         if (optionalAsset.isPresent()) {
             Asset savedAsset = optionalAsset.get();
+            if (customerScopeService.isRequester(user)) {
+                customerScopeService.assertCanAccessAsset(user, savedAsset.getId());
+                return assetMapper.toShowDto(savedAsset, assetService);
+            }
             if (user.getRole().getViewPermissions().contains(PermissionEntity.ASSETS) &&
                     (user.getRole().getViewOtherPermissions().contains(PermissionEntity.ASSETS) || savedAsset.getCreatedBy().equals(user.getId()))) {
                 return assetMapper.toShowDto(savedAsset, assetService);
@@ -120,7 +128,10 @@ public class AssetController {
         User user = userService.whoami(req);
         Optional<Location> optionalLocation = locationService.findById(id);
         if (optionalLocation.isPresent()) {
-            return assetService.findByLocation(id).stream().map(asset -> assetMapper.toShowDto(asset, assetService)).collect(Collectors.toList());
+            if (customerScopeService.isRequester(user)) {
+                customerScopeService.assertCanAccessLocation(user, id);
+            }
+            return customerScopeService.findAllowedAssets(user, id).stream().map(asset -> assetMapper.toShowDto(asset, assetService)).collect(Collectors.toList());
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
 
@@ -142,11 +153,20 @@ public class AssetController {
                                               HttpServletRequest req) {
         User user = userService.whoami(req);
         if (id.equals(0L) && user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
+            if (customerScopeService.isRequester(user)) {
+                return customerScopeService.findAllowedAssets(user, null).stream().filter(asset -> asset.getParentAsset() == null).map(asset -> assetMapper.toShowDto(asset, assetService)).collect(Collectors.toList());
+            }
             return assetService.findByCompanyAndParentAssetNull(user.getCompany().getId(), pageable).stream().map(asset -> assetMapper.toShowDto(asset, assetService)).collect(Collectors.toList());
         }
         Optional<Asset> optionalAsset = assetService.findById(id);
         if (optionalAsset.isPresent()) {
             Asset savedAsset = optionalAsset.get();
+            if (customerScopeService.isRequester(user)) {
+                customerScopeService.assertCanAccessAsset(user, savedAsset.getId());
+                return assetService.findAssetChildren(id, pageable.getSort()).stream()
+                        .filter(asset -> customerScopeService.findAllowedAssets(user, null).stream().anyMatch(allowed -> allowed.getId().equals(asset.getId())))
+                        .map(asset -> assetMapper.toShowDto(asset, assetService)).collect(Collectors.toList());
+            }
             if (user.getRole().getViewPermissions().contains(PermissionEntity.ASSETS)) {
                 return assetService.findAssetChildren(id, pageable.getSort()).stream().map(asset -> assetMapper.toShowDto(asset,
                         assetService)).collect(Collectors.toList());
@@ -162,6 +182,12 @@ public class AssetController {
                                                        HttpServletRequest req) {
         User user = userService.whoami(req);
         if (id.equals(0L) && user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
+            if (customerScopeService.isRequester(user)) {
+                List<Asset> allowedAssets = customerScopeService.findAllowedAssets(user, null).stream()
+                        .filter(asset -> asset.getParentAsset() == null).collect(Collectors.toList());
+                return new org.springframework.data.domain.PageImpl<>(allowedAssets, pageable, allowedAssets.size())
+                        .map(asset -> assetMapper.toShowDto(asset, assetService));
+            }
             Page<Asset> assetsPage = assetRepository.findByCompany_IdAndParentAssetIsNull(user.getCompany().getId(),
                     pageable);
             return assetsPage.map(asset -> assetMapper.toShowDto(asset, assetService));
@@ -169,6 +195,11 @@ public class AssetController {
         Optional<Asset> optionalAsset = assetService.findById(id);
         if (optionalAsset.isPresent()) {
             Asset savedAsset = optionalAsset.get();
+            if (customerScopeService.isRequester(user)) {
+                customerScopeService.assertCanAccessAsset(user, savedAsset.getId());
+                Page<Asset> assetsPage = assetService.findAssetChildren(id, pageable);
+                return assetsPage.map(asset -> assetMapper.toShowDto(asset, assetService));
+            }
             if (user.getRole().getViewPermissions().contains(PermissionEntity.ASSETS)) {
                 Page<Asset> assetsPage = assetService.findAssetChildren(id, pageable);
                 return assetsPage.map(asset -> assetMapper.toShowDto(asset, assetService));
@@ -254,9 +285,12 @@ public class AssetController {
         User user = userService.whoami(req);
         List<Asset> assets = new ArrayList<>();
         if (locationId == null) {
-            assets = assetService.findByCompany(user.getCompany().getId());
+            assets = customerScopeService.findAllowedAssets(user, null);
         } else {
-            assets = assetService.findByLocation(locationId);
+            if (customerScopeService.isRequester(user)) {
+                customerScopeService.assertCanAccessLocation(user, locationId);
+            }
+            assets = customerScopeService.findAllowedAssets(user, locationId);
         }
         return assets.stream().map(assetMapper::toMiniDto).collect(Collectors.toList());
     }

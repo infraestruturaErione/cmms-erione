@@ -16,6 +16,7 @@ import com.grash.mapper.UserMapper;
 import com.grash.model.*;
 import com.grash.model.enums.RoleCode;
 import com.grash.repository.UserRepository;
+import com.grash.repository.CustomerRepository;
 import com.grash.repository.VerificationTokenRepository;
 import com.grash.security.CustomUserDetail;
 import com.grash.security.JwtTokenProvider;
@@ -63,6 +64,7 @@ import static com.grash.utils.Consts.usageBasedLicenseLimits;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final EntityManager em;
@@ -175,7 +177,7 @@ public class UserService {
             subscriptionService.create(subscription);
             Company company = new Company(userReq.getCompanyName(), userReq.getEmployeesCount(), subscription);
             company.setDemo(Boolean.TRUE.equals(userReq.getDemo()));
-            company.getCompanySettings().getGeneralPreferences().setCurrency(currencyService.findByCode("$").get());
+            company.getCompanySettings().getGeneralPreferences().setCurrency(currencyService.findByCode(GeneralPreferences.DEFAULT_CURRENCY_CODE).get());
             if (userReq.getLanguage() != null)
                 company.getCompanySettings().getGeneralPreferences().setLanguage(userReq.getLanguage());
             if (userReq.getTimeZone() != null)
@@ -402,7 +404,18 @@ public class UserService {
 
                 savedUser.setPassword(passwordEncoder.encode(userReq.getNewPassword()));
             }
-            User updatedUser = userRepository.saveAndFlush(userMapper.updateUser(savedUser, userReq));
+            User mappedUser = userMapper.updateUser(savedUser, userReq);
+            if (userReq.getAllowedCustomers() != null) {
+                List<Long> allowedCustomerIds = userReq.getAllowedCustomers().stream()
+                        .filter(Objects::nonNull)
+                        .map(Customer::getId)
+                        .filter(Objects::nonNull)
+                        .collect(java.util.stream.Collectors.toList());
+                mappedUser.setAllowedCustomers(new ArrayList<>(
+                        customerRepository.findByIdInAndCompany_Id(allowedCustomerIds, savedUser.getCompany().getId())
+                ));
+            }
+            User updatedUser = userRepository.saveAndFlush(mappedUser);
             em.refresh(updatedUser);
             cacheService.putUserInCache(updatedUser);
             return updatedUser;

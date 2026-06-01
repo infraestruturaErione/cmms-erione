@@ -13,6 +13,7 @@ import com.grash.model.User;
 import com.grash.model.enums.PermissionEntity;
 import com.grash.model.enums.RoleType;
 import com.grash.service.LocationService;
+import com.grash.service.CustomerScopeService;
 import com.grash.service.RateLimiterService;
 import com.grash.service.RequestPortalService;
 import com.grash.service.UserService;
@@ -49,12 +50,17 @@ public class LocationController {
     private final EntityManager em;
     private final RateLimiterService rateLimiterService;
     private final RequestPortalService requestPortalService;
+    private final CustomerScopeService customerScopeService;
 
     @GetMapping("")
     @PreAuthorize("permitAll()")
     public List<LocationShowDTO> getAll(HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
+            if (customerScopeService.isRequester(user)) {
+                return customerScopeService.findAllowedLocations(user).stream()
+                        .map(location -> locationMapper.toShowDto(location, locationService)).collect(Collectors.toList());
+            }
             if (user.getRole().getViewPermissions().contains(PermissionEntity.LOCATIONS)) {
                 return locationService.findByCompany(user.getCompany().getId()).stream().filter(location -> {
                     boolean canViewOthers =
@@ -74,6 +80,11 @@ public class LocationController {
                                                         HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
+            if (customerScopeService.isRequester(user)) {
+                searchCriteria.filterCompany(user);
+                customerScopeService.addCustomerManyToManyScopeFilter(searchCriteria, user, "customers");
+                return ResponseEntity.ok(locationService.findBySearchCriteria(searchCriteria));
+            }
             if (user.getRole().getViewPermissions().contains(PermissionEntity.LOCATIONS)) {
                 boolean canViewOthers = user.getRole().getViewOtherPermissions().contains(PermissionEntity.LOCATIONS);
                 Long createdBy = canViewOthers ? null : user.getId();
@@ -93,11 +104,20 @@ public class LocationController {
         //only sort is used
         User user = userService.whoami(req);
         if (id.equals(0L) && user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
+            if (customerScopeService.isRequester(user)) {
+                return customerScopeService.findAllowedLocations(user).stream().filter(location -> location.getParentLocation() == null).map(location -> locationMapper.toShowDto(location, locationService)).collect(Collectors.toList());
+            }
             return locationService.findByCompany(user.getCompany().getId(), pageable.getSort()).stream().filter(location -> location.getParentLocation() == null).map(location -> locationMapper.toShowDto(location, locationService)).collect(Collectors.toList());
         }
         Optional<Location> optionalLocation = locationService.findById(id);
         if (optionalLocation.isPresent()) {
             Location savedLocation = optionalLocation.get();
+            if (customerScopeService.isRequester(user)) {
+                customerScopeService.assertCanAccessLocation(user, savedLocation.getId());
+                return locationService.findLocationChildren(id, pageable.getSort()).stream()
+                        .filter(location -> customerScopeService.findAllowedLocations(user).stream().anyMatch(allowed -> allowed.getId().equals(location.getId())))
+                        .map(location -> locationMapper.toShowDto(location, locationService)).collect(Collectors.toList());
+            }
             if (user.getRole().getViewPermissions().contains(PermissionEntity.LOCATIONS)) {
                 return locationService.findLocationChildren(id, pageable.getSort()).stream().map(location -> locationMapper.toShowDto(location, locationService)).collect(Collectors.toList());
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
@@ -108,8 +128,8 @@ public class LocationController {
     @GetMapping("/mini")
     @PreAuthorize("hasRole('ROLE_CLIENT')")
     public Collection<LocationMiniDTO> getMini(HttpServletRequest req) {
-        User location = userService.whoami(req);
-        return locationService.findByCompany(location.getCompany().getId()).stream().map(locationMapper::toMiniDto).collect(Collectors.toList());
+        User user = userService.whoami(req);
+        return customerScopeService.findAllowedLocations(user).stream().map(locationMapper::toMiniDto).collect(Collectors.toList());
     }
 
     @GetMapping("/public/mini/{portalUUID}")
@@ -128,6 +148,10 @@ public class LocationController {
         Optional<Location> optionalLocation = locationService.findById(id);
         if (optionalLocation.isPresent()) {
             Location savedLocation = optionalLocation.get();
+            if (customerScopeService.isRequester(user)) {
+                customerScopeService.assertCanAccessLocation(user, savedLocation.getId());
+                return locationMapper.toShowDto(savedLocation, locationService);
+            }
             if (user.getRole().getViewPermissions().contains(PermissionEntity.LOCATIONS) &&
                     (user.getRole().getViewOtherPermissions().contains(PermissionEntity.LOCATIONS) || savedLocation.getCreatedBy().equals(user.getId()))) {
                 return locationMapper.toShowDto(savedLocation, locationService);

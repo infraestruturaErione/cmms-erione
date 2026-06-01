@@ -32,6 +32,7 @@ import Location from 'src/models/owns/location';
 import { AssetMiniDTO } from 'src/models/owns/asset';
 import Category from 'src/models/owns/category';
 import type { Priority } from 'src/models/owns/workOrder';
+import useAuth from 'src/hooks/useAuth';
 
 const priorityKeys: { value: Priority; key: string }[] = [
   { value: 'NONE', key: 'none_priority' },
@@ -48,12 +49,18 @@ function QuickRequest() {
   const { setTitle } = useContext(TitleContext);
   const { uploadFiles } = useContext(CompanySettingsContext);
   const { showSnackBar } = useContext(CustomSnackBarContext);
+  const { user } = useAuth();
 
   const { customersMini } = useSelector((state) => state.customers);
   const { locations } = useSelector((state) => state.locations);
   const { assetsMini } = useSelector((state) => state.assets);
   const { categories } = useSelector((state) => state.categories);
   const workOrderCategories: Category[] = categories['work-order-categories'] || [];
+
+  const requesterCustomers: CustomerMiniDTO[] =
+    user?.role?.code === 'REQUESTER' && user?.allowedCustomers?.length
+      ? user.allowedCustomers
+      : customersMini;
 
   const [customer, setCustomer] = useState<CustomerMiniDTO | null>(null);
   const [location, setLocation] = useState<Location | null>(null);
@@ -77,9 +84,21 @@ function QuickRequest() {
     dispatch(getCategories('work-order-categories'));
   }, [dispatch]);
 
+  useEffect(() => {
+    if (user?.role?.code === 'REQUESTER' && requesterCustomers.length === 1) {
+      setCustomer(requesterCustomers[0]);
+    }
+  }, [requesterCustomers, user?.role?.code]);
+
   const filteredLocations = customer
     ? locations.filter((loc) =>
         loc.customers?.some((customer1) => customer1.id === customer.id)
+      )
+    : user?.role?.code === 'REQUESTER' && user?.allowedCustomers?.length
+    ? locations.filter((loc) =>
+        loc.customers?.some((c) =>
+          user.allowedCustomers.some((ac) => ac.id === c.id)
+        )
       )
     : locations;
 
@@ -98,6 +117,14 @@ function QuickRequest() {
   const handleSubmit = async () => {
     if (!description.trim()) {
       showSnackBar(t('quick_request_description_required'), 'error');
+      return;
+    }
+    if (user?.role?.code === 'REQUESTER' && requesterCustomers.length === 0) {
+      showSnackBar(t('requester_without_allowed_customers'), 'error');
+      return;
+    }
+    if (user?.role?.code === 'REQUESTER' && requesterCustomers.length > 1 && !customer) {
+      showSnackBar(t('required_field'), 'error');
       return;
     }
     setSubmitting(true);
@@ -207,7 +234,7 @@ function QuickRequest() {
                 <Grid item xs={12} sm={6} md={4}>
                   <Autocomplete
                     fullWidth
-                    options={customersMini}
+                    options={requesterCustomers}
                     getOptionLabel={(o) => (typeof o === 'string' ? o : o.name)}
                     value={customer}
                     onChange={(_, v) => {

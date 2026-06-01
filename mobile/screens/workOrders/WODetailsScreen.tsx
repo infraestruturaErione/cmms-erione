@@ -908,6 +908,65 @@ export default function WODetailsScreen({
     );
   };
 
+  const renderDestinationCard = () => (
+    <ErioneCard style={styles.detailsCard}>
+      <ErioneSectionHeader
+        title={t('work_order_destination')}
+        subtitle={t('work_order_destination_helper')}
+      />
+      {!!workOrder.customers?.length && (
+        <BasicField label={t('customers')} value={workOrder.customers[0].name} />
+      )}
+      {workOrder.location && (
+        <ObjectField
+          label={t('location')}
+          value={workOrder.location.name}
+          link={{ route: 'LocationDetails', id: workOrder.location.id }}
+          permissionEntity={PermissionEntity.LOCATIONS}
+          address={workOrder.location.address}
+        />
+      )}
+      {workOrder.asset && (
+        <ObjectField
+          label={t('asset')}
+          value={workOrder.asset.name}
+          link={{ route: 'AssetDetails', id: workOrder.asset.id }}
+          permissionEntity={PermissionEntity.ASSETS}
+        />
+      )}
+    </ErioneCard>
+  );
+
+  const renderProblemCard = () => (
+    <ErioneCard style={styles.detailsCard}>
+      <ErioneSectionHeader
+        title={t('work_order_problem')}
+        subtitle={t('work_order_problem_helper')}
+      />
+      {workOrder.description ? (
+        <Text variant="bodyMedium" style={styles.problemText}>
+          {workOrder.description}
+        </Text>
+      ) : (
+        <Text style={styles.emptyStateText}>{t('no_description')}</Text>
+      )}
+      {workOrder.audioDescription && (
+        <View style={styles.audioBox}>
+          <Text style={styles.sectionLabel}>{t('audio_description')}</Text>
+          <AudioPlayer url={workOrder.audioDescription.url} />
+        </View>
+      )}
+      {workOrder.image && (
+        <TouchableOpacity
+          onPress={() => openImageViewer([workOrder.image.url], workOrder.image.url)}
+          style={styles.problemImageWrap}
+        >
+          <Image style={styles.workOrderImage} source={{ uri: workOrder.image.url }} />
+        </TouchableOpacity>
+      )}
+    </ErioneCard>
+  );
+
   const renderConfirmArchive = () => {
     return (
       <Portal>
@@ -1005,44 +1064,9 @@ export default function WODetailsScreen({
                     />
                   )}
                 </View>
-                <View style={styles.heroMetaGrid}>
-                  {!!workOrder.customers?.length && (
-                    <BasicField
-                      label="Cliente"
-                      value={workOrder.customers[0].name}
-                    />
-                  )}
-                  {workOrder.location && (
-                    <ObjectField
-                      label={t('location')}
-                      value={workOrder.location.name}
-                      link={{ route: 'LocationDetails', id: workOrder.location.id }}
-                      permissionEntity={PermissionEntity.LOCATIONS}
-                      address={workOrder.location.address}
-                    />
-                  )}
-                  {workOrder.asset && (
-                    <ObjectField
-                      label={t('asset')}
-                      value={workOrder.asset.name}
-                      link={{ route: 'AssetDetails', id: workOrder.asset.id }}
-                      permissionEntity={PermissionEntity.ASSETS}
-                    />
-                  )}
-                </View>
               </ErioneCard>
-              {workOrder.image && (
-                <TouchableOpacity
-                  onPress={() =>
-                    openImageViewer([workOrder.image.url], workOrder.image.url)
-                  }
-                >
-                  <Image
-                    style={styles.workOrderImage}
-                    source={{ uri: workOrder.image.url }}
-                  />
-                </TouchableOpacity>
-              )}
+              {renderDestinationCard()}
+              {renderProblemCard()}
               <FieldExecutionSection
                 workOrder={workOrder}
                 comments={comments}
@@ -1065,11 +1089,11 @@ export default function WODetailsScreen({
                   >
                     Concluir OS
                   </ErionePrimaryButton>
-                )}
+              )}
               <ErioneCard style={styles.detailsCard}>
                 <ErioneSectionHeader
-                  title={t('work_order_problem')}
-                  subtitle={t('work_order_problem_helper')}
+                  title={t('more_details')}
+                  subtitle={t('work_order_more_details_helper')}
                 />
                 <TouchableOpacity
                   disabled={
@@ -1096,15 +1120,9 @@ export default function WODetailsScreen({
                     style={{ margin: -5 }}
                   />
                 </TouchableOpacity>
-                {workOrder.audioDescription && (
-                  <View style={styles.audioBox}>
-                    <Text style={styles.sectionLabel}>{t('audio_description')}</Text>
-                    <AudioPlayer url={workOrder.audioDescription.url} />
-                  </View>
-                )}
                 {fieldsToRender.map(
                   ({ label, value, isLink }, index) =>
-                    value && (
+                    value && label !== t('description') && (
                       <BasicField
                         key={label}
                         label={label}
@@ -1746,9 +1764,16 @@ const styles = StyleSheet.create({
     marginTop: 4
   },
   workOrderImage: {
-    height: 200,
-    marginBottom: 12,
+    width: '100%',
+    height: 190,
     borderRadius: 16
+  },
+  problemText: {
+    color: erioneColors.text,
+    lineHeight: 21
+  },
+  problemImageWrap: {
+    marginTop: 14
   },
   detailsCard: {
     marginBottom: 12

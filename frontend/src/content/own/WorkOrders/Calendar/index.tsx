@@ -321,53 +321,9 @@ function ApplicationsCalendar({
   };
 
   const hasEvents = calendarEvents.length > 0;
-  const unscheduledWorkOrders = calendarWorkOrders.filter(
-    (wo) => !wo.estimatedStartDate && !wo.dueDate
-  ).length;
-
   return (
     <Grid item xs={12}>
-      <Box p={3}>
-        <Box
-          sx={{
-            mb: 2,
-            p: 2,
-            borderRadius: 1.5,
-            border: `1px solid ${theme.palette.divider}`,
-            bgcolor: alpha(theme.palette.primary.main, 0.035)
-          }}
-        >
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={1}
-            alignItems={{ xs: 'flex-start', sm: 'center' }}
-            justifyContent="space-between"
-          >
-            <Box>
-              <Typography variant="h4">
-                {t('workOrders.calendar.title')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t('workOrders.calendar.subtitle')}
-              </Typography>
-            </Box>
-            <Box
-              sx={{
-                px: 1.5,
-                py: 0.75,
-                borderRadius: 1,
-                bgcolor: theme.palette.background.paper,
-                border: `1px solid ${theme.palette.divider}`
-              }}
-            >
-              <Typography variant="subtitle2" color="text.secondary">
-                {t('workOrders.calendar.unscheduled', {
-                  count: unscheduledWorkOrders
-                })}
-              </Typography>
-            </Box>
-          </Stack>
-        </Box>
+      <Box px={3} py={2}>
         <Actions
           date={date}
           onNext={handleDateNext}

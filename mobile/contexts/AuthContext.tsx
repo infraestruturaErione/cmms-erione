@@ -774,7 +774,7 @@ export const AuthProvider: FC<AuthProviderProps> = (props) => {
       'auth/signup',
       {
         ...values,
-        timeZone: moment.tz.guess(),
+        timeZone: 'America/Sao_Paulo',
         utmParams: { referrer: `${Platform.OS}_app` }
       },
       { headers: await authHeader(true) }

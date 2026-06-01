@@ -400,7 +400,7 @@ const locale = {
   time_and_cost: 'Time and Cost',
   assets: 'Equipment/Devices',
   all_requests: 'All Requests',
-  quick_request: 'Open Request',
+  quick_request: 'Open Ticket',
   erione_login_tagline:
     'Field operations, work orders and technical follow-up in one place.',
   erione_login_bullet_work_orders:
@@ -435,7 +435,7 @@ const locale = {
   reliability_dashboard: 'Reliability Dashboard',
   total_maintenance_cost: 'Total Maintenance Cost',
   useful_life: 'Useful life',
-  requests: 'Service Requests',
+  requests: 'My Requests',
   locations: 'Sites',
   parts_and_inventory: 'Parts/Inventory',
   purchase_orders: 'Purchase Requests',
@@ -2053,6 +2053,9 @@ const locale = {
   customers_settings_description:
     'Manage customers served by your operation.',
   vendors_settings_description: 'Customize vendor-related settings',
+  allowed_customers: 'Allowed customers',
+  requester_without_allowed_customers:
+    'No allowed customers are linked to your user. Contact the administrator.',
   mobile_app_unavailable_description: 'The Erione mobile app will be available soon on official stores.'
 };
 

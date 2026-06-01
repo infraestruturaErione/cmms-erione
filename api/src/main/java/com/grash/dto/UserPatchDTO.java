@@ -2,6 +2,7 @@ package com.grash.dto;
 
 import com.grash.model.File;
 import com.grash.model.Location;
+import com.grash.model.Customer;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -19,7 +20,7 @@ public class UserPatchDTO {
     private String lastName;
 
     @Schema(description = "Hourly rate")
-    private long rate;
+    private Long rate;
 
     @Schema(description = "Phone number")
     private String phone;
@@ -29,6 +30,12 @@ public class UserPatchDTO {
 
     @Schema(description = "User location", implementation = IdDTO.class)
     private Location location;
+
+    @ArraySchema(
+            schema = @Schema(implementation = Customer.class),
+            arraySchema = @Schema(description = "Customers/cities this user can operate on")
+    )
+    private java.util.List<Customer> allowedCustomers;
 
     @Schema(description = "User profile image", implementation = IdDTO.class)
     private File image;

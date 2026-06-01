@@ -220,6 +220,27 @@ export default function WorkOrdersScreen({
   return (
     <ErioneScreen>
       <Fragment>
+        <View style={styles.pageHeader}>
+          <View style={{ flex: 1 }}>
+            <Text variant="labelMedium" style={styles.pageKicker}>
+              Erione CMMS
+            </Text>
+            <Text variant="headlineSmall" style={styles.pageTitle}>
+              {t('work_orders')}
+            </Text>
+            <Text variant="bodySmall" style={styles.pageSubtitle}>
+              {t('my_shift_helper')}
+            </Text>
+          </View>
+          <View style={styles.countPill}>
+            <Text variant="titleMedium" style={styles.countValue}>
+              {workOrders.totalElements ?? workOrders.content.length}
+            </Text>
+            <Text variant="labelSmall" style={styles.countLabel}>
+              OS
+            </Text>
+          </View>
+        </View>
         <View style={styles.searchWrap}>
           <Searchbar
             placeholder={t('search')}
@@ -358,20 +379,10 @@ export default function WorkOrdersScreen({
                     ]}
                   >
                     <View style={styles.cardTopRow}>
-                      {workOrder.image ? (
-                        <Avatar.Image
-                          size={48}
-                          source={{ uri: workOrder.image?.url }}
-                        />
-                      ) : (
-                        <Avatar.Icon
-                          style={styles.orderIcon}
-                          color={colors.primary}
-                          icon="clipboard-text-outline"
-                          size={48}
-                        />
-                      )}
                       <View style={styles.titleGroup}>
+                        <Text variant="bodySmall" style={styles.customId}>
+                          #{workOrder.customId}
+                        </Text>
                         <Text
                           variant="titleMedium"
                           style={styles.cardTitle}
@@ -379,15 +390,49 @@ export default function WorkOrdersScreen({
                         >
                           {workOrder.title}
                         </Text>
-                        <Text variant="bodySmall" style={styles.customId}>
-                          #{workOrder.customId}
-                        </Text>
                       </View>
                       <ErioneStatusBadge
                         label={t(workOrder.status)}
                         color={statusColor}
                         subtle
                       />
+                    </View>
+
+                    <View
+                      style={[
+                        styles.nextActionStrip,
+                        pendingCompletion && styles.nextActionStripWarning,
+                        inField && styles.nextActionStripActive
+                      ]}
+                    >
+                      <View style={styles.nextActionIcon}>
+                        <IconButton
+                          icon={
+                            pendingCompletion
+                              ? 'check-circle-outline'
+                              : inField
+                              ? 'map-marker-check-outline'
+                              : 'arrow-right-circle-outline'
+                          }
+                          size={22}
+                          iconColor={
+                            pendingCompletion
+                              ? theme.colors.error
+                              : inField
+                              ? colors.primary
+                              : colors.muted
+                          }
+                          style={{ margin: 0 }}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text variant="labelSmall" style={styles.nextActionLabel}>
+                          {t('next_action')}
+                        </Text>
+                        <Text variant="bodyMedium" style={styles.nextActionText}>
+                          {t(getNextActionKey(workOrder))}
+                        </Text>
+                      </View>
                     </View>
 
                     <View style={styles.infoGrid}>
@@ -423,17 +468,6 @@ export default function WorkOrdersScreen({
 
                     <View style={styles.cardFooter}>
                       <View style={styles.footerMeta}>
-                        <ErioneStatusBadge
-                          label={t(getNextActionKey(workOrder))}
-                          color={
-                            pendingCompletion
-                              ? theme.colors.error
-                              : inField
-                              ? colors.primary
-                              : colors.muted
-                          }
-                          subtle
-                        />
                         {workOrder.priority &&
                           workOrder.priority !== 'NONE' && (
                             <ErioneStatusBadge
@@ -478,6 +512,46 @@ export default function WorkOrdersScreen({
 }
 
 const styles = StyleSheet.create({
+  pageHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 4
+  },
+  pageKicker: {
+    color: colors.primary,
+    fontWeight: '800'
+  },
+  pageTitle: {
+    color: colors.text,
+    fontWeight: '900',
+    letterSpacing: 0,
+    marginTop: 2
+  },
+  pageSubtitle: {
+    color: colors.muted,
+    marginTop: 2
+  },
+  countPill: {
+    minWidth: 58,
+    borderRadius: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    backgroundColor: '#E7F3F1',
+    borderWidth: 1,
+    borderColor: '#CBE9E3'
+  },
+  countValue: {
+    color: colors.primary,
+    fontWeight: '900'
+  },
+  countLabel: {
+    color: colors.muted,
+    fontWeight: '800'
+  },
   searchWrap: {
     paddingHorizontal: 16,
     paddingTop: 12,
@@ -510,7 +584,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2
   },
   card: {
-    marginBottom: 12
+    marginBottom: 12,
+    padding: 14
   },
   activeCard: {
     borderColor: '#2B8F7E',
@@ -533,12 +608,45 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: colors.text,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0
   },
   customId: {
+    color: colors.primary,
+    fontWeight: '800',
+    marginBottom: 2
+  },
+  nextActionStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: '#F6F9FA',
+    borderWidth: 1,
+    borderColor: '#E2E8F0'
+  },
+  nextActionStripActive: {
+    backgroundColor: '#EFFAF7',
+    borderColor: '#BFE7DE'
+  },
+  nextActionStripWarning: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FCD34D'
+  },
+  nextActionIcon: {
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF'
+  },
+  nextActionLabel: {
     color: colors.muted,
-    marginTop: 2
+    fontWeight: '700'
+  },
+  nextActionText: {
+    color: colors.text,
+    fontWeight: '900',
+    marginTop: 1
   },
   infoGrid: {
     gap: 8,

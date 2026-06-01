@@ -13,14 +13,15 @@ import lombok.NoArgsConstructor;
 
 import jakarta.persistence.*;
 
-import java.time.ZoneId;
-
 @Entity
 @Data
 @NoArgsConstructor
 @EqualsAndHashCode(exclude = "companySettings")
 @Schema(description = "General preferences for company-wide settings and configurations")
 public class GeneralPreferences {
+    public static final String DEFAULT_TIME_ZONE = "America/Sao_Paulo";
+    public static final String DEFAULT_CURRENCY_CODE = "R$";
+
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Schema(description = "Unique identifier", accessMode = Schema.AccessMode.READ_ONLY)
@@ -30,7 +31,7 @@ public class GeneralPreferences {
     private Language language = Language.EN;
 
     @Schema(description = "Date format preference")
-    private DateFormat dateFormat = DateFormat.MMDDYY;
+    private DateFormat dateFormat = DateFormat.DDMMYY;
 
     @ManyToOne(fetch = FetchType.LAZY)
     private Currency currency;
@@ -40,7 +41,7 @@ public class GeneralPreferences {
 
     @NotNull
     @Schema(description = "Time zone identifier", requiredMode = Schema.RequiredMode.REQUIRED)
-    private String timeZone = ZoneId.systemDefault().getId();
+    private String timeZone = DEFAULT_TIME_ZONE;
 
     @Schema(description = "Automatically assign work orders")
     private boolean autoAssignWorkOrders;

@@ -3,16 +3,19 @@ import Comment from '../models/comment';
 import File from '../models/file';
 
 export const FIELD_REPORT_PREFIX = '[Relato em campo]';
+export const FIELD_EVIDENCE_AUTO_TEXT = 'Evidência fotográfica registrada.';
 
 const PHOTO_ONLY_FIELD_REPORT_TEXTS = [
   'Photo evidence registered.',
-  'Evidência fotográfica registrada.'
+  'Evidência fotográfica registrada.',
+  FIELD_EVIDENCE_AUTO_TEXT,
+  `${FIELD_REPORT_PREFIX} ${FIELD_EVIDENCE_AUTO_TEXT}`
 ];
 
 export type WorkOrderNextAction =
   | 'start_travel'
   | 'make_check_in'
-  | 'register_field_report_photo'
+  | 'add_field_report'
   | 'make_check_out'
   | 'complete_work_order'
   | 'work_order_completed';
@@ -59,7 +62,7 @@ export const getNextActionKey = (
   if (workOrder.status === 'COMPLETE') return 'work_order_completed';
   if (workOrder.checkOutAt) return 'complete_work_order';
   if (workOrder.checkInAt && !hasFieldReportComment(comments)) {
-    return 'register_field_report_photo';
+    return 'add_field_report';
   }
   if (workOrder.checkInAt) return 'make_check_out';
   if (workOrder.departureAt) return 'make_check_in';

@@ -8,8 +8,9 @@ import org.mapstruct.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 
-@Mapper(componentModel = "spring", uses = {SuperAccountRelationMapper.class, FileMapper.class})
+@Mapper(componentModel = "spring", uses = {SuperAccountRelationMapper.class, FileMapper.class, CustomerMapper.class})
 public abstract class UserMapper {
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     public abstract User updateUser(@MappingTarget User entity, UserPatchDTO dto);
 
     @Lazy

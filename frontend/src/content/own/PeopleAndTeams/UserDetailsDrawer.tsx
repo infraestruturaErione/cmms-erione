@@ -96,6 +96,10 @@ function UserDetailsDrawer({ user }: PropsType) {
       value: user.role.name
     },
     {
+      label: t('allowed_customers'),
+      value: user.allowedCustomers?.map((customer) => customer.name).join(', ') ?? ''
+    },
+    {
       label: t('hourly_rate'),
       value: user.rate
     }

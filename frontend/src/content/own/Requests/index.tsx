@@ -69,6 +69,7 @@ import CircleTwoToneIcon from '@mui/icons-material/CircleTwoTone';
 import SearchInput from '../components/SearchInput';
 import * as React from 'react';
 import WorkOrder from '../../../models/owns/workOrder';
+import { getCustomersMini } from '../../../slices/customer';
 
 function Requests() {
   const { t }: { t: any } = useTranslation();
@@ -80,7 +81,8 @@ function Requests() {
     companySettings,
     hasViewPermission,
     hasCreatePermission,
-    getFilteredFields
+    getFilteredFields,
+    user
   } = useAuth();
   const { workOrderRequestConfiguration } = companySettings;
   const [currentRequest, setCurrentRequest] = useState<Request>();
@@ -92,6 +94,7 @@ function Requests() {
     (state) => state.requests
   );
   const { customFields } = useSelector((state) => state.customFields);
+  const { customersMini } = useSelector((state) => state.customers);
   const [openDrawerFromUrl, setOpenDrawerFromUrl] = useState<boolean>(false);
   const defaultFilterFields: FilterField[] = [
     {
@@ -200,6 +203,9 @@ function Requests() {
     if ((openAddModal || openUpdateModal) && !customFields.length) {
       dispatch(getCustomFields());
     }
+    if ((openAddModal || openUpdateModal) && user?.role?.code === 'REQUESTER') {
+      dispatch(getCustomersMini());
+    }
   }, [openAddModal, openUpdateModal]);
 
   const handleDelete = (id: number) => {
@@ -248,9 +254,13 @@ function Requests() {
     newValues.location = formatSelect(newValues.location);
     newValues.team = formatSelect(newValues.team);
     newValues.asset = formatSelect(newValues.asset);
+    newValues.customers = formatSelectMultiple(newValues.customers);
     newValues.assignedTo = formatSelectMultiple(newValues.assignedTo);
     newValues.priority = newValues.priority?.value;
     newValues.category = formatSelect(newValues.category);
+    if (user?.role?.code === 'REQUESTER' && user?.allowedCustomers?.length === 1) {
+      newValues.customers = [{ id: user.allowedCustomers[0].id }];
+    }
     return formatCustomFields(newValues);
   };
 
@@ -319,7 +329,16 @@ function Requests() {
       size: 150
     })
   ];
-  const defaultFields: Array<IField> = [...getWOBaseFields(t, customFields)];
+  const defaultFields: Array<IField> = [
+    ...getWOBaseFields(t, customFields),
+    {
+      name: 'customers',
+      type: 'select',
+      label: t('customers'),
+      type2: 'customer',
+      multiple: true
+    }
+  ];
   const defaultShape = {
     title: Yup.string().required(t('required_request_name')),
     ...getCustomFieldsRequiredShape(
@@ -330,7 +349,33 @@ function Requests() {
   };
   const getFieldsAndShapes = (): [Array<IField>, { [key: string]: any }] => {
     let fields = [...getFilteredFields(defaultFields)];
-    let shape = { ...defaultShape };
+    let shape: { [key: string]: any } = { ...defaultShape };
+    if (user?.role?.code === 'REQUESTER') {
+      fields = fields.filter(
+        (field) => !['primaryUser', 'team'].includes(field.name)
+      );
+      const allowedCustomers = user?.allowedCustomers;
+      if (allowedCustomers?.length === 1) {
+        fields = fields.filter(
+          (field) => !['customers'].includes(field.name)
+        );
+      } else if (allowedCustomers && allowedCustomers.length > 1) {
+        const customersFieldIndex = fields.findIndex(
+          (field) => field.name === 'customers'
+        );
+        if (customersFieldIndex >= 0) {
+          fields[customersFieldIndex] = {
+            ...fields[customersFieldIndex],
+            type2: undefined,
+            items: allowedCustomers.map((c) => ({
+              label: c.name,
+              value: c.id
+            }))
+          };
+        }
+        shape.customers = Yup.array().min(1, t('required_field'));
+      }
+    }
     const fieldsToConfigure = [
       'asset',
       'location',
@@ -535,7 +580,13 @@ function Requests() {
                 startIcon={<AddTwoToneIcon />}
                 sx={{ my: 1 }}
                 variant="contained"
-                onClick={() => setOpenAddModal(true)}
+                onClick={() => {
+                  if (user?.role?.code === 'REQUESTER' && (!user?.allowedCustomers || user.allowedCustomers.length === 0)) {
+                    showSnackBar(t('requester_without_allowed_customers'), 'error');
+                    return;
+                  }
+                  setOpenAddModal(true);
+                }}
               >
                 {t('request')}
               </Button>

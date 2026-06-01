@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface CustomerRepository extends JpaRepository<Customer, Long>, JpaSpecificationExecutor<Customer> {
     Collection<Customer> findByCompany_Id(Long id);
 
+    Collection<Customer> findByIdInAndCompany_Id(Collection<Long> ids, Long companyId);
+
     List<Customer> findByNameIgnoreCaseAndCompany_Id(String name, Long companyId);
 
     void deleteByCompany_IdAndIsDemoTrue(Long companyId);

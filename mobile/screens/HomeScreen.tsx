@@ -111,13 +111,7 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
     (workOrder) =>
       isSelectableHomeWorkOrder(workOrder) && workOrder.id !== activeWorkOrder?.id
   );
-  const pendingCheckIn = sortedWorkOrders.filter(
-    (wo) => wo.departureAt && !wo.checkInAt && wo.status !== 'COMPLETE'
-  ).length;
-  const pendingCheckOut = sortedWorkOrders.filter(
-    (wo) => wo.checkInAt && !wo.checkOutAt && wo.status !== 'COMPLETE'
-  ).length;
-  const pendingConclusion = sortedWorkOrders.filter(isPendingCompletion).length;
+  const activeCount = sortedWorkOrders.filter(isWorkOrderInField).length;
   const highOrLate = sortedWorkOrders.filter(
     (wo) => wo.priority === 'HIGH' || isPastDue(wo)
   ).length;
@@ -232,7 +226,7 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
               Erione CMMS
             </Text>
             <Text variant="headlineSmall" style={styles.title}>
-              {t('my_shift')}
+              {t('home')}
             </Text>
             <Text variant="bodySmall" style={styles.subtitle}>
               {netInfo.isInternetReachable === false
@@ -274,6 +268,35 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
           </View>
         </View>
 
+        <ErioneCard style={styles.shiftHeroCard}>
+          <View style={styles.shiftHeroTop}>
+            <View style={{ flex: 1 }}>
+              <Text variant="labelMedium" style={styles.shiftHeroKicker}>
+                {netInfo.isInternetReachable === false
+                  ? t('offline_shift_helper')
+                  : t('my_shift_helper')}
+              </Text>
+              <Text variant="titleLarge" style={styles.shiftHeroTitle}>
+                {activeWorkOrder
+                  ? t('continue_service')
+                  : nextWorkOrder
+                  ? t('next_work_order')
+                  : t('no_next_work_order')}
+              </Text>
+            </View>
+            <View style={styles.onlinePill}>
+              <Text variant="labelSmall" style={styles.onlinePillText}>
+                {netInfo.isInternetReachable === false ? 'Offline' : 'Online'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.shiftStatsRow}>
+            <ShiftStat label={t('open_work_orders')} value={sortedWorkOrders.length} />
+            <ShiftStat label={t('active_service_now')} value={activeCount} />
+            <ShiftStat label={t('high_priority_or_late')} value={highOrLate} />
+          </View>
+        </ErioneCard>
+
         <WorkOrderSummaryCard
           title={t('active_service_now')}
           workOrder={activeWorkOrder}
@@ -286,43 +309,18 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
           emptyText={loadingGet ? t('loading_work_orders') : t('no_next_work_order')}
         />
 
-        <ErioneCard style={styles.sectionCard}>
-          <ErioneSectionHeader
-            title={t('pending_items')}
-            subtitle={t('pending_items_shift_helper')}
-          />
-          <View style={styles.pendingGrid}>
-            <PendingItem label={t('pending_check_in')} value={pendingCheckIn} />
-            <PendingItem label={t('pending_check_out')} value={pendingCheckOut} />
-            <PendingItem label={t('pending_completion')} value={pendingConclusion} />
-            <PendingItem label={t('high_priority_or_late')} value={highOrLate} />
-          </View>
-        </ErioneCard>
-
-        <ErionePrimaryButton
-          icon="clipboard-text-outline"
-          onPress={() =>
-            navigation.navigate('WorkOrders', {
-              filterFields: [],
-              fromHome: true
-            })
-          }
-          style={styles.allButton}
-        >
-          {t('view_all_work_orders')}
-        </ErionePrimaryButton>
       </ScrollView>
     </ErioneScreen>
   );
 }
 
-function PendingItem({ label, value }: { label: string; value: number }) {
+function ShiftStat({ label, value }: { label: string; value: number }) {
   return (
-    <View style={styles.pendingItem}>
-      <Text variant="headlineSmall" style={styles.pendingValue}>
+    <View style={styles.shiftStat}>
+      <Text variant="titleMedium" style={styles.shiftStatValue}>
         {value}
       </Text>
-      <Text variant="bodySmall" style={styles.pendingLabel}>
+      <Text variant="labelSmall" style={styles.shiftStatLabel} numberOfLines={2}>
         {label}
       </Text>
     </View>
@@ -341,6 +339,59 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 14,
     gap: 12
+  },
+  shiftHeroCard: {
+    marginBottom: 12,
+    backgroundColor: '#0B2F3A',
+    borderColor: '#0B2F3A'
+  },
+  shiftHeroTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12
+  },
+  shiftHeroKicker: {
+    color: '#BFE7DE',
+    fontWeight: '700'
+  },
+  shiftHeroTitle: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    letterSpacing: 0,
+    marginTop: 4
+  },
+  onlinePill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)'
+  },
+  onlinePillText: {
+    color: '#FFFFFF',
+    fontWeight: '800'
+  },
+  shiftStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 16
+  },
+  shiftStat: {
+    flex: 1,
+    borderRadius: 14,
+    padding: 10,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)'
+  },
+  shiftStatValue: {
+    color: '#FFFFFF',
+    fontWeight: '900'
+  },
+  shiftStatLabel: {
+    color: '#C7DAD6',
+    marginTop: 2
   },
   kicker: {
     color: colors.primary,
@@ -411,26 +462,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: colors.muted
-  },
-  pendingGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8
-  },
-  pendingItem: {
-    flexBasis: '48%',
-    flexGrow: 1,
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: '#F6F9FA'
-  },
-  pendingValue: {
-    color: colors.primary,
-    fontWeight: '800'
-  },
-  pendingLabel: {
-    color: colors.muted,
-    marginTop: 2
   },
   allButton: {
     marginTop: 2

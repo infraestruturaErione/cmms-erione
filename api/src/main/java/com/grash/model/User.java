@@ -89,6 +89,15 @@ public class User extends Audit {
     @ManyToOne(fetch = FetchType.LAZY)
     private Location location;
 
+    @ManyToMany
+    @JoinTable(
+            name = "own_user_allowed_customers",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "customer_id")
+    )
+    @Schema(description = "Customers/cities this user can operate on")
+    private List<Customer> allowedCustomers = new ArrayList<>();
+
     @OneToMany(mappedBy = "superUser", fetch = FetchType.LAZY)
     @JsonIgnore
     private List<SuperAccountRelation> superAccountRelations = new ArrayList<>();

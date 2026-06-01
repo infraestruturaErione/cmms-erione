@@ -74,11 +74,14 @@ public class WorkOrderService {
     private final LicenseService licenseService;
     private WebhookDispatchService webhookDispatchService;
     private final CustomFieldValueService customFieldValueService;
+    private CustomerScopeService customerScopeService;
 
     @Autowired
-    public void setDeps(@Lazy WorkflowService workflowService
+    public void setDeps(@Lazy WorkflowService workflowService,
+                        @Lazy CustomerScopeService customerScopeService
     ) {
         this.workflowService = workflowService;
+        this.customerScopeService = customerScopeService;
     }
 
     @Transactional
@@ -368,6 +371,7 @@ public class WorkOrderService {
         workOrder.setCategory(workOrderBase.getCategory());
         workOrder.getAssignedTo().addAll(workOrderBase.getAssignedTo());
         workOrder.setEstimatedDuration(workOrderBase.getEstimatedDuration());
+        workOrder.setCustomers(new ArrayList<>(workOrderBase.getCustomers()));
         workOrder.getCustomFieldValues().addAll(workOrderBase.getCustomFieldValues());
         workOrder.setCustomFields(workOrderBase.getCustomFieldValues().stream().map(customFieldValue -> {
             CustomFieldValuePostDTO customFieldValuePostDTO = new CustomFieldValuePostDTO();
@@ -561,6 +565,7 @@ public class WorkOrderService {
                         .value(user.getId())
                         .operation("eq")
                         .values(new ArrayList<>()).build());
+                customerScopeService.addCustomerManyToManyScopeFilter(searchCriteria, user, "customers");
             }
             searchCriteria.getFilterFields().
                     removeIf(filterField -> filterField.getField().equals("assignedToUser"));

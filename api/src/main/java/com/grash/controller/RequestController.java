@@ -56,6 +56,7 @@ public class RequestController {
     private final AssetService assetService;
     private final RequestPortalService requestPortalService;
     private final WebhookDispatchService webhookDispatchService;
+    private final CustomerScopeService customerScopeService;
 
     @Value("${frontend.url}")
     private String frontendUrl;
@@ -92,6 +93,9 @@ public class RequestController {
         if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
             if (user.getRole().getViewPermissions().contains(PermissionEntity.REQUESTS)) {
                 searchCriteria.filterCompany(user);
+                if (customerScopeService.isRequester(user)) {
+                    customerScopeService.addCustomerManyToManyScopeFilter(searchCriteria, user, "customers");
+                }
                 boolean canViewOthers = user.getRole().getViewOtherPermissions().contains(PermissionEntity.REQUESTS);
                 if (!canViewOthers) {
                     searchCriteria.filterCreatedBy(user);
@@ -120,6 +124,9 @@ public class RequestController {
             Request savedRequest = optionalRequest.get();
             if (user.getRole().getViewPermissions().contains(PermissionEntity.REQUESTS) &&
                     (user.getRole().getViewOtherPermissions().contains(PermissionEntity.REQUESTS) || savedRequest.getCreatedBy().equals(user.getId()))) {
+                if (!customerScopeService.canAccessWorkOrderBase(user, savedRequest)) {
+                    throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+                }
                 return requestMapper.toShowDto(savedRequest);
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
@@ -156,6 +163,7 @@ public class RequestController {
                           HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getRole().getCreatePermissions().contains(PermissionEntity.REQUESTS)) {
+            customerScopeService.prepareAndValidateRequestScope(requestReq, user);
             Request createdRequest = requestService.create(requestReq, user.getCompany());
             onRequestCreation(createdRequest, user.getCompany(), user.getFullName());
             return requestMapper.toShowDto(createdRequest);
@@ -201,6 +209,7 @@ public class RequestController {
                 throw new CustomException("Can't patch an approved request", HttpStatus.NOT_ACCEPTABLE);
             }
             if (user.getRole().getEditOtherPermissions().contains(PermissionEntity.REQUESTS) || savedRequest.getCreatedBy().equals(user.getId())) {
+                customerScopeService.prepareAndValidateRequestScope(request, user);
                 Request patchedRequest = requestService.update(id, request, user.getCompany());
                 return requestMapper.toShowDto(patchedRequest);
             } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);

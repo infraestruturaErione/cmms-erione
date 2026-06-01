@@ -57,6 +57,9 @@ public class UserResponseDTO {
     @Schema(description = "User profile image")
     private FileShowDTO image;
 
+    @Schema(description = "Customers/cities this user can operate on")
+    private List<CustomerMiniDTO> allowedCustomers = new ArrayList<>();
+
     @Schema(description = "Super account relationships")
     private List<SuperAccountRelationDTO> superAccountRelations = new ArrayList<>();
 

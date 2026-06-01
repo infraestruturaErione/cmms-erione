@@ -17,6 +17,7 @@ import com.grash.model.enums.PermissionEntity;
 import com.grash.model.enums.RoleType;
 import com.grash.service.CustomerService;
 import com.grash.service.CustomerOperationalService;
+import com.grash.service.CustomerScopeService;
 import com.grash.service.UserService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,13 +48,17 @@ public class CustomerController {
     private final CustomerOperationalService customerOperationalService;
     private final UserService userService;
     private final CustomerMapper customerMapper;
+    private final CustomerScopeService customerScopeService;
 
     @PostMapping("/search")
     @PreAuthorize("permitAll()")
     public ResponseEntity<Page<Customer>> search(@Parameter(description = "Customer search criteria") @RequestBody SearchCriteria searchCriteria, HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
-            if (user.getRole().getViewPermissions().contains(PermissionEntity.VENDORS_AND_CUSTOMERS)) {
+            if (customerScopeService.isRequester(user)) {
+                searchCriteria.filterCompany(user);
+                customerScopeService.addCustomerScopeFilter(searchCriteria, user, "id");
+            } else if (user.getRole().getViewPermissions().contains(PermissionEntity.VENDORS_AND_CUSTOMERS)) {
                 searchCriteria.filterCompany(user);
             } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
         }
@@ -65,7 +70,8 @@ public class CustomerController {
 
     public Collection<CustomerMiniDTO> getMini(HttpServletRequest req) {
         User user = userService.whoami(req);
-        return customerService.findByCompany(user.getCompany().getId()).stream().map(customerMapper::toMiniDto).collect(Collectors.toList());
+        return customerScopeService.filterCustomers(user, customerService.findByCompany(user.getCompany().getId()))
+                .stream().map(customerMapper::toMiniDto).collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")
@@ -76,6 +82,10 @@ public class CustomerController {
         Optional<Customer> optionalCustomer = customerService.findById(id);
         if (optionalCustomer.isPresent()) {
             Customer savedCustomer = optionalCustomer.get();
+            if (customerScopeService.isRequester(user)) {
+                customerScopeService.assertCanAccessCustomer(user, savedCustomer);
+                return customerMapper.toShowDto(savedCustomer);
+            }
             if (user.getRole().getViewPermissions().contains(PermissionEntity.VENDORS_AND_CUSTOMERS)) {
                 return customerMapper.toShowDto(savedCustomer);
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
@@ -168,6 +178,10 @@ public class CustomerController {
             throw new CustomException("Not found", HttpStatus.NOT_FOUND);
         }
         Customer savedCustomer = optionalCustomer.get();
+        if (customerScopeService.isRequester(user)) {
+            customerScopeService.assertCanAccessCustomer(user, savedCustomer);
+            return savedCustomer;
+        }
         if (!user.getRole().getViewPermissions().contains(PermissionEntity.VENDORS_AND_CUSTOMERS)) {
             throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         }

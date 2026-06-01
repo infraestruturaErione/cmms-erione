@@ -14,7 +14,6 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
 
-import java.time.ZoneId;
 import java.util.*;
 
 @SpringBootApplication
@@ -53,7 +52,7 @@ public class ApiApplication implements SmartInitializingSingleton {
 
             userService.checkUsageBasedLimit(0);
 
-            generalPreferencesRepository.updateTemporaryTimeZones(ZoneId.systemDefault().getId());
+            generalPreferencesRepository.updateTemporaryTimeZones(GeneralPreferences.DEFAULT_TIME_ZONE);
 
             log.info("Application initialization completed successfully");
         } catch (Exception e) {

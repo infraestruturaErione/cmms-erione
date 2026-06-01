@@ -211,4 +211,6 @@
              relativeToChangelogFile="true"/>
     <include file="changelog/2026_05_11_00000000001_add_wo_field_service_fields.xml"
              relativeToChangelogFile="true"/>
+    <include file="changelog/2026_05_31_00000000001_add_user_allowed_customers.xml"
+             relativeToChangelogFile="true"/>
 </databaseChangeLog>

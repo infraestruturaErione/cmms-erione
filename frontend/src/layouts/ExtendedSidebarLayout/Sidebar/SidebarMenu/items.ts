@@ -143,7 +143,8 @@ const ownMenuItems: MenuItems[] = [
       {
         name: 'work_orders',
         link: '/app/work-orders',
-        icon: AssignmentTwoToneIcon
+        icon: AssignmentTwoToneIcon,
+        permission: PermissionEntity.WORK_ORDERS
       },
       {
         name: 'preventive_maintenance',

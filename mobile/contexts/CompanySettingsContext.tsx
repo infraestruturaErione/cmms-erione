@@ -38,8 +38,8 @@ export const CompanySettingsProvider: FC<{ children: ReactNode }> = (props) => {
   const { generalPreferences, workOrderRequestConfiguration } =
     companySettings ?? {
       dateFormat: 'DDMMYY',
-      currency: { code: '$' },
-      timeZone: moment.tz.guess()
+      currency: { code: 'R$' },
+      timeZone: 'America/Sao_Paulo'
     };
   const { allUsersMini } = useSelector((state) => state.users);
   const { workOrderConfiguration } = companySettings ?? {

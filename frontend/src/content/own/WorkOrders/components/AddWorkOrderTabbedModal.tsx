@@ -3,6 +3,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  Stack,
   Tab,
   Tabs,
   Typography
@@ -27,8 +28,8 @@ interface PropsType {
 
 const TAB_CONFIG: { key: string; label: string; fieldNames: string[] }[] = [
   {
-    key: 'geral',
-    label: 'Geral',
+    key: 'pedido',
+    label: 'Pedido',
     fieldNames: [
       'title',
       'description',
@@ -39,20 +40,19 @@ const TAB_CONFIG: { key: string; label: string; fieldNames: string[] }[] = [
     ]
   },
   {
-    key: 'local',
-    label: 'Local e Equipamento',
-    fieldNames: ['location', 'asset']
+    key: 'destino',
+    label: 'Destino',
+    fieldNames: ['customers', 'location', 'asset']
   },
   {
-    key: 'equipe',
-    label: 'Equipe e Agenda',
+    key: 'planejamento',
+    label: 'Planejamento',
     fieldNames: [
       'dueDate',
       'estimatedStartDate',
       'estimatedDuration',
       'primaryUser',
       'assignedTo',
-      'customers',
       'team'
     ]
   },
@@ -69,6 +69,13 @@ const TAB_CONFIG: { key: string; label: string; fieldNames: string[] }[] = [
 ];
 
 const allKnownFieldNames = TAB_CONFIG.flatMap((tab) => tab.fieldNames);
+const TAB_HELPERS: Record<string, string> = {
+  pedido: 'Defina o problema, prioridade e exigências da ordem.',
+  destino: 'Informe cliente, local e equipamento para orientar o atendimento.',
+  planejamento: 'Atribua responsáveis, prazo e duração estimada.',
+  checklist: 'Inclua tarefas para padronizar a execução em campo.',
+  anexos: 'Adicione imagens e arquivos úteis antes do atendimento.'
+};
 
 export default function AddWorkOrderTabbedModal(props: PropsType) {
   const { t } = useTranslation();
@@ -108,46 +115,80 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
       onClose={onClose}
       PaperProps={{
         sx: {
-          borderRadius: 2.5,
+          borderRadius: 3,
           display: 'flex',
-          height: { xs: '94vh', sm: '88vh' },
-          maxHeight: { xs: '94vh', sm: '88vh' },
+          width: { xs: 'calc(100% - 16px)', sm: 'calc(100% - 64px)' },
+          height: { xs: '92vh', md: '84vh' },
+          maxHeight: { xs: '92vh', md: '84vh' },
           overflow: 'hidden',
-          boxShadow: `0 24px 70px ${alpha(theme.palette.common.black, 0.22)}`,
-          border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
-          backgroundColor: theme.palette.grey[50]
+          boxShadow: `0 28px 80px ${alpha(theme.palette.common.black, 0.24)}`,
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+          backgroundColor: alpha('#F7F9FC', 0.92),
+          backdropFilter: 'blur(18px) saturate(150%)'
+        }
+      }}
+      BackdropProps={{
+        sx: {
+          backgroundColor: alpha('#102a3a', 0.38),
+          backdropFilter: 'blur(8px)'
         }
       }}
     >
       <DialogTitle
         sx={{
-          px: { xs: 2.5, sm: 3.5 },
-          pt: { xs: 2.5, sm: 3 },
-          pb: 2.25,
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.85)}`,
+          px: { xs: 2.25, sm: 3.5 },
+          pt: { xs: 2.25, sm: 2.75 },
+          pb: { xs: 1.75, sm: 2 },
+          borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
           background: `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(
             theme.palette.primary.main,
-            0.055
+            0.075
           )} 100%)`
         }}
       >
-        <Typography variant="h3" sx={{ mb: 0.5, fontWeight: 800 }}>
-          {t('add_wo')}
-        </Typography>
-        <Typography
-          variant="body2"
-          sx={{ color: theme.palette.text.secondary, maxWidth: 720 }}
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          alignItems={{ xs: 'flex-start', md: 'center' }}
+          justifyContent="space-between"
+          spacing={2}
         >
-          {t('add_wo_description')}
-        </Typography>
+          <Box>
+            <Typography variant="overline" color="primary" fontWeight={800}>
+              Work Orders
+            </Typography>
+            <Typography variant="h3" sx={{ mb: 0.5, fontWeight: 800 }}>
+              {t('add_wo')}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: theme.palette.text.secondary, maxWidth: 720 }}
+            >
+              Crie uma OS clara para o administrativo e simples de executar no
+              app do técnico.
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              px: 1.5,
+              py: 1,
+              borderRadius: 1.5,
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.18)}`,
+              backgroundColor: alpha(theme.palette.primary.main, 0.07)
+            }}
+          >
+            <Typography variant="caption" color="primary" fontWeight={800}>
+              Etapa {activeTab + 1} de {TAB_CONFIG.length}
+            </Typography>
+          </Box>
+        </Stack>
       </DialogTitle>
       <Box
         sx={{
-          px: { xs: 1.5, sm: 3.5 },
-          py: 1.25,
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
-          backgroundColor: alpha(theme.palette.background.paper, 0.92),
-          backdropFilter: 'blur(10px)'
+          px: { xs: 1.25, sm: 3.5 },
+          py: 1,
+          borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
+          backgroundColor: alpha(theme.palette.background.paper, 0.72),
+          backdropFilter: 'blur(14px) saturate(150%)'
         }}
       >
         <Tabs
@@ -203,14 +244,94 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
       </Box>
       <DialogContent
         sx={{
-          display: 'flex',
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '260px minmax(0, 1fr)' },
+          gap: 2,
           flex: 1,
           minHeight: 0,
-          p: { xs: 1.5, sm: 2.5 },
+          p: { xs: 1.25, sm: 2 },
           overflow: 'hidden',
-          backgroundColor: theme.palette.grey[50]
+          background: `linear-gradient(135deg, ${alpha('#FFFFFF', 0.52)} 0%, ${alpha(
+            '#F4F8F8',
+            0.88
+          )} 100%)`
         }}
       >
+        <Box
+          sx={{
+            display: { xs: 'none', md: 'block' },
+            borderRadius: 2,
+            border: `1px solid ${alpha('#FFFFFF', 0.66)}`,
+            backgroundColor: alpha(theme.palette.background.paper, 0.72),
+            backdropFilter: 'blur(12px) saturate(145%)',
+            p: 1.75,
+            minHeight: 0,
+            overflowY: 'auto'
+          }}
+        >
+          <Typography variant="overline" color="text.secondary" fontWeight={800}>
+            Fluxo guiado
+          </Typography>
+          <Stack spacing={1} mt={1}>
+            {TAB_CONFIG.map((tab, index) => {
+              const selected = index === activeTab;
+
+              return (
+                <Box
+                  key={tab.key}
+                  sx={{
+                    p: 1.2,
+                    borderRadius: 1.5,
+                    border: `1px solid ${
+                      selected
+                        ? alpha(theme.palette.primary.main, 0.28)
+                        : alpha(theme.palette.text.secondary, 0.1)
+                    }`,
+                    backgroundColor: selected
+                      ? alpha(theme.palette.primary.main, 0.08)
+                      : theme.palette.grey[50]
+                  }}
+                >
+                  <Stack direction="row" spacing={1.1} alignItems="flex-start">
+                    <Box
+                      sx={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: '50%',
+                        display: 'grid',
+                        placeItems: 'center',
+                        flex: '0 0 auto',
+                        color: selected
+                          ? theme.palette.primary.contrastText
+                          : theme.palette.text.secondary,
+                        backgroundColor: selected
+                          ? theme.palette.primary.main
+                          : alpha(theme.palette.text.secondary, 0.08),
+                        fontSize: 12,
+                        fontWeight: 800
+                      }}
+                    >
+                      {index + 1}
+                    </Box>
+                    <Box minWidth={0}>
+                      <Typography fontWeight={800} color="text.primary">
+                        {tab.label}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                        sx={{ lineHeight: 1.45 }}
+                      >
+                        {TAB_HELPERS[tab.key]}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </Box>
+              );
+            })}
+          </Stack>
+        </Box>
         <Box
           sx={{
             px: { xs: 1.5, sm: 2.5 },
@@ -220,8 +341,9 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
             minHeight: 0,
             overflowY: 'auto',
             borderRadius: 2,
-            border: `1px solid ${alpha(theme.palette.divider, 0.85)}`,
-            backgroundColor: theme.palette.background.paper,
+            border: `1px solid ${alpha('#FFFFFF', 0.72)}`,
+            backgroundColor: alpha(theme.palette.background.paper, 0.78),
+            backdropFilter: 'blur(12px) saturate(145%)',
             boxShadow: `0 10px 30px ${alpha(theme.palette.common.black, 0.045)}`,
             '& .MuiGrid-container': {
               alignItems: 'flex-start'
@@ -236,7 +358,7 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
               py: 1.75,
               display: 'flex',
               justifyContent: 'flex-end',
-              borderTop: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
+              borderTop: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
               backgroundColor: alpha(theme.palette.background.paper, 0.94),
               boxShadow: `0 -8px 20px ${alpha(
                 theme.palette.common.black,
@@ -247,7 +369,17 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
             '& .MuiGrid-item:last-of-type .MuiButton-root': {
               minWidth: 120,
               fontWeight: 700,
-              boxShadow: 'none'
+              boxShadow: 'none',
+              borderRadius: 1.5,
+              px: 3,
+              py: 1.05
+            },
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 1.5,
+              backgroundColor: '#FFFFFF'
+            },
+            '& textarea': {
+              minHeight: 86
             }
           }}
         >

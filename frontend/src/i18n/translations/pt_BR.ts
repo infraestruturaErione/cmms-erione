@@ -425,7 +425,7 @@ const ptBRJSON = {
   time_and_cost: 'Tempo e Custo',
   assets: 'Equipamentos/Dispositivos',
   all_requests: 'Todas as solicitações',
-  quick_request: 'Abrir solicitação',
+  quick_request: 'Abrir chamado',
   erione_login_tagline:
     'Operação de campo, ordens de serviço e acompanhamento técnico em um só lugar.',
   erione_login_bullet_work_orders:
@@ -460,7 +460,7 @@ const ptBRJSON = {
   reliability_dashboard: 'Painel de Confiabilidade',
   total_maintenance_cost: 'Custo Total de Manutenção',
   useful_life: 'Vida Útil',
-  requests: 'Solicitações',
+  requests: 'Minhas solicitações',
   locations: 'Locais',
   parts_and_inventory: 'Peças/Inventário',
   purchase_orders: 'Ordens de Compra',
@@ -2128,6 +2128,9 @@ const ptBRJSON = {
   customers_settings_description:
     'Gerencie clientes atendidos pela operação.',
   vendors_settings_description: 'Personalize configurações relacionadas a fornecedores',
+  allowed_customers: 'Clientes permitidos',
+  requester_without_allowed_customers:
+    'Nenhum cliente permitido vinculado ao seu usuário. Contate o administrador.',
   mobile_app_unavailable_description: 'O aplicativo móvel Erione estará disponível em breve nas lojas oficiais.'
 };
 

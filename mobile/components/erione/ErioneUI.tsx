@@ -111,16 +111,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(15, 118, 110, 0.10)',
     shadowColor: '#0B2F3A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.09,
+    shadowRadius: 18,
+    elevation: 4
   },
   badge: {
     alignSelf: 'flex-start',
@@ -137,17 +137,18 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.text,
-    fontWeight: '800'
+    fontWeight: '800',
+    letterSpacing: 0
   },
   sectionSubtitle: {
     color: colors.muted,
     marginTop: 2
   },
   primaryButton: {
-    borderRadius: 14
+    borderRadius: 16
   },
   primaryButtonContent: {
-    minHeight: 52
+    minHeight: 54
   },
   primaryButtonLabel: {
     fontSize: 16,
