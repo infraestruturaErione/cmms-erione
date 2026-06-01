@@ -399,8 +399,20 @@ function Locations() {
     newValues.workers = formatSelectMultiple(newValues.workers);
     newValues.teams = formatSelectMultiple(newValues.teams);
     newValues.parentLocation = formatSelect(newValues.parentLocation);
-    newValues.longitude = newValues.coordinates?.lng;
-    newValues.latitude = newValues.coordinates?.lat;
+    const latitude =
+      newValues.latitude !== undefined &&
+      newValues.latitude !== null &&
+      newValues.latitude !== ''
+        ? Number(newValues.latitude)
+        : newValues.coordinates?.lat;
+    const longitude =
+      newValues.longitude !== undefined &&
+      newValues.longitude !== null &&
+      newValues.longitude !== ''
+        ? Number(newValues.longitude)
+        : newValues.coordinates?.lng;
+    newValues.latitude = latitude ?? null;
+    newValues.longitude = longitude ?? null;
     return formatCustomFields(newValues);
   };
 
@@ -624,6 +636,29 @@ function Locations() {
       label: t('customers'),
       placeholder: 'Select customers'
     },
+    {
+      name: 'manualCoordinatesTitle',
+      type: 'titleGroupField',
+      label: t('coordinates', 'Coordenadas')
+    },
+    {
+      name: 'latitude',
+      type: 'number',
+      label: t('latitude'),
+      placeholder: '-22.962065',
+      helperText: apiKey
+        ? t('manual_coordinates_helper')
+        : t('manual_coordinates_no_map_helper'),
+      midWidth: true
+    },
+    {
+      name: 'longitude',
+      type: 'number',
+      label: t('longitude'),
+      placeholder: '-45.552194',
+      helperText: t('manual_coordinates_longitude_helper'),
+      midWidth: true
+    },
     ...(apiKey
       ? ([
           {
@@ -672,6 +707,20 @@ function Locations() {
   };
   const shape = {
     name: Yup.string().required(t('required_location_name')),
+    latitude: Yup.number()
+      .nullable()
+      .transform((value, originalValue) =>
+        originalValue === '' || originalValue === null ? null : value
+      )
+      .min(-90, t('invalid_latitude'))
+      .max(90, t('invalid_latitude')),
+    longitude: Yup.number()
+      .nullable()
+      .transform((value, originalValue) =>
+        originalValue === '' || originalValue === null ? null : value
+      )
+      .min(-180, t('invalid_longitude'))
+      .max(180, t('invalid_longitude')),
     ...getCustomFieldsRequiredShape(
       customFields,
       CustomFieldEntityType.LOCATION,
@@ -839,6 +888,8 @@ function Locations() {
                   value: customer.id
                 };
               }),
+              latitude: currentLocation?.latitude,
+              longitude: currentLocation?.longitude,
               coordinates: currentLocation?.longitude
                 ? {
                     lng: currentLocation.longitude,

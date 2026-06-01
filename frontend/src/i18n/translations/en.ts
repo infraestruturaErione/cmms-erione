@@ -655,6 +655,14 @@ const locale = {
   parent_location: 'Parent Location',
   select_workers: 'Select Workers',
   map_coordinates: 'Map Coordinates',
+  manual_coordinates_helper:
+    'Enter latitude and longitude manually. Use decimal values, example: -22.962065, -45.552194.',
+  manual_coordinates_no_map_helper:
+    'Interactive map is unavailable. Fill in latitude and longitude manually. Example: -22.962065, -45.552194.',
+  manual_coordinates_longitude_helper:
+    'Use decimal values with a dot. Brazilian longitudes are usually negative.',
+  invalid_latitude: 'Latitude must be between -90 and 90.',
+  invalid_longitude: 'Longitude must be between -180 and 180.',
   required_location_name: 'Location title is required',
   required_location_address: 'Location address is required',
   add_location: 'Add location',
@@ -691,6 +699,8 @@ const locale = {
   equipment_device: 'Equipment/Device',
   view_equipment: 'View Equipment',
   future_map: 'Future Map',
+  location_map_tab: 'Location',
+  location_coordinates_area: 'Location / coordinates',
   open_work_orders: 'Open Work Orders',
   work_orders_in_progress: 'Work Orders in Progress',
   completed_work_orders: 'Completed Work Orders',

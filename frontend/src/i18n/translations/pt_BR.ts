@@ -687,6 +687,14 @@ const ptBRJSON = {
   parent_location: 'Localização Pai',
   select_workers: 'Selecionar Trabalhadores',
   map_coordinates: 'Coordenadas do Mapa',
+  manual_coordinates_helper:
+    'Informe latitude e longitude manualmente. Use valores decimais, exemplo: -22.962065, -45.552194.',
+  manual_coordinates_no_map_helper:
+    'Mapa interativo indisponivel. Preencha latitude e longitude manualmente. Exemplo: -22.962065, -45.552194.',
+  manual_coordinates_longitude_helper:
+    'Use valores decimais com ponto. Longitudes do Brasil normalmente sao negativas.',
+  invalid_latitude: 'Latitude deve estar entre -90 e 90.',
+  invalid_longitude: 'Longitude deve estar entre -180 e 180.',
   required_location_name: 'O título da localização é obrigatório',
   required_location_address: 'O endereço da localização é obrigatório',
   add_location: 'Adicionar localização',
@@ -725,6 +733,8 @@ const ptBRJSON = {
   equipment_device: 'Equipamento/Dispositivo',
   view_equipment: 'Ver equipamento',
   future_map: 'Mapa futuro',
+  location_map_tab: 'Localizacao',
+  location_coordinates_area: 'Localizacao / coordenadas',
   open_work_orders: 'OS abertas',
   work_orders_in_progress: 'OS em andamento',
   completed_work_orders: 'OS concluídas',

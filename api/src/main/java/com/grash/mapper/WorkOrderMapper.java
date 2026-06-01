@@ -12,6 +12,7 @@ import org.mapstruct.*;
         , TeamMapper.class, UserMapper.class,
         CustomerMapper.class, AssetMapper.class, CustomFieldValueMapper.class})
 public interface WorkOrderMapper {
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "assignedTo", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "customers", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "files", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

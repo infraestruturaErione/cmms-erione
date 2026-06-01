@@ -217,7 +217,7 @@ const LocationShow = () => {
       <Grid item xs={12} md={5}>
         <Card sx={{ p: 3, borderRadius: 1.5, height: '100%' }}>
           <Typography variant="h4" gutterBottom>
-            {t('map_future_area', 'Mapa futuro / coordenadas')}
+            {t('location_coordinates_area', 'Localizacao / coordenadas')}
           </Typography>
           <Stack spacing={1.5}>
             <Stack direction="row" spacing={1.5} alignItems="center">
@@ -507,7 +507,7 @@ const LocationShow = () => {
             <Tab value="workOrders" label={t('work_orders')} />
             <Tab value="history" label={t('history', 'Historico')} />
             <Tab value="files" label={t('files')} />
-            <Tab value="map" label={t('future_map', 'Mapa futuro')} />
+            <Tab value="map" label={t('location_map_tab', 'Localizacao')} />
           </Tabs>
           <Box p={2}>
             {tab === 'overview' && renderOverview()}

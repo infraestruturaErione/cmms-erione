@@ -48,6 +48,7 @@ import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
 import DevicesOtherTwoToneIcon from '@mui/icons-material/DevicesOtherTwoTone';
 import LocationOnTwoToneIcon from '@mui/icons-material/LocationOnTwoTone';
 import MapTwoToneIcon from '@mui/icons-material/MapTwoTone';
+import OpenInNewTwoToneIcon from '@mui/icons-material/OpenInNewTwoTone';
 
 interface LocationDetailsProps {
   location: Location;
@@ -298,8 +299,25 @@ export default function LocationDetails(props: LocationDetailsProps) {
                       : '--'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {t('map_future_area', 'Mapa futuro / coordenadas')}
+                    {t('location_coordinates_area', 'Localizacao / coordenadas')}
                   </Typography>
+                  {hasCoordinates && (
+                    <Button
+                      size="small"
+                      variant="text"
+                      endIcon={<OpenInNewTwoToneIcon fontSize="small" />}
+                      onClick={() =>
+                        window.open(
+                          `https://www.google.com/maps?q=${location.latitude},${location.longitude}`,
+                          '_blank',
+                          'noreferrer'
+                        )
+                      }
+                      sx={{ mt: 0.5, px: 0 }}
+                    >
+                      {t('open_in_google_maps', 'Abrir no Google Maps')}
+                    </Button>
+                  )}
                 </Box>
               </Stack>
             </Card>

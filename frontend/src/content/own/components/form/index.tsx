@@ -234,6 +234,22 @@ export default (props: PropsType) => {
                     <SelectMapCoordinates
                       selected={formik.values[field.name]}
                       onChange={(coordinates) => {
+                        if (
+                          props.fields.some(({ name }) => name === 'latitude')
+                        ) {
+                          formik.setFieldValue(
+                            'latitude',
+                            coordinates?.lat ?? ''
+                          );
+                        }
+                        if (
+                          props.fields.some(({ name }) => name === 'longitude')
+                        ) {
+                          formik.setFieldValue(
+                            'longitude',
+                            coordinates?.lng ?? ''
+                          );
+                        }
                         handleChange(formik, field.name, coordinates);
                       }}
                     />

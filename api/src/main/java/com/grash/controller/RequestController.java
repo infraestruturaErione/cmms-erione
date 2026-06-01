@@ -363,7 +363,7 @@ public class RequestController {
         Optional<Request> optionalRequest = requestService.findById(id);
         if (optionalRequest.isPresent()) {
             Request savedRequest = optionalRequest.get();
-            if (user.getId().equals(savedRequest.getId()) ||
+            if (Objects.equals(savedRequest.getCreatedBy(), user.getId()) ||
                     user.getRole().getDeleteOtherPermissions().contains(PermissionEntity.REQUESTS)) {
                 requestService.delete(id);
                 return new ResponseEntity<>(new SuccessResponse(true, "Deleted successfully"),

@@ -96,6 +96,7 @@ public class WorkOrderController {
     private final IntercomService intercomService;
     private final CompanyService companyService;
     private final WorkOrderOperationalReportService workOrderOperationalReportService;
+    private final CustomerScopeService customerScopeService;
 
 
     @Value("${frontend.url}")
@@ -168,7 +169,11 @@ public class WorkOrderController {
         User user = userService.whoami(req);
         Optional<Asset> optionalAsset = assetService.findById(id);
         if (optionalAsset.isPresent()) {
-            return workOrderService.findByAsset(id).stream().map(workOrderMapper::toShowDto).collect(Collectors.toList());
+            customerScopeService.assertCanAccessAsset(user, id);
+            return workOrderService.findByAsset(id).stream()
+                    .filter(workOrder -> canViewWorkOrderBase(user, workOrder))
+                    .filter(workOrder -> customerScopeService.canAccessWorkOrderBase(user, workOrder))
+                    .map(workOrderMapper::toShowDto).collect(Collectors.toList());
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
 
@@ -179,7 +184,11 @@ public class WorkOrderController {
         User user = userService.whoami(req);
         Optional<Location> optionalLocation = locationService.findById(id);
         if (optionalLocation.isPresent()) {
-            return workOrderService.findByLocation(id).stream().map(workOrderMapper::toShowDto).collect(Collectors.toList());
+            customerScopeService.assertCanAccessLocation(user, id);
+            return workOrderService.findByLocation(id).stream()
+                    .filter(workOrder -> canViewWorkOrderBase(user, workOrder))
+                    .filter(workOrder -> customerScopeService.canAccessWorkOrderBase(user, workOrder))
+                    .map(workOrderMapper::toShowDto).collect(Collectors.toList());
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
 
