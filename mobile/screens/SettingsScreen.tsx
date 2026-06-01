@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 import { View } from '../components/Themed';
 import {
   Avatar,
@@ -21,6 +21,7 @@ import * as Updates from 'expo-updates';
 import { showMessage } from 'react-native-flash-message';
 import { CustomSnackBarContext } from '../contexts/CustomSnackBarContext';
 import tr from '../i18n/translations/tr';
+import { legalLinks } from '../config';
 
 export default function SettingsScreen({
                                          navigation
@@ -113,6 +114,20 @@ export default function SettingsScreen({
           left={(props) => <IconButton icon={'information-outline'} />}
           title={t('Version')}
           description={Constants.expoConfig.version}
+        />
+        <List.Item
+          style={{ paddingHorizontal: 20 }}
+          left={(props) => <IconButton icon={'file-document-outline'} />}
+          title="Termos de Uso"
+          description="Condições de uso do Erione CMMS"
+          onPress={() => Linking.openURL(legalLinks.termsOfUse)}
+        />
+        <List.Item
+          style={{ paddingHorizontal: 20 }}
+          left={(props) => <IconButton icon={'shield-lock-outline'} />}
+          title="Política de Privacidade"
+          description="Como os dados operacionais são tratados"
+          onPress={() => Linking.openURL(legalLinks.privacyPolicy)}
         />
       </View>
     </View>

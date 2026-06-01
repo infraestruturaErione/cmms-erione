@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import {
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -20,6 +21,7 @@ import { useDispatch, useSelector } from '../../store';
 import { getInstanceConfig } from '../../slices/instanceConfig';
 import { AuthStackScreenProps } from '../../types';
 import { getErrorMessage } from '../../utils/api';
+import { legalLinks } from '../../config';
 
 export default function LoginScreen({
   navigation
@@ -236,6 +238,28 @@ export default function LoginScreen({
                       {isSubmitting ? 'Entrando...' : 'Entrar'}
                     </Text>
                   </Pressable>
+
+                  <View style={styles.legalNotice}>
+                    <Text style={styles.legalText}>
+                      Ao entrar, você concorda com os{' '}
+                      <Text
+                        style={styles.legalLink}
+                        onPress={() => Linking.openURL(legalLinks.termsOfUse)}
+                      >
+                        Termos de Uso
+                      </Text>{' '}
+                      e a{' '}
+                      <Text
+                        style={styles.legalLink}
+                        onPress={() =>
+                          Linking.openURL(legalLinks.privacyPolicy)
+                        }
+                      >
+                        Política de Privacidade
+                      </Text>
+                      .
+                    </Text>
+                  </View>
 
                   {shouldShowRegistration && !ldapEnabled && (
                     <Pressable
@@ -515,6 +539,22 @@ const styles = StyleSheet.create({
   registerText: {
     color: 'rgba(255,255,255,0.50)',
     fontSize: 13,
+    textDecorationLine: 'underline'
+  },
+  legalNotice: {
+    alignItems: 'center',
+    marginTop: -4,
+    paddingHorizontal: 8
+  },
+  legalText: {
+    color: 'rgba(255,255,255,0.46)',
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center'
+  },
+  legalLink: {
+    color: '#ef3b63',
+    fontWeight: '900',
     textDecorationLine: 'underline'
   },
   footerNote: {

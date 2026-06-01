@@ -7,6 +7,11 @@ export const googleMapsConfig = {
 const defaultApiUrl = Constants.expoConfig?.extra?.API_URL ?? process.env.API_URL;
 export const IS_LOCALHOST = false;
 
+export const legalLinks = {
+  termsOfUse: 'https://erione.com.br/termos',
+  privacyPolicy: 'https://erione.com.br/privacidade'
+};
+
 export const getApiUrl = async (): Promise<string> => {
   if (!defaultApiUrl) {
     throw new Error(
