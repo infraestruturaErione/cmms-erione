@@ -38,6 +38,7 @@ public class MinioService implements StorageService {
     private String minioPublicEndpoint;
 
     private MinioClient minioClient;
+    private MinioClient publicMinioClient;
     private static boolean configured = false;
 
     @PostConstruct
@@ -48,13 +49,17 @@ public class MinioService implements StorageService {
         try {
             URI minioEndpointURI = new URI(minioEndpoint);
             MinioClient.Builder minioClientBuilder = MinioClient.builder()
-                    .endpoint(minioPublicEndpoint)
+                    .endpoint(minioEndpoint)
                     .credentials(minioAccessKey, minioSecretKey);
             if (Helper.isLocalhost(minioPublicEndpoint)) minioClientBuilder.httpClient(
                     new OkHttpClient.Builder().proxy(new Proxy(Proxy.Type.HTTP,
                             new InetSocketAddress(minioEndpointURI.getHost(), minioEndpointURI.getPort()))).build()
             );
             minioClient = minioClientBuilder.build();
+            publicMinioClient = MinioClient.builder()
+                    .endpoint(minioPublicEndpoint)
+                    .credentials(minioAccessKey, minioSecretKey)
+                    .build();
             // Check if the bucket exists, create if it doesn't
             boolean found = minioClient.bucketExists(BucketExistsArgs.builder().bucket(minioBucket).build());
             if (!found) {
@@ -94,7 +99,7 @@ public class MinioService implements StorageService {
 
     public String generateSignedUrl(String filePath, long expirationMinutes) {
         try {
-            String url = minioClient.getPresignedObjectUrl(
+            String url = publicMinioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
                             .bucket(minioBucket)
