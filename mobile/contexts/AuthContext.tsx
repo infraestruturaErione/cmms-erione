@@ -779,29 +779,12 @@ export const AuthProvider: FC<AuthProviderProps> = (props) => {
       },
       { headers: await authHeader(true) }
     );
-    const { message, success } = response;
-    if (message.startsWith('Successful')) {
-      return;
-    } else {
-      setSession(message);
-      const user = await updateUserInfos();
-      const company = await api.get<Company>(`companies/${user.companyId}`);
-      await setupUser(company.companySettings);
-      await analytics().logEvent('sign_up', {
-        email: values.email,
-        firstName: values.firstName,
-        lastName: values.lastName,
-        employeesCount: values.employeesCount
-      });
-      dispatch({
-        type: 'REGISTER',
-        payload: {
-          user,
-          companySettings: company.companySettings,
-          company
-        }
-      });
-    }
+    await analytics().logEvent('sign_up', {
+      email: values.email,
+      firstName: values.firstName,
+      lastName: values.lastName,
+      employeesCount: values.employeesCount
+    });
   };
 
   const patchUserSettings = async (

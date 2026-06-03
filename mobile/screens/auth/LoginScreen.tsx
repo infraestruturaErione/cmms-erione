@@ -23,15 +23,12 @@ import { AuthStackScreenProps } from '../../types';
 import { getErrorMessage } from '../../utils/api';
 import { legalLinks } from '../../config';
 
-export default function LoginScreen({
-  navigation
-}: AuthStackScreenProps<'Login'>) {
+export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
   const { t } = useTranslation();
   const { login } = useAuth();
   const { height, width } = useWindowDimensions();
   const compact = height < 760;
   const desktop = Platform.OS === 'web' && width >= 720;
-  const shouldShowRegistration = false;
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const dispatch = useDispatch();
@@ -260,20 +257,6 @@ export default function LoginScreen({
                       .
                     </Text>
                   </View>
-
-                  {shouldShowRegistration && !ldapEnabled && (
-                    <Pressable
-                      onPress={() => navigation.navigate('Register')}
-                      style={({ pressed }) => [
-                        styles.registerPressable,
-                        pressed && styles.registerPressed
-                      ]}
-                    >
-                      <Text style={styles.registerText}>
-                        {t('no_account_yet')}
-                      </Text>
-                    </Pressable>
-                  )}
 
                   <Text style={styles.footerNote}>
                     Copyright © 2026 Erione
@@ -529,17 +512,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '900'
-  },
-  registerPressable: {
-    alignSelf: 'center'
-  },
-  registerPressed: {
-    opacity: 0.6
-  },
-  registerText: {
-    color: 'rgba(255,255,255,0.50)',
-    fontSize: 13,
-    textDecorationLine: 'underline'
   },
   legalNotice: {
     alignItems: 'center',

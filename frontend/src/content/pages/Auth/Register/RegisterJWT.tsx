@@ -25,7 +25,6 @@ import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContex
 import { useNavigate } from 'react-router-dom';
 import i18n from 'i18next';
 import countries from '../../../../i18n/countries';
-import { verify } from '../../../../utils/jwt';
 import { useUtmTracker } from '@nik0di3m/utm-tracker-hook';
 import { inviteUsers } from '../../../../slices/user';
 import { useDispatch } from '../../../../store';
@@ -45,7 +44,7 @@ function RegisterJWT({
   onInvitationSuccess?: () => void;
   subscriptionPlanId?: string;
 }) {
-  const { register, loginInternal, user } = useAuth();
+  const { register, user } = useAuth();
   const isMountedRef = useRefMounted();
   const { t, i18n } = useTranslation();
   const { showSnackBar } = useContext(CustomSnackBarContext);
@@ -108,10 +107,8 @@ function RegisterJWT({
             if (invitationMode) {
               onInvitationSuccess();
             } else {
-              if (!(res && (await verify(res.message)))) {
-                if (!role) showSnackBar(t('verify_email'), 'success');
-                navigate(role ? '/account/login' : '/account/verify');
-              }
+              if (!role) showSnackBar(t('verify_email'), 'success');
+              navigate(role ? '/account/login' : '/account/verify');
             }
           })
           .catch((err) => {

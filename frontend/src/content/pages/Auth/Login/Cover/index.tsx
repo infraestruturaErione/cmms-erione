@@ -1,10 +1,8 @@
-import { Link as RouterLink } from 'react-router-dom';
 import {
   alpha,
   Box,
   Card,
   Container,
-  Link,
   Chip,
   Stack,
   styled,
@@ -16,7 +14,6 @@ import JWTLogin from '../LoginJWT';
 
 import { useTranslation } from 'react-i18next';
 import Logo from 'src/components/LogoSign';
-import { ldapEnabled } from '../../../../../config';
 import { useBrand } from '../../../../../hooks/useBrand';
 import { ERIONE_VISUAL_IDENTITY } from '../../../../../config/erioneVisualIdentity';
 
@@ -220,23 +217,6 @@ function LoginCover() {
                 </Typography>
               </Box>
               <JWTLogin />
-              {!ldapEnabled && (
-                <Box mt={4}>
-                  <Typography
-                    component="span"
-                    variant="subtitle2"
-                    color="text.primary"
-                    fontWeight="bold"
-                  >
-                    {t('no_account_yet')}
-                  </Typography>{' '}
-                  <Box display={{ xs: 'block', md: 'inline-block' }}>
-                    <Link component={RouterLink} to="/account/register">
-                      <b>{t('signup_here')}</b>
-                    </Link>
-                  </Box>
-                </Box>
-              )}
             </Box>
           </Card>
         </Container>

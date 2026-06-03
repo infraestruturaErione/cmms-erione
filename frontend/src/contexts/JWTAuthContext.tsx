@@ -669,12 +669,7 @@ export const AuthProvider: FC<AuthProviderProps> = (props) => {
       { headers: authHeader(true) }
     );
     const { message, success } = response;
-    if (message.startsWith('Successful') || invitationMode) {
-      return;
-    } else {
-      await loginInternal(message);
-      return response;
-    }
+    return { message, success };
   };
 
   const patchUserSettings = async (

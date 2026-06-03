@@ -1,10 +1,8 @@
-import { Link as RouterLink } from 'react-router-dom';
 import {
   alpha,
   Box,
   Card,
   Container,
-  Link,
   styled,
   Typography
 } from '@mui/material';
@@ -107,19 +105,6 @@ function LoginBasic() {
                 </Typography>
               </Box>
               {method === 'JWT' && <JWTLogin />}
-              <Box my={4}>
-                <Typography
-                  component="span"
-                  variant="subtitle2"
-                  color="text.primary"
-                  fontWeight="bold"
-                >
-                  {t('no_account_yet')}
-                </Typography>{' '}
-                <Link component={RouterLink} to="/account/register-basic">
-                  <b>{t('signup_here')}</b>
-                </Link>
-              </Box>
             </Card>
             <BottomWrapper>
               <Typography variant="body2" color="text.secondary">
