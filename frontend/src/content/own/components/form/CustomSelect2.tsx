@@ -106,7 +106,7 @@ export const CustomSelect = ({
     dispatch(getUsersMini());
   };
   const fetchLocations = async () => {
-    dispatch(getLocationsMini());
+    dispatch(getLocationsMini(getRelatedCustomerId()));
   };
   const fetchRoles = async () => {
     dispatch(getRoles());
@@ -115,14 +115,28 @@ export const CustomSelect = ({
   const fetchCategories = async (category: string) => {
     dispatch(getCategories(category));
   };
-  const fetchAssets = async (locationId: number) => {
-    dispatch(getAssetsMini(locationId));
+  const fetchAssets = async (locationId?: number | null, customerId?: number) => {
+    dispatch(getAssetsMini(locationId, customerId));
   };
   const fetchTeams = async () => {
     dispatch(getTeamsMini());
   };
   const fetchCurrencies = async () => {
     if (!currencies.length) dispatch(getCurrencies());
+  };
+
+  const getRelatedCustomerId = (): number | undefined => {
+    const configuredCustomerField = field.relatedFields?.find(
+      (relatedField) => relatedField.field === 'customers'
+    )?.field;
+    const values = formik.values as IHash<any>;
+    const customersValue = configuredCustomerField
+      ? values[configuredCustomerField]
+      : values.customers;
+    const firstCustomer = Array.isArray(customersValue)
+      ? customersValue[0]
+      : customersValue;
+    return firstCustomer?.value ? Number(firstCustomer.value) : undefined;
   };
 
   // Handle inline category creation
@@ -507,6 +521,7 @@ export const CustomSelect = ({
                   }
                 );
               } else {
+                formik.setFieldValue('asset', null);
                 handleChange(formik, field.name, newValue);
               }
             }}
@@ -532,6 +547,7 @@ export const CustomSelect = ({
                     }
                   : null
               );
+              formik.setFieldValue('asset', null);
               setLocationModalOpen(false);
             }}
             initialSelectedLocations={locationsMini.filter((location) =>
@@ -557,7 +573,8 @@ export const CustomSelect = ({
       const locationId = field.relatedFields?.length
         ? formik.values[field.relatedFields[0].field]?.value ?? null
         : null;
-      onOpen = () => fetchAssets(locationId || null);
+      const customerId = getRelatedCustomerId();
+      onOpen = () => fetchAssets(locationId || null, customerId);
 
       return (
         <>
@@ -968,6 +985,10 @@ export const CustomSelect = ({
       value={fieldValue}
       label={field.label}
       onChange={(e, values) => {
+        if (field.type2 === 'customer') {
+          formik.setFieldValue('location', null);
+          formik.setFieldValue('asset', null);
+        }
         handleChange(formik, field.name, values);
       }}
       disabled={formik.isSubmitting}

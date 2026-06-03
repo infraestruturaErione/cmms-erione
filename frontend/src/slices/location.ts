@@ -125,22 +125,28 @@ export const getLocations = (): AppThunk => async (dispatch) => {
     throw error;
   }
 };
-export const getLocationsMini = (): AppThunk => async (dispatch) => {
-  const { signal } = createCancellableRequest();
-  try {
-    dispatch(slice.actions.setLoadingGet({ loading: true }));
-    const locations = await api.get<LocationMiniDTO[]>('locations/mini', {
-      signal
-    });
+export const getLocationsMini =
+  (customerId?: number): AppThunk =>
+  async (dispatch) => {
+    const { signal } = createCancellableRequest();
+    try {
+      dispatch(slice.actions.setLoadingGet({ loading: true }));
+      const queryParams = customerId ? `?customerId=${customerId}` : '';
+      const locations = await api.get<LocationMiniDTO[]>(
+        `locations/mini${queryParams}`,
+        {
+          signal
+        }
+      );
 
-    dispatch(slice.actions.getLocationsMini({ locations }));
-  } catch (error) {
-    if (isAbortError(error)) return;
-    throw error;
-  } finally {
-    dispatch(slice.actions.setLoadingGet({ loading: false }));
-  }
-};
+      dispatch(slice.actions.getLocationsMini({ locations }));
+    } catch (error) {
+      if (isAbortError(error)) return;
+      throw error;
+    } finally {
+      dispatch(slice.actions.setLoadingGet({ loading: false }));
+    }
+  };
 export const getPublicLocationsMini =
   (portalUUID: string): AppThunk =>
   async (dispatch) => {

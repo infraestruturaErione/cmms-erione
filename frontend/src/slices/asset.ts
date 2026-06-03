@@ -195,13 +195,17 @@ export const getAssets =
     }
   };
 export const getAssetsMini =
-  (locationId?: number): AppThunk =>
+  (locationId?: number | null, customerId?: number): AppThunk =>
   async (dispatch) => {
     const { signal } = createCancellableRequest();
     try {
       dispatch(slice.actions.setLoadingGet({ loading: true }));
+      const queryParams = new URLSearchParams();
+      if (locationId) queryParams.set('locationId', String(locationId));
+      if (customerId) queryParams.set('customerId', String(customerId));
+      const queryString = queryParams.toString();
       const assets = await api.get<AssetMiniDTO[]>(
-        `${basePath}/mini?locationId=${locationId ?? ''}`,
+        `${basePath}/mini${queryString ? `?${queryString}` : ''}`,
         { signal }
       );
       dispatch(slice.actions.getAssetsMini({ assets }));

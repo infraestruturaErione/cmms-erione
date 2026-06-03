@@ -127,9 +127,10 @@ public class LocationController {
 
     @GetMapping("/mini")
     @PreAuthorize("hasRole('ROLE_CLIENT')")
-    public Collection<LocationMiniDTO> getMini(HttpServletRequest req) {
+    public Collection<LocationMiniDTO> getMini(@RequestParam(required = false) @Parameter(description = "Filter " +
+            "locations by customer ID") Long customerId, HttpServletRequest req) {
         User user = userService.whoami(req);
-        return customerScopeService.findAllowedLocations(user).stream().map(locationMapper::toMiniDto).collect(Collectors.toList());
+        return customerScopeService.findAllowedLocations(user, customerId).stream().map(locationMapper::toMiniDto).collect(Collectors.toList());
     }
 
     @GetMapping("/public/mini/{portalUUID}")

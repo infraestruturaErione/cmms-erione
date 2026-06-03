@@ -190,7 +190,7 @@ export default function FieldExecutionSection({
     const result = await openLibraryWithPermission('FieldExecutionReport', {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
-      quality: 0.8
+      quality: 0.75
     });
 
     if (!result || result.canceled) return;

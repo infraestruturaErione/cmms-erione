@@ -71,28 +71,65 @@ public class CustomerScopeService {
     }
 
     public List<Location> findAllowedLocations(User user) {
+        return findAllowedLocations(user, null);
+    }
+
+    public List<Location> findAllowedLocations(User user, Long customerId) {
         if (!isRequester(user)) {
-            return new ArrayList<>(locationRepository.findByCompany_Id(user.getCompany().getId()));
+            if (customerId == null) {
+                return new ArrayList<>(locationRepository.findByCompany_Id(user.getCompany().getId()));
+            }
+            return locationRepository.findByCompanyAndCustomerIds(user.getCompany().getId(),
+                    Collections.singletonList(customerId));
         }
         List<Long> allowedCustomerIds = getAllowedCustomerIds(user);
         if (allowedCustomerIds.isEmpty()) {
             return Collections.emptyList();
         }
+        if (customerId != null) {
+            if (!allowedCustomerIds.contains(customerId)) {
+                return Collections.emptyList();
+            }
+            return locationRepository.findByCompanyAndCustomerIds(user.getCompany().getId(),
+                    Collections.singletonList(customerId));
+        }
         return locationRepository.findByCompanyAndCustomerIds(user.getCompany().getId(), allowedCustomerIds);
     }
 
     public List<Asset> findAllowedAssets(User user, Long locationId) {
+        return findAllowedAssets(user, locationId, null);
+    }
+
+    public List<Asset> findAllowedAssets(User user, Long locationId, Long customerId) {
         List<Asset> assets;
         if (!isRequester(user)) {
-            assets = locationId == null
-                    ? assetRepository.findByCompany_Id(user.getCompany().getId())
-                    : assetRepository.findByLocation_Id(locationId);
+            if (customerId == null) {
+                assets = locationId == null
+                        ? assetRepository.findByCompany_Id(user.getCompany().getId())
+                        : assetRepository.findByLocation_Id(locationId);
+            } else {
+                assets = assetRepository.findByCompanyAndCustomerIds(user.getCompany().getId(),
+                        Collections.singletonList(customerId));
+                if (locationId != null) {
+                    assets = assets.stream()
+                            .filter(asset -> asset.getLocation() != null && locationId.equals(asset.getLocation().getId()))
+                            .collect(Collectors.toList());
+                }
+            }
         } else {
             List<Long> allowedCustomerIds = getAllowedCustomerIds(user);
             if (allowedCustomerIds.isEmpty()) {
                 return Collections.emptyList();
             }
-            assets = assetRepository.findByCompanyAndCustomerIds(user.getCompany().getId(), allowedCustomerIds);
+            if (customerId != null) {
+                if (!allowedCustomerIds.contains(customerId)) {
+                    return Collections.emptyList();
+                }
+                assets = assetRepository.findByCompanyAndCustomerIds(user.getCompany().getId(),
+                        Collections.singletonList(customerId));
+            } else {
+                assets = assetRepository.findByCompanyAndCustomerIds(user.getCompany().getId(), allowedCustomerIds);
+            }
             if (locationId != null) {
                 assets = assets.stream()
                         .filter(asset -> asset.getLocation() != null && locationId.equals(asset.getLocation().getId()))

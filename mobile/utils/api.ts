@@ -3,6 +3,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Options = RequestInit & { raw?: boolean; headers?: HeadersInit };
 
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (_error) {
+    const preview = text.replace(/\s+/g, ' ').trim().slice(0, 160);
+    throw new Error(
+      JSON.stringify({
+        status: response.status,
+        message: `Resposta inválida do servidor (${response.status}). Verifique proxy/API. ${preview}`
+      })
+    );
+  }
+}
+
 async function api<T>(url: string, options: Options): Promise<T> {
   return fetch(url, { headers: await authHeader(false), ...options }).then(
     async (response) => {
@@ -11,9 +27,9 @@ async function api<T>(url: string, options: Options): Promise<T> {
           //TODO
           // AsyncStorage.clear();
         }
-        throw new Error(JSON.stringify(await response.json()));
+        throw new Error(JSON.stringify(await readJsonResponse(response)));
       }
-      return response.json() as Promise<T>;
+      return readJsonResponse(response) as Promise<T>;
     }
   );
 }

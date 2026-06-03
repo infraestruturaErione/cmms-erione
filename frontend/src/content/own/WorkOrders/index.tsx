@@ -635,11 +635,19 @@ function WorkOrders() {
       label: t('location')
     },
     {
+      name: 'customers',
+      type: 'select',
+      label: t('customers'),
+      type2: 'customer',
+      multiple: true
+    },
+    {
       name: 'location',
       type: 'select',
       type2: 'location',
       label: t('location'),
-      placeholder: t('select_location')
+      placeholder: t('select_location'),
+      relatedFields: [{ field: 'customers' }]
     },
     {
       name: 'asset',
@@ -647,7 +655,7 @@ function WorkOrders() {
       type2: 'asset',
       label: t('asset'),
       placeholder: t('select_asset'),
-      relatedFields: [{ field: 'location' }]
+      relatedFields: [{ field: 'location' }, { field: 'customers' }]
     },
     // Equipe e Agenda
     {
@@ -682,13 +690,6 @@ function WorkOrders() {
       type: 'select',
       label: t('additional_workers'),
       type2: 'user',
-      multiple: true
-    },
-    {
-      name: 'customers',
-      type: 'select',
-      label: t('customers'),
-      type2: 'customer',
       multiple: true
     },
     {

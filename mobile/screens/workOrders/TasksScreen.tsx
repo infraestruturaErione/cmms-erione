@@ -96,7 +96,7 @@ export default function TasksScreen({
     const result = await openLibraryWithPermission('TasksScreen', {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
-      quality: 1
+      quality: 0.75
     });
 
     if (!result || result.canceled) {

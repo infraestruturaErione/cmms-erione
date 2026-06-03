@@ -281,16 +281,19 @@ public class AssetController {
     @GetMapping("/mini")
     @PreAuthorize("hasRole('ROLE_CLIENT')")
     public Collection<AssetMiniDTO> getMini(@RequestParam(required = false) @Parameter(description = "Filter assets " +
-            "by location ID. If not provided, returns all assets") Long locationId, HttpServletRequest req) {
+            "by location ID. If not provided, returns all assets") Long locationId,
+                                            @RequestParam(required = false) @Parameter(description = "Filter assets " +
+                                                    "by customer ID") Long customerId,
+                                            HttpServletRequest req) {
         User user = userService.whoami(req);
         List<Asset> assets = new ArrayList<>();
         if (locationId == null) {
-            assets = customerScopeService.findAllowedAssets(user, null);
+            assets = customerScopeService.findAllowedAssets(user, null, customerId);
         } else {
             if (customerScopeService.isRequester(user)) {
                 customerScopeService.assertCanAccessLocation(user, locationId);
             }
-            assets = customerScopeService.findAllowedAssets(user, locationId);
+            assets = customerScopeService.findAllowedAssets(user, locationId, customerId);
         }
         return assets.stream().map(assetMapper::toMiniDto).collect(Collectors.toList());
     }
