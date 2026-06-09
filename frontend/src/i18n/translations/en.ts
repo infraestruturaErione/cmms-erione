@@ -704,6 +704,8 @@ const locale = {
   open_work_orders: 'Open Work Orders',
   work_orders_in_progress: 'Work Orders in Progress',
   completed_work_orders: 'Completed Work Orders',
+  active_work_orders: 'Active',
+  archived_work_orders: 'Archived',
   invalid_location: 'Invalid location',
   load_failure: 'Failed to load data',
   back: 'Back',

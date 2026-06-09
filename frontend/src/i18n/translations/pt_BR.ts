@@ -738,6 +738,8 @@ const ptBRJSON = {
   open_work_orders: 'OS abertas',
   work_orders_in_progress: 'OS em andamento',
   completed_work_orders: 'OS concluídas',
+  active_work_orders: 'Ativas',
+  archived_work_orders: 'Arquivadas',
   invalid_location: 'Local inválido',
   load_failure: 'Falha ao carregar dados',
   back: 'Voltar',

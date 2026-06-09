@@ -201,7 +201,13 @@ function WorkOrderOperationalReport() {
     currentFilters: FilterState,
     currentPagination: PaginationState
   ): SearchCriteria => {
-    const filterFields: FilterField[] = [];
+    const filterFields: FilterField[] = [
+      {
+        field: 'archived',
+        operation: 'eq',
+        value: false
+      }
+    ];
 
     if (currentFilters.customerId) {
       filterFields.push({

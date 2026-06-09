@@ -305,7 +305,29 @@ function WorkOrders() {
   const onFilterChange = (newFilters: FilterField[]) => {
     const newCriteria = { ...criteria };
     newCriteria.filterFields = newFilters;
+    newCriteria.pageNum = 0;
     setCriteria(newCriteria);
+  };
+  const archivedFilter = criteria.filterFields.find(
+    (filterField) => filterField.field === 'archived'
+  );
+  const showingArchived = archivedFilter?.value === true;
+  const handleArchivedViewChange = (showArchived: boolean) => {
+    const filterFields = criteria.filterFields.filter(
+      (filterField) => filterField.field !== 'archived'
+    );
+    setCriteria({
+      ...criteria,
+      filterFields: [
+        ...filterFields,
+        {
+          field: 'archived',
+          operation: 'eq',
+          value: showArchived
+        }
+      ],
+      pageNum: 0
+    });
   };
   useEffect(() => {
     if (workOrderId && isNumeric(workOrderId)) {
@@ -429,6 +451,7 @@ function WorkOrders() {
   const onEditFailure = (err) => showSnackBar(t('wo_update_failure'), 'error');
   const onDeleteSuccess = () => {
     showSnackBar(t('wo_delete_success'), 'success');
+    dispatch(getWorkOrders(criteria));
   };
   const onDeleteFailure = (err) =>
     showSnackBar(t('wo_delete_failure'), 'error');
@@ -1067,6 +1090,52 @@ function WorkOrders() {
                 }
                 startIcon={<FilterAltTwoToneIcon />}
               />
+              <Stack
+                direction="row"
+                spacing={0.5}
+                sx={{
+                  p: 0.35,
+                  borderRadius: 999,
+                  bgcolor: alpha('#0B6259', 0.08)
+                }}
+              >
+                <Button
+                  size="small"
+                  variant={!showingArchived ? 'contained' : 'text'}
+                  onClick={() => handleArchivedViewChange(false)}
+                  sx={{
+                    borderRadius: 999,
+                    px: 1.5,
+                    bgcolor: !showingArchived ? '#0B6259' : 'transparent',
+                    color: !showingArchived ? 'common.white' : '#0B6259',
+                    '&:hover': {
+                      bgcolor: !showingArchived
+                        ? '#084C45'
+                        : alpha('#0B6259', 0.12)
+                    }
+                  }}
+                >
+                  {t('active_work_orders')}
+                </Button>
+                <Button
+                  size="small"
+                  variant={showingArchived ? 'contained' : 'text'}
+                  onClick={() => handleArchivedViewChange(true)}
+                  sx={{
+                    borderRadius: 999,
+                    px: 1.5,
+                    bgcolor: showingArchived ? '#0B6259' : 'transparent',
+                    color: showingArchived ? 'common.white' : '#0B6259',
+                    '&:hover': {
+                      bgcolor: showingArchived
+                        ? '#084C45'
+                        : alpha('#0B6259', 0.12)
+                    }
+                  }}
+                >
+                  {t('archived_work_orders')}
+                </Button>
+              </Stack>
               <EnumFilter
                 filterFields={criteria.filterFields}
                 onChange={onFilterChange}
