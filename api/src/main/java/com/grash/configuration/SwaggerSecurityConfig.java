@@ -2,10 +2,12 @@ package com.grash.configuration;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
+@ConditionalOnProperty(name = "springdoc.api-docs.enabled", havingValue = "true", matchIfMissing = true)
 public class SwaggerSecurityConfig {
 
     @Bean
