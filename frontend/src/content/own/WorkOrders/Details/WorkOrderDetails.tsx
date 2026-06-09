@@ -105,8 +105,7 @@ import { useLicenseEntitlement } from '../../../../hooks/useLicenseEntitlement';
 import { getCustomFieldValuesForDetails } from '../../type';
 import { getErrorMessage } from '../../../../utils/api';
 import {
-  getCommentsByWorkOrder,
-  getCommentsCountByWorkOrder
+  getCommentsByWorkOrder
 } from '../../../../slices/comment';
 
 const FIELD_REPORT_PREFIX = '[Relato em campo]';
@@ -190,6 +189,10 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
     (state) => state.partQuantities
   );
   const partQuantities = partQuantitiesByWorkOrder[workOrder.id] ?? [];
+  const {
+    tasksByWorkOrder: cachedTasksByWorkOrder,
+    loadingTasks: cachedLoadingTasks
+  } = useSelector((state) => state.tasks);
   const [controllingTime, setControllingTime] = useState<boolean>(false);
   const { timesByWorkOrder, loadingLabors } = useSelector(
     (state) => state.labors
@@ -211,9 +214,8 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
     (state) => state.additionalCosts
   );
   const additionalCosts = costsByWorkOrder[workOrder.id] ?? [];
-  const { commentsByWorkOrder, commentsCountByWorkOrder } = useSelector(
-    (state) => state.comments
-  );
+  const { commentsByWorkOrder, commentsCountByWorkOrder, loadingComments } =
+    useSelector((state) => state.comments);
   const comments = commentsByWorkOrder[workOrder.id] ?? [];
   const commentsCount = commentsCountByWorkOrder[workOrder.id] ?? 0;
   const dispatch = useDispatch();
@@ -229,9 +231,55 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   const [savingPrimaryTime, setSavingPrimaryTime] = useState<boolean>(false);
   const [commentId, setCommentId] = useState<number>(null);
 
+  const hasCachedValue = <T extends Record<number, unknown>>(
+    values: T,
+    id: number
+  ) => Object.prototype.hasOwnProperty.call(values, id);
+
   useEffect(() => {
-    dispatch(getCommentsCountByWorkOrder(workOrder.id));
-    dispatch(getCommentsByWorkOrder(workOrder.id));
+    const workOrderId = workOrder.id;
+    if (
+      !hasCachedValue(commentsByWorkOrder, workOrderId) &&
+      !loadingComments
+    ) {
+      dispatch(getCommentsByWorkOrder(workOrderId));
+    }
+    if (
+      !hasCachedValue(cachedTasksByWorkOrder, workOrderId) &&
+      !cachedLoadingTasks[workOrderId]
+    ) {
+      dispatch(getTasksByWorkOrder(workOrderId));
+    }
+    if (
+      !hasCachedValue(timesByWorkOrder, workOrderId) &&
+      !loadingLabors[workOrderId]
+    ) {
+      dispatch(getLabors(workOrderId));
+    }
+
+    const secondaryDataTimer = window.setTimeout(() => {
+      if (
+        !hasCachedValue(costsByWorkOrder, workOrderId) &&
+        !loadingCosts[workOrderId]
+      ) {
+        dispatch(getAdditionalCosts(workOrderId));
+      }
+      if (
+        !hasCachedValue(relationsByWorkOrder, workOrderId) &&
+        !loadingRelations[workOrderId]
+      ) {
+        dispatch(getRelations(workOrderId));
+      }
+      if (
+        !ERIONE_HIDDEN_MODULES.parts &&
+        !hasCachedValue(partQuantitiesByWorkOrder, workOrderId) &&
+        !loadingPartQuantities[workOrderId]
+      ) {
+        dispatch(getPartQuantitiesByWorkOrder(workOrderId));
+      }
+    }, 150);
+
+    return () => window.clearTimeout(secondaryDataTimer);
   }, [workOrder.id, dispatch]);
 
   useEffect(() => {
@@ -292,13 +340,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
       })
       .finally(() => setGeneratingReport(false));
   };
-  useEffect(() => {
-    dispatch(getPartQuantitiesByWorkOrder(workOrder.id));
-    dispatch(getLabors(workOrder.id));
-    dispatch(getAdditionalCosts(workOrder.id));
-    dispatch(getTasksByWorkOrder(workOrder.id));
-    dispatch(getRelations(workOrder.id));
-  }, [workOrder.id, dispatch]);
   useEffect(() => {
     const [hours, minutes] = getHoursAndMinutesAndSeconds(
       primaryTime?.duration

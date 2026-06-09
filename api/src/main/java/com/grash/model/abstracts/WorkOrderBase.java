@@ -9,6 +9,7 @@ import com.grash.model.enums.Priority;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.envers.Audited;
 import org.hibernate.envers.NotAudited;
 import org.hibernate.envers.RelationTargetAuditMode;
@@ -76,6 +77,7 @@ public abstract class WorkOrderBase extends CompanyAudit {
     private User primaryUser;
 
     @ManyToMany
+    @BatchSize(size = 25)
     @NotAudited
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @ArraySchema(
@@ -85,6 +87,7 @@ public abstract class WorkOrderBase extends CompanyAudit {
     private List<User> assignedTo = new ArrayList<>();
 
     @ManyToMany
+    @BatchSize(size = 25)
     @NotAudited
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @ArraySchema(
@@ -94,6 +97,7 @@ public abstract class WorkOrderBase extends CompanyAudit {
     private List<Customer> customers = new ArrayList<>();
 
     @ManyToMany
+    @BatchSize(size = 25)
     @NotAudited
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @ArraySchema(

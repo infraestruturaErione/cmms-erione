@@ -39,6 +39,7 @@ const slice = createSlice({
     ) {
       const { workOrderId, comments } = action.payload;
       state.commentsByWorkOrder[workOrderId] = comments;
+      state.commentsCountByWorkOrder[workOrderId] = comments.length;
     },
     addComment(
       state: CommentState,
