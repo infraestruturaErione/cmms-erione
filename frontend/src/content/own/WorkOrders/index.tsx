@@ -193,7 +193,7 @@ function WorkOrders() {
       {
         field: 'status',
         operation: 'in',
-        values: ['OPEN', 'IN_PROGRESS', 'ON_HOLD'],
+        values: ['OPEN', 'EN_ROUTE', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE'],
         value: '',
         enumName: 'STATUS'
       },
