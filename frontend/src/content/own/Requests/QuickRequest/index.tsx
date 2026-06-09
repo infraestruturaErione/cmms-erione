@@ -136,7 +136,7 @@ function QuickRequest() {
       const { image, files } = getImageAndFiles(uploadedFiles);
 
       const customerName = customer?.name || t('quick_request_no_customer');
-      const today = new Date().toLocaleDateString();
+      const today = new Date().toLocaleDateString('pt-BR');
       const payload: Record<string, unknown> = {
         title: t('quick_request_auto_title', {
           customer: customerName,

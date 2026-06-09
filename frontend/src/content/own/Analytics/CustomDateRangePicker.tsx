@@ -5,7 +5,7 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import en from 'date-fns/locale/en-US';
+import ptBR from 'date-fns/locale/pt-BR';
 
 interface OwnProps {
   start: Date;
@@ -53,8 +53,8 @@ export default function ({ start, end, setEnd, setStart }: OwnProps) {
     setOpen(false);
   };
 
-  const displayStartDate = start ? format(start, 'MMM dd, yyyy') : '';
-  const displayEndDate = end ? format(end, 'MMM dd, yyyy') : '';
+  const displayStartDate = start ? format(start, 'dd/MM/yyyy') : '';
+  const displayEndDate = end ? format(end, 'dd/MM/yyyy') : '';
 
   return (
     <>
@@ -89,7 +89,7 @@ export default function ({ start, end, setEnd, setStart }: OwnProps) {
           ranges={state}
           onChange={handleSelect}
           months={2}
-          locale={en}
+          locale={ptBR}
           direction="horizontal"
           rangeColors={[theme.palette.primary.main]}
         />

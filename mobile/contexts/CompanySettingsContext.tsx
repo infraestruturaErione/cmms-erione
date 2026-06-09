@@ -11,6 +11,9 @@ import PropTypes from 'prop-types';
 import { getWOBaseFields } from '../utils/woBase';
 import moment from 'moment-timezone';
 
+const ERIONE_TIME_ZONE = 'America/Sao_Paulo';
+const ERIONE_DATE_FORMAT = 'DD/MM/YYYY';
+
 type CompanySettingsContext = {
   getFormattedDate: (dateString: string | Date, hideTime?: boolean) => string;
   uploadFiles: (
@@ -51,18 +54,13 @@ export const CompanySettingsProvider: FC<{ children: ReactNode }> = (props) => {
   const getFormattedDate = (dateString: string | Date, hideTime?: boolean) => {
     if (!dateString) return '';
 
-    const tz = generalPreferences.timeZone;
+    const tz = generalPreferences?.timeZone || ERIONE_TIME_ZONE;
     const date = moment.tz(dateString, tz);
-    const month = date.format('MM');
-    const day = date.format('DD');
-    const year = date.format('YY');
-    const time = hideTime ? '' : date.format('HH:mm');
+    if (!date.isValid()) return '';
 
-    if (generalPreferences.dateFormat === 'MMDDYY') {
-      return `${month}/${day}/${year} ${time}`.trim();
-    } else {
-      return `${day}/${month}/${year} ${time}`.trim();
-    }
+    return `${date.format(ERIONE_DATE_FORMAT)}${
+      hideTime ? '' : ` ${date.format('HH:mm')}`
+    }`;
   };
   const getFormattedCurrency = (amount: number): string => {
     const code = generalPreferences.currency.code;

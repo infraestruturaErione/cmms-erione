@@ -86,9 +86,9 @@ function formatDate(dateStr: string): string {
   if (!dateStr) return '';
   try {
     const d = new Date(dateStr);
-    return d.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
+    return d.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
       year: 'numeric'
     });
   } catch {

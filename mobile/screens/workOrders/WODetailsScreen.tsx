@@ -107,25 +107,15 @@ import WorkOrderEvidenceGallery from './components/WorkOrderEvidenceGallery';
 
 const erioneColors = ERIONE_MOBILE_IDENTITY.colors;
 
-const getRemainingTasksLength = (tasks: Task[]): number => {
-  const SECONDS_MS = 5_000;
-
-  const mappedTasks = tasks.map((task) => {
-    const createdAt = new Date(task.createdAt).getTime();
-    const updatedAt = new Date(task.updatedAt).getTime();
-
-    const updatedAfterMoreThanThreshold = updatedAt - createdAt > SECONDS_MS;
-
-    return {
-      ...task,
-      updatedAfterMoreThanThreshold
-    };
-  });
-
-  return mappedTasks.filter(
-    (task) => !task.value || !task.updatedAfterMoreThanThreshold
-  ).length;
+const isExecutionTaskComplete = (task: Task): boolean => {
+  const value = task.value?.toString().trim();
+  if (!value) return false;
+  if (task.taskBase.taskType === 'SUBTASK') return value === 'COMPLETE';
+  return true;
 };
+
+const getRemainingTasksLength = (tasks: Task[]): number =>
+  tasks.filter((task) => !isExecutionTaskComplete(task)).length;
 const triggersConfig: TriggersConfig<'mention'> = {
   mention: {
     trigger: '@',
@@ -494,6 +484,14 @@ export default function WODetailsScreen({
       showSnackBar(t('field_report_required_on_completion'), 'error');
       return false;
     }
+    const completeTasksConfig =
+      workOrderConfiguration.workOrderFieldConfigurations.find(
+        (woFC) => woFC.fieldName === 'completeTasks'
+      );
+    if (completeTasksConfig?.fieldType === 'REQUIRED' && loadingTasks[id]) {
+      showSnackBar(t('service_checklist_loading'), 'error');
+      return false;
+    }
     let error;
     const fieldsToTest = [
       {
@@ -503,7 +501,7 @@ export default function WODetailsScreen({
       },
       {
         name: 'completeTasks',
-        condition: tasks.some((task) => !task.value),
+        condition: tasks.some((task) => !isExecutionTaskComplete(task)),
         message: 'required_tasks_on_completion'
       },
       {
@@ -888,7 +886,7 @@ export default function WODetailsScreen({
       },
       {
         label: t('tasks'),
-        done: !tasks.some((task) => !task.value),
+        done: !tasks.some((task) => !isExecutionTaskComplete(task)),
         visible: isCompletionFieldRequired('completeTasks')
       },
       {

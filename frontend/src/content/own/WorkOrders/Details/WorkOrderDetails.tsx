@@ -112,13 +112,32 @@ import {
 const FIELD_REPORT_PREFIX = '[Relato em campo]';
 const PHOTO_ONLY_FIELD_REPORT_TEXTS = [
   'Photo evidence registered.',
-  'Evidência fotográfica registrada.'
+  'Evidência fotográfica registrada.',
+  'Evidencia fotografica registrada.'
 ];
+
+const normalizeFieldText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
 
 const getFieldReportText = (content?: string) => {
   if (!content?.startsWith(FIELD_REPORT_PREFIX)) return '';
   const text = content.replace(FIELD_REPORT_PREFIX, '').trim();
-  return PHOTO_ONLY_FIELD_REPORT_TEXTS.includes(text) ? '' : text;
+  const normalizedText = normalizeFieldText(text);
+  const isPhotoOnlyText = PHOTO_ONLY_FIELD_REPORT_TEXTS.some(
+    (photoText) => normalizeFieldText(photoText) === normalizedText
+  );
+  return isPhotoOnlyText ? '' : text;
+};
+
+const isExecutionTaskComplete = (task: Task): boolean => {
+  const value = task.value?.toString().trim();
+  if (!value) return false;
+  if (task.taskBase.taskType === 'SUBTASK') return value === 'COMPLETE';
+  return true;
 };
 
 const LabelWrapper = styled(Box)(
@@ -137,11 +156,19 @@ interface WorkOrderDetailsProps {
   onEdit: (id: number) => void;
   onDelete: (id: number) => void;
   tasks: Task[];
+  tasksLoading?: boolean;
   allowDelete?: boolean;
 }
 
 export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
-  const { workOrder, onEdit, tasks, onDelete, allowDelete = true } = props;
+  const {
+    workOrder,
+    onEdit,
+    tasks,
+    tasksLoading = false,
+    onDelete,
+    allowDelete = true
+  } = props;
   const theme = useTheme();
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const { getFormattedDate, getUserNameById, getFormattedCurrency } =
@@ -271,7 +298,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
     dispatch(getAdditionalCosts(workOrder.id));
     dispatch(getTasksByWorkOrder(workOrder.id));
     dispatch(getRelations(workOrder.id));
-  }, []);
+  }, [workOrder.id, dispatch]);
   useEffect(() => {
     const [hours, minutes] = getHoursAndMinutesAndSeconds(
       primaryTime?.duration
@@ -290,6 +317,14 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
       showSnackBar(t('field_report_required_on_completion'), 'error');
       return false;
     }
+    const completeTasksConfig =
+      workOrderConfiguration.workOrderFieldConfigurations.find(
+        (woFC) => woFC.fieldName === 'completeTasks'
+      );
+    if (completeTasksConfig?.fieldType === 'REQUIRED' && tasksLoading) {
+      showSnackBar(t('service_checklist_loading'), 'error');
+      return false;
+    }
     let error;
     const fieldsToTest = [
       {
@@ -299,7 +334,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
       },
       {
         name: 'completeTasks',
-        condition: tasks.some((task) => !task.value),
+        condition: tasks.some((task) => !isExecutionTaskComplete(task)),
         message: 'required_tasks_on_completion'
       },
       {
@@ -1041,7 +1076,17 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 </Grid>
               )}
             </Grid>
-            {!!tasks.length && (
+            {tasksLoading ? (
+              <Box>
+                <Divider sx={{ mt: 2 }} />
+                <Stack alignItems="center" spacing={1.5} sx={{ py: 3 }}>
+                  <CircularProgress size="1.5rem" />
+                  <Typography color="text.secondary">
+                    {t('service_checklist_loading')}
+                  </Typography>
+                </Stack>
+              </Box>
+            ) : !!tasks.length && (
               <Box>
                 <Divider sx={{ mt: 2 }} />
                 <Tasks

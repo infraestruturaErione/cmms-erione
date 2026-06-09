@@ -20,7 +20,6 @@ import DateTimePicker from '@mui/lab/DateTimePicker';
 import CustomSwitch from './CustomSwitch';
 import SelectMapCoordinates from './SelectMapCoordinates';
 import SelectPartQuantities from './SelectPartQuantities';
-import useAuth from '../../../../hooks/useAuth';
 import { CustomSelect } from './CustomSelect2';
 import SignaturePad from './SignaturePad';
 import DateRangePicker from './DateRangePicker';
@@ -41,9 +40,6 @@ export default (props: PropsType) => {
   const { t }: { t: any } = useTranslation();
   const theme = useTheme();
   const shape: IHash<any> = {};
-  const {
-    companySettings: { generalPreferences }
-  } = useAuth();
 
   props.fields.forEach((f) => {
     shape[f.name] = Yup.string();
@@ -187,11 +183,7 @@ export default (props: PropsType) => {
                         onChange={(newValue) => {
                           handleChange(formik, field.name, newValue);
                         }}
-                        inputFormat={
-                          generalPreferences.dateFormat === 'MMDDYY'
-                            ? 'MM/dd/yyyy HH:mm'
-                            : 'dd/MM/yyyy HH:mm'
-                        }
+                        inputFormat="dd/MM/yyyy HH:mm"
                         ampm={false}
                         renderInput={(params) => (
                           <TextField

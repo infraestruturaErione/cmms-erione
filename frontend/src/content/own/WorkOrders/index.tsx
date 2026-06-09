@@ -160,7 +160,9 @@ function WorkOrders() {
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const [currentWorkOrder, setCurrentWorkOrder] = useState<WorkOrder>();
   const [openDelete, setOpenDelete] = useState<boolean>(false);
-  const { tasksByWorkOrder } = useSelector((state) => state.tasks);
+  const { tasksByWorkOrder, loadingTasks } = useSelector(
+    (state) => state.tasks
+  );
   const { locations } = useSelector((state) => state.locations);
   const { assetInfos } = useSelector((state) => state.assets);
   const { singleCustomer } = useSelector(
@@ -176,6 +178,7 @@ function WorkOrders() {
   );
   const assetParamObject = assetInfos[assetParam]?.asset;
   const tasks = tasksByWorkOrder[currentWorkOrder?.id] ?? [];
+  const tasksLoading = !!loadingTasks[currentWorkOrder?.id];
   const [openDrawerFromUrl, setOpenDrawerFromUrl] = useState<boolean>(false);
   const [openDrawerForSingleWO, setOpenDrawerForSingleWO] =
     useState<boolean>(false);
@@ -1146,6 +1149,7 @@ function WorkOrders() {
           workOrder={currentWorkOrder}
           onEdit={handleOpenUpdate}
           tasks={tasks}
+          tasksLoading={tasksLoading}
           onDelete={handleOpenDelete}
         />
       </Drawer>

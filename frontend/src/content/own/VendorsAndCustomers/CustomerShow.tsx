@@ -136,7 +136,7 @@ const buildCustomerAssetsCriteria = (
 });
 
 const formatDate = (value?: string) =>
-  value ? new Date(value).toLocaleDateString() : '--';
+  value ? new Date(value).toLocaleDateString('pt-BR') : '--';
 
 const hasCoordinates = (location: CustomerLocationListDTO | CustomerLocationMapPoint) =>
   Number.isFinite(location.latitude) && Number.isFinite(location.longitude);

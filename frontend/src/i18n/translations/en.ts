@@ -1516,6 +1516,7 @@ const locale = {
   required_files_on_completion: 'Files are required on Work Order Completion',
   field_report_required_on_completion:
     'A written field report is required before completing the Work Order',
+  service_checklist_loading: 'Loading service checklist...',
   required_tasks_on_completion: 'The execution checklist must be filled out',
   required_labor_on_completion: 'You must log time',
   required_part_on_completion: 'No Part has been used in this Work Order',

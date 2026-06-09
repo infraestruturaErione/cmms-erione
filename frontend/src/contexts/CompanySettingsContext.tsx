@@ -13,6 +13,9 @@ import { useBrand } from '../hooks/useBrand';
 import { format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
 
+const ERIONE_TIME_ZONE = 'America/Sao_Paulo';
+const ERIONE_DATE_FORMAT = 'dd/MM/yyyy';
+
 type CompanySettingsContext = {
   getFormattedDate: (dateString: string, hideTime?: boolean) => string;
   uploadFiles: (
@@ -54,16 +57,14 @@ export const CompanySettingsProvider: FC = ({ children }) => {
   const getFormattedDate = (dateString: string, hideTime?: boolean) => {
     if (!dateString) return '';
 
-    const tz = generalPreferences.timeZone;
-    const date = utcToZonedTime(new Date(dateString), tz);
+    const rawDate = new Date(dateString);
+    if (Number.isNaN(rawDate.getTime())) return '';
 
+    const tz = generalPreferences?.timeZone || ERIONE_TIME_ZONE;
+    const date = utcToZonedTime(rawDate, tz);
     const timeStr = hideTime ? '' : format(date, ' HH:mm');
 
-    if (generalPreferences.dateFormat === 'MMDDYY') {
-      return format(date, 'MM/dd/yy') + timeStr;
-    } else {
-      return format(date, 'dd/MM/yy') + timeStr;
-    }
+    return format(date, ERIONE_DATE_FORMAT) + timeStr;
   };
   const getFormattedCurrency = (amount: number): string => {
     const code = generalPreferences.currency.code;

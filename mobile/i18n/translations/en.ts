@@ -1593,6 +1593,7 @@
     'Signature will be requested when completing.',
   completion: 'Completion',
   service_checklist: 'Service checklist',
+  service_checklist_loading: 'Loading service checklist...',
   remaining_service_checklist_items: '{{count}} checklist items remaining',
   id_required: 'ID is required',
   show_password: 'HIDE',

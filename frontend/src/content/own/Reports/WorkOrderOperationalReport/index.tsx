@@ -396,7 +396,7 @@ function WorkOrderOperationalReport() {
       doc.setFontSize(14);
       doc.text(t('operational_work_order_report'), 14, 15);
       doc.setFontSize(9);
-      doc.text(new Date().toLocaleDateString(), 14, 21);
+      doc.text(new Date().toLocaleDateString('pt-BR'), 14, 21);
       const headers = [
         t('code'), t('title'), t('customer'), t('status'),
         t('primary_worker'), t('created_at'), t('completed_on'),

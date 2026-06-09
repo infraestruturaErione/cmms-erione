@@ -1588,6 +1588,7 @@ const ptBRJSON = {
     'Arquivos são necessários na conclusão da Ordem de Serviço',
   field_report_required_on_completion:
     'É necessário preencher um relato técnico antes de concluir a OS',
+  service_checklist_loading: 'Carregando Checklist de Execução...',
   required_tasks_on_completion: 'O checklist de execução deve ser preenchido',
   required_labor_on_completion: 'Você deve registrar o tempo',
   required_part_on_completion: 'Nenhuma peça foi usada nesta Ordem de Serviço',

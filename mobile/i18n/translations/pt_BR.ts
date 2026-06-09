@@ -1643,6 +1643,7 @@ const ptBRJSON = {
     'A assinatura será solicitada ao concluir.',
   completion: 'Conclusão',
   service_checklist: 'Checklist de Atendimento',
+  service_checklist_loading: 'Carregando Checklist de Atendimento...',
   remaining_service_checklist_items: '{{count}} itens pendentes',
   show_password: 'OCULTAR',
   hide_password: 'MOSTRAR'

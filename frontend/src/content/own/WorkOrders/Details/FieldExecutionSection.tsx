@@ -56,13 +56,25 @@ const fieldActionTypes: RecommendedFieldActionType[] = [
 const FIELD_REPORT_PREFIX = '[Relato em campo]';
 const PHOTO_ONLY_FIELD_REPORT_TEXTS = [
   'Photo evidence registered.',
-  'Evidência fotográfica registrada.'
+  'Evidência fotográfica registrada.',
+  'Evidencia fotografica registrada.'
 ];
+
+const normalizeFieldText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
 
 const getFieldReportText = (content?: string) => {
   if (!content?.startsWith(FIELD_REPORT_PREFIX)) return '';
   const text = content.replace(FIELD_REPORT_PREFIX, '').trim();
-  return PHOTO_ONLY_FIELD_REPORT_TEXTS.includes(text) ? '' : text;
+  const normalizedText = normalizeFieldText(text);
+  const isPhotoOnlyText = PHOTO_ONLY_FIELD_REPORT_TEXTS.some(
+    (photoText) => normalizeFieldText(photoText) === normalizedText
+  );
+  return isPhotoOnlyText ? '' : text;
 };
 
 const formatCoordinate = (value?: number | null): string =>

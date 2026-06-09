@@ -5,7 +5,7 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import en from 'date-fns/locale/en-US';
+import ptBR from 'date-fns/locale/pt-BR';
 
 interface OwnProps {
   value?: [Date, Date];
@@ -59,8 +59,8 @@ export default function DateRangePicker({
     }
   };
 
-  const displayStartDate = value?.[0] ? format(value[0], 'MMM dd, yyyy') : '';
-  const displayEndDate = value?.[1] ? format(value[1], 'MMM dd, yyyy') : '';
+  const displayStartDate = value?.[0] ? format(value[0], 'dd/MM/yyyy') : '';
+  const displayEndDate = value?.[1] ? format(value[1], 'dd/MM/yyyy') : '';
 
   return (
     <>
@@ -116,7 +116,7 @@ export default function DateRangePicker({
           }
           onChange={handleSelect}
           months={2}
-          locale={en}
+          locale={ptBR}
           direction="horizontal"
           rangeColors={[theme.palette.primary.main]}
         />
