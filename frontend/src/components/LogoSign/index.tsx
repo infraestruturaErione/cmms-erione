@@ -7,11 +7,7 @@ import {
   useMediaQuery,
   useTheme
 } from '@mui/material';
-import { useTranslation } from 'react-i18next';
-import { customLogoPaths, homeUrl } from '../../config';
-import { useEffect, useState } from 'react';
 import { useBrand } from '../../hooks/useBrand';
-import { getLocalizedHomeUrl } from '../../utils/urlPaths';
 
 const LogoWrapper = styled('a')(
   ({ theme }) => `
@@ -56,7 +52,6 @@ interface OwnProps {
 }
 
 function Logo({ white }: OwnProps) {
-  const { t, i18n } = useTranslation();
   const theme = useTheme();
   const size = 56;
   const mobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -64,7 +59,7 @@ function Logo({ white }: OwnProps) {
 
   return (
     <TooltipWrapper title={brandName} arrow>
-      <LogoWrapper href={getLocalizedHomeUrl('', i18n.language)}>
+      <LogoWrapper href="/">
         <LogoSignWrapper>
           <img
             src={white ? logo.white : logo.dark}
