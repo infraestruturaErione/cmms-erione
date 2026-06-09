@@ -5,7 +5,7 @@ COPY package*.json ./
 RUN npm config set fetch-retry-maxtimeout 120000 && npm config set fetch-retry-mintimeout 20000
 RUN NODE_OPTIONS="--max_old_space_size=4096" npm ci --legacy-peer-deps
 COPY . .
-RUN npm run build
+RUN GENERATE_SOURCEMAP=false NODE_OPTIONS="--max_old_space_size=4096" npm run build
 
 FROM nginx:1.27.0-alpine
 COPY --from=build /usr/src/app/build /usr/share/nginx/html

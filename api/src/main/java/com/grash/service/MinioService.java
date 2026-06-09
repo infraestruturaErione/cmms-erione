@@ -26,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 @Service
 @RequiredArgsConstructor
 public class MinioService implements StorageService {
+    private static final String DEFAULT_REGION = "us-east-1";
+
     @Value("${storage.minio.endpoint}")
     private String minioEndpoint;
     @Value("${storage.minio.bucket}")
@@ -50,7 +52,8 @@ public class MinioService implements StorageService {
             URI minioEndpointURI = new URI(minioEndpoint);
             MinioClient.Builder minioClientBuilder = MinioClient.builder()
                     .endpoint(minioEndpoint)
-                    .credentials(minioAccessKey, minioSecretKey);
+                    .credentials(minioAccessKey, minioSecretKey)
+                    .region(DEFAULT_REGION);
             if (Helper.isLocalhost(minioPublicEndpoint)) minioClientBuilder.httpClient(
                     new OkHttpClient.Builder().proxy(new Proxy(Proxy.Type.HTTP,
                             new InetSocketAddress(minioEndpointURI.getHost(), minioEndpointURI.getPort()))).build()
@@ -59,6 +62,7 @@ public class MinioService implements StorageService {
             publicMinioClient = MinioClient.builder()
                     .endpoint(minioPublicEndpoint)
                     .credentials(minioAccessKey, minioSecretKey)
+                    .region(DEFAULT_REGION)
                     .build();
             // Check if the bucket exists, create if it doesn't
             boolean found = minioClient.bucketExists(BucketExistsArgs.builder().bucket(minioBucket).build());
