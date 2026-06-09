@@ -137,10 +137,11 @@ interface WorkOrderDetailsProps {
   onEdit: (id: number) => void;
   onDelete: (id: number) => void;
   tasks: Task[];
+  allowDelete?: boolean;
 }
 
 export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
-  const { workOrder, onEdit, tasks, onDelete } = props;
+  const { workOrder, onEdit, tasks, onDelete, allowDelete = true } = props;
   const theme = useTheme();
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const { getFormattedDate, getUserNameById, getFormattedCurrency } =
@@ -630,7 +631,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
               <EditTwoToneIcon color="primary" />
             </IconButton>
           )}
-          {hasDeletePermission(PermissionEntity.WORK_ORDERS, workOrder) && (
+          {allowDelete && hasDeletePermission(PermissionEntity.WORK_ORDERS, workOrder) && (
             <IconButton>
               <DeleteTwoToneIcon
                 color="error"

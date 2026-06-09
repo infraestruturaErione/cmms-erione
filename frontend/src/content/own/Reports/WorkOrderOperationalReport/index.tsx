@@ -850,6 +850,7 @@ function WorkOrderOperationalReport() {
             onEdit={() => {}}
             tasks={tasks}
             onDelete={() => {}}
+            allowDelete={false}
           />
         )}
       </Drawer>
