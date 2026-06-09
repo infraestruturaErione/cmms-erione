@@ -996,6 +996,7 @@ export const CustomSelect = ({
       required={field?.required}
       error={!!formik.errors[field.name] || field.error}
       errorMessage={formik.errors[field.name]}
+      helperText={field.helperText}
       onOpen={onOpen}
       placeholder={field.placeholder}
       multiple={field.multiple}

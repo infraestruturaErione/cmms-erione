@@ -20,6 +20,7 @@ import com.grash.model.*;
 import com.grash.model.abstracts.WorkOrderBase;
 import com.grash.model.enums.*;
 import com.grash.model.enums.workflow.WFMainCondition;
+import com.grash.repository.CommentRepository;
 import com.grash.service.*;
 import com.grash.utils.Helper;
 import com.grash.utils.MultipartFileImpl;
@@ -65,6 +66,13 @@ import static java.util.stream.Collectors.toCollection;
 @RequiredArgsConstructor
 @Transactional
 public class WorkOrderController {
+    private static final String FIELD_REPORT_PREFIX = "[Relato em campo]";
+    private static final List<String> PHOTO_ONLY_FIELD_REPORT_TEXTS = List.of(
+            "Photo evidence registered.",
+            "Evidencia fotografica registrada.",
+            "Evidência fotográfica registrada.",
+            "EvidÃªncia fotogrÃ¡fica registrada."
+    );
 
     private final WorkOrderService workOrderService;
     private final WorkOrderMapper workOrderMapper;
@@ -97,6 +105,7 @@ public class WorkOrderController {
     private final CompanyService companyService;
     private final WorkOrderOperationalReportService workOrderOperationalReportService;
     private final CustomerScopeService customerScopeService;
+    private final CommentRepository commentRepository;
 
 
     @Value("${frontend.url}")
@@ -147,9 +156,6 @@ public class WorkOrderController {
                             preventiveMaintenanceMapper.toBaseMiniDto(calendarEvent.getEvent()),
                             calendarEvent.getDate()))
                     .collect(Collectors.toList()));
-            result.addAll(workOrderService.findByDueDateBetweenAndCompany(dateRange.getStart(), dateRange.getEnd(),
-                    user.getCompany().getId()).stream().filter(workOrder -> canViewWorkOrderBase(user, workOrder)).map(workOrderMapper::toBaseMiniDto).map(workOrderMiniDTO -> new CalendarEvent<>("WORK_ORDER",
-                    workOrderMiniDTO, workOrderMiniDTO.getDueDate())).collect(Collectors.toList()));
             return result;
         } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
     }
@@ -519,6 +525,16 @@ public class WorkOrderController {
                 Collection<Relation> relations = relationService.findByWorkOrder(id);
                 Collection<AdditionalCost> additionalCosts = additionalCostService.findByWorkOrder(id);
                 Collection<WorkOrderHistory> workOrderHistories = workOrderHistoryService.findByWorkOrder(id);
+                List<Comment> fieldComments = commentRepository
+                        .findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(List.of(id),
+                                FIELD_REPORT_PREFIX);
+                List<String> fieldReports = fieldComments.stream()
+                        .map(comment -> getRealFieldReportText(comment.getContent()))
+                        .filter(Objects::nonNull)
+                        .filter(fieldReport -> !fieldReport.isBlank())
+                        .collect(Collectors.toList());
+                List<Map<String, Object>> fieldEvidenceItems = buildFieldEvidenceItems(savedWorkOrder, fieldComments,
+                        storageService);
                 Map<String, Object> variables = new HashMap<String, Object>() {{
                     put("companyName", user.getCompany().getName());
                     put("companyPhone", user.getCompany().getPhone());
@@ -545,6 +561,8 @@ public class WorkOrderController {
                     put("partQuantities", partQuantities);
                     put("environment", environment);
                     put("tasksImagesUrls", tasksImagesUrls);
+                    put("fieldReports", fieldReports);
+                    put("fieldEvidenceItems", fieldEvidenceItems);
                     put("messageSource", messageSource);
                     put("locale", Helper.getLocale(user));
                     put("backgroundColor", brandingService.getMailBackgroundColor());
@@ -566,6 +584,58 @@ public class WorkOrderController {
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
 
+    }
+
+    private String stripFieldReportPrefix(String content) {
+        if (content == null || !content.startsWith(FIELD_REPORT_PREFIX)) {
+            return null;
+        }
+        return content.substring(FIELD_REPORT_PREFIX.length()).trim();
+    }
+
+    private String getRealFieldReportText(String content) {
+        String text = stripFieldReportPrefix(content);
+        if (text == null || PHOTO_ONLY_FIELD_REPORT_TEXTS.contains(text)) {
+            return null;
+        }
+        return text;
+    }
+
+    private List<Map<String, Object>> buildFieldEvidenceItems(WorkOrder workOrder, List<Comment> fieldComments,
+                                                              StorageService storageService) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        if (workOrder.getImage() != null) {
+            addEvidenceItem(items, seen, workOrder.getImage(), "OS", null, storageService);
+        }
+        if (workOrder.getFiles() != null) {
+            workOrder.getFiles().forEach(file -> addEvidenceItem(items, seen, file, "OS", null, storageService));
+        }
+        fieldComments.forEach(comment -> {
+            if (comment.getFiles() != null) {
+                String note = stripFieldReportPrefix(comment.getContent());
+                comment.getFiles().forEach(file -> addEvidenceItem(items, seen, file, "Relato em campo", note,
+                        storageService));
+            }
+        });
+        return items;
+    }
+
+    private void addEvidenceItem(List<Map<String, Object>> items, Set<String> seen, File file, String source,
+                                 String note, StorageService storageService) {
+        String key = file.getId() == null ? file.getPath() : file.getId().toString();
+        if (key == null || seen.contains(key)) {
+            return;
+        }
+        seen.add(key);
+        Map<String, Object> item = new HashMap<>();
+        item.put("name", file.getName());
+        item.put("type", file.getType());
+        item.put("image", file.getType() == FileType.IMAGE);
+        item.put("source", source);
+        item.put("note", note);
+        item.put("url", storageService.generateSignedUrl(file, 10));
+        items.add(item);
     }
 
     @GetMapping("/urgent")

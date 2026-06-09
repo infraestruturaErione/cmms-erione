@@ -33,7 +33,6 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import { useTranslation } from 'react-i18next';
 import * as React from 'react';
-import mime from 'mime';
 import {
   Fragment,
   useCallback,
@@ -84,7 +83,6 @@ import CommentItem from '../../components/CommentItem';
 import { downloadFile } from '../../utils/fileDownload';
 import { getCommentsByWorkOrder, createComment } from '../../slices/comment';
 import { getUsersMini } from '../../slices/user';
-import File from '../../models/file';
 import { TriggersConfig } from 'react-native-controlled-mentions/dist/types/types';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -105,6 +103,7 @@ import {
 } from '../../components/erione/ErioneUI';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
 import { isErioneModuleHidden } from '../../config/erioneModules';
+import WorkOrderEvidenceGallery from './components/WorkOrderEvidenceGallery';
 
 const erioneColors = ERIONE_MOBILE_IDENTITY.colors;
 
@@ -211,6 +210,8 @@ export default function WODetailsScreen({
   const [commentFiles, setCommentFiles] = useState<
     { uri: string; name: string; type: string }[]
   >([]);
+  const [commentsLoadError, setCommentsLoadError] = useState(false);
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
   const { commentsByWorkOrder, loadingComments, loadingCreate } = useSelector(
     (state) => state.comments
   );
@@ -328,6 +329,11 @@ export default function WODetailsScreen({
     !generalPreferences.simplifiedWorkOrder &&
     !isWorkOrderFieldHidden('completeTime');
 
+  const isCompletionFieldRequired = (fieldName: string): boolean =>
+    workOrderConfiguration.workOrderFieldConfigurations.find(
+      (woFC) => woFC.fieldName === fieldName
+    )?.fieldType === 'REQUIRED';
+
   const getInfos = () => {
     if (!workOrderProp) {
       dispatch(getWorkOrderDetails(id)).catch((err) => {
@@ -383,7 +389,10 @@ export default function WODetailsScreen({
   }, [workOrderProp]);
 
   useEffect(() => {
-    dispatch(getCommentsByWorkOrder(id));
+    setCommentsLoadError(false);
+    dispatch(getCommentsByWorkOrder(id)).catch(() => {
+      setCommentsLoadError(true);
+    });
     dispatch(getUsersMini());
   }, [id]);
 
@@ -473,6 +482,14 @@ export default function WODetailsScreen({
       .finally(() => setLoading(false));
   };
   const canComplete = (): boolean => {
+    if (loadingComments) {
+      showSnackBar(t('field_comments_loading_error'), 'error');
+      return false;
+    }
+    if (commentsLoadError) {
+      showSnackBar(t('field_comments_load_error'), 'error');
+      return false;
+    }
     if (!fieldReportRegistered) {
       showSnackBar(t('field_report_required_on_completion'), 'error');
       return false;
@@ -847,63 +864,92 @@ export default function WODetailsScreen({
   };
 
   const renderEvidenceGallery = () => {
-    const isEvidenceImage = (file: File) =>
-      file.type === 'IMAGE' || mime.getType(file.name)?.startsWith('image/');
-    const imageUrls = fieldEvidenceItems
-      .filter((item) => item.file?.url && isEvidenceImage(item.file))
-      .map((item) => item.file.url);
+    return (
+      <WorkOrderEvidenceGallery
+        evidenceItems={fieldEvidenceItems}
+        getFormattedDate={getFormattedDate}
+        onOpenImages={openImageViewer}
+        t={t}
+      />
+    );
+  };
+
+  const renderCompletionChecklist = () => {
+    const checklistItems = [
+      {
+        label: t('field_report'),
+        done: fieldReportRegistered,
+        visible: true
+      },
+      {
+        label: t('work_order_evidence'),
+        done: fieldEvidenceRegistered,
+        visible: isCompletionFieldRequired('completeFiles')
+      },
+      {
+        label: t('tasks'),
+        done: !tasks.some((task) => !task.value),
+        visible: isCompletionFieldRequired('completeTasks')
+      },
+      {
+        label: t('time'),
+        done: !labors
+          .filter((labor) => labor.logged)
+          .some((labor) => !labor.duration),
+        visible: isCompletionFieldRequired('completeTime')
+      },
+      {
+        label: t('parts'),
+        done: !!partQuantities.length,
+        visible: showPartsSection && isCompletionFieldRequired('completeParts')
+      },
+      {
+        label: t('costs'),
+        done: !!additionalCosts.length,
+        visible: showAdditionalCostsSection && isCompletionFieldRequired('completeCost')
+      },
+      {
+        label: t('signature'),
+        done: false,
+        visible: !!workOrder?.requiredSignature,
+        helper: t('signature_requested_on_completion')
+      }
+    ].filter((item) => item.visible);
 
     return (
-      <ErioneCard style={styles.detailsCard}>
+      <ErioneCard style={styles.completionChecklistCard}>
         <ErioneSectionHeader
-          title={t('work_order_evidence')}
-          subtitle={t('work_order_evidence_helper')}
+          title={t('before_complete_work_order')}
+          subtitle={t('before_complete_work_order_helper')}
         />
-        {!fieldEvidenceItems.length ? (
-          <Text style={styles.emptyStateText}>{t('no_work_order_evidence')}</Text>
-        ) : (
-          <View style={styles.evidenceGrid}>
-            {fieldEvidenceItems.map((item) => {
-              const isImage = isEvidenceImage(item.file);
-              const canOpen = !!item.file.url;
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  disabled={!canOpen}
-                  style={styles.evidenceTile}
-                  onPress={() => {
-                    if (!canOpen) return;
-                    if (isImage) openImageViewer(imageUrls, item.file.url);
-                    else Linking.openURL(item.file.url);
-                  }}
-                >
-                  {isImage && canOpen ? (
-                    <Image source={{ uri: item.file.url }} style={styles.evidenceImage} />
-                  ) : (
-                    <View style={styles.evidenceFileIcon}>
-                      <IconButton icon="file-outline" iconColor={erioneColors.primary} />
-                    </View>
-                  )}
-                  <View style={styles.evidenceInfo}>
-                    <Text variant="labelMedium" numberOfLines={1} style={styles.evidenceName}>
-                      {item.file.name}
-                    </Text>
-                    <Text variant="bodySmall" style={styles.evidenceMeta} numberOfLines={2}>
-                      {item.source === 'fieldComment' ? t('field_report') : t('files')}
-                      {item.author ? ` - ${item.author}` : ''}
-                      {item.date ? ` - ${getFormattedDate(item.date)}` : ''}
-                    </Text>
-                    {!canOpen && (
-                      <Text variant="bodySmall" style={styles.evidenceMeta}>
-                        {t('file_without_url')}
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+        {commentsLoadError && (
+          <Text style={styles.completionErrorText}>
+            {t('field_comments_load_error')}
+          </Text>
         )}
+        {loadingComments && (
+          <Text style={styles.completionLoadingText}>
+            {t('field_comments_loading')}
+          </Text>
+        )}
+        <View style={styles.completionChecklist}>
+          {checklistItems.map((item) => (
+            <View key={item.label} style={styles.completionChecklistItem}>
+              <IconButton
+                icon={item.done ? 'check-circle' : 'alert-circle-outline'}
+                size={20}
+                iconColor={item.done ? erioneColors.primary : theme.colors.error}
+                style={styles.completionChecklistIcon}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.completionChecklistLabel}>{item.label}</Text>
+                <Text style={styles.completionChecklistStatus}>
+                  {item.helper ?? t(item.done ? 'ready_to_complete' : 'missing_to_complete')}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
       </ErioneCard>
     );
   };
@@ -1082,87 +1128,108 @@ export default function WODetailsScreen({
                   PermissionEntity.WORK_ORDERS,
                   workOrder
                 ) && (
-                  <ErionePrimaryButton
-                    icon="check-circle"
-                    style={styles.completeButton}
-                    onPress={() => onStatusChange('COMPLETE')}
-                  >
-                    Concluir OS
-                  </ErionePrimaryButton>
+                  <Fragment>
+                    {renderCompletionChecklist()}
+                    <ErionePrimaryButton
+                      icon="check-circle"
+                      style={styles.completeButton}
+                      disabled={loadingComments || commentsLoadError}
+                      onPress={() => onStatusChange('COMPLETE')}
+                    >
+                      {t('complete_work_order_short')}
+                    </ErionePrimaryButton>
+                  </Fragment>
               )}
               <ErioneCard style={styles.detailsCard}>
-                <ErioneSectionHeader
-                  title={t('more_details')}
-                  subtitle={t('work_order_more_details_helper')}
-                />
                 <TouchableOpacity
-                  disabled={
-                    !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
-                  }
-                  style={[styles.statusSelector, { borderColor: statusColor }]}
-                  onPress={() =>
-                    SheetManager.show('dropdown-sheet', {
-                      payload: {
-                        items: statuses,
-                        value: workOrder.status,
-                        setValue: handleStatusSelect
-                      }
-                    })
-                  }
+                  style={styles.collapsibleHeader}
+                  onPress={() => setShowMoreDetails((current) => !current)}
                 >
-                  <Text style={{ color: statusColor }}>
-                    {statuses.find((s) => s.value === workOrder.status)?.label}
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <ErioneSectionHeader
+                      title={t('more_details')}
+                      subtitle={t('work_order_more_details_helper')}
+                    />
+                  </View>
                   <IconButton
-                    iconColor={statusColor}
-                    icon="menu-down"
-                    size={24}
-                    style={{ margin: -5 }}
+                    icon={showMoreDetails ? 'chevron-up' : 'chevron-down'}
+                    iconColor={erioneColors.primary}
                   />
                 </TouchableOpacity>
-                {fieldsToRender.map(
-                  ({ label, value, isLink }, index) =>
-                    value && label !== t('description') && (
-                      <BasicField
-                        key={label}
-                        label={label}
-                        value={value}
-                        isLink={isLink}
+                {showMoreDetails && (
+                  <Fragment>
+                    <TouchableOpacity
+                      disabled={
+                        !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
+                      }
+                      style={[styles.statusSelector, { borderColor: statusColor }]}
+                      onPress={() =>
+                        SheetManager.show('dropdown-sheet', {
+                          payload: {
+                            items: statuses,
+                            value: workOrder.status,
+                            setValue: handleStatusSelect
+                          }
+                        })
+                      }
+                    >
+                      <Text style={{ color: statusColor }}>
+                        {statuses.find((s) => s.value === workOrder.status)?.label}
+                      </Text>
+                      <IconButton
+                        iconColor={statusColor}
+                        icon="menu-down"
+                        size={24}
+                        style={{ margin: -5 }}
                       />
-                    )
-                )}
-                {touchableFields
-                  .filter(
-                    ({ label }) => label !== t('asset') && label !== t('location')
-                  )
-                  .map(
-                  ({ label, value, link, permissionEntity }) =>
-                    value && (
+                    </TouchableOpacity>
+                    {fieldsToRender.map(
+                      ({ label, value, isLink }) =>
+                        value && label !== t('description') && (
+                          <BasicField
+                            key={label}
+                            label={label}
+                            value={value}
+                            isLink={isLink}
+                          />
+                        )
+                    )}
+                    {touchableFields
+                      .filter(
+                        ({ label }) => label !== t('asset') && label !== t('location')
+                      )
+                      .map(
+                        ({ label, value, link, permissionEntity }) =>
+                          value && (
+                            <ObjectField
+                              key={label}
+                              label={label}
+                              value={value}
+                              link={link}
+                              permissionEntity={permissionEntity}
+                              address={workOrder?.location?.address}
+                            />
+                          )
+                      )}
+                    {(workOrder.parentRequest || workOrder.createdBy) && (
                       <ObjectField
-                        key={label}
-                        label={label}
-                        value={value}
-                        link={link}
-                        permissionEntity={permissionEntity}
-                        address={workOrder?.location?.address}
+                        label={
+                          workOrder.parentRequest
+                            ? t('approved_by')
+                            : t('created_by')
+                        }
+                        value={getUserNameById(workOrder.createdBy)}
+                        link={{ route: 'UserDetails', id: workOrder.createdBy }}
+                        permissionEntity={PermissionEntity.PEOPLE_AND_TEAMS}
                       />
-                    )
-                )}
-                {(workOrder.parentRequest || workOrder.createdBy) && (
-                  <ObjectField
-                    label={
-                      workOrder.parentRequest ? t('approved_by') : t('created_by')
-                    }
-                    value={getUserNameById(workOrder.createdBy)}
-                    link={{ route: 'UserDetails', id: workOrder.createdBy }}
-                    permissionEntity={PermissionEntity.PEOPLE_AND_TEAMS}
-                  />
+                    )}
+                  </Fragment>
                 )}
               </ErioneCard>
 
                 {workOrder.status === 'COMPLETE' && (
                   <ErioneCard style={styles.detailsCard}>
-                    <ErioneSectionHeader title="Conclusao" />
+                    <ErioneSectionHeader title={t('completion')} />
                     {workOrder.completedBy && (
                       <ObjectField
                         label={t('completed_by')}
@@ -1778,6 +1845,10 @@ const styles = StyleSheet.create({
   detailsCard: {
     marginBottom: 12
   },
+  collapsibleHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start'
+  },
   statusSelector: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1807,44 +1878,6 @@ const styles = StyleSheet.create({
     color: erioneColors.muted,
     paddingVertical: 6
   },
-  evidenceGrid: {
-    gap: 10
-  },
-  evidenceTile: {
-    flexDirection: 'row',
-    gap: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-    padding: 10
-  },
-  evidenceImage: {
-    width: 82,
-    height: 82,
-    borderRadius: 10,
-    backgroundColor: '#E2E8F0'
-  },
-  evidenceFileIcon: {
-    width: 82,
-    height: 82,
-    borderRadius: 10,
-    backgroundColor: '#E7F3F1',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  evidenceInfo: {
-    flex: 1,
-    justifyContent: 'center'
-  },
-  evidenceName: {
-    color: erioneColors.text,
-    fontWeight: '800'
-  },
-  evidenceMeta: {
-    color: erioneColors.muted,
-    marginTop: 3
-  },
   separator: {
     marginVertical: 30,
     height: 1,
@@ -1871,6 +1904,46 @@ const styles = StyleSheet.create({
     bottom: 16,
     right: 16,
     position: 'absolute'
+  },
+  completionChecklistCard: {
+    marginBottom: 12,
+    borderColor: '#BFE7DE',
+    backgroundColor: '#F8FFFD'
+  },
+  completionChecklist: {
+    gap: 8,
+    backgroundColor: 'transparent'
+  },
+  completionChecklistItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingRight: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0'
+  },
+  completionChecklistIcon: {
+    margin: 0,
+    marginHorizontal: 4
+  },
+  completionChecklistLabel: {
+    color: erioneColors.text,
+    fontWeight: '800'
+  },
+  completionChecklistStatus: {
+    color: erioneColors.muted,
+    marginTop: 2
+  },
+  completionErrorText: {
+    color: '#B91C1C',
+    fontWeight: '700',
+    marginBottom: 10
+  },
+  completionLoadingText: {
+    color: erioneColors.muted,
+    marginBottom: 10
   },
   completeButton: {
     marginTop: 4,

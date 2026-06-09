@@ -1334,12 +1334,19 @@
   required_files_on_completion: 'Files are required on Work Order Completion',
   field_report_required_on_completion:
     'A written field report is required before completing the Work Order',
+  field_comments_loading:
+    'Loading field reports and evidence before completion...',
+  field_comments_loading_error:
+    'Wait for field reports and evidence to load before completing the Work Order.',
+  field_comments_load_error:
+    'Could not load this Work Order reports. Refresh the screen before completing it.',
   required_tasks_on_completion: 'Tasks must be completed',
   required_labor_on_completion: 'You must log time',
   required_part_on_completion: 'No Part has been used in this Work Order',
   required_cost_on_completion:
     'No Cost information provided in this Work Order',
   complete_work_order: 'Complete Work Order',
+  complete_work_order_short: 'Complete WO',
   no_parts: 'No parts',
   edit_quantity: 'Edit quantity',
   remaining_tasks: '{{count}} remaining tasks',
@@ -1566,7 +1573,25 @@
   choose_from_gallery: 'Choose from gallery',
   field_evidence_save_success: 'Evidence sent',
   field_evidence_save_error: 'Unable to send the evidence',
+  field_action_offline_error:
+    'No internet connection right now. Reconnect to update field execution.',
+  field_report_offline_error:
+    'No internet connection right now. Reconnect to save the field report.',
+  field_evidence_offline_error:
+    'No internet connection right now. Reconnect to send evidence.',
   field_execution_action_success: 'Field execution updated',
+  geolocation_permission_denied:
+    'Location permission denied. The action was registered without latitude/longitude.',
+  geolocation_unavailable:
+    'Unable to get location. The action was registered without latitude/longitude.',
+  before_complete_work_order: 'Before completing',
+  before_complete_work_order_helper:
+    'Check what is ready and what is still missing before closing this Work Order.',
+  ready_to_complete: 'Ready',
+  missing_to_complete: 'Pending',
+  signature_requested_on_completion:
+    'Signature will be requested when completing.',
+  completion: 'Completion',
   service_checklist: 'Service checklist',
   remaining_service_checklist_items: '{{count}} checklist items remaining',
   id_required: 'ID is required',

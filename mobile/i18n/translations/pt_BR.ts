@@ -1380,12 +1380,19 @@ const ptBRJSON = {
     'Arquivos são necessários na conclusão da Ordem de Serviço',
   field_report_required_on_completion:
     'É necessário preencher um relato técnico antes de concluir a OS',
+  field_comments_loading:
+    'Carregando relatos e evidências antes da conclusão...',
+  field_comments_loading_error:
+    'Aguarde carregar os relatos e evidências antes de concluir a OS.',
+  field_comments_load_error:
+    'Não foi possível carregar os relatos desta OS. Atualize a tela antes de concluir.',
   required_tasks_on_completion: 'As tarefas devem ser concluídas',
   required_labor_on_completion: 'Você deve registrar o tempo',
   required_part_on_completion: 'Nenhuma peça foi usada nesta Ordem de Serviço',
   required_cost_on_completion:
     'Nenhuma informação de custo fornecida nesta Ordem de Serviço',
   complete_work_order: 'Concluir Ordem de Serviço',
+  complete_work_order_short: 'Concluir OS',
   no_parts: 'Nenhuma peça',
   edit_quantity: 'Editar quantidade',
   remaining_tasks: '{{count}} tarefas restantes',
@@ -1616,7 +1623,25 @@ const ptBRJSON = {
   choose_from_gallery: 'Escolher da galeria',
   field_evidence_save_success: 'Evidência enviada',
   field_evidence_save_error: 'Não foi possível enviar a evidência',
+  field_action_offline_error:
+    'Sem internet no momento. Reconecte para atualizar a execução em campo.',
+  field_report_offline_error:
+    'Sem internet no momento. Reconecte para salvar o relato.',
+  field_evidence_offline_error:
+    'Sem internet no momento. Reconecte para enviar evidências.',
   field_execution_action_success: 'Execução em campo atualizada',
+  geolocation_permission_denied:
+    'Permissao de localizacao negada. A acao foi registrada sem latitude/longitude.',
+  geolocation_unavailable:
+    'Nao foi possivel obter a localizacao. A acao foi registrada sem latitude/longitude.',
+  before_complete_work_order: 'Antes de concluir',
+  before_complete_work_order_helper:
+    'Confira o que já está pronto e o que ainda falta para fechar a OS.',
+  ready_to_complete: 'Pronto',
+  missing_to_complete: 'Pendente',
+  signature_requested_on_completion:
+    'A assinatura será solicitada ao concluir.',
+  completion: 'Conclusão',
   service_checklist: 'Checklist de Atendimento',
   remaining_service_checklist_items: '{{count}} itens pendentes',
   show_password: 'OCULTAR',

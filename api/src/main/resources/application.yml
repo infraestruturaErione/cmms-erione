@@ -108,6 +108,10 @@ management:
       enabled: ${ENABLE_MAIL_HEALTH_CHECK:true}
     ldap:
       enabled: ${LDAP_ENABLED:false}
+observability:
+  request-timing:
+    enabled: ${REQUEST_TIMING_ENABLED:true}
+    slow-threshold-ms: ${REQUEST_TIMING_SLOW_THRESHOLD_MS:1000}
 api:
   host: ${PUBLIC_API_URL}
 storage:

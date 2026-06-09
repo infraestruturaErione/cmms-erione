@@ -341,9 +341,12 @@ function ApplicationsCalendar({
           </Stack>
         )}
         {!hasEvents && !loadingGet && (
-          <Box textAlign="center" py={1}>
-            <Typography variant="body2" color="text.secondary">
+          <Box textAlign="center" py={2}>
+            <Typography variant="subtitle2" color="text.primary">
               {t('workOrders.calendar.empty.title')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t('workOrders.calendar.empty.description')}
             </Typography>
           </Box>
         )}

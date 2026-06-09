@@ -418,6 +418,9 @@ function AuthNavigator() {
  */
 const BottomTab = createBottomTabNavigator<RootTabParamList>();
 
+const isFieldTechnicianRole = (roleCode?: string) =>
+  roleCode === 'TECHNICIAN' || roleCode === 'LIMITED_TECHNICIAN';
+
 function CreateTabBarButton(props: {
   onPress: (
     e: React.MouseEvent<HTMLAnchorElement, MouseEvent> | GestureResponderEvent
@@ -451,9 +454,13 @@ function BottomTabNavigator({ navigation }: RootTabScreenProps<'Home'>) {
   const { t } = useTranslation();
   const { hasViewPermission, hasCreatePermission, user } = useAuth();
   const uiConfiguration = user.uiConfiguration;
+  const fieldTechnician = isFieldTechnicianRole(user.role.code);
   let leftButtonsCount = user.role.code !== 'REQUESTER' ? 1 : 0;
   let rightButtonsCount = 0;
-  if (createEntities.some((entity) => hasCreatePermission(entity))) {
+  if (
+    !fieldTechnician &&
+    createEntities.some((entity) => hasCreatePermission(entity))
+  ) {
     leftButtonsCount++;
   }
   if (
@@ -462,7 +469,10 @@ function BottomTabNavigator({ navigation }: RootTabScreenProps<'Home'>) {
   ) {
     rightButtonsCount++;
   }
-  if (viewMoreEntities.some((entity) => hasViewPermission(entity))) {
+  if (
+    !fieldTechnician &&
+    viewMoreEntities.some((entity) => hasViewPermission(entity))
+  ) {
     rightButtonsCount++;
   }
 
@@ -547,7 +557,8 @@ function BottomTabNavigator({ navigation }: RootTabScreenProps<'Home'>) {
           )
         }}
       />
-      {createEntities.some((entity) => hasCreatePermission(entity)) && (
+      {!fieldTechnician &&
+        createEntities.some((entity) => hasCreatePermission(entity)) && (
         <BottomTab.Screen
           name="AddEntities"
           component={View}
@@ -596,7 +607,8 @@ function BottomTabNavigator({ navigation }: RootTabScreenProps<'Home'>) {
             }}
           />
         )}
-      {viewMoreEntities.some((entity) => hasViewPermission(entity)) && (
+      {!fieldTechnician &&
+        viewMoreEntities.some((entity) => hasViewPermission(entity)) && (
         <BottomTab.Screen
           name="MoreEntities"
           component={MoreEntitiesScreen}

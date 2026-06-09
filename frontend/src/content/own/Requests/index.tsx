@@ -1,5 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -93,6 +94,9 @@ function Requests() {
   const { requests, loadingGet, singleRequest } = useSelector(
     (state) => state.requests
   );
+  const requesterWithoutScope =
+    user?.role?.code === 'REQUESTER' &&
+    (!user?.allowedCustomers || user.allowedCustomers.length === 0);
   const { customFields } = useSelector((state) => state.customFields);
   const { customersMini } = useSelector((state) => state.customers);
   const [openDrawerFromUrl, setOpenDrawerFromUrl] = useState<boolean>(false);
@@ -581,7 +585,7 @@ function Requests() {
                 sx={{ my: 1 }}
                 variant="contained"
                 onClick={() => {
-                  if (user?.role?.code === 'REQUESTER' && (!user?.allowedCustomers || user.allowedCustomers.length === 0)) {
+                  if (requesterWithoutScope) {
                     showSnackBar(t('requester_without_allowed_customers'), 'error');
                     return;
                   }
@@ -591,6 +595,11 @@ function Requests() {
                 {t('request')}
               </Button>
             </Box>
+          )}
+          {requesterWithoutScope && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {t('requester_without_allowed_customers_details')}
+            </Alert>
           )}
           <Card
             sx={{

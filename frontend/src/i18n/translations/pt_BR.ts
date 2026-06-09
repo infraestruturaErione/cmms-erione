@@ -2141,6 +2141,10 @@ const ptBRJSON = {
   allowed_customers: 'Clientes permitidos',
   requester_without_allowed_customers:
     'Nenhum cliente permitido vinculado ao seu usuário. Contate o administrador.',
+  requester_without_allowed_customers_details:
+    'Seu usuário ainda não possui clientes permitidos. Um administrador precisa definir seu escopo antes de você abrir solicitações.',
+  'workOrders.customer_single_mvp_helper':
+    'No MVP, a OS usa um cliente principal para filtrar local e equipamento.',
   mobile_app_unavailable_description: 'O aplicativo móvel Erione estará disponível em breve nas lojas oficiais.'
 };
 

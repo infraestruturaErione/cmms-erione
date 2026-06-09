@@ -75,6 +75,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       }
     ],
     [
+      'expo-location',
+      {
+        locationWhenInUsePermission:
+          'Permita que o Erione CMMS use sua localizacao para registrar deslocamento, check-in e check-out da OS.'
+      }
+    ],
+    [
       'expo-build-properties',
       {
         ios: {

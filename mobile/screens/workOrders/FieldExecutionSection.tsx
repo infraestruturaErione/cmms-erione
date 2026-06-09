@@ -1,4 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
+import { useNetInfo } from '@react-native-community/netinfo';
 import mime from 'mime';
 import { useContext, useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -75,24 +77,34 @@ const formatCoordinate = (value?: number | null) =>
 const getCoordinates = async (): Promise<{
   latitude?: number | null;
   longitude?: number | null;
+  error?: string;
 }> => {
-  const geolocation = (globalThis.navigator as any)?.geolocation;
+  const permission = await Location.requestForegroundPermissionsAsync();
 
-  if (!geolocation) {
-    return { latitude: null, longitude: null };
+  if (permission.status !== Location.PermissionStatus.GRANTED) {
+    return {
+      latitude: null,
+      longitude: null,
+      error: 'geolocation_permission_denied'
+    };
   }
 
-  return new Promise((resolve) => {
-    geolocation.getCurrentPosition(
-      (position) =>
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        }),
-      () => resolve({ latitude: null, longitude: null }),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 15000 }
-    );
-  });
+  try {
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High
+    });
+
+    return {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude
+    };
+  } catch {
+    return {
+      latitude: null,
+      longitude: null,
+      error: 'geolocation_unavailable'
+    };
+  }
 };
 
 export const hasFieldReport = (comments: Comment[]) =>
@@ -108,6 +120,7 @@ export default function FieldExecutionSection({
   const { t } = useTranslation();
   const theme = useTheme();
   const dispatch = useDispatch();
+  const netInfo = useNetInfo();
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const { getFormattedDate, uploadFiles } = useContext(CompanySettingsContext);
   const [loadingAction, setLoadingAction] = useState<FieldAction | null>(null);
@@ -145,9 +158,17 @@ export default function FieldExecutionSection({
 
   const runFieldAction = async (action: FieldAction) => {
     if (loadingAction) return;
+    if (netInfo.isInternetReachable === false) {
+      showSnackBar(t('field_action_offline_error'), 'error');
+      return;
+    }
     setLoadingAction(action);
     try {
-      const { latitude, longitude } = await getCoordinates();
+      const { latitude, longitude, error: geoError } = await getCoordinates();
+
+      if (geoError) {
+        showSnackBar(t(geoError), 'error');
+      }
 
       if (action === 'depart') {
         await dispatch(
@@ -187,6 +208,10 @@ export default function FieldExecutionSection({
   };
 
   const pickEvidenceImage = async () => {
+    if (netInfo.isInternetReachable === false) {
+      showSnackBar(t('field_evidence_offline_error'), 'error');
+      return;
+    }
     const result = await openLibraryWithPermission('FieldExecutionReport', {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
@@ -221,6 +246,10 @@ export default function FieldExecutionSection({
   const submitFieldReport = async () => {
     if (savingReport) return;
     if (!fieldReport.trim()) return;
+    if (netInfo.isInternetReachable === false) {
+      showSnackBar(t('field_report_offline_error'), 'error');
+      return;
+    }
     setSavingReport(true);
     try {
       await dispatch(
@@ -243,6 +272,10 @@ export default function FieldExecutionSection({
   const submitEvidence = async () => {
     if (savingEvidence) return;
     if (!evidenceFiles.length) return;
+    if (netInfo.isInternetReachable === false) {
+      showSnackBar(t('field_evidence_offline_error'), 'error');
+      return;
+    }
     setSavingEvidence(true);
     try {
       const uploadedFiles = await uploadFiles(evidenceFiles, [], false);

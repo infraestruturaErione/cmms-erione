@@ -2066,6 +2066,10 @@ const locale = {
   allowed_customers: 'Allowed customers',
   requester_without_allowed_customers:
     'No allowed customers are linked to your user. Contact the administrator.',
+  requester_without_allowed_customers_details:
+    'Your user does not have allowed customers yet. An administrator must define your scope before you can open requests.',
+  'workOrders.customer_single_mvp_helper':
+    'For the MVP, a Work Order uses one primary customer to filter locations and assets.',
   mobile_app_unavailable_description: 'The Erione mobile app will be available soon on official stores.'
 };
 

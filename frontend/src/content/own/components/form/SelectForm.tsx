@@ -11,6 +11,7 @@ interface PropsType {
   placeholder?: string;
   error: boolean;
   errorMessage: any;
+  helperText?: string;
   multiple?: boolean;
   required?: boolean;
   disabled: boolean;
@@ -50,7 +51,13 @@ export default (props: PropsType) => {
           label={t(props.label)}
           placeholder={t(props.placeholder || props.label)}
           error={props.error}
-          helperText={props.error && props.errorMessage}
+          helperText={
+            props.error
+              ? props.errorMessage
+              : props.helperText
+              ? t(props.helperText)
+              : undefined
+          }
         />
       )}
     />

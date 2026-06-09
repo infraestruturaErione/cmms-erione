@@ -29,6 +29,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class WorkOrderOperationalReportService {
     private static final String FIELD_REPORT_PREFIX = "[Relato em campo]";
+    private static final List<String> PHOTO_ONLY_FIELD_REPORT_TEXTS = List.of(
+            "Photo evidence registered.",
+            "Evidencia fotografica registrada.",
+            "Evidência fotográfica registrada.",
+            "EvidÃªncia fotogrÃ¡fica registrada."
+    );
 
     private final WorkOrderService workOrderService;
     private final CommentRepository commentRepository;
@@ -37,9 +43,13 @@ public class WorkOrderOperationalReportService {
         SearchCriteria criteria = buildCriteria(request);
         Page<WorkOrder> workOrders = workOrderService.findBySearchCriteria(workOrderService.getSearchCriteria(user,
                 criteria));
-        Map<Long, String> fieldReports = getLatestFieldReports(workOrders.getContent());
+        List<Comment> fieldComments = getFieldComments(workOrders.getContent());
+        Map<Long, String> fieldReports = getLatestFieldReports(fieldComments);
+        Map<Long, List<Comment>> fieldCommentsByWorkOrder = fieldComments.stream()
+                .collect(Collectors.groupingBy(comment -> comment.getWorkOrder().getId()));
         List<WorkOrderOperationalReportRowDTO> rows = workOrders.getContent().stream()
-                .map(workOrder -> toRow(workOrder, fieldReports.get(workOrder.getId())))
+                .map(workOrder -> toRow(workOrder, fieldReports.get(workOrder.getId()),
+                        fieldCommentsByWorkOrder.getOrDefault(workOrder.getId(), List.of())))
                 .collect(Collectors.toList());
 
         return WorkOrderOperationalReportResponseDTO.builder()
@@ -102,16 +112,23 @@ public class WorkOrderOperationalReportService {
         }
     }
 
-    private Map<Long, String> getLatestFieldReports(List<WorkOrder> workOrders) {
+    private List<Comment> getFieldComments(List<WorkOrder> workOrders) {
         List<Long> workOrderIds = workOrders.stream().map(WorkOrder::getId).collect(Collectors.toList());
         if (workOrderIds.isEmpty()) {
-            return Map.of();
+            return List.of();
         }
+        return commentRepository.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(workOrderIds,
+                FIELD_REPORT_PREFIX);
+    }
+
+    private Map<Long, String> getLatestFieldReports(List<Comment> fieldComments) {
         Map<Long, String> result = new LinkedHashMap<>();
-        commentRepository.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(workOrderIds,
-                        FIELD_REPORT_PREFIX)
-                .forEach(comment -> result.putIfAbsent(comment.getWorkOrder().getId(),
-                        stripFieldReportPrefix(comment.getContent())));
+        fieldComments.forEach(comment -> {
+            String fieldReport = getRealFieldReportText(comment.getContent());
+            if (fieldReport != null && !fieldReport.isBlank()) {
+                result.putIfAbsent(comment.getWorkOrder().getId(), fieldReport);
+            }
+        });
         return result;
     }
 
@@ -122,7 +139,34 @@ public class WorkOrderOperationalReportService {
         return content.substring(FIELD_REPORT_PREFIX.length()).trim();
     }
 
-    private WorkOrderOperationalReportRowDTO toRow(WorkOrder workOrder, String fieldReport) {
+    private String getRealFieldReportText(String content) {
+        String text = stripFieldReportPrefix(content);
+        if (text == null || PHOTO_ONLY_FIELD_REPORT_TEXTS.contains(text)) {
+            return null;
+        }
+        return text;
+    }
+
+    private int countFieldCommentFiles(List<Comment> fieldComments) {
+        return fieldComments.stream()
+                .map(Comment::getFiles)
+                .filter(Objects::nonNull)
+                .mapToInt(List::size)
+                .sum();
+    }
+
+    private boolean hasFieldCommentImage(List<Comment> fieldComments) {
+        return fieldComments.stream()
+                .map(Comment::getFiles)
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .anyMatch(file -> file.getType() == com.grash.model.enums.FileType.IMAGE);
+    }
+
+    private WorkOrderOperationalReportRowDTO toRow(WorkOrder workOrder, String fieldReport,
+                                                   List<Comment> fieldComments) {
+        int directFilesCount = workOrder.getFiles() == null ? 0 : workOrder.getFiles().size();
+        int fieldCommentFilesCount = countFieldCommentFiles(fieldComments);
         return WorkOrderOperationalReportRowDTO.builder()
                 .id(workOrder.getId())
                 .customId(workOrder.getCustomId())
@@ -145,8 +189,8 @@ public class WorkOrderOperationalReportService {
                 .siteDurationSeconds(diffSeconds(workOrder.getCheckInAt(), workOrder.getCheckOutAt()))
                 .totalFieldDurationSeconds(diffSeconds(workOrder.getDepartureAt(), workOrder.getCheckOutAt()))
                 .fieldReport(fieldReport)
-                .filesCount(workOrder.getFiles() == null ? 0 : workOrder.getFiles().size())
-                .hasImage(workOrder.getImage() != null)
+                .filesCount(directFilesCount + fieldCommentFilesCount)
+                .hasImage(workOrder.getImage() != null || hasFieldCommentImage(fieldComments))
                 .hasSignature(workOrder.getSignature() != null && !workOrder.getSignature().isBlank())
                 .build();
     }

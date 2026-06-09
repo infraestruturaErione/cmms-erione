@@ -393,30 +393,38 @@ export const getPDFReport =
 export const getWorkOrderEvents =
   (start: Date, end: Date): AppThunk =>
   async (dispatch) => {
-    dispatch(slice.actions.setLoadingGet({ loading: true }));
-    const response = await api.post<
-      CalendarEvent<WorkOrder | PreventiveMaintenance>[]
-    >(`${basePath}/events`, {
-      start,
-      end
-    });
-    dispatch(
-      slice.actions.getEvents({
-        events: response
-      })
-    );
-    dispatch(slice.actions.setLoadingGet({ loading: false }));
+    try {
+      dispatch(slice.actions.setLoadingGet({ loading: true }));
+      const response = await api.post<
+        CalendarEvent<WorkOrder | PreventiveMaintenance>[]
+      >(`${basePath}/events`, {
+        start,
+        end
+      });
+      dispatch(
+        slice.actions.getEvents({
+          events: response
+        })
+      );
+    } finally {
+      dispatch(slice.actions.setLoadingGet({ loading: false }));
+    }
   };
 export const getCalendarWorkOrders =
   (criteria: SearchCriteria): AppThunk =>
   async (dispatch) => {
-    dispatch(slice.actions.setLoadingGet({ loading: true }));
-    const result = await api.post<Page<WorkOrder>>(
-      `${basePath}/search`,
-      criteria
-    );
-    dispatch(slice.actions.setCalendarWorkOrders({ workOrders: result.content }));
-    dispatch(slice.actions.setLoadingGet({ loading: false }));
+    try {
+      dispatch(slice.actions.setLoadingGet({ loading: true }));
+      const result = await api.post<Page<WorkOrder>>(
+        `${basePath}/search`,
+        criteria
+      );
+      dispatch(
+        slice.actions.setCalendarWorkOrders({ workOrders: result.content })
+      );
+    } finally {
+      dispatch(slice.actions.setLoadingGet({ loading: false }));
+    }
   };
 export const getUrgentWorkOrdersCount = (): AppThunk => async (dispatch) => {
   const response = await api.get<{ success: boolean; message: string }>(

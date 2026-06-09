@@ -93,6 +93,7 @@ import { useExport } from '../../../hooks/useExport';
 import { getCustomFields } from '../../../slices/customField';
 import AddWorkOrderTabbedModal from './components/AddWorkOrderTabbedModal';
 import { CustomFieldEntityType } from '../../../models/owns/customField';
+import WorkOrderStatusCell from './components/WorkOrderStatusCell';
 
 const fieldMapping: Record<string, string> = {
   customId: 'customId',
@@ -392,13 +393,25 @@ function WorkOrders() {
     newValues.team = formatSelect(newValues.team);
     newValues.asset = formatSelect(newValues.asset);
     newValues.assignedTo = formatSelectMultiple(newValues.assignedTo);
-    newValues.customers = formatSelectMultiple(newValues.customers);
+    newValues.customers = Array.isArray(newValues.customers)
+      ? formatSelectMultiple(newValues.customers)
+      : newValues.customers
+      ? [formatSelect(newValues.customers)]
+      : [];
     newValues.priority = newValues.priority ? newValues.priority.value : 'NONE';
     newValues.requiredSignature = Array.isArray(newValues.requiredSignature)
       ? newValues?.requiredSignature.includes('on')
       : newValues.requiredSignature;
     newValues.category = formatSelect(newValues.category);
     return formatCustomFields(newValues);
+  };
+  const getPrimaryCustomerValue = (customers?: any[]) => {
+    const firstCustomer = customers?.[0];
+    if (!firstCustomer) return null;
+    return {
+      label: firstCustomer.label ?? firstCustomer.name,
+      value: firstCustomer.value ?? firstCustomer.id?.toString()
+    };
   };
   const onCreationSuccess = () => {
     setOpenAddModal(false);
@@ -448,23 +461,7 @@ function WorkOrders() {
     columnHelper.accessor('status', {
       id: 'status',
       header: () => t('status'),
-      cell: (info) => (
-        <Box display="flex" flexDirection="row">
-          <CircleTwoToneIcon
-            fontSize="small"
-            color={
-              info.getValue() === 'IN_PROGRESS'
-                ? 'success'
-                : info.getValue() === 'ON_HOLD'
-                ? 'warning'
-                : info.getValue() === 'COMPLETE'
-                ? 'info'
-                : 'secondary'
-            }
-          />
-          <Typography sx={{ ml: 1 }}>{t(info.getValue())}</Typography>
-        </Box>
-      ),
+      cell: (info) => <WorkOrderStatusCell status={info.getValue()} t={t} />,
       size: 150
     }),
     columnHelper.accessor('title', {
@@ -637,9 +634,9 @@ function WorkOrders() {
     {
       name: 'customers',
       type: 'select',
-      label: t('customers'),
+      label: t('customer'),
       type2: 'customer',
-      multiple: true
+      helperText: 'workOrders.customer_single_mvp_helper'
     },
     {
       name: 'location',
@@ -765,13 +762,11 @@ function WorkOrders() {
           : null,
         customers:
           customerParam && customerParamObject
-            ? [
-                {
-                  label: customerParamObject.name,
-                  value: customerParamObject.id
-                }
-              ]
-            : []
+            ? {
+                label: customerParamObject.name,
+                value: customerParamObject.id
+              }
+            : null
       }}
       onChange={({ field, e }) => {}}
       onSubmit={async (values) => {
@@ -833,7 +828,10 @@ function WorkOrders() {
             values={{
               ...currentWorkOrder,
               tasks,
-              ...getWOBaseValues(t, currentWorkOrder)
+              ...getWOBaseValues(t, currentWorkOrder),
+              customers: getPrimaryCustomerValue(
+                getWOBaseValues(t, currentWorkOrder).customers
+              )
             }}
             onChange={({ field, e }) => {}}
             onSubmit={async (values) => {
