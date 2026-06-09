@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <changeSet id="20260609-01-add-operational-indexes" author="codex">
+        <sql>
+            CREATE INDEX IF NOT EXISTS idx_role_view_permissions_role_id ON role_view_permissions(role_id);
+            CREATE INDEX IF NOT EXISTS idx_role_view_permissions_value ON role_view_permissions(view_permissions);
+            CREATE INDEX IF NOT EXISTS idx_role_create_permissions_role_id ON role_create_permissions(role_id);
+            CREATE INDEX IF NOT EXISTS idx_role_edit_other_permissions_role_id ON role_edit_other_permissions(role_id);
+            CREATE INDEX IF NOT EXISTS idx_role_delete_other_permissions_role_id ON role_delete_other_permissions(role_id);
+            CREATE INDEX IF NOT EXISTS idx_role_view_other_permissions_role_id ON role_view_other_permissions(role_id);
+
+            CREATE INDEX IF NOT EXISTS idx_work_order_assigned_to_work_order_id ON work_order_assigned_to(work_order_id);
+            CREATE INDEX IF NOT EXISTS idx_work_order_assigned_to_assigned_to_id ON work_order_assigned_to(assigned_to_id);
+            CREATE INDEX IF NOT EXISTS idx_work_order_customers_work_order_id ON work_order_customers(work_order_id);
+            CREATE INDEX IF NOT EXISTS idx_work_order_customers_customers_id ON work_order_customers(customers_id);
+
+            CREATE INDEX IF NOT EXISTS idx_subscription_plan_features_plan_id ON subscription_plan_features(subscription_plan_id);
+            CREATE INDEX IF NOT EXISTS idx_super_account_relation_super_user_id ON super_account_relation(super_user_id);
+            CREATE INDEX IF NOT EXISTS idx_super_account_relation_child_user_id ON super_account_relation(child_user_id);
+
+            CREATE INDEX IF NOT EXISTS idx_work_order_status ON work_order(status);
+            CREATE INDEX IF NOT EXISTS idx_work_order_created_at ON work_order(created_at);
+            CREATE INDEX IF NOT EXISTS idx_work_order_company_status ON work_order(company_id, status);
+            CREATE INDEX IF NOT EXISTS idx_work_order_company_archived_status ON work_order(company_id, archived, status);
+        </sql>
+        <rollback>
+            DROP INDEX IF EXISTS idx_work_order_company_archived_status;
+            DROP INDEX IF EXISTS idx_work_order_company_status;
+            DROP INDEX IF EXISTS idx_work_order_created_at;
+            DROP INDEX IF EXISTS idx_work_order_status;
+
+            DROP INDEX IF EXISTS idx_super_account_relation_child_user_id;
+            DROP INDEX IF EXISTS idx_super_account_relation_super_user_id;
+            DROP INDEX IF EXISTS idx_subscription_plan_features_plan_id;
+
+            DROP INDEX IF EXISTS idx_work_order_customers_customers_id;
+            DROP INDEX IF EXISTS idx_work_order_customers_work_order_id;
+            DROP INDEX IF EXISTS idx_work_order_assigned_to_assigned_to_id;
+            DROP INDEX IF EXISTS idx_work_order_assigned_to_work_order_id;
+
+            DROP INDEX IF EXISTS idx_role_view_other_permissions_role_id;
+            DROP INDEX IF EXISTS idx_role_delete_other_permissions_role_id;
+            DROP INDEX IF EXISTS idx_role_edit_other_permissions_role_id;
+            DROP INDEX IF EXISTS idx_role_create_permissions_role_id;
+            DROP INDEX IF EXISTS idx_role_view_permissions_value;
+            DROP INDEX IF EXISTS idx_role_view_permissions_role_id;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

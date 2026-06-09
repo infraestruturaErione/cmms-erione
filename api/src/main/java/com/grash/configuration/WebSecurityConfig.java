@@ -40,6 +40,8 @@ public class WebSecurityConfig {
     private boolean enableSso;
     @Value("${ldap.enabled:false}")
     private boolean ldapEnabled;
+    @Value("${springdoc.api-docs.enabled:true}")
+    private boolean springdocEnabled;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, ApiKeyAuthFilter apiKeyAuthFilter) throws Exception {
@@ -51,40 +53,50 @@ public class WebSecurityConfig {
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         // Entry points
-        http.authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/signin").permitAll()
-                        .requestMatchers("/auth/signin-ldap").permitAll()
-                        .requestMatchers("/auth/signup").permitAll()
-                        .requestMatchers("/auth/sso/**").permitAll()
-                        .requestMatchers("/auth/sendMail").permitAll()
-                        .requestMatchers("/auth/resetpwd/**").permitAll()
-                        .requestMatchers("/license/state").permitAll()
-                        .requestMatchers("/oauth2/**").permitAll()
-                        .requestMatchers("/login/oauth2/**").permitAll()
-                        .requestMatchers("/health-check").permitAll()
-                        .requestMatchers("/mail/send").permitAll()
-                        .requestMatchers("/instance-config").permitAll()
-                        .requestMatchers("/subscription-plans").permitAll()
-                        .requestMatchers("/files/download/tos", "/files/download/privacy-policy").permitAll()
-                        .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/newsLetters").permitAll()
-                        .requestMatchers("/auth/activate-account**").permitAll()
-                        .requestMatchers("/demo/generate-account").permitAll()
-                        .requestMatchers("/webhooks/**").permitAll()
-                        .requestMatchers("/paddle/create-checkout-session").permitAll()
-                        .requestMatchers("/auth/reset-pwd-confirm**").permitAll()
-                        //request-portal
-                        .requestMatchers("/request-portals/public/{uuid}").permitAll()
-                        .requestMatchers("/requests/portal/{requestPortalUuid}").permitAll()
-                        .requestMatchers("/files/upload/request-portal/{uuid}").permitAll()
-                        .requestMatchers("/assets/public/mini/{uuid}").permitAll()
-                        .requestMatchers("/locations/public/mini/{uuid}").permitAll()
+        http.authorizeHttpRequests(auth -> {
+                    auth
+                            .requestMatchers("/auth/signin").permitAll()
+                            .requestMatchers("/auth/signin-ldap").permitAll()
+                            .requestMatchers("/auth/signup").permitAll()
+                            .requestMatchers("/auth/sso/**").permitAll()
+                            .requestMatchers("/auth/sendMail").permitAll()
+                            .requestMatchers("/auth/resetpwd/**").permitAll()
+                            .requestMatchers("/license/state").permitAll()
+                            .requestMatchers("/oauth2/**").permitAll()
+                            .requestMatchers("/login/oauth2/**").permitAll()
+                            .requestMatchers("/health-check").permitAll()
+                            .requestMatchers("/mail/send").permitAll()
+                            .requestMatchers("/instance-config").permitAll()
+                            .requestMatchers("/subscription-plans").permitAll()
+                            .requestMatchers("/files/download/tos", "/files/download/privacy-policy").permitAll()
+                            .requestMatchers("/ws/**").permitAll()
+                            .requestMatchers(HttpMethod.POST, "/newsLetters").permitAll()
+                            .requestMatchers("/auth/activate-account**").permitAll()
+                            .requestMatchers("/demo/generate-account").permitAll()
+                            .requestMatchers("/webhooks/**").permitAll()
+                            .requestMatchers("/paddle/create-checkout-session").permitAll()
+                            .requestMatchers("/auth/reset-pwd-confirm**").permitAll()
+                            //request-portal
+                            .requestMatchers("/request-portals/public/{uuid}").permitAll()
+                            .requestMatchers("/requests/portal/{requestPortalUuid}").permitAll()
+                            .requestMatchers("/files/upload/request-portal/{uuid}").permitAll()
+                            .requestMatchers("/assets/public/mini/{uuid}").permitAll()
+                            .requestMatchers("/locations/public/mini/{uuid}").permitAll();
 //                .requestMatchers("/h2-console/**").permitAll()
-                        .requestMatchers("/swagger-ui/**").permitAll()
-                        .requestMatchers("/swagger-ui.html").permitAll()
-                        .requestMatchers("/v3/api-docs/**").permitAll()
-                        // Disallow everything else..
-                        .anyRequest().authenticated()
+                    if (springdocEnabled) {
+                        auth
+                                .requestMatchers("/swagger-ui/**").permitAll()
+                                .requestMatchers("/swagger-ui.html").permitAll()
+                                .requestMatchers("/v3/api-docs/**").permitAll();
+                    } else {
+                        auth
+                                .requestMatchers("/swagger-ui/**").denyAll()
+                                .requestMatchers("/swagger-ui.html").denyAll()
+                                .requestMatchers("/v3/api-docs/**").denyAll();
+                    }
+                    // Disallow everything else..
+                    auth.anyRequest().authenticated();
+                }
         );
 
         // OAuth2 Configuration
