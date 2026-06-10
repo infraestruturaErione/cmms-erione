@@ -235,3 +235,58 @@ Refetch de focus/visibility agora também dispara `getCalendarWorkOrders` quando
 - Permissoes/roles.
 - Customer Scope.
 - Producao/containers.
+
+---
+
+## 2026-06-10 - Deploy frontend e validacao em producao
+
+### Commit/deploy
+
+- Commit publicado: `905a41c fix: sync work order calendar and organize field evidence UI`.
+- Servidor `/var/www/html/cmms-erione`: `git pull` aplicado em fast-forward de `ae50886` para `905a41c`.
+- Container rebuildado: apenas `frontend` / `atlas-cmms-frontend`.
+- Containers apos deploy:
+  - `atlas-cmms-frontend`: recriado e `Up`;
+  - `atlas-cmms-backend`: permaneceu `Running`;
+  - `atlas_db`: permaneceu `Running`;
+  - `atlas_minio`: permaneceu `Running`.
+
+### Validacao em producao
+
+- Login web producao OK.
+- Calendario:
+  - criada OS temporaria `WO000021 - VALIDACAO DEPLOY CALENDARIO 2026-06-10T19:56`;
+  - apareceu no calendario de junho/2026 sem F5;
+  - clique no evento abriu o detalhe correto `/app/work-orders/455`;
+  - apos exclusao da OS temporaria, calendario atualizou para empty state sem F5.
+- Detalhe da OS:
+  - titulo e descricao aparecem separados;
+  - `Descricao` aparece como bloco/campo proprio.
+- Timeline/duracao:
+  - `OS criada`, `Deslocamento iniciado` e `Check-in realizado` exibiram chip `Registrado`;
+  - deslocamento com menos de 1 minuto exibiu `menos de 1 min`;
+  - nao apareceu `0min`.
+- Evidencias/anexos:
+  - validacao visual limitada porque a OS temporaria nao tinha anexos;
+  - regra foi validada em codigo/build: dedupe global por `file.id`, fallback `url`, `path`, `name`, com prioridade Evidencias de Campo > Anexos da Solicitacao > Anexos da OS.
+
+### Diagnostico de horario em producao
+
+- Host: `Etc/UTC`.
+- Container backend: data em UTC, sem `TZ` definido.
+- Postgres: `SHOW timezone` retornou `UTC`.
+- Postgres `now()` retornou `2026-06-10 20:01:12+00`.
+- Conversao no Postgres para `America/Sao_Paulo` no mesmo instante retornou `2026-06-10 17:01:12`.
+- Java reportou `user.country = US` e `user.language = en`; `user.timezone` nao apareceu explicitamente no recorte, mas o container roda em UTC.
+- Observacao importante: a OS temporaria criada por volta de `19:56 UTC` apareceu na UI como `10/06/2026 19:56`, indicando que a tela web em producao esta exibindo UTC nessa area, nao horario de Brasilia.
+
+### Nao alterado
+
+- Timezone do host.
+- Timezone do Postgres.
+- `TZ`/`JAVA_TOOL_OPTIONS`.
+- Backend.
+- Banco/migrations.
+- Endpoints.
+- Permissoes/roles.
+- Customer Scope.
