@@ -112,6 +112,25 @@ const fieldMapping: Record<string, string> = {
   createdAt: 'createdAt',
   dueDate: 'dueDate'
 };
+
+const WORK_ORDERS_FILTERS_STORAGE_KEY = 'erione.workOrders.filterFields';
+
+const getInitialWorkOrderFilterFields = (
+  defaults: FilterField[]
+): FilterField[] => {
+  if (typeof localStorage === 'undefined') return defaults;
+
+  try {
+    const saved = localStorage.getItem(WORK_ORDERS_FILTERS_STORAGE_KEY);
+    if (!saved) return defaults;
+
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : defaults;
+  } catch {
+    return defaults;
+  }
+};
+
 function WorkOrders() {
   const { t }: { t: any } = useTranslation();
   const [currentTab, setCurrentTab] = useState<string>('list');
@@ -210,11 +229,12 @@ function WorkOrders() {
     pageNum: 0,
     direction: 'DESC'
   };
-  const [criteria, setCriteria] = useState<SearchCriteria>({
+  const [criteria, setCriteria] = useState<SearchCriteria>(() => ({
     ...initialCriteria,
+    filterFields: getInitialWorkOrderFilterFields(initialCriteria.filterFields),
     sortField: 'updatedAt',
     direction: 'DESC'
-  });
+  }));
   const {
     sorting,
     setSorting,
@@ -308,6 +328,15 @@ function WorkOrders() {
     newCriteria.pageNum = 0;
     setCriteria(newCriteria);
   };
+
+  useEffect(() => {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(
+      WORK_ORDERS_FILTERS_STORAGE_KEY,
+      JSON.stringify(criteria.filterFields)
+    );
+  }, [criteria.filterFields]);
+
   const archivedFilter = criteria.filterFields.find(
     (filterField) => filterField.field === 'archived'
   );

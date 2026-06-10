@@ -1073,7 +1073,7 @@ export default function WODetailsScreen({
               style={styles.detailsScroll}
               refreshControl={
                 <RefreshControl
-                  refreshing={loading || loadingDetails}
+                  refreshing={loading || loadingGet}
                   onRefresh={getInfos}
                 />
               }

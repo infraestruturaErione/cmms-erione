@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Modal,
   StyleSheet,
   TouchableOpacity,
@@ -20,12 +21,33 @@ export default function InAppCamera({ visible, onCapture, onClose }: Props) {
   const cameraRef = useRef<CameraView>(null);
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
+  const [requestedForOpen, setRequestedForOpen] = useState(false);
 
   React.useEffect(() => {
-    if (visible && permission && !permission.granted && permission.canAskAgain) {
+    if (!visible) {
+      setRequestedForOpen(false);
+      return;
+    }
+    if (permission === null) return;
+    if (permission.granted || requestedForOpen) return;
+    if (!permission.canAskAgain) return;
+
+    setRequestedForOpen(true);
+    requestPermission();
+  }, [
+    visible,
+    permission?.granted,
+    permission?.canAskAgain,
+    requestedForOpen,
+    requestPermission
+  ]);
+
+  const handleRequestPermission = () => {
+    if (!permission || permission.canAskAgain) {
+      setRequestedForOpen(true);
       requestPermission();
     }
-  }, [visible, permission?.granted]);
+  };
 
   const handleCapture = async () => {
     if (!cameraRef.current) return;
@@ -68,11 +90,26 @@ export default function InAppCamera({ visible, onCapture, onClose }: Props) {
             </View>
           </SafeAreaView>
         </CameraView>
+      ) : !permission ? (
+        <View style={styles.noAccess}>
+          <ActivityIndicator color="white" />
+          <Text style={styles.noAccessText}>Preparando camera...</Text>
+        </View>
       ) : (
         <View style={styles.noAccess}>
-          <Text style={styles.noAccessText}>Camera permission required.</Text>
+          <Text style={styles.noAccessText}>
+            Permissao de camera necessaria para tirar fotos da OS.
+          </Text>
+          {permission.canAskAgain && (
+            <TouchableOpacity
+              onPress={handleRequestPermission}
+              style={styles.permissionButton}
+            >
+              <Text style={styles.permissionButtonText}>Permitir camera</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={onClose} style={{ marginTop: 20 }}>
-            <Text style={{ color: 'white' }}>Go back</Text>
+            <Text style={{ color: 'white' }}>Voltar</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -113,6 +150,20 @@ const styles = StyleSheet.create({
   },
   noAccessText: {
     color: 'white',
-    fontSize: 16
+    fontSize: 16,
+    marginTop: 16,
+    paddingHorizontal: 28,
+    textAlign: 'center'
+  },
+  permissionButton: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginTop: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 12
+  },
+  permissionButtonText: {
+    color: '#111827',
+    fontWeight: '700'
   }
 });

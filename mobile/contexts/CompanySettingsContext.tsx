@@ -55,7 +55,7 @@ export const CompanySettingsProvider: FC<{ children: ReactNode }> = (props) => {
     if (!dateString) return '';
 
     const tz = generalPreferences?.timeZone || ERIONE_TIME_ZONE;
-    const date = moment.tz(dateString, tz);
+    const date = moment.tz(moment.utc(dateString), tz);
     if (!date.isValid()) return '';
 
     return `${date.format(ERIONE_DATE_FORMAT)}${

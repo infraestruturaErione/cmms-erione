@@ -53,23 +53,32 @@ const slice = createSlice({
       action: PayloadAction<{ notification: Notification }>
     ) {
       const { notification } = action.payload;
-      state.notifications.content.unshift(
-        notification
+      state.notifications.content = state.notifications.content.filter(
+        (current) => current.id !== notification.id
       );
+      if (!notification.seen) {
+        state.notifications.content.unshift(notification);
+      }
     },
     editNotification(
       state: NotificationState,
       action: PayloadAction<{ notification: Notification }>
     ) {
       const { notification } = action.payload;
-      state.notifications.content = state.notifications.content.map(
-        (notification1) => {
-          if (notification1.id === notification.id) {
-            return notification;
+      if (notification.seen) {
+        state.notifications.content = state.notifications.content.filter(
+          (notification1) => notification1.id !== notification.id
+        );
+      } else {
+        state.notifications.content = state.notifications.content.map(
+          (notification1) => {
+            if (notification1.id === notification.id) {
+              return notification;
+            }
+            return notification1;
           }
-          return notification1;
-        }
-      );
+        );
+      }
     },
     readAll(
       state: NotificationState,
@@ -150,7 +159,7 @@ export const readAllNotifications =
       );
       if (notificationResponse.success)
         dispatch(
-          slice.actions.readAll({})
+          slice.actions.clearNotifications({})
         );
     };
 export const clearAllNotifications =

@@ -14,6 +14,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
 
+import jakarta.annotation.PostConstruct;
 import java.util.*;
 
 @SpringBootApplication
@@ -31,6 +32,12 @@ public class ApiApplication implements SmartInitializingSingleton {
     private final CompanyService companyService;
     private final SubscriptionPlanService subscriptionPlanService;
     private final SubscriptionService subscriptionService;
+
+    @PostConstruct
+    public void configureDefaultTimeZone() {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        log.info("Default JVM timezone set to UTC");
+    }
 
     public static void main(String[] args) {
         SpringApplication.run(ApiApplication.class, args);

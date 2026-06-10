@@ -33,7 +33,13 @@ export default function NotificationsScreen({
     (state) => state.notifications
   );
   const criteria: SearchCriteria = {
-    filterFields: [],
+    filterFields: [
+      {
+        field: 'seen',
+        operation: 'eq',
+        value: false
+      }
+    ],
     pageSize: 15,
     pageNum: 0,
     direction: 'DESC'

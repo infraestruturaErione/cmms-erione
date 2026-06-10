@@ -36,6 +36,9 @@ function EnumFilter({
   const handleCloseMenu = () => {
     setAnchorEl(null);
   };
+  const selectedValues =
+    filterFields.find(({ field }) => field === fieldName)?.values ?? [];
+
   return (
     <>
       <Button
@@ -47,11 +50,7 @@ function EnumFilter({
         variant={'outlined'}
         startIcon={icon}
       >
-        {enumerate(
-          filterFields
-            .find(({ field }) => field === fieldName)
-            .values.map((priority) => t(priority))
-        )}
+        {enumerate(selectedValues.map((priority) => t(priority)))}
       </Button>
       <Menu
         id="basic-menu"
@@ -73,14 +72,23 @@ function EnumFilter({
             const filterFieldIndex = newFilterFields.findIndex(
               (filterField) => filterField.field === fieldName
             );
-            newFilterFields[filterFieldIndex] = {
-              ...newFilterFields[filterFieldIndex],
-              values: pushOrRemove(
-                newFilterFields[filterFieldIndex].values,
-                !isChecked,
-                option
-              )
-            };
+            if (filterFieldIndex === -1) {
+              newFilterFields.push({
+                field: fieldName,
+                operation: 'in',
+                value: '',
+                values: [option]
+              });
+            } else {
+              newFilterFields[filterFieldIndex] = {
+                ...newFilterFields[filterFieldIndex],
+                values: pushOrRemove(
+                  newFilterFields[filterFieldIndex].values,
+                  !isChecked,
+                  option
+                )
+              };
+            }
             onChange(newFilterFields);
           };
           return (

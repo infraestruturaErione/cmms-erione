@@ -51,7 +51,13 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
   const { workOrders, loadingGet } = useSelector((state) => state.workOrders);
 
   const notificationsCriteria: SearchCriteria = {
-    filterFields: [],
+    filterFields: [
+      {
+        field: 'seen',
+        operation: 'eq',
+        value: false
+      }
+    ],
     pageSize: 15,
     pageNum: 0,
     direction: 'DESC'
