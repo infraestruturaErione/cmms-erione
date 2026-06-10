@@ -50,6 +50,7 @@ import {
   addWorkOrder,
   deleteWorkOrder,
   editWorkOrder,
+  getCalendarWorkOrders,
   getSingleWorkOrder,
   getWorkOrders,
   refreshWorkOrderById
@@ -505,6 +506,39 @@ function WorkOrders() {
       if (currentWorkOrder?.id) {
         dispatch(refreshWorkOrderById(currentWorkOrder.id));
       }
+      if (currentTab === 'calendar') {
+        const archivedFilter = criteria.filterFields.find(
+          (ff) => ff.field === 'archived'
+        );
+        const calendarFilterFields: FilterField[] = [
+          archivedFilter ?? {
+            field: 'archived',
+            operation: 'eq' as const,
+            value: false
+          },
+          {
+            field: 'status',
+            operation: 'in' as const,
+            value: '',
+            values: [
+              'OPEN',
+              'EN_ROUTE',
+              'IN_PROGRESS',
+              'ON_HOLD',
+              'COMPLETE'
+            ]
+          }
+        ];
+        dispatch(
+          getCalendarWorkOrders({
+            filterFields: calendarFilterFields,
+            pageNum: 0,
+            pageSize: 500,
+            sortField: 'estimatedStartDate',
+            direction: 'ASC'
+          })
+        );
+      }
     };
 
     const onWindowFocus = () => refreshCurrentWorkOrdersView();
@@ -521,7 +555,7 @@ function WorkOrders() {
       window.removeEventListener('focus', onWindowFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [criteria, currentWorkOrder?.id, dispatch]);
+  }, [criteria, currentTab, currentWorkOrder?.id, dispatch]);
 
   useEffect(() => {
     if ((openAddModal || openUpdateModal) && !customFields.length) {

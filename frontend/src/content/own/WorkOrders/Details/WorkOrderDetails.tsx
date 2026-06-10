@@ -686,15 +686,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
             <Typography variant="h2" noWrap>
               {workOrder?.title}
             </Typography>
-            {workOrder?.description && (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ mt: 0.75, maxWidth: 980 }}
-              >
-                {workOrder.description}
-              </Typography>
-            )}
           </Box>
           <Stack direction="row" spacing={1} flexShrink={0}>
           {hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
@@ -873,21 +864,26 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                   </Button>
                 </Box>
               </Grid>
-              {workOrder.image && (
-                <Grid
-                  item
-                  xs={12}
-                  lg={12}
-                  display="flex"
-                  justifyContent="center"
-                >
-                  <img
-                    src={workOrder.image.url}
-                    style={{ borderRadius: 5, height: 250, cursor: 'pointer' }}
-                    onClick={() => {
-                      setImageState([workOrder.image.url], workOrder.image.url);
+              {workOrder.description && (
+                <Grid item xs={12}>
+                  <Box
+                    sx={{
+                      p: 2,
+                      borderRadius: 1,
+                      border: `1px solid ${theme.palette.divider}`,
+                      bgcolor: alpha(theme.palette.primary.main, 0.03)
                     }}
-                  />
+                  >
+                    <Typography
+                      variant="h6"
+                      sx={{ color: theme.colors.alpha.black[70], mb: 0.5 }}
+                    >
+                      {t('description')}
+                    </Typography>
+                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {workOrder.description}
+                    </Typography>
+                  </Box>
                 </Grid>
               )}
               {detailsFieldsToRender(workOrder).map((field, index) => (
@@ -1547,6 +1543,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
             <FieldEvidenceSection
               comments={comments}
               workOrder={workOrder}
+              parentRequest={workOrder.parentRequest}
               onOpenImage={setImageState}
             />
           </Box>

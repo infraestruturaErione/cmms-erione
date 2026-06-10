@@ -371,14 +371,17 @@ const ptBRJSON = {
   'workOrders.calendar.subtitle':
     'Planejamento visual das OS por data, prazo ou início estimado.',
   'workOrders.calendar.unscheduled': '{{count}} OS sem agendamento',
-  request_photos_and_attachments: 'Fotos e anexos da solicitação',
-  request_photos_and_attachments_helper:
-    'Arquivos enviados na solicitação ou anexados diretamente à OS.',
-  no_request_photos_and_attachments:
-    'Nenhuma foto ou anexo da solicitação registrado.',
-  technician_evidence: 'Evidências do técnico',
-  technician_evidence_helper:
+  request_attachments: 'Anexos da Solicitação',
+  request_attachments_helper: 'Arquivos anexados à solicitação de origem.',
+  no_request_attachments: 'Nenhum anexo da solicitação registrado.',
+  wo_attachments: 'Anexos da OS',
+  wo_attachments_helper: 'Arquivos anexados diretamente a esta OS.',
+  no_wo_attachments: 'Nenhum anexo da OS registrado.',
+  field_evidence: 'Evidências de Campo',
+  field_evidence_helper:
     'Fotos e anexos enviados pelo técnico durante a execução em campo.',
+  field_evidence_count: '{{count}} evidência(s)',
+  no_field_evidence: 'Nenhuma evidência de campo registrada.',
   to_delete: 'Excluir',
   confirm_delete_wo: 'Tem certeza de que deseja excluir esta Ordem de Serviço?',
   no_access_wo:
@@ -537,6 +540,7 @@ const ptBRJSON = {
   travel_duration: 'Duracao do deslocamento',
   site_duration: 'Duracao no local',
   total_field_duration: 'Duracao total em campo',
+  less_than_1_min: 'menos de 1 min',
   field_report: 'Relato em campo',
   field_execution: 'Execução em Campo',
   field_execution_helper:
@@ -566,7 +570,7 @@ const ptBRJSON = {
   field_report_registered: 'Relato registrado',
   no_field_report_registered: 'Sem relato registrado',
   pending_step: 'Pendente',
-  completed_step: 'Concluído',
+  completed_step: 'Registrado',
   current_step: 'Atual',
   open_work_order: 'Abrir',
   view_work_order: 'Ver OS',
@@ -598,12 +602,7 @@ const ptBRJSON = {
   check_in_done: 'Check-in realizado',
   check_out_done: 'Check-out realizado',
   evidence_registered: 'Evidências/fotos registradas',
-  field_evidence: 'Evidências de Campo',
-  field_evidence_helper:
-    'Fotos e arquivos anexados diretamente na OS ou nos relatos de campo do técnico.',
-  field_evidence_count: '{{count}} evidência(s)',
   file_without_url: 'Arquivo indisponível para abertura.',
-  no_field_evidence: 'Nenhuma evidência de campo registrada.',
   signature_registered: 'Assinatura registrada',
   departure_latitude: 'Latitude saída',
   departure_longitude: 'Longitude saída',

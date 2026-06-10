@@ -165,9 +165,73 @@ Agora:
 
 **Conclusão:** Código de autorização está correto. Se o 403 ocorreu originalmente, foi provavelmente por estado inconsistente do container (pré-rebuild) ou token JWT gerado antes de recriar o container.
 
+## 2026-06-10 — Correção: calendário stale sem F5 (propagação de mutações para calendarWorkOrders)
+
+### Problema
+
+O calendário (`calendarWorkOrders`) não era atualizado quando uma OS era criada, editada, concluída, deletada ou quando arquivos eram anexados/removidos. Apenas `workOrders.content` (lista) recebia as atualizações.
+
+### Causa raiz
+
+5 reducers no slice `workOrder.ts` ignoravam `calendarWorkOrders`. O refetch de focus/visibility em `index.tsx` também não refazia `getCalendarWorkOrders`.
+
+### Correção
+
+**Arquivo:** `frontend/src/slices/workOrder.ts`
+
+Abordagem: **atualização no reducer** (Opção A). Todos os 5 reducers de mutation agora propagam para `calendarWorkOrders`:
+- `addWorkOrder`: insere no início
+- `editWorkOrder`: substitui por ID
+- `addFilesToWorkOrder`: adiciona arquivos ao item
+- `setFilesForWorkOrder`: substitui arquivos do item
+- `deleteWorkOrder`: remove por ID
+
+**Arquivo:** `frontend/src/content/own/WorkOrders/index.tsx`
+
+Refetch de focus/visibility agora também dispara `getCalendarWorkOrders` quando `currentTab === 'calendar'`.
+
+### Build
+- `npm run build`: ✅ (apenas warnings pré-existentes de sourcemap)
+
 ### Observações
 
 - Nenhuma migration foi executada
 - Nenhuma alteração em banco de dados
+- Nenhuma alteração em backend
 - Build frontend (`npm run build`) compila sem erros TS
 - Containers: api, frontend, postgres, minio — todos rodando sem falhas
+---
+
+## 2026-06-10 - Hardening calendario/evidencias/timeline de OS
+
+### Problemas tratados
+
+- Risco de duplicacao visual no calendario quando `addWorkOrder` recebe uma OS ja presente em `calendarWorkOrders`.
+- Deduplicacao de arquivos/evidencias precisava priorizar `file.id`.
+- Duracoes reais menores que 1 minuto apareciam como `0min`.
+- Timeline de execucao mostrava chip generico `Concluido` para etapas registradas, confundindo com OS concluida.
+- Descricao da OS aparecia como texto solto sob o titulo; agora fica em campo identificado como `Descricao`.
+
+### Correcoes
+
+- `frontend/src/slices/workOrder.ts`: `addWorkOrder` faz upsert por `id` em `calendarWorkOrders`.
+- `frontend/src/content/own/WorkOrders/Details/FieldEvidenceSection.tsx`: dedupe usa `file.id` como chave principal; fallback por `url`, `path` e `name`; quando o mesmo arquivo aparece em mais de uma origem, a prioridade visual é Evidências de Campo, depois Anexos da Solicitação, depois Anexos da OS.
+- `frontend/src/content/own/WorkOrders/Details/FieldExecutionSection.tsx`: duracao entre 1 e 59 segundos mostra `menos de 1 min`.
+- `frontend/src/content/own/WorkOrders/Details/FieldExecutionTimeline.tsx`: duracao entre 1 e 59 segundos mostra `menos de 1 min`.
+- `frontend/src/content/own/WorkOrders/Details/WorkOrderDetails.tsx`: descricao separada em bloco proprio com label `Descricao`.
+- `frontend/src/i18n/translations/pt_BR.ts` e `frontend/src/i18n/translations/en.ts`: adicionadas traducoes para `less_than_1_min`; `completed_step` virou `Registrado` / `Recorded`.
+
+### Validacao tecnica
+
+- `cd frontend && npx eslint ...arquivos alterados...`: OK.
+- `cd frontend && npm run build`: OK, apenas warnings conhecidos de sourcemap em dependencias e CRA/Babel.
+
+### Nao alterado
+
+- Timezone.
+- Backend.
+- Banco/migrations.
+- Endpoints.
+- Permissoes/roles.
+- Customer Scope.
+- Producao/containers.

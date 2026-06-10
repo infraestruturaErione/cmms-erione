@@ -89,7 +89,14 @@ const formatDurationSeconds = (
 
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  const label = hours && minutes ? `${hours}h ${minutes}min` : hours ? `${hours}h` : `${minutes}min`;
+  const label =
+    seconds > 0 && seconds < 60
+      ? t('less_than_1_min')
+      : hours && minutes
+      ? `${hours}h ${minutes}min`
+      : hours
+      ? `${hours}h`
+      : `${minutes}min`;
   return inProgress ? `${label} (${t('in_progress')})` : label;
 };
 

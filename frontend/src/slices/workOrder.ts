@@ -98,6 +98,14 @@ const slice = createSlice({
     ) {
       const { workOrder } = action.payload;
       state.workOrders.content = [workOrder, ...state.workOrders.content];
+      const calendarIndex = state.calendarWorkOrders.findIndex(
+        (wo) => wo.id === workOrder.id
+      );
+      if (calendarIndex !== -1) {
+        state.calendarWorkOrders[calendarIndex] = workOrder;
+      } else {
+        state.calendarWorkOrders = [workOrder, ...state.calendarWorkOrders];
+      }
     },
     editWorkOrder(
       state: WorkOrderState,
@@ -119,6 +127,14 @@ const slice = createSlice({
       }
       if (state.singleWorkOrder?.id === workOrder.id)
         state.singleWorkOrder = workOrder;
+      const inCalendar = state.calendarWorkOrders.some(
+        (wo) => wo.id === workOrder.id
+      );
+      if (inCalendar) {
+        state.calendarWorkOrders = state.calendarWorkOrders.map((wo) =>
+          wo.id === workOrder.id ? workOrder : wo
+        );
+      }
     },
     addFilesToWorkOrder(
       state: WorkOrderState,
@@ -140,6 +156,17 @@ const slice = createSlice({
       }
       if (state.singleWorkOrder?.id === id)
         state.singleWorkOrder.files.push(...files);
+      const inCalendar = state.calendarWorkOrders.some(
+        (wo) => wo.id === id
+      );
+      if (inCalendar) {
+        state.calendarWorkOrders = state.calendarWorkOrders.map((wo) => {
+          if (wo.id === id) {
+            wo.files.push(...files);
+          }
+          return wo;
+        });
+      }
     },
     setFilesForWorkOrder(
       state: WorkOrderState,
@@ -160,6 +187,17 @@ const slice = createSlice({
         );
       }
       if (state.singleWorkOrder?.id === id) state.singleWorkOrder.files = files;
+      const inCalendar = state.calendarWorkOrders.some(
+        (wo) => wo.id === id
+      );
+      if (inCalendar) {
+        state.calendarWorkOrders = state.calendarWorkOrders.map((wo) => {
+          if (wo.id === id) {
+            wo.files = files;
+          }
+          return wo;
+        });
+      }
     },
     deleteWorkOrder(
       state: WorkOrderState,
@@ -171,6 +209,11 @@ const slice = createSlice({
       );
       if (workOrderIndex !== -1)
         state.workOrders.content.splice(workOrderIndex, 1);
+      const calendarIndex = state.calendarWorkOrders.findIndex(
+        (wo) => wo.id === id
+      );
+      if (calendarIndex !== -1)
+        state.calendarWorkOrders.splice(calendarIndex, 1);
     },
     clearSingleWorkOrder(state: WorkOrderState, action: PayloadAction<{}>) {
       state.singleWorkOrder = null;

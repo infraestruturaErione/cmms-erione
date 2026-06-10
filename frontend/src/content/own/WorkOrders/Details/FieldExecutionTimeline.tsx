@@ -26,7 +26,11 @@ interface FieldExecutionTimelineProps {
   hasFieldReport?: boolean;
 }
 
-const formatDuration = (start?: string | null, end?: string | null): string => {
+const formatDuration = (
+  start: string | null | undefined,
+  end: string | null | undefined,
+  t: any
+): string => {
   if (!start || !end) return '--';
 
   const diffInSeconds = Math.floor(
@@ -34,6 +38,7 @@ const formatDuration = (start?: string | null, end?: string | null): string => {
   );
 
   if (diffInSeconds < 0) return '--';
+  if (diffInSeconds > 0 && diffInSeconds < 60) return t('less_than_1_min');
 
   const hours = Math.floor(diffInSeconds / 3600);
   const minutes = Math.floor((diffInSeconds % 3600) / 60);
@@ -67,12 +72,18 @@ export default function FieldExecutionTimeline({
 
   const travelDuration = formatDuration(
     workOrder.departureAt,
-    workOrder.checkInAt
+    workOrder.checkInAt,
+    t
   );
-  const siteDuration = formatDuration(workOrder.checkInAt, workOrder.checkOutAt);
+  const siteDuration = formatDuration(
+    workOrder.checkInAt,
+    workOrder.checkOutAt,
+    t
+  );
   const totalDuration = formatDuration(
     workOrder.departureAt,
-    workOrder.checkOutAt
+    workOrder.checkOutAt,
+    t
   );
   const isServiceInProgress = !!workOrder.checkInAt && !workOrder.checkOutAt;
   const executionStatus = getFieldExecutionStatus(workOrder);

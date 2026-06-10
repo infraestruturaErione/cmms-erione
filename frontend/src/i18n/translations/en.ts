@@ -351,14 +351,17 @@ const locale = {
   'workOrders.calendar.subtitle':
     'Visual planning by date, due date, or estimated start.',
   'workOrders.calendar.unscheduled': '{{count}} unscheduled work orders',
-  request_photos_and_attachments: 'Request photos and attachments',
-  request_photos_and_attachments_helper:
-    'Files sent with the request or attached directly to the work order.',
-  no_request_photos_and_attachments:
-    'No request photos or attachments registered.',
-  technician_evidence: 'Technician evidence',
-  technician_evidence_helper:
+  request_attachments: 'Request Attachments',
+  request_attachments_helper: 'Files attached to the originating request.',
+  no_request_attachments: 'No request attachments registered.',
+  wo_attachments: 'Work Order Attachments',
+  wo_attachments_helper: 'Files attached directly to this work order.',
+  no_wo_attachments: 'No work order attachments registered.',
+  field_evidence: 'Field Evidence',
+  field_evidence_helper:
     'Photos and attachments sent by the technician during field execution.',
+  field_evidence_count: '{{count}} evidence item(s)',
+  no_field_evidence: 'No field evidence registered.',
   to_delete: 'Delete',
   confirm_delete_wo: 'Are you sure you want to delete this Work Order?',
   no_access_wo:
@@ -507,6 +510,7 @@ const locale = {
   travel_duration: 'Travel duration',
   site_duration: 'Site duration',
   total_field_duration: 'Total field duration',
+  less_than_1_min: 'less than 1 min',
   field_report: 'Field report',
   field_execution: 'Field Execution',
   field_execution_helper:
@@ -536,7 +540,7 @@ const locale = {
   field_report_registered: 'Field report registered',
   no_field_report_registered: 'No field report registered',
   pending_step: 'Pending',
-  completed_step: 'Completed',
+  completed_step: 'Recorded',
   current_step: 'Current',
   open_work_order: 'Open',
   view_work_order: 'View WO',
@@ -568,12 +572,7 @@ const locale = {
   check_in_done: 'Check-in completed',
   check_out_done: 'Check-out completed',
   evidence_registered: 'Evidence/photos registered',
-  field_evidence: 'Field Evidence',
-  field_evidence_helper:
-    'Photos and files attached directly to the work order or to technician field reports.',
-  field_evidence_count: '{{count}} evidence item(s)',
   file_without_url: 'File unavailable for opening.',
-  no_field_evidence: 'No field evidence registered.',
   signature_registered: 'Signature registered',
   departure_latitude: 'Departure latitude',
   departure_longitude: 'Departure longitude',
