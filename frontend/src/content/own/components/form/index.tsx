@@ -23,6 +23,7 @@ import SelectPartQuantities from './SelectPartQuantities';
 import { CustomSelect } from './CustomSelect2';
 import SignaturePad from './SignaturePad';
 import DateRangePicker from './DateRangePicker';
+import { parseApiDate } from '../../../../utils/dateTime';
 
 interface PropsType {
   fields: Array<IField>;
@@ -179,7 +180,7 @@ export default (props: PropsType) => {
                         <b>{field.label}:</b>
                       </Box>
                       <DateTimePicker
-                        value={formik.values[field.name] ?? null}
+                        value={parseApiDate(formik.values[field.name])}
                         onChange={(newValue) => {
                           handleChange(formik, field.name, newValue);
                         }}

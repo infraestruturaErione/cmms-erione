@@ -36,6 +36,7 @@ import { isTask, Task } from '../../models/tasks';
 import { getTaskTypes } from '../../utils/displayers';
 import NumberInput from '../NumberInput';
 import DateRangePicker from './DateRangePicker';
+import { parseApiDate } from '../../utils/dateTime';
 import AudioRecorder from './AudioRecorder';
 import SignaturePad from './SignaturePad';
 import { SheetManager } from 'react-native-actions-sheet';
@@ -586,7 +587,7 @@ export default function Form(props: OwnProps) {
                         }
                         value={
                           formik.values[field.name]
-                            ? new Date(formik.values[field.name])
+                            ? parseApiDate(formik.values[field.name])
                             : null
                         }
                       />

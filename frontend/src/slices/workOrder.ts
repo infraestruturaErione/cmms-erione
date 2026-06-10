@@ -258,6 +258,16 @@ export const getSingleWorkOrder =
     dispatch(slice.actions.getSingleWorkOrder({ workOrder }));
     dispatch(slice.actions.setLoadingGet({ loading: false }));
   };
+export const refreshWorkOrderById =
+  (id: number): AppThunk =>
+  async (dispatch) => {
+    try {
+      const workOrder = await api.get<WorkOrder>(`${basePath}/${id}`);
+      dispatch(slice.actions.editWorkOrder({ workOrder }));
+    } catch (err) {
+      // Best-effort realtime refresh: the current filtered view stays intact.
+    }
+  };
 export const addWorkOrder =
   (workOrder): AppThunk =>
   async (dispatch) => {

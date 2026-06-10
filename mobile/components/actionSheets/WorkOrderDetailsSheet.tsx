@@ -19,8 +19,11 @@ export default function WorkOrderDetailsSheet(
   }>
 ) {
   const { t } = useTranslation();
-  const { hasEditPermission, hasDeletePermission } = useAuth();
+  const { hasEditPermission, hasDeletePermission, user } = useAuth();
   const theme = useTheme();
+  const technicianOnly =
+    user?.role?.code === 'TECHNICIAN' ||
+    user?.role?.code === 'LIMITED_TECHNICIAN';
   const options: CustomActionSheetOption[] = [
     {
       title: t('edit'),
@@ -29,7 +32,7 @@ export default function WorkOrderDetailsSheet(
       visible: hasEditPermission(
         PermissionEntity.WORK_ORDERS,
         props.payload.workOrder
-      )
+      ) && !technicianOnly
     },
     {
       title: t('to_export'),
@@ -44,7 +47,7 @@ export default function WorkOrderDetailsSheet(
       visible: hasEditPermission(
         PermissionEntity.WORK_ORDERS,
         props.payload.workOrder
-      )
+      ) && !technicianOnly
     },
     {
       title: t('to_delete'),
@@ -54,7 +57,7 @@ export default function WorkOrderDetailsSheet(
       visible: hasDeletePermission(
         PermissionEntity.WORK_ORDERS,
         props.payload.workOrder
-      )
+      ) && !technicianOnly
     }
   ];
 

@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   StyleSheet,
   TouchableOpacity,
@@ -47,6 +48,10 @@ export default function InAppCamera({ visible, onCapture, onClose }: Props) {
       setRequestedForOpen(true);
       requestPermission();
     }
+  };
+
+  const handleOpenSettings = () => {
+    Linking.openSettings().catch(() => undefined);
   };
 
   const handleCapture = async () => {
@@ -106,6 +111,14 @@ export default function InAppCamera({ visible, onCapture, onClose }: Props) {
               style={styles.permissionButton}
             >
               <Text style={styles.permissionButtonText}>Permitir camera</Text>
+            </TouchableOpacity>
+          )}
+          {!permission.canAskAgain && (
+            <TouchableOpacity
+              onPress={handleOpenSettings}
+              style={styles.permissionButton}
+            >
+              <Text style={styles.permissionButtonText}>Abrir configuracoes</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={onClose} style={{ marginTop: 20 }}>

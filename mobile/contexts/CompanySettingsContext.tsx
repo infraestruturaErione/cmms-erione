@@ -10,8 +10,7 @@ import { useTranslation } from 'react-i18next';
 import PropTypes from 'prop-types';
 import { getWOBaseFields } from '../utils/woBase';
 import moment from 'moment-timezone';
-
-const ERIONE_TIME_ZONE = 'America/Sao_Paulo';
+import { ERIONE_TIME_ZONE, parseApiDate } from '../utils/dateTime';
 const ERIONE_DATE_FORMAT = 'DD/MM/YYYY';
 
 type CompanySettingsContext = {
@@ -55,7 +54,10 @@ export const CompanySettingsProvider: FC<{ children: ReactNode }> = (props) => {
     if (!dateString) return '';
 
     const tz = generalPreferences?.timeZone || ERIONE_TIME_ZONE;
-    const date = moment.tz(moment.utc(dateString), tz);
+    const rawDate = parseApiDate(dateString);
+    if (!rawDate) return '';
+
+    const date = moment.tz(rawDate, tz);
     if (!date.isValid()) return '';
 
     return `${date.format(ERIONE_DATE_FORMAT)}${

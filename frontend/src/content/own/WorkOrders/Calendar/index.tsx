@@ -29,6 +29,16 @@ import { useTranslation } from 'react-i18next';
 import { getCalendarLocale } from '../../../../i18n/i18n';
 import type { LocaleSingularArg } from '@fullcalendar/core';
 import enGb from '@fullcalendar/core/locales/en-gb';
+import { format } from 'date-fns';
+import { utcToZonedTime } from 'date-fns-tz';
+import { ERIONE_TIME_ZONE, parseApiDate } from '../../../../utils/dateTime';
+const CALENDAR_OPERATIONAL_STATUSES = [
+  'OPEN',
+  'EN_ROUTE',
+  'IN_PROGRESS',
+  'ON_HOLD',
+  'COMPLETE'
+];
 
 const FullCalendarWrapper = styled(Box)(
   ({ theme }) => `
@@ -137,7 +147,7 @@ const getPriorityColor = (priority: Priority, theme: any): string => {
 interface CalendarEventData {
   id: string;
   title: string;
-  start: Date;
+  start: string;
   allDay: boolean;
   backgroundColor: string;
   borderColor: string;
@@ -173,6 +183,24 @@ function ApplicationsCalendar({
     getCalendarLocale(i18n.language).then(setCalendarLocale);
   }, [i18n.language]);
 
+  const calendarFilterFields = useMemo<FilterField[]>(() => {
+    const archivedFilter = filterFields.find(({ field }) => field === 'archived');
+
+    return [
+      archivedFilter ?? {
+        field: 'archived',
+        operation: 'eq',
+        value: false
+      },
+      {
+        field: 'status',
+        operation: 'in',
+        value: '',
+        values: CALENDAR_OPERATIONAL_STATUSES
+      }
+    ];
+  }, [filterFields]);
+
   useEffect(() => {
     const calItem = calendarRef.current;
     if (!calItem) return;
@@ -183,76 +211,177 @@ function ApplicationsCalendar({
     setActiveEnd(end);
     dispatch(getWorkOrderEvents(start, end));
     const criteria: SearchCriteria = {
-      filterFields,
+      filterFields: calendarFilterFields,
       pageNum: 0,
-      pageSize: 200,
+      pageSize: 500,
       sortField: 'estimatedStartDate',
       direction: 'ASC'
     };
     dispatch(getCalendarWorkOrders(criteria));
-  }, [date, view, dispatch, filterFields]);
+  }, [date, view, dispatch, calendarFilterFields]);
 
-  const getDateForWO = (wo: WorkOrder): Date | null => {
-    if (wo.estimatedStartDate) return new Date(wo.estimatedStartDate);
-    if (wo.dueDate) return new Date(wo.dueDate);
-    if (wo.createdAt) return new Date(wo.createdAt);
-    return null;
+  const getDateKeyForWO = (wo: WorkOrder): string | null => {
+    const rawDate = wo.estimatedStartDate || wo.dueDate || wo.createdAt;
+    if (!rawDate) return null;
+    const parsedDate = parseApiDate(rawDate);
+    if (!parsedDate) return null;
+    return format(
+      utcToZonedTime(parsedDate, ERIONE_TIME_ZONE),
+      'yyyy-MM-dd'
+    );
   };
 
-  const calendarEvents: CalendarEventData[] = useMemo(() => {
-    const result: CalendarEventData[] = [];
+  const getDateKeyForCalendarEvent = (dateValue: string | Date): string | null => {
+    const parsedDate = parseApiDate(dateValue);
+    if (!parsedDate) return null;
+    return format(
+      utcToZonedTime(parsedDate, ERIONE_TIME_ZONE),
+      'yyyy-MM-dd'
+    );
+  };
 
-    for (const wo of calendarWorkOrders) {
-      const eventDate = getDateForWO(wo);
-      if (!eventDate) continue;
-      if (eventDate < activeStart || eventDate > activeEnd) continue;
+  const getSortDate = (dateKey: string): number => {
+    const parsedDate = new Date(`${dateKey}T00:00:00`);
+    if (Number.isNaN(parsedDate.getTime())) return 0;
+    return parsedDate.getTime();
+  };
 
-      const priorityColor = getPriorityColor(wo.priority, theme);
-      const isComplete = wo.status === 'COMPLETE';
+  const getEventSortValue = (event: CalendarEventData): number =>
+    getSortDate(event.start);
 
-      result.push({
-        id: `wo-${wo.id}`,
-        title: `${wo.customId ?? `#${wo.id}`} ${wo.title}`,
-        start: eventDate,
-        allDay: true,
-        backgroundColor: isComplete
-          ? theme.colors.alpha.black[20]
-          : priorityColor,
-        borderColor: isComplete
-          ? theme.colors.alpha.black[20]
-          : priorityColor,
-        textColor: isComplete
-          ? theme.colors.alpha.black[50]
-          : '#fff',
-        extendedProps: {
-          type: 'WORK_ORDER',
-          status: wo.status,
-          priority: wo.priority
-        }
-      });
+  const isVisibleDateKey = (dateKey: string): boolean => {
+    if (!dateKey) return false;
+    const activeStartKey = format(activeStart, 'yyyy-MM-dd');
+    const activeEndKey = format(activeEnd, 'yyyy-MM-dd');
+    return dateKey >= activeStartKey && dateKey < activeEndKey;
+  };
+
+  const getPreventiveMaintenanceDateKey = (dateValue: string | Date): string | null => {
+    const dateKey = getDateKeyForCalendarEvent(dateValue);
+    if (!dateKey || !isVisibleDateKey(dateKey)) return null;
+    return dateKey;
+  };
+
+  const getWorkOrderDateKey = (wo: WorkOrder): string | null => {
+    const dateKey = getDateKeyForWO(wo);
+    if (!dateKey || !isVisibleDateKey(dateKey)) return null;
+    return dateKey;
+  };
+
+  const getEventColor = (wo: WorkOrder) => {
+    if (wo.status === 'COMPLETE') {
+      return {
+        backgroundColor: theme.colors.alpha.black[20],
+        borderColor: theme.colors.alpha.black[20],
+        textColor: theme.colors.alpha.black[50]
+      };
     }
+    const priorityColor = getPriorityColor(wo.priority, theme);
+    return {
+      backgroundColor: priorityColor,
+      borderColor: priorityColor,
+      textColor: '#fff'
+    };
+  };
 
-    for (const evt of calendar.events) {
-      if (evt.type === 'PREVENTIVE_MAINTENANCE') {
-        result.push({
-          id: `pm-${evt.event.id}`,
-          title: evt.event.title,
-          start: new Date(evt.date),
-          allDay: true,
-          backgroundColor: theme.colors.primary.main,
-          borderColor: theme.colors.primary.main,
-          textColor: '#fff',
-          extendedProps: {
-            type: 'PREVENTIVE_MAINTENANCE',
-            status: '',
-            priority: 'NONE'
-          }
-        });
+  const getPmEventColor = () => ({
+    backgroundColor: theme.colors.primary.main,
+    borderColor: theme.colors.primary.main,
+    textColor: '#fff'
+  });
+
+  const getEventType = (id: string) => {
+    const match = id.match(/^(?:wo|pm)-(\d+)$/);
+    return match ? Number(match[1]) : null;
+  };
+
+  const getWorkOrderTitle = (wo: WorkOrder) =>
+    `${wo.customId ?? `#${wo.id}`} ${wo.title}`;
+
+  const getPreventiveMaintenanceTitle = (evt: any) => evt.event.title;
+
+  const getWorkOrderEvent = (wo: WorkOrder): CalendarEventData | null => {
+    const dateKey = getWorkOrderDateKey(wo);
+    if (!dateKey) return null;
+    const colors = getEventColor(wo);
+
+    return {
+      id: `wo-${wo.id}`,
+      title: getWorkOrderTitle(wo),
+      start: dateKey,
+      allDay: true,
+      ...colors,
+      extendedProps: {
+        type: 'WORK_ORDER',
+        status: wo.status,
+        priority: wo.priority
       }
-    }
+    };
+  };
 
-    result.sort((a, b) => a.start.getTime() - b.start.getTime());
-    return result;
+  const getPreventiveMaintenanceEvent = (evt: any): CalendarEventData | null => {
+    if (evt.type !== 'PREVENTIVE_MAINTENANCE') return null;
+    const dateKey = getPreventiveMaintenanceDateKey(evt.date);
+    if (!dateKey) return null;
+    const colors = getPmEventColor();
+
+    return {
+      id: `pm-${evt.event.id}`,
+      title: getPreventiveMaintenanceTitle(evt),
+      start: dateKey,
+      allDay: true,
+      ...colors,
+      extendedProps: {
+        type: 'PREVENTIVE_MAINTENANCE',
+        status: '',
+        priority: 'NONE'
+      }
+    };
+  };
+
+  const getCalendarEventId = (arg: any) => {
+    const idStr = arg.event.id;
+    return getEventType(idStr);
+  };
+
+  const getCalendarEventType = (arg: any) => arg.event.extendedProps.type;
+
+  const openCalendarEvent = (arg: any) => {
+    const eventId = getCalendarEventId(arg);
+    if (eventId) handleOpenDetails(eventId, getCalendarEventType(arg));
+  };
+
+  const getWorkOrderEventsForCalendar = () => {
+    return calendarWorkOrders
+      .map(getWorkOrderEvent)
+      .filter(Boolean) as CalendarEventData[];
+  };
+
+  const getPreventiveMaintenanceEventsForCalendar = () => {
+    return calendar.events
+      .map(getPreventiveMaintenanceEvent)
+      .filter(Boolean) as CalendarEventData[];
+  };
+
+  const sortCalendarEvents = (events: CalendarEventData[]) => {
+    return events.sort((a, b) => getEventSortValue(a) - getEventSortValue(b));
+  };
+
+  const buildCalendarEvents = (): CalendarEventData[] => {
+    return sortCalendarEvents([
+      ...getWorkOrderEventsForCalendar(),
+      ...getPreventiveMaintenanceEventsForCalendar()
+    ]);
+  };
+
+  const getCalendarEvents = () => {
+    return buildCalendarEvents();
+  };
+
+  const getVisibleEvents = () => getCalendarEvents();
+
+  const calendarEvents: CalendarEventData[] = useMemo(() => {
+    return getVisibleEvents();
   }, [calendarWorkOrders, calendar.events, theme, activeStart, activeEnd]);
 
   const handleDateToday = (): void => {
@@ -357,16 +486,7 @@ function ApplicationsCalendar({
           locale={calendarLocale}
           eventDisplay="block"
           eventContent={renderEventContent}
-          eventClick={(arg) => {
-            const idStr = arg.event.id;
-            const match = idStr.match(/^(?:wo|pm)-(\d+)$/);
-            if (match) {
-              handleOpenDetails(
-                Number(match[1]),
-                arg.event.extendedProps.type
-              );
-            }
-          }}
+          eventClick={openCalendarEvent}
           dateClick={(event) => handleAddWorkOrder(event.date)}
           dayMaxEventRows={4}
           events={calendarEvents}

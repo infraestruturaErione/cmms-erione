@@ -371,6 +371,14 @@ const ptBRJSON = {
   'workOrders.calendar.subtitle':
     'Planejamento visual das OS por data, prazo ou início estimado.',
   'workOrders.calendar.unscheduled': '{{count}} OS sem agendamento',
+  request_photos_and_attachments: 'Fotos e anexos da solicitação',
+  request_photos_and_attachments_helper:
+    'Arquivos enviados na solicitação ou anexados diretamente à OS.',
+  no_request_photos_and_attachments:
+    'Nenhuma foto ou anexo da solicitação registrado.',
+  technician_evidence: 'Evidências do técnico',
+  technician_evidence_helper:
+    'Fotos e anexos enviados pelo técnico durante a execução em campo.',
   to_delete: 'Excluir',
   confirm_delete_wo: 'Tem certeza de que deseja excluir esta Ordem de Serviço?',
   no_access_wo:

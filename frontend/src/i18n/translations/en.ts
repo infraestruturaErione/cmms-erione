@@ -351,6 +351,14 @@ const locale = {
   'workOrders.calendar.subtitle':
     'Visual planning by date, due date, or estimated start.',
   'workOrders.calendar.unscheduled': '{{count}} unscheduled work orders',
+  request_photos_and_attachments: 'Request photos and attachments',
+  request_photos_and_attachments_helper:
+    'Files sent with the request or attached directly to the work order.',
+  no_request_photos_and_attachments:
+    'No request photos or attachments registered.',
+  technician_evidence: 'Technician evidence',
+  technician_evidence_helper:
+    'Photos and attachments sent by the technician during field execution.',
   to_delete: 'Delete',
   confirm_delete_wo: 'Are you sure you want to delete this Work Order?',
   no_access_wo:

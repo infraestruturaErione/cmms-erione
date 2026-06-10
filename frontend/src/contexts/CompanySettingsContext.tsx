@@ -12,8 +12,7 @@ import mailToLink from 'mailto-link';
 import { useBrand } from '../hooks/useBrand';
 import { format } from 'date-fns';
 import { utcToZonedTime } from 'date-fns-tz';
-
-const ERIONE_TIME_ZONE = 'America/Sao_Paulo';
+import { ERIONE_TIME_ZONE, parseApiDate } from '../utils/dateTime';
 const ERIONE_DATE_FORMAT = 'dd/MM/yyyy';
 
 type CompanySettingsContext = {
@@ -57,8 +56,8 @@ export const CompanySettingsProvider: FC = ({ children }) => {
   const getFormattedDate = (dateString: string, hideTime?: boolean) => {
     if (!dateString) return '';
 
-    const rawDate = new Date(dateString);
-    if (Number.isNaN(rawDate.getTime())) return '';
+    const rawDate = parseApiDate(dateString);
+    if (!rawDate) return '';
 
     const tz = generalPreferences?.timeZone || ERIONE_TIME_ZONE;
     const date = utcToZonedTime(rawDate, tz);

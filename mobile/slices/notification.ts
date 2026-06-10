@@ -5,7 +5,7 @@ import Notification from '../models/notification';
 import api from '../utils/api';
 import { getInitialPage, Page, SearchCriteria } from '../models/page';
 import { revertAll } from '../utils/redux';
-import { getWorkOrders } from './workOrder';
+import { refreshWorkOrderById } from './workOrder';
 
 const basePath = 'notifications';
 
@@ -177,31 +177,6 @@ export const newReceivedNotification =
         slice.actions.newReceivedNotification({ notification })
       );
       if (notification.notificationType === 'WORK_ORDER')
-        dispatch(getWorkOrders({
-          filterFields: [
-            {
-              field: 'priority',
-              operation: 'in',
-              values: ['NONE', 'LOW', 'MEDIUM', 'HIGH'],
-              value: '',
-              enumName: 'PRIORITY'
-            },
-            {
-              field: 'status',
-              operation: 'in',
-              values: ['OPEN', 'IN_PROGRESS', 'ON_HOLD'],
-              value: '',
-              enumName: 'STATUS'
-            },
-            {
-              field: 'archived',
-              operation: 'eq',
-              value: false
-            }
-          ],
-          pageSize: 10,
-          pageNum: 0,
-          direction: 'DESC'
-        }));
+        dispatch(refreshWorkOrderById(notification.resourceId));
     };
 export default slice;

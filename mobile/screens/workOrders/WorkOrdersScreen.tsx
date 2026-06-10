@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useDispatch, useSelector } from '../../store';
 import * as React from 'react';
-import { Fragment, useContext, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { CompanySettingsContext } from '../../contexts/CompanySettingsContext';
 import useAuth from '../../hooks/useAuth';
 import { PermissionEntity } from '../../models/role';
@@ -45,6 +45,7 @@ import {
   isPendingCompletion,
   isWorkOrderInField
 } from '../../utils/workOrderFieldUx';
+import { useFocusEffect } from '@react-navigation/native';
 
 const colors = ERIONE_MOBILE_IDENTITY.colors;
 
@@ -133,6 +134,21 @@ export default function WorkOrdersScreen({
     );
     fromHomeInit.current = true;
   }, [criteria]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!fromHomeInit.current) return;
+
+      dispatch(
+        getWorkOrders({
+          ...criteria,
+          pageSize: 10,
+          pageNum: 0,
+          direction: 'DESC'
+        })
+      );
+    }, [criteria, dispatch])
+  );
 
   useEffect(() => {
     const filterFields = route.params?.filterFields ?? [];

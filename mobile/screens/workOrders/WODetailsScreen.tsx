@@ -85,6 +85,7 @@ import { getCommentsByWorkOrder, createComment } from '../../slices/comment';
 import { getUsersMini } from '../../slices/user';
 import { TriggersConfig } from 'react-native-controlled-mentions/dist/types/types';
 import { useHeaderHeight } from '@react-navigation/elements';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FieldExecutionSection, {
   hasFieldReport,
@@ -377,6 +378,17 @@ export default function WODetailsScreen({
   useEffect(() => {
     getInfos();
   }, [workOrderProp]);
+
+  useFocusEffect(
+    useCallback(() => {
+      dispatch(getWorkOrderDetails(id)).catch((err) => {
+        showSnackBar(getErrorMessage(err), 'error');
+      });
+      dispatch(getCommentsByWorkOrder(id)).catch(() => {
+        setCommentsLoadError(true);
+      });
+    }, [dispatch, id, showSnackBar])
+  );
 
   useEffect(() => {
     setCommentsLoadError(false);

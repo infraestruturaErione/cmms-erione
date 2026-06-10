@@ -51,7 +51,8 @@ import {
   deleteWorkOrder,
   editWorkOrder,
   getSingleWorkOrder,
-  getWorkOrders
+  getWorkOrders,
+  refreshWorkOrderById
 } from '../../../slices/workOrder';
 import { CustomSnackBarContext } from '../../../contexts/CustomSnackBarContext';
 import { useDispatch, useSelector } from '../../../store';
@@ -497,6 +498,30 @@ function WorkOrders() {
   useEffect(() => {
     dispatch(getWorkOrders(criteria));
   }, [criteria]);
+
+  useEffect(() => {
+    const refreshCurrentWorkOrdersView = () => {
+      dispatch(getWorkOrders(criteria));
+      if (currentWorkOrder?.id) {
+        dispatch(refreshWorkOrderById(currentWorkOrder.id));
+      }
+    };
+
+    const onWindowFocus = () => refreshCurrentWorkOrdersView();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshCurrentWorkOrdersView();
+      }
+    };
+
+    window.addEventListener('focus', onWindowFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', onWindowFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [criteria, currentWorkOrder?.id, dispatch]);
 
   useEffect(() => {
     if ((openAddModal || openUpdateModal) && !customFields.length) {
