@@ -103,7 +103,7 @@ import {
   ErioneStatusBadge
 } from '../../components/erione/ErioneUI';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
-import { isErioneModuleHidden } from '../../config/erioneModules';
+import { ERIONE_HIDDEN_MODULES, isErioneModuleHidden } from '../../config/erioneModules';
 import WorkOrderEvidenceGallery from './components/WorkOrderEvidenceGallery';
 
 const erioneColors = ERIONE_MOBILE_IDENTITY.colors;
@@ -334,13 +334,13 @@ export default function WODetailsScreen({
     if (showPartsSection) {
       dispatch(getPartQuantitiesByWorkOrder(id));
     }
-    if (showLaborSection) {
+    if (showLaborSection && !ERIONE_HIDDEN_MODULES.labor) {
       dispatch(getLabors(id));
     }
-    if (showAdditionalCostsSection) {
+    if (showAdditionalCostsSection && !ERIONE_HIDDEN_MODULES.additionalCosts) {
       dispatch(getAdditionalCosts(id));
     }
-    if (!generalPreferences.simplifiedWorkOrder) {
+    if (!generalPreferences.simplifiedWorkOrder && !ERIONE_HIDDEN_MODULES.relations) {
       dispatch(getRelations(id));
     }
     dispatch(getTasks(id));
@@ -1372,7 +1372,7 @@ export default function WODetailsScreen({
                       )}
                       </View>
                     )}
-                    {showAdditionalCostsSection && (
+                    {showAdditionalCostsSection && !ERIONE_HIDDEN_MODULES.additionalCosts && (
                       <View style={styles.shadowedCard}>
                       <Text
                         style={{
@@ -1518,7 +1518,7 @@ export default function WODetailsScreen({
                         ))}
                       </View>
                     )}
-                    {!!currentWorkOrderRelations.length && (
+                    {!!currentWorkOrderRelations.length && !ERIONE_HIDDEN_MODULES.relations && (
                       <View style={styles.shadowedCard}>
                         <Text
                           style={{
@@ -1555,7 +1555,7 @@ export default function WODetailsScreen({
                         )}
                       </View>
                     )}
-                    {showLaborSection && (
+                    {showLaborSection && !ERIONE_HIDDEN_MODULES.labor && (
                       <View style={styles.shadowedCard}>
                       <Text
                         style={{

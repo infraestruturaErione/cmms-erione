@@ -765,6 +765,7 @@ function PMs() {
                   onChange={onFilterChange}
                   completeOptions={['NONE', 'LOW', 'MEDIUM', 'HIGH']}
                   fieldName="priority"
+                  enumName="PRIORITY"
                   icon={<SignalCellularAltTwoToneIcon />}
                 />
                 <SearchInput onChange={debouncedQueryChange} />

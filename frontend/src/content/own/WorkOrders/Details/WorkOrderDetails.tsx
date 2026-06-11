@@ -36,10 +36,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import EditTwoToneIcon from '@mui/icons-material/EditTwoTone';
 import DeleteTwoToneIcon from '@mui/icons-material/DeleteTwoTone';
-import AddTimeModal from './AddTimeModal';
-import AddCostModal from './AddCostModal';
 import Tasks from './Tasks';
-import LinkTwoToneIcon from '@mui/icons-material/LinkTwoTone';
 import ArchiveTwoToneIcon from '@mui/icons-material/ArchiveTwoTone';
 import PictureAsPdfTwoToneIcon from '@mui/icons-material/PictureAsPdfTwoTone';
 import PriorityWrapper from '../../components/PriorityWrapper';
@@ -59,10 +56,8 @@ import {
   editWOPartQuantities,
   getPartQuantitiesByWorkOrder
 } from '../../../../slices/partQuantity';
-import Labor from '../../../../models/owns/labor';
 import {
   controlTimer,
-  deleteLabor,
   editLabor,
   getLabors
 } from '../../../../slices/labor';
@@ -70,17 +65,11 @@ import {
   durationToHours,
   getHoursAndMinutesAndSeconds
 } from '../../../../utils/formatters';
-import {
-  deleteAdditionalCost,
-  getAdditionalCosts
-} from '../../../../slices/additionalCost';
+import { getAdditionalCosts } from '../../../../slices/additionalCost';
 import { getTasksByWorkOrder } from '../../../../slices/task';
 import { Task } from '../../../../models/owns/tasks';
 import { getWorkOrderHistories } from '../../../../slices/workOrderHistory';
-import LinkModal from './LinkModal';
 import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
-import { deleteRelation, getRelations } from '../../../../slices/relation';
-import Relation, { relationTypes } from '../../../../models/owns/relation';
 import { CompanySettingsContext } from '../../../../contexts/CompanySettingsContext';
 import {
   getAssetUrl,
@@ -92,12 +81,11 @@ import useAuth from '../../../../hooks/useAuth';
 import { PermissionEntity } from '../../../../models/owns/role';
 import { getSingleUserMini } from '../../../../slices/user';
 import FilesList from '../../components/FilesList';
-import { PlanFeature } from '../../../../models/owns/subscriptionPlan';
 import PartQuantitiesList from '../../components/PartQuantitiesList';
+import { PlanFeature } from '../../../../models/owns/subscriptionPlan';
 import AddFileModal from './AddFileModal';
 import CommentsSection from './CommentsSection';
-import FieldEvidenceSection from './FieldEvidenceSection';
-import FieldReportSection from './FieldReportSection';
+import FieldRegistroSection from './FieldRegistroSection';
 import FieldExecutionSection from './FieldExecutionSection';
 import { ERIONE_HIDDEN_MODULES } from '../../../../config/erioneModules';
 import { useBrand } from '../../../../hooks/useBrand';
@@ -178,10 +166,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   const hasWOHistoryEntitlement = useLicenseEntitlement('WORK_ORDER_HISTORY');
   const [searchParams, setSearchParams] = useSearchParams();
   const commentIdParam = searchParams.get('commentId');
-  const [openAddTimeModal, setOpenAddTimeModal] = useState<boolean>(false);
   const [openAddFileModal, setOpenAddFileModal] = useState<boolean>(false);
-  const [openAddCostModal, setOpenAddCostModal] = useState<boolean>(false);
-  const [openLinkModal, setOpenLinkModal] = useState<boolean>(false);
   const [openCompleteModal, setOpenCompleteModal] = useState<boolean>(false);
   const [currentTab, setCurrentTab] = useState<string>('details');
   const [changingStatus, setChangingStatus] = useState<boolean>(false);
@@ -200,11 +185,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   const { workOrderHistories } = useSelector(
     (state) => state.workOrderHistories
   );
-  const { relationsByWorkOrder, loadingRelations } = useSelector(
-    (state) => state.relations
-  );
   const currentWorkOrderHistories = workOrderHistories[workOrder.id] ?? [];
-  const currentWorkOrderRelations = relationsByWorkOrder[workOrder.id] ?? [];
   const labors = timesByWorkOrder[workOrder.id] ?? [];
   const primaryTime = labors.find(
     (labor) => labor.logged && labor.assignedTo.id === user.id
@@ -263,12 +244,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
         !loadingCosts[workOrderId]
       ) {
         dispatch(getAdditionalCosts(workOrderId));
-      }
-      if (
-        !hasCachedValue(relationsByWorkOrder, workOrderId) &&
-        !loadingRelations[workOrderId]
-      ) {
-        dispatch(getRelations(workOrderId));
       }
       if (
         !ERIONE_HIDDEN_MODULES.parts &&
@@ -412,9 +387,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
 
     return !error;
   };
-  const isParent = (relation: Relation): boolean => {
-    return relation.parent.id === workOrder.id;
-  };
   const onPartQuantityChange = (value: string, partQuantity) => {
     dispatch(
       editPartQuantity(workOrder.id, partQuantity.id, Number(value), false)
@@ -440,68 +412,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
     )
       .then(() => dispatch(getLabors(workOrder?.id)))
       .finally(() => setChangingStatus(false));
-  };
-  const groupRelations = (
-    relations: Relation[]
-  ): { [key: string]: { id: number; workOrder: WorkOrder }[] } => {
-    const result = {};
-    relationTypes.forEach((relationType) => {
-      result[relationType] = [];
-    });
-    relations.forEach((relation) => {
-      switch (relation.relationType) {
-        case 'BLOCKS':
-          if (isParent(relation)) {
-            result['BLOCKS'].push({
-              id: relation.id,
-              workOrder: relation.child
-            });
-          } else
-            result['BLOCKED_BY'].push({
-              id: relation.id,
-              workOrder: relation.parent
-            });
-          break;
-        case 'DUPLICATE_OF':
-          if (isParent(relation)) {
-            result['DUPLICATE_OF'].push({
-              id: relation.id,
-              workOrder: relation.child
-            });
-          } else
-            result['DUPLICATED_BY'].push({
-              id: relation.id,
-              workOrder: relation.parent
-            });
-          break;
-        case 'RELATED_TO':
-          result['RELATED_TO'].push({
-            id: relation.id,
-            workOrder: isParent(relation) ? relation.child : relation.parent
-          });
-          break;
-        case 'SPLIT_FROM':
-          if (isParent(relation)) {
-            result['SPLIT_FROM'].push({
-              id: relation.id,
-              workOrder: relation.child
-            });
-          } else
-            result['SPLIT_TO'].push({
-              id: relation.id,
-              workOrder: relation.parent
-            });
-          break;
-        default:
-          break;
-      }
-    });
-
-    return result;
-  };
-  const getLaborCost = (labor: Labor): number => {
-    const [hours, minutes] = getHoursAndMinutesAndSeconds(labor.duration);
-    return Number((labor.hourlyRate * (hours + minutes / 60)).toFixed(2));
   };
   const workOrderStatuses = ['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE'];
   const tabs = [
@@ -1136,224 +1046,8 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 />
               </Box>
             )}
-            <Box>
-              <Divider sx={{ mt: 2 }} />
-              <Typography sx={{ mt: 2, mb: 1 }} variant="h3">
-                {t('labors')}
-              </Typography>
-              {loadingLabors[workOrder.id] ? (
-                <Stack width={'100%'} alignItems="center">
-                  <CircularProgress />
-                </Stack>
-              ) : !labors.filter((labor) => !labor.logged).length ? (
-                <Typography sx={{ color: theme.colors.alpha.black[70] }}>
-                  {t('no_labor', { shortBrandName: brandConfig.shortName })}
-                </Typography>
-              ) : (
-                <List>
-                  {labors
-                    .filter((labor) => !labor.logged)
-                    .map((labor) => (
-                      <ListItem
-                        key={labor.id}
-                        secondaryAction={
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              justifyContent: 'flex-end'
-                            }}
-                          >
-                            <Typography variant="h6">
-                              {getFormattedCurrency(getLaborCost(labor))}
-                            </Typography>
-                            {hasEditPermission(
-                              PermissionEntity.WORK_ORDERS,
-                              workOrder
-                            ) && (
-                              <IconButton
-                                sx={{ ml: 1 }}
-                                onClick={() =>
-                                  dispatch(deleteLabor(workOrder.id, labor.id))
-                                }
-                              >
-                                <DeleteTwoToneIcon
-                                  fontSize="small"
-                                  color="error"
-                                />
-                              </IconButton>
-                            )}
-                          </Box>
-                        }
-                      >
-                        <ListItemText
-                          primary={
-                            <>
-                              {labor.assignedTo ? (
-                                <Link
-                                  href={getUserUrl(labor.assignedTo.id)}
-                                  variant="h6"
-                                >
-                                  {`${labor.assignedTo.firstName} ${labor.assignedTo.lastName}`}
-                                </Link>
-                              ) : (
-                                <Typography>{t('not_assigned')}</Typography>
-                              )}
-                            </>
-                          }
-                          secondary={`${
-                            getHoursAndMinutesAndSeconds(labor.duration)[0]
-                          }h ${
-                            getHoursAndMinutesAndSeconds(labor.duration)[1]
-                          }m`}
-                        />
-                      </ListItem>
-                    ))}
-                  <ListItem
-                    secondaryAction={
-                      <Box>
-                        <Typography variant="h6" fontWeight="bold">
-                          {getFormattedCurrency(
-                            labors
-                              .filter((labor) => !labor.logged)
-                              .reduce(
-                                (acc, labor) =>
-                                  labor.includeToTotalTime
-                                    ? acc + getLaborCost(labor)
-                                    : acc,
-                                0
-                              )
-                          )}
-                        </Typography>
-                      </Box>
-                    }
-                  >
-                    <ListItemText
-                      primary={
-                        <Typography variant="h6" fontWeight="bold">
-                          Total
-                        </Typography>
-                      }
-                    />
-                  </ListItem>
-                </List>
-              )}
-              {hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
-                <Button
-                  onClick={() => setOpenAddTimeModal(true)}
-                  variant="outlined"
-                  sx={{ mt: 1 }}
-                >
-                  {t('add_time')}
-                </Button>
-              )}
-            </Box>
-            <Box>
-              <Divider sx={{ mt: 2 }} />
-              <Typography sx={{ mt: 2, mb: 1 }} variant="h3">
-                {t('additional_costs')}
-              </Typography>
-              {loadingCosts[workOrder.id] ? (
-                <Stack width={'100%'} alignItems={'center'}>
-                  <CircularProgress />
-                </Stack>
-              ) : (
-                <Fragment>
-                  {!additionalCosts.length ? (
-                    <Typography sx={{ color: theme.colors.alpha.black[70] }}>
-                      {t('no_additional_cost')}
-                    </Typography>
-                  ) : (
-                    <List>
-                      {additionalCosts.map((additionalCost) => (
-                        <ListItem
-                          key={additionalCost.id}
-                          secondaryAction={
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                justifyContent: 'flex-end'
-                              }}
-                            >
-                              <Typography variant="h6">
-                                {getFormattedCurrency(additionalCost.cost)}
-                              </Typography>
-                              {hasEditPermission(
-                                PermissionEntity.WORK_ORDERS,
-                                workOrder
-                              ) && (
-                                <IconButton
-                                  sx={{ ml: 1 }}
-                                  onClick={() =>
-                                    dispatch(
-                                      deleteAdditionalCost(
-                                        workOrder.id,
-                                        additionalCost.id
-                                      )
-                                    )
-                                  }
-                                >
-                                  <DeleteTwoToneIcon
-                                    fontSize="small"
-                                    color="error"
-                                  />
-                                </IconButton>
-                              )}
-                            </Box>
-                          }
-                        >
-                          <ListItemText
-                            primary={
-                              <Typography variant="h6">
-                                {additionalCost.description}
-                              </Typography>
-                            }
-                            secondary={getFormattedDate(
-                              additionalCost.createdAt
-                            )}
-                          />
-                        </ListItem>
-                      ))}
-                      <ListItem
-                        secondaryAction={
-                          <Typography variant="h6" fontWeight="bold">
-                            {getFormattedCurrency(
-                              additionalCosts.reduce(
-                                (acc, additionalCost) =>
-                                  additionalCost.includeToTotalCost
-                                    ? acc + additionalCost.cost
-                                    : acc,
-                                0
-                              )
-                            )}
-                          </Typography>
-                        }
-                      >
-                        <ListItemText
-                          primary={
-                            <Typography variant="h6" fontWeight="bold">
-                              Total
-                            </Typography>
-                          }
-                        />
-                      </ListItem>
-                    </List>
-                  )}
-                </Fragment>
-              )}
-              {hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
-                <Button
-                  onClick={() => setOpenAddCostModal(true)}
-                  variant="outlined"
-                  sx={{ mt: 1 }}
-                >
-                  {t('add_additional_cost')}
-                </Button>
-              )}
-            </Box>
+
+
             {!ERIONE_HIDDEN_MODULES.parts && (
               <Box>
                 <Divider sx={{ mt: 2 }} />
@@ -1400,111 +1094,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 )}
               </Box>
             )}
-            <Box>
-              <Divider sx={{ mt: 2 }} />
-              <Typography sx={{ mt: 2, mb: 1 }} variant="h3">
-                {t('links')}
-              </Typography>
-              {loadingRelations[workOrder.id] ? (
-                <Stack width={'100%'} alignItems={'center'}>
-                  <CircularProgress />
-                </Stack>
-              ) : (
-                <Fragment>
-                  <List>
-                    {Object.entries(
-                      groupRelations(currentWorkOrderRelations)
-                    ).map(
-                      ([relationType, relations]) =>
-                        !!relations.length && (
-                          <Box key={relationType}>
-                            <ListSubheader
-                              sx={{ fontWeight: 'bold', fontSize: 20 }}
-                            >
-                              {t(relationType)}
-                            </ListSubheader>
-                            {relations.map((relation) => (
-                              <ListItem
-                                key={relation.id}
-                                secondaryAction={
-                                  <Box
-                                    sx={{
-                                      display: 'flex',
-                                      flexDirection: 'row',
-                                      alignItems: 'center',
-                                      justifyContent: 'flex-end'
-                                    }}
-                                  >
-                                    <IconButton
-                                      sx={{ ml: 1 }}
-                                      onClick={() =>
-                                        dispatch(
-                                          deleteRelation(
-                                            workOrder.id,
-                                            relation.id
-                                          )
-                                        )
-                                      }
-                                    >
-                                      <DeleteTwoToneIcon
-                                        fontSize="small"
-                                        color="error"
-                                      />
-                                    </IconButton>
-                                  </Box>
-                                }
-                              >
-                                <ListItemText
-                                  primary={
-                                    <Stack direction={'row'} spacing={2}>
-                                      <Typography variant="h6">
-                                        {relation.workOrder.title}
-                                      </Typography>
-                                      <LabelWrapper
-                                        sx={{
-                                          background:
-                                            relation.workOrder.status ===
-                                            'IN_PROGRESS'
-                                              ? theme.colors.success.main
-                                              : relation.workOrder.status ===
-                                                'ON_HOLD'
-                                              ? theme.colors.warning.main
-                                              : relation.workOrder.status ===
-                                                'COMPLETE'
-                                              ? theme.colors.primary.main
-                                              : theme.colors.alpha.black[30],
-                                          color: 'white'
-                                        }}
-                                      >
-                                        {t(relation.workOrder.status)}
-                                      </LabelWrapper>
-                                    </Stack>
-                                  }
-                                  secondary={getFormattedDate(
-                                    relation.workOrder.createdAt
-                                  )}
-                                />
-                              </ListItem>
-                            ))}
-                          </Box>
-                        )
-                    )}
-                  </List>
-                  {hasEditPermission(
-                    PermissionEntity.WORK_ORDERS,
-                    workOrder
-                  ) && (
-                    <Button
-                      onClick={() => setOpenLinkModal(true)}
-                      variant="outlined"
-                      sx={{ mt: 1 }}
-                    >
-                      {t('link_wo')}
-                    </Button>
-                  )}
-                </Fragment>
-              )}
-            </Box>
+
             <Box>
               <Divider sx={{ mt: 2 }} />
               <Typography sx={{ mt: 2, mb: 1 }} variant="h3">
@@ -1536,15 +1126,12 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 </Button>
               )}
             </Box>
-            <FieldReportSection
-              comments={comments}
-              getFormattedDate={getFormattedDate}
-            />
-            <FieldEvidenceSection
+            <FieldRegistroSection
               comments={comments}
               workOrder={workOrder}
               parentRequest={workOrder.parentRequest}
               onOpenImage={setImageState}
+              getFormattedDate={getFormattedDate}
             />
           </Box>
         )}
@@ -1559,26 +1146,14 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
           />
         )}
       </Grid>
-      <AddTimeModal
-        open={openAddTimeModal}
-        onClose={() => setOpenAddTimeModal(false)}
-        workOrderId={workOrder.id}
-      />
+
       <AddFileModal
         open={openAddFileModal}
         onClose={() => setOpenAddFileModal(false)}
         workOrderId={workOrder.id}
       />
-      <AddCostModal
-        open={openAddCostModal}
-        onClose={() => setOpenAddCostModal(false)}
-        workOrderId={workOrder.id}
-      />
-      <LinkModal
-        open={openLinkModal}
-        onClose={() => setOpenLinkModal(false)}
-        workOrderId={workOrder.id}
-      />
+
+
       {isImageViewerOpen && (
         <div style={{ zIndex: 100 }}>
           <ImageViewer
@@ -1606,17 +1181,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
         onComplete={onCompleteWO}
       />
       <Menu anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu}>
-        <MenuItem
-          onClick={() => {
-            setOpenLinkModal(true);
-            handleCloseMenu();
-          }}
-        >
-          <Stack spacing={2} direction="row">
-            <LinkTwoToneIcon />
-            <Typography variant="h6">{t('link')}</Typography>
-          </Stack>
-        </MenuItem>
+
         <MenuItem disabled={generatingReport} onClick={onGenerateReport}>
           <Stack spacing={2} direction="row">
             {generatingReport ? (

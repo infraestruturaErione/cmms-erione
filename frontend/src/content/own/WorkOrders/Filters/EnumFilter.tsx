@@ -18,13 +18,15 @@ interface OwnProps {
   completeOptions: string[];
   fieldName: string;
   icon: ReactNode;
+  enumName?: 'STATUS' | 'PRIORITY' | 'JS_DATE';
 }
 function EnumFilter({
   filterFields,
   onChange,
   completeOptions,
   fieldName,
-  icon
+  icon,
+  enumName
 }: OwnProps) {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const openMenu = Boolean(anchorEl);
@@ -77,11 +79,13 @@ function EnumFilter({
                 field: fieldName,
                 operation: 'in',
                 value: '',
-                values: [option]
+                values: [option],
+                ...(enumName ? { enumName } : {})
               });
             } else {
               newFilterFields[filterFieldIndex] = {
                 ...newFilterFields[filterFieldIndex],
+                ...(enumName ? { enumName } : {}),
                 values: pushOrRemove(
                   newFilterFields[filterFieldIndex].values,
                   !isChecked,

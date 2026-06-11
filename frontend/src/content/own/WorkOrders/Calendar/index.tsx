@@ -196,10 +196,14 @@ function ApplicationsCalendar({
         field: 'status',
         operation: 'in',
         value: '',
-        values: CALENDAR_OPERATIONAL_STATUSES
+        values: CALENDAR_OPERATIONAL_STATUSES,
+        enumName: 'STATUS' as const
       }
     ];
-  }, [filterFields]);
+  }, [
+    filterFields.find(({ field }) => field === 'archived')?.value,
+    filterFields.find(({ field }) => field === 'archived')?.operation,
+  ]);
 
   useEffect(() => {
     const calItem = calendarRef.current;
@@ -417,36 +421,41 @@ function ApplicationsCalendar({
   };
 
   const renderEventContent = (arg: any) => {
-    const color = arg.backgroundColor;
-    return (
-      <EventBlock>
-        <Stack direction="row" alignItems="center" spacing={0.5} minWidth={0}>
-          <Box
-            sx={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              flex: '0 0 auto',
-              bgcolor: color,
-              boxShadow: `0 0 0 2px ${alpha(color, 0.16)}`
-            }}
-          />
-          <Typography
-            component="span"
-            variant="caption"
-            sx={{
-              color: 'text.primary',
-              fontWeight: 700,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {arg.event.title}
-          </Typography>
-        </Stack>
-      </EventBlock>
-    );
+    try {
+      const color = arg.backgroundColor || theme.colors?.primary?.main || '#000000';
+      return (
+        <EventBlock>
+          <Stack direction="row" alignItems="center" spacing={0.5} minWidth={0}>
+            <Box
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                flex: '0 0 auto',
+                backgroundColor: color,
+                boxShadow: `0 0 0 2px ${alpha(color, 0.16)}`
+              }}
+            />
+            <Typography
+              component="span"
+              variant="caption"
+              sx={{
+                color: 'text.primary',
+                fontWeight: 700,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {arg.event.title}
+            </Typography>
+          </Stack>
+        </EventBlock>
+      );
+    } catch (e) {
+      console.warn('[renderEventContent] error', e, { arg, bg: arg.backgroundColor, color: arg.backgroundColor || theme.colors?.primary?.main || '#000000' });
+      return null;
+    }
   };
 
   const hasEvents = calendarEvents.length > 0;

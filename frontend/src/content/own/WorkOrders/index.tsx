@@ -28,7 +28,7 @@ import {
 } from '../type';
 import WorkOrder from '../../../models/owns/workOrder';
 import * as React from 'react';
-import { ChangeEvent, useContext, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { TitleContext } from '../../../contexts/TitleContext';
 import CustomDatagrid2, {
   CustomDatagridColumn2
@@ -495,7 +495,14 @@ function WorkOrders() {
       'customId'
     ]);
   };
-  const debouncedQueryChange = useMemo(() => debounce(onQueryChange, 1300), []);
+  const onQueryChangeRef = useRef(onQueryChange);
+  useEffect(() => {
+    onQueryChangeRef.current = onQueryChange;
+  }, [onQueryChange]);
+  const debouncedQueryChange = useMemo(
+    () => debounce((event) => onQueryChangeRef.current(event), 1300),
+    []
+  );
   useEffect(() => {
     dispatch(getWorkOrders(criteria));
   }, [criteria]);
@@ -526,7 +533,8 @@ function WorkOrders() {
               'IN_PROGRESS',
               'ON_HOLD',
               'COMPLETE'
-            ]
+            ],
+            enumName: 'STATUS' as const
           }
         ];
         dispatch(
@@ -1229,6 +1237,7 @@ function WorkOrders() {
                 onChange={onFilterChange}
                 completeOptions={['NONE', 'LOW', 'MEDIUM', 'HIGH']}
                 fieldName="priority"
+                enumName="PRIORITY"
                 icon={<SignalCellularAltTwoToneIcon />}
               />
               <EnumFilter
@@ -1242,6 +1251,7 @@ function WorkOrders() {
                   'COMPLETE'
                 ]}
                 fieldName="status"
+                enumName="STATUS"
                 icon={<CircleTwoToneIcon />}
               />
               <SearchInput onChange={debouncedQueryChange} />
@@ -1276,7 +1286,8 @@ function WorkOrders() {
               />
             ) : currentTab === 'column' ? (
               <WorkOrderBoard handleOpenDetails={handleOpenDetails} />
-            ) : (
+            ) : null}
+            {currentTab === 'calendar' && (
               <WorkOrderCalendar
                 handleAddWorkOrder={(date: Date) => {
                   setInitialDueDate(date);

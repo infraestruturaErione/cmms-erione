@@ -621,6 +621,7 @@ function Requests() {
                 onChange={onFilterChange}
                 completeOptions={['NONE', 'LOW', 'MEDIUM', 'HIGH']}
                 fieldName="priority"
+                enumName="PRIORITY"
                 icon={<SignalCellularAltTwoToneIcon />}
               />
               <EnumFilter
@@ -628,6 +629,7 @@ function Requests() {
                 onChange={onFilterChange}
                 completeOptions={['APPROVED', 'CANCELLED', 'PENDING']}
                 fieldName="status"
+                enumName="STATUS"
                 icon={<CircleTwoToneIcon />}
               />
               <SearchInput onChange={debouncedQueryChange} />

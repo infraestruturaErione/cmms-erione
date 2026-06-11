@@ -3,7 +3,10 @@ export const ERIONE_HIDDEN_MODULES = {
   inventory: true,
   meters: true,
   purchaseOrders: true,
-  vendors: true
+  vendors: true,
+  labor: true,
+  additionalCosts: true,
+  relations: true
 };
 
 type ErioneModuleKey = keyof typeof ERIONE_HIDDEN_MODULES;
