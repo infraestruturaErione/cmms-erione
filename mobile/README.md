@@ -31,12 +31,3 @@ Set these environment variables in the command line or creating a `.env` file
 eas build --profile previewAndroid --platform android
 ```
 It will generate an apk in expo.
-## Getting help
-
-If you have questions, concerns, bug reports, etc, please file an issue in this repository's Issue Tracker or send an
-email at ibracool99@gmail.com.
-
-## Getting involved
-
-You can contribute in different ways. Sending feedback on features, fixing certain bugs, implementing new features, etc.
-Instructions on _how_ to contribute can be found in [CONTRIBUTING](CONTRIBUTING.md).
