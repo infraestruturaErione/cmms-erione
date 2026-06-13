@@ -82,7 +82,6 @@ const LoginJWT: FC = () => {
           <TextField
             error={Boolean(touched.email && errors.email)}
             fullWidth
-            margin="normal"
             autoFocus
             helperText={touched.email && errors.email}
             label={ldapEnabled ? t('id') : t('email')}
@@ -92,11 +91,12 @@ const LoginJWT: FC = () => {
             type={ldapEnabled ? 'text' : 'email'}
             value={values.email}
             variant="outlined"
+            sx={loginFieldSx}
           />
           <TextField
             error={Boolean(touched.password && errors.password)}
             fullWidth
-            margin="normal"
+            sx={{ ...loginFieldSx, mt: 2.5 }}
             helperText={touched.password && errors.password}
             label={t('password')}
             name="password"
@@ -117,23 +117,32 @@ const LoginJWT: FC = () => {
           />
           <Box
             alignItems="center"
-            display={{ xs: 'block', md: 'flex' }}
-            justifyContent="space-between"
+            display="flex"
+            flexWrap="wrap"
+            gap={1.5}
+            justifyContent="flex-end"
+            mt={1.5}
           >
-            <Link component={RouterLink} to="/account/recover-password">
+            <Link
+              component={RouterLink}
+              to="/account/recover-password"
+              sx={loginLinkSx}
+            >
               <b>{t('lost_password')}</b>
             </Link>
             <Box
               sx={{
                 display: 'flex',
                 gap: 1.5,
-                mt: { xs: 1, md: 0 }
+                width: '100%',
+                justifyContent: 'center',
+                mt: 2.5
               }}
             >
-              <Link component={RouterLink} to="/privacy-policy">
+              <Link component={RouterLink} to="/privacy-policy" sx={legalLinkSx}>
                 {t('privacy_policy')}
               </Link>
-              <Link component={RouterLink} to="/terms-of-use">
+              <Link component={RouterLink} to="/terms-of-use" sx={legalLinkSx}>
                 {t('terms_of_service')}
               </Link>
             </Box>
@@ -141,18 +150,15 @@ const LoginJWT: FC = () => {
 
           <Button
             sx={{
-              mt: 3,
-              bgcolor: ERIONE_VISUAL_IDENTITY.primary,
-              boxShadow: `0 10px 24px ${alpha(
-                ERIONE_VISUAL_IDENTITY.primary,
-                0.22
-              )}`,
+              mt: 3.5,
+              minHeight: 56,
+              borderRadius: '14px',
+              fontSize: 16,
+              background: `linear-gradient(90deg, #19C8FF 0%, ${ERIONE_VISUAL_IDENTITY.primary} 52%, #B84DFF 100%)`,
+              boxShadow: `0 16px 34px ${alpha('#19C8FF', 0.24)}`,
               '&:hover': {
-                bgcolor: ERIONE_VISUAL_IDENTITY.primaryDark,
-                boxShadow: `0 12px 28px ${alpha(
-                  ERIONE_VISUAL_IDENTITY.primaryDark,
-                  0.26
-                )}`
+                background: `linear-gradient(90deg, #16B8EA 0%, ${ERIONE_VISUAL_IDENTITY.primary} 52%, #A23DED 100%)`,
+                boxShadow: `0 18px 42px ${alpha('#19C8FF', 0.32)}`
               }
             }}
             color="primary"
@@ -191,6 +197,55 @@ const LoginJWT: FC = () => {
       )}
     </Formik>
   );
+};
+
+const loginFieldSx = {
+  '& .MuiInputLabel-root': {
+    color: alpha('#D9E7EF', 0.86)
+  },
+  '& .MuiInputLabel-root.Mui-focused': {
+    color: '#19C8FF'
+  },
+  '& .MuiOutlinedInput-root': {
+    color: '#FFFFFF',
+    borderRadius: '14px',
+    backgroundColor: alpha('#061826', 0.48),
+    '& fieldset': {
+      borderColor: alpha('#A9C8FF', 0.24)
+    },
+    '&:hover fieldset': {
+      borderColor: alpha('#19C8FF', 0.72)
+    },
+    '&.Mui-focused fieldset': {
+      borderColor: '#19C8FF',
+      boxShadow: `0 0 0 3px ${alpha('#19C8FF', 0.14)}`
+    }
+  },
+  '& .MuiFormHelperText-root': {
+    color: '#FFB3B3',
+    marginLeft: 0
+  },
+  '& input:-webkit-autofill': {
+    WebkitBoxShadow: `0 0 0 100px ${alpha('#061826', 0.92)} inset`,
+    WebkitTextFillColor: '#FFFFFF'
+  }
+};
+
+const loginLinkSx = {
+  color: '#19C8FF',
+  fontWeight: 700,
+  textDecorationColor: alpha('#19C8FF', 0.52),
+  '&:hover': {
+    color: '#72E3FF'
+  }
+};
+
+const legalLinkSx = {
+  color: alpha('#D9E7EF', 0.78),
+  fontSize: 13,
+  '&:hover': {
+    color: '#19C8FF'
+  }
 };
 
 export default LoginJWT;

@@ -1,12 +1,12 @@
 export const ERIONE_VISUAL_IDENTITY = {
-  primary: '#0F766E',
-  primaryDark: '#0B2F3A',
-  primaryDarker: '#071F28',
-  accent: '#22C55E',
-  accentSoft: '#DDF7EC',
-  surface: '#F4F8F7',
+  primary: '#2A4899',
+  primaryDark: '#061826',
+  primaryDarker: '#03111F',
+  accent: '#E11D48',
+  accentSoft: '#FDE8EF',
+  surface: '#F6F9FA',
   sidebarGradient:
-    'linear-gradient(180deg, #071F28 0%, #0B2F3A 46%, #0F766E 100%)',
+    'linear-gradient(180deg, #03111F 0%, #061826 52%, #2A4899 100%)',
   loginGradient:
-    'radial-gradient(circle at top left, rgba(34, 197, 94, 0.22), transparent 32%), linear-gradient(135deg, #071F28 0%, #0B2F3A 48%, #0F766E 100%)'
+    'radial-gradient(circle at top left, rgba(225, 29, 72, 0.22), transparent 32%), linear-gradient(135deg, #03111F 0%, #061826 48%, #2A4899 100%)'
 };

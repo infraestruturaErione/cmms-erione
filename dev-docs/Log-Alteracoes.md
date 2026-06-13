@@ -1,5 +1,37 @@
 # Log de Alterações — Erione CMMS
 
+## 2026-06-13 - Login web full-screen dividido
+
+### Alteracoes
+
+- `frontend/src/content/pages/Auth/Login/Cover/index.tsx` deixou de usar card/modal centralizado.
+- A tela de login agora usa `main` full-screen com grid em duas areas: painel de login a esquerda e arte tecnologica a direita.
+- O formulario manteve largura maxima propria, mas o layout inteiro nao fica mais dentro de um card com max-width.
+- O lado esquerdo usa fundo escuro/gradiente Erione, marca textual `ERIONE CMMS`, titulo `Faca seu login.` e formulario.
+- O lado direito usa a arte correta em `frontend/public/static/images/erione-login-background.png`, recortada da referencia enviada, com sinapses/pulsos sobre camera, Wi-Fi, nuvem e IA.
+- Em telas menores, a arte visual e ocultada e o login ocupa 100% da tela.
+- `frontend/src/content/pages/Auth/Login/LoginJWT.tsx` manteve autenticacao, validacoes, recuperacao de senha, Politica de Privacidade e Termos de Servico.
+
+### Validacao
+
+- `cd frontend && npx eslint src/content/pages/Auth/Login/Cover/index.tsx src/content/pages/Auth/Login/LoginJWT.tsx src/config/erioneVisualIdentity.ts`: OK.
+- `cd frontend && npm run build`: OK, apenas warnings conhecidos de sourcemap em dependencias e CRA/Babel.
+- `docker compose build frontend`: OK.
+- `docker compose up -d --no-deps --force-recreate frontend`: OK.
+- Validacao visual via navegador interno ficou limitada porque a sessao local estava autenticada e redirecionava para `/app/work-orders`; a estrutura full-screen foi confirmada por codigo/build.
+
+### Nao alterado
+
+- Backend.
+- Banco/migrations.
+- Endpoints.
+- Login/auth handlers.
+- Permissoes/roles.
+- Customer Scope.
+- Mobile/APK.
+
+---
+
 ## 2026-06-12 - Politica de privacidade publica
 
 ### Alteracoes
@@ -355,6 +387,36 @@ Refetch de focus/visibility agora também dispara `getCalendarWorkOrders` quando
 
 ---
 
+## 2026-06-13 - Redesign login web Erione
+
+### Ajustes aplicados
+
+- Tela de login web reformulada com visual Erione escuro/tecnologico, inspirada na referencia enviada.
+- Fundo com imagem tecnologica em `frontend/public/static/images/erione-login-background.png`.
+- Painel principal em glass/dark UI, com marca textual `ERIONE CMMS`, titulo `Faca seu login.` e formulario em destaque.
+- Area visual desktop com nos animados conectando camera, Wi-Fi, cloud, IA e seguranca.
+- Link visivel para recuperacao de senha mantido.
+- Links publicos de Politica de Privacidade e Termos de Uso mantidos no formulario.
+- Link/CTA de criar conta nao foi exibido na nova tela.
+- Paleta global web Erione ajustada em `erioneVisualIdentity` para a cor primaria temporaria `#2A4899`, com navy escuro e coral de destaque.
+
+### Validacao tecnica
+
+- `cd frontend && npx eslint src/content/pages/Auth/Login/Cover/index.tsx src/content/pages/Auth/Login/LoginJWT.tsx src/config/erioneVisualIdentity.ts`: OK.
+- `cd frontend && npm run build`: OK, apenas warnings conhecidos de sourcemap em dependencias e CRA/Babel.
+
+### Nao alterado
+
+- Backend.
+- Banco/migrations.
+- Endpoints.
+- Permissoes/roles.
+- Customer Scope.
+- Mobile/APK nesta leva.
+- Producao/containers nesta leva.
+
+---
+
 ## 2026-06-10 - Deploy frontend e validacao em producao
 
 ### Commit/deploy
@@ -407,3 +469,4 @@ Refetch de focus/visibility agora também dispara `getCalendarWorkOrders` quando
 - Endpoints.
 - Permissoes/roles.
 - Customer Scope.
+

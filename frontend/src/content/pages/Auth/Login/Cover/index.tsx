@@ -1,9 +1,6 @@
 import {
   alpha,
   Box,
-  Card,
-  Container,
-  Chip,
   Stack,
   styled,
   Typography,
@@ -13,8 +10,6 @@ import { Helmet } from 'react-helmet-async';
 import JWTLogin from '../LoginJWT';
 
 import { useTranslation } from 'react-i18next';
-import Logo from 'src/components/LogoSign';
-import { useBrand } from '../../../../../hooks/useBrand';
 import { ERIONE_VISUAL_IDENTITY } from '../../../../../config/erioneVisualIdentity';
 
 const Content = styled(Box)(
@@ -25,10 +20,17 @@ const Content = styled(Box)(
 `
 );
 
+const fieldSignals = [
+  { label: 'camera', left: '19%', top: '22%', delay: '0s' },
+  { label: 'wifi', left: '46%', top: '27%', delay: '0.45s' },
+  { label: 'cloud', left: '80%', top: '19%', delay: '0.9s' },
+  { label: 'ai', left: '81%', top: '39%', delay: '1.35s' },
+  { label: 'edge', left: '63%', top: '67%', delay: '1.8s' }
+];
+
 function LoginCover() {
   const { t }: { t: any } = useTranslation();
   const theme = useTheme();
-  const { name: brandName } = useBrand();
 
   return (
     <>
@@ -37,189 +39,236 @@ function LoginCover() {
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
       <Content
+        component="main"
         sx={{
-          position: 'relative',
-          overflow: 'hidden',
           minHeight: '100vh',
-          background: `
-            linear-gradient(140deg, transparent 0 54%, rgba(7, 31, 40, 0.42) 54% 62%, transparent 62%),
-            linear-gradient(28deg, transparent 0 48%, rgba(11, 47, 58, 0.44) 48% 58%, transparent 58%),
-            linear-gradient(18deg, transparent 0 58%, rgba(15, 118, 110, 0.34) 58% 68%, transparent 68%),
-            radial-gradient(circle at 8% 12%, ${alpha(
-              ERIONE_VISUAL_IDENTITY.accent,
-              0.26
-            )} 0%, transparent 28%),
-            radial-gradient(circle at 88% 18%, ${alpha(
-              ERIONE_VISUAL_IDENTITY.primary,
-              0.34
-            )} 0%, transparent 30%),
-            linear-gradient(180deg, rgba(7, 31, 40, 0.48) 0%, transparent 30%),
-            linear-gradient(180deg, #6f8fa8 0%, #bfd7d9 38%, #527482 67%, #071f28 100%)
-          `,
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            inset: 0,
-            opacity: 0.52,
-            backgroundImage: `linear-gradient(${alpha(
-              theme.colors.alpha.trueWhite[100],
-              0.16
-            )} 1px, transparent 1px), linear-gradient(90deg, ${alpha(
-              theme.colors.alpha.trueWhite[100],
-              0.12
-            )} 1px, transparent 1px)`,
-            backgroundSize: '86px 86px',
-            maskImage:
-              'linear-gradient(180deg, transparent 0%, black 24%, transparent 76%)'
-          },
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: '42%',
-            background: `
-              linear-gradient(180deg, transparent 0%, ${alpha(
-                ERIONE_VISUAL_IDENTITY.primaryDarker,
-                0.82
-              )} 100%),
-              radial-gradient(ellipse at 22% 100%, ${alpha(
-                ERIONE_VISUAL_IDENTITY.primaryDark,
-                0.78
-              )} 0%, transparent 54%),
-              radial-gradient(ellipse at 72% 100%, ${alpha(
-                ERIONE_VISUAL_IDENTITY.primary,
-                0.62
-              )} 0%, transparent 58%)
-            `,
-            clipPath: {
-              xs: 'polygon(0 28%, 12% 18%, 28% 34%, 42% 15%, 58% 31%, 73% 20%, 88% 36%, 100% 22%, 100% 100%, 0 100%)',
-              md: 'polygon(0 36%, 10% 20%, 22% 38%, 36% 16%, 52% 34%, 67% 19%, 82% 39%, 100% 24%, 100% 100%, 0 100%)'
-            }
-          }
+          width: '100%',
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', lg: '46% 54%' },
+          overflow: 'hidden',
+          color: '#FFFFFF',
+          backgroundColor: '#061826'
         }}
       >
-        <Container
+        <Box
+          component="section"
           sx={{
+            position: 'relative',
+            minHeight: '100vh',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            py: { xs: 3, md: 6 }
+            px: { xs: 3, sm: 5, md: 7, xl: 10 },
+            py: { xs: 4, md: 6 },
+            background: `
+              radial-gradient(circle at 12% 18%, ${alpha('#19C8FF', 0.13)} 0%, transparent 28%),
+              radial-gradient(circle at 84% 86%, ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.24)} 0%, transparent 34%),
+              linear-gradient(180deg, #061826 0%, #03111F 100%)
+            `,
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              inset: 0,
+              pointerEvents: 'none',
+              opacity: { xs: 0.3, lg: 0.18 },
+              backgroundImage: `
+                linear-gradient(${alpha('#19C8FF', 0.14)} 1px, transparent 1px),
+                linear-gradient(90deg, ${alpha('#19C8FF', 0.1)} 1px, transparent 1px)
+              `,
+              backgroundSize: '96px 96px',
+              maskImage:
+                'radial-gradient(circle at center, black 0%, transparent 76%)'
+            },
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: { xs: 0, lg: 24 },
+              transform: 'translateX(100%)',
+              zIndex: 2,
+              background: `linear-gradient(90deg, ${alpha('#03111F', 0.32)}, transparent)`
+            }
           }}
-          maxWidth="lg"
         >
-          <Card
+          <Stack
+            spacing={{ xs: 3.5, md: 5 }}
             sx={{
               position: 'relative',
               zIndex: 1,
               width: '100%',
-              maxWidth: 980,
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: '0.95fr 1fr' },
-              overflow: 'hidden',
-              border: `1px solid ${alpha(
-                ERIONE_VISUAL_IDENTITY.primary,
-                0.14
-              )}`,
-              boxShadow: `0 24px 60px ${alpha(
-                ERIONE_VISUAL_IDENTITY.primaryDark,
-                0.28
-              )}`,
-              backgroundColor: alpha(theme.colors.alpha.white[100], 0.16),
-              backdropFilter: 'blur(26px) saturate(135%)',
-              borderColor: alpha(theme.colors.alpha.trueWhite[100], 0.52)
+              maxWidth: 430
             }}
           >
-            <Box
-              sx={{
-                p: { xs: 3, md: 5 },
-                background: ERIONE_VISUAL_IDENTITY.loginGradient,
-                backdropFilter: 'blur(10px)',
-                color: 'white',
-                borderRight: {
-                  xs: 0,
-                  md: `1px solid ${alpha(theme.colors.alpha.black[100], 0.08)}`
-                }
-              }}
-            >
-              <Logo white />
-              <Typography variant="h2" sx={{ mt: 3, mb: 1 }}>
-                {brandName}
-              </Typography>
-              <Chip
-                label={t('field_operations')}
-                size="small"
+            <Box>
+              <Box
+                component="img"
+                src="/favicon.png"
+                alt="Erione"
                 sx={{
-                  mb: 2,
-                  color: ERIONE_VISUAL_IDENTITY.accentSoft,
-                  borderColor: alpha(theme.colors.alpha.trueWhite[100], 0.28),
-                  bgcolor: alpha(theme.colors.alpha.trueWhite[100], 0.08)
+                  display: 'block',
+                  width: { xs: 74, md: 92 },
+                  height: 'auto',
+                  filter: `drop-shadow(0 14px 30px ${alpha('#000000', 0.32)})`
                 }}
-                variant="outlined"
               />
-              <Typography
-                variant="h4"
-                color={alpha(theme.colors.alpha.trueWhite[100], 0.82)}
-                fontWeight="normal"
-              >
-                {t('erione_login_tagline')}
-              </Typography>
-              <Stack spacing={1.25} sx={{ mt: 4 }}>
-                <Typography
-                  variant="body2"
-                  color={alpha(theme.colors.alpha.trueWhite[100], 0.74)}
-                >
-                  {t('erione_login_bullet_work_orders')}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color={alpha(theme.colors.alpha.trueWhite[100], 0.74)}
-                >
-                  {t('erione_login_bullet_field')}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color={alpha(theme.colors.alpha.trueWhite[100], 0.74)}
-                >
-                  {t('erione_login_bullet_reports')}
-                </Typography>
-              </Stack>
             </Box>
+
+            <Box>
+              <Typography
+                component="h1"
+                sx={{
+                  fontSize: {
+                    xs: 'clamp(36px, 12vw, 50px)',
+                    md: 'clamp(48px, 4vw, 60px)'
+                  },
+                  lineHeight: 1.05,
+                  fontWeight: 900,
+                  textShadow: `0 18px 44px ${alpha('#000000', 0.5)}`
+                }}
+              >
+                Faça seu login
+                <Box component="span" sx={{ color: '#19C8FF' }}>
+                  .
+                </Box>
+              </Typography>
+              <Typography
+                sx={{
+                  color: alpha('#D9E7EF', 0.78),
+                  fontSize: { xs: 14, md: 15 },
+                  lineHeight: 1.65,
+                  mt: 2
+                }}
+              >
+                Acesse o Erione CMMS para continuar a operação de campo.
+              </Typography>
+            </Box>
+
+            <JWTLogin />
+          </Stack>
+        </Box>
+
+        <Box
+          component="section"
+          aria-label="Operação conectada Erione"
+          sx={{
+            position: 'relative',
+            display: { xs: 'none', lg: 'block' },
+            minHeight: '100vh',
+            overflow: 'hidden',
+            backgroundColor: ERIONE_VISUAL_IDENTITY.primaryDarker,
+            backgroundImage: `
+              linear-gradient(90deg, ${alpha('#020A14', 0.06)} 0%, ${alpha('#020A14', 0.34)} 100%),
+              url('/static/images/erione-login-background.png')
+            `,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              inset: 0,
+              background: `
+                radial-gradient(circle at 50% 34%, transparent 0%, ${alpha('#020A14', 0.2)} 72%),
+                linear-gradient(180deg, ${alpha('#020A14', 0.08)} 0%, ${alpha('#020A14', 0.36)} 100%)
+              `
+            },
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              inset: 0,
+              boxShadow: `inset 32px 0 72px ${alpha('#020A14', 0.32)}`
+            }
+          }}
+        >
+          <Box
+            component="svg"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 2,
+              width: '100%',
+              height: '100%',
+              opacity: 0.9,
+              '& .signal-path': {
+                fill: 'none',
+                stroke: '#19C8FF',
+                strokeWidth: 0.28,
+                strokeLinecap: 'round',
+                strokeDasharray: '1.3 2.2',
+                filter: 'drop-shadow(0 0 3px rgba(25, 200, 255, 0.85))',
+                animation: 'erioneSignalFlow 4s linear infinite'
+              },
+              '& .signal-path.secondary': {
+                stroke: '#9EEBFF',
+                opacity: 0.72,
+                animationDuration: '5.4s'
+              },
+              '@keyframes erioneSignalFlow': {
+                '0%': { strokeDashoffset: 18 },
+                '100%': { strokeDashoffset: 0 }
+              }
+            }}
+          >
+            <path
+              className="signal-path"
+              d="M19 22 C29 18 36 26 46 27 C58 28 67 18 80 19"
+            />
+            <path
+              className="signal-path secondary"
+              d="M46 27 C56 30 63 38 81 39"
+            />
+            <path
+              className="signal-path"
+              d="M19 22 C32 38 43 55 63 67"
+              style={{ animationDelay: '0.55s' }}
+            />
+            <path
+              className="signal-path secondary"
+              d="M63 67 C70 57 76 48 81 39"
+              style={{ animationDelay: '1.05s' }}
+            />
+          </Box>
+
+          {fieldSignals.map((signal) => (
             <Box
+              key={signal.label}
               sx={{
-                p: { xs: 3, md: 5 },
-                backgroundColor: alpha(theme.colors.alpha.white[100], 0.42),
-                backdropFilter: 'blur(28px) saturate(145%)',
-                boxShadow: `inset 0 1px 0 ${alpha(
-                  theme.colors.alpha.trueWhite[100],
-                  0.44
-                )}`,
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: alpha(theme.colors.alpha.white[100], 0.78),
-                  backdropFilter: 'blur(8px)'
+                position: 'absolute',
+                zIndex: 3,
+                left: signal.left,
+                top: signal.top,
+                width: 14,
+                height: 14,
+                transform: 'translate(-50%, -50%)',
+                borderRadius: '50%',
+                backgroundColor: '#19C8FF',
+                boxShadow: `0 0 16px ${alpha('#19C8FF', 0.88)}`,
+                animation: 'erioneSignalPulse 2.8s ease-in-out infinite',
+                animationDelay: signal.delay,
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  inset: -18,
+                  borderRadius: '50%',
+                  border: `1px solid ${alpha('#19C8FF', 0.36)}`
+                },
+                '@keyframes erioneSignalPulse': {
+                  '0%, 100%': {
+                    opacity: 0.68,
+                    transform: 'translate(-50%, -50%) scale(0.72)'
+                  },
+                  '50%': {
+                    opacity: 1,
+                    transform: 'translate(-50%, -50%) scale(1.05)'
+                  }
                 }
               }}
-            >
-              <Box textAlign="left">
-                <Typography variant="h2" sx={{ mb: 1 }}>
-                  {t('login')}
-                </Typography>
-                <Typography
-                  variant="body1"
-                  color="text.secondary"
-                  fontWeight="normal"
-                  sx={{
-                    mb: 3
-                  }}
-                >
-                  {t('login_description')}
-                </Typography>
-              </Box>
-              <JWTLogin />
-            </Box>
-          </Card>
-        </Container>
+            />
+          ))}
+        </Box>
       </Content>
     </>
   );
