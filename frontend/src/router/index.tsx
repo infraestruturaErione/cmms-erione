@@ -30,6 +30,12 @@ const RequestPortalPublicPage = Loader(
   )
 );
 
+const PrivacyPolicy = Loader(
+  lazy(() => import('../content/pages/PrivacyPolicy'))
+);
+
+const TermsOfUse = Loader(lazy(() => import('../content/pages/TermsOfUse')));
+
 const router: RouteObject[] = [
   {
     path: 'account',
@@ -43,6 +49,14 @@ const router: RouteObject[] = [
   {
     path: 'request-portal/:uuid',
     element: <RequestPortalPublicPage />
+  },
+  {
+    path: 'privacy-policy',
+    element: <PrivacyPolicy />
+  },
+  {
+    path: 'terms-of-use',
+    element: <TermsOfUse />
   },
   {
     path: 'app',

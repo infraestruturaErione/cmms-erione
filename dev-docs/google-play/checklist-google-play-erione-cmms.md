@@ -7,8 +7,8 @@ Documento de preparacao para submissao futura na Google Play. Revisar antes de p
 - App name: Erione CMMS
 - Nome visivel no app: Erione CMMS
 - Package Android atual: `com.erione.cmms`
-- Privacy Policy URL provisoria: `https://erione.com.br/privacidade`
-- Terms URL provisoria: `https://erione.com.br/termos`
+- Privacy Policy URL: `https://cmms.erione.com.br/privacy-policy`
+- Terms URL: `https://cmms.erione.com.br/terms-of-use`
 
 ## Pendencias antes da submissao
 

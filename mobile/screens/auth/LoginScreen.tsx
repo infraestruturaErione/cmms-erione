@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import {
   Image,
+  ImageBackground,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -23,6 +24,9 @@ import { AuthStackScreenProps } from '../../types';
 import { getErrorMessage } from '../../utils/api';
 import { legalLinks } from '../../config';
 
+const recoverAccessUrl =
+  'mailto:suporte@erione.com.br?subject=Recuperar%20acesso%20Erione%20CMMS';
+
 export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
   const { t } = useTranslation();
   const { login } = useAuth();
@@ -38,6 +42,10 @@ export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
     dispatch(getInstanceConfig());
   }, []);
 
+  const openExternalLink = (url: string) => {
+    Linking.openURL(url);
+  };
+
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
@@ -46,10 +54,15 @@ export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
         style={styles.keyboard}
       >
         <View style={styles.backgroundLayer}>
-          <View style={styles.pinkGlow} />
-          <View style={styles.blueGlow} />
-          <View style={styles.lineOne} />
-          <View style={styles.lineTwo} />
+          <ImageBackground
+            source={require('../../assets/images/erione-login-background.png')}
+            resizeMode="cover"
+            style={styles.backgroundImage}
+            imageStyle={styles.backgroundImageAsset}
+          >
+            <View style={styles.backgroundOverlay} />
+            <View style={styles.backgroundVignette} />
+          </ImageBackground>
         </View>
 
         <ScrollView
@@ -66,10 +79,8 @@ export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
           <View
             style={[styles.deviceFrame, desktop && styles.deviceFrameDesktop]}
           >
-            <View style={[styles.content, compact && styles.contentCompact]}>
-              <View
-                style={[styles.logoWrapper, compact && styles.logoCompact]}
-              >
+            <View style={[styles.hero, compact && styles.heroCompact]}>
+              <View style={styles.logoShell}>
                 <Image
                   source={require('../../assets/images/erione-logo.png')}
                   style={[styles.logo, compact && styles.logoImageCompact]}
@@ -77,18 +88,12 @@ export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
                 />
               </View>
 
-              <View style={styles.headline}>
-                <Text style={[styles.title, compact && styles.titleCompact]}>
-                  Bem-vindo{'\n'}
-                  <Text style={styles.titleAccent}>de volta.</Text>
-                </Text>
-
-                <Text
-                  style={[styles.subtitle, compact && styles.subtitleCompact]}
-                >
-                  Acesse o Erione CMMS para continuar.
-                </Text>
-              </View>
+              <Text style={styles.productLine}>
+                Gestao de Ordens de Servico
+              </Text>
+              <Text style={styles.productSubtitle}>
+                Seguranca, TI, IoT e IA para operacao em campo.
+              </Text>
             </View>
 
             <Formik
@@ -112,13 +117,13 @@ export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
                 } catch (err) {
                   if (err instanceof TypeError) {
                     setLoginError(
-                      'Servidor inacessível. Verifique a conexão com a API.'
+                      'Servidor inacessivel. Verifique sua conexao e tente novamente.'
                     );
                   } else {
                     setLoginError(
                       getErrorMessage(
                         err,
-                        'Credenciais inválidas. Confira e-mail e senha.'
+                        'Credenciais invalidas. Confira e-mail e senha.'
                       )
                     );
                   }
@@ -143,6 +148,13 @@ export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
                     desktop && styles.loginCardDesktop
                   ]}
                 >
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle}>Acesse o CMMS</Text>
+                    <Text style={styles.cardSubtitle}>
+                      Entre para acompanhar e executar ordens de servico.
+                    </Text>
+                  </View>
+
                   <View style={styles.field}>
                     <Text style={styles.label}>
                       {ldapEnabled ? t('id') : t('email')}
@@ -157,8 +169,8 @@ export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
                       <Text style={styles.inputIcon}>@</Text>
                       <TextInput
                         placeholder={ldapEnabled ? 'usuario' : 'email'}
-                        placeholderTextColor="rgba(255,255,255,0.42)"
-                        selectionColor="#ef3b63"
+                        placeholderTextColor="rgba(223,234,241,0.48)"
+                        selectionColor="#E11D48"
                         style={styles.input}
                         onBlur={handleBlur('email')}
                         onChangeText={handleChange('email')}
@@ -188,9 +200,9 @@ export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
                     >
                       <Text style={styles.inputIcon}>*</Text>
                       <TextInput
-                        placeholder="******"
-                        placeholderTextColor="rgba(255,255,255,0.42)"
-                        selectionColor="#ef3b63"
+                        placeholder="Senha"
+                        placeholderTextColor="rgba(223,234,241,0.48)"
+                        selectionColor="#E11D48"
                         style={styles.input}
                         onBlur={handleBlur('password')}
                         onChangeText={handleChange('password')}
@@ -202,9 +214,10 @@ export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
                       <Pressable
                         onPress={() => setShowPassword(!showPassword)}
                         style={styles.showToggle}
+                        hitSlop={8}
                       >
                         <Text style={styles.showToggleText}>
-                          {t(showPassword ? 'show_password' : 'hide_password')}
+                          {showPassword ? 'Ocultar' : 'Ver'}
                         </Text>
                       </Pressable>
                     </View>
@@ -232,35 +245,47 @@ export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
                     ]}
                   >
                     <Text style={styles.submitText}>
-                      {isSubmitting ? 'Entrando...' : 'Entrar'}
+                      {isSubmitting ? 'Entrando...' : 'Entrar no CMMS'}
                     </Text>
                   </Pressable>
 
-                  <View style={styles.legalNotice}>
-                    <Text style={styles.legalText}>
-                      Ao entrar, você concorda com os{' '}
-                      <Text
-                        style={styles.legalLink}
-                        onPress={() => Linking.openURL(legalLinks.termsOfUse)}
-                      >
-                        Termos de Uso
-                      </Text>{' '}
-                      e a{' '}
-                      <Text
-                        style={styles.legalLink}
-                        onPress={() =>
-                          Linking.openURL(legalLinks.privacyPolicy)
-                        }
-                      >
-                        Política de Privacidade
-                      </Text>
-                      .
+                  <Pressable
+                    onPress={() => openExternalLink(recoverAccessUrl)}
+                    style={styles.recoverAccess}
+                  >
+                    <Text style={styles.recoverAccessText}>
+                      Esqueci minha senha
                     </Text>
+                  </Pressable>
+
+                  <View style={styles.capabilityRow}>
+                    <Text style={styles.capabilityText}>Seguranca</Text>
+                    <View style={styles.capabilityDot} />
+                    <Text style={styles.capabilityText}>TI</Text>
+                    <View style={styles.capabilityDot} />
+                    <Text style={styles.capabilityText}>IoT</Text>
+                    <View style={styles.capabilityDot} />
+                    <Text style={styles.capabilityText}>IA</Text>
                   </View>
 
-                  <Text style={styles.footerNote}>
-                    Copyright © 2026 Erione
-                  </Text>
+                  <View style={styles.legalLinks}>
+                    <Pressable
+                      onPress={() => openExternalLink(legalLinks.privacyPolicy)}
+                      style={styles.legalButton}
+                    >
+                      <Text style={styles.legalLink}>
+                        Politica de Privacidade
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => openExternalLink(legalLinks.termsOfUse)}
+                      style={styles.legalButton}
+                    >
+                      <Text style={styles.legalLink}>Termos de Uso</Text>
+                    </Pressable>
+                  </View>
+
+                  <Text style={styles.footerNote}>© 2026 Erione</Text>
                 </View>
               )}
             </Formik>
@@ -274,33 +299,30 @@ export default function LoginScreen({}: AuthStackScreenProps<'Login'>) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#07090e'
+    backgroundColor: '#061826'
   },
   keyboard: {
-    backgroundColor: '#07090e',
     flex: 1
   },
   scroll: {
-    backgroundColor: '#07090e',
     flex: 1
   },
   scrollContent: {
     alignItems: 'center',
-    backgroundColor: '#07090e',
     flexGrow: 1,
-    justifyContent: 'flex-end',
-    paddingTop: 28
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 28
   },
   scrollContentCompact: {
-    paddingTop: 16
+    justifyContent: 'flex-start',
+    paddingVertical: 18
   },
   scrollContentDesktop: {
-    justifyContent: 'center',
-    paddingBottom: 28,
-    paddingHorizontal: 20
+    paddingVertical: 32
   },
   deviceFrame: {
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     width: '100%'
   },
   deviceFrameDesktop: {
@@ -309,231 +331,254 @@ const styles = StyleSheet.create({
   },
   backgroundLayer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#07090e'
+    backgroundColor: '#031426',
+    overflow: 'hidden'
   },
-  pinkGlow: {
-    backgroundColor: 'rgba(239,59,99,0.18)',
-    borderRadius: 140,
-    height: 230,
-    left: -68,
-    position: 'absolute',
-    top: 28,
-    width: 230
+  backgroundImage: {
+    flex: 1
   },
-  blueGlow: {
-    backgroundColor: 'rgba(45,85,163,0.22)',
-    borderRadius: 155,
-    height: 270,
-    position: 'absolute',
-    right: -104,
-    top: 124,
-    width: 270
+  backgroundImageAsset: {
+    opacity: 1
   },
-  lineOne: {
-    backgroundColor: 'rgba(239,59,99,0.15)',
-    height: 2,
-    left: -34,
-    position: 'absolute',
-    top: 188,
-    transform: [{ rotate: '-32deg' }],
-    width: 210
+  backgroundOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(2,14,27,0.18)'
   },
-  lineTwo: {
-    backgroundColor: 'rgba(45,85,163,0.22)',
-    height: 2,
-    position: 'absolute',
-    right: -38,
-    top: 384,
-    transform: [{ rotate: '-32deg' }],
-    width: 220
+  backgroundVignette: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.10)'
   },
-  content: {
-    paddingHorizontal: 28
-  },
-  contentCompact: {
-    paddingHorizontal: 24
-  },
-  logoWrapper: {
+  hero: {
     alignItems: 'center',
-    marginBottom: 12
+    marginBottom: 22,
+    paddingHorizontal: 18
   },
-  logoCompact: {
-    marginBottom: 6
+  heroCompact: {
+    marginBottom: 14
+  },
+  logoShell: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 28,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 10
   },
   logo: {
-    height: 100,
-    width: 165
+    height: 78,
+    width: 174
   },
   logoImageCompact: {
-    height: 76,
-    width: 132
+    height: 64,
+    width: 148
   },
-  headline: {
-    marginTop: 2
-  },
-  title: {
-    color: '#ffffff',
-    fontSize: 48,
+  productLine: {
+    color: '#FFFFFF',
+    fontSize: 22,
     fontWeight: '900',
-    lineHeight: 48
+    lineHeight: 28,
+    textAlign: 'center'
   },
-  titleCompact: {
-    fontSize: 40,
-    lineHeight: 40
-  },
-  titleAccent: {
-    color: '#ef3b63'
-  },
-  subtitle: {
-    color: '#9ba0aa',
-    fontSize: 18,
-    lineHeight: 26,
-    marginTop: 18,
-    maxWidth: 312
-  },
-  subtitleCompact: {
-    fontSize: 16,
-    lineHeight: 23,
-    marginTop: 12
+  productSubtitle: {
+    color: '#A7B6C2',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginTop: 8,
+    maxWidth: 310,
+    textAlign: 'center'
   },
   loginCard: {
-    backgroundColor: 'rgba(19,20,24,0.98)',
-    borderTopColor: 'rgba(255,255,255,0.10)',
-    borderTopLeftRadius: 34,
-    borderTopRightRadius: 34,
-    borderTopWidth: 1,
-    gap: 20,
-    marginTop: 46,
-    paddingBottom: 32,
-    paddingHorizontal: 28,
-    paddingTop: 30,
+    backgroundColor: 'rgba(5,24,40,0.68)',
+    borderColor: 'rgba(169,200,255,0.30)',
+    borderRadius: 28,
+    borderWidth: 1,
+    gap: 18,
+    paddingBottom: 24,
+    paddingHorizontal: 22,
+    paddingTop: 24,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -20 },
-    shadowOpacity: 0.36,
-    shadowRadius: 42,
+    shadowOffset: { width: 0, height: 22 },
+    shadowOpacity: 0.46,
+    shadowRadius: 38,
     width: '100%'
   },
   loginCardCompact: {
-    gap: 16,
-    marginTop: 26,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
-    paddingTop: 24
+    gap: 14,
+    paddingBottom: 20,
+    paddingHorizontal: 18,
+    paddingTop: 20
   },
   loginCardDesktop: {
-    borderBottomLeftRadius: 34,
-    borderBottomRightRadius: 34,
-    borderColor: 'rgba(255,255,255,0.10)',
-    borderWidth: 1
+    shadowOpacity: 0.42
+  },
+  cardHeader: {
+    gap: 5
+  },
+  cardTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '900'
+  },
+  cardSubtitle: {
+    color: '#A7B6C2',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 19
   },
   field: {
-    gap: 10
+    gap: 9
   },
   label: {
-    color: '#b7bbc5',
+    color: '#D9E7EF',
     fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase'
   },
   inputWrap: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.045)',
-    borderColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 16,
+    backgroundColor: 'rgba(3,18,32,0.62)',
+    borderColor: 'rgba(169,200,255,0.24)',
+    borderRadius: 18,
     borderWidth: 1,
     flexDirection: 'row',
     minHeight: 58,
     paddingHorizontal: 16
   },
   inputWrapError: {
-    borderColor: 'rgba(248,113,113,0.5)'
+    borderColor: '#FF5C5C'
   },
   inputIcon: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 21,
-    marginRight: 14,
+    color: '#7BA0B7',
+    fontSize: 20,
+    fontWeight: '900',
+    marginRight: 13,
+    textAlign: 'center',
     width: 22
   },
   input: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     flex: 1,
     fontSize: 16,
     minHeight: 56,
     paddingVertical: 0
   },
   showToggle: {
-    paddingLeft: 8
+    alignItems: 'center',
+    borderColor: 'rgba(120,168,255,0.28)',
+    borderRadius: 12,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 36,
+    minWidth: 60,
+    paddingHorizontal: 10
   },
   showToggleText: {
-    color: '#ef3b63',
-    fontSize: 11,
+    color: '#A9C8FF',
+    fontSize: 12,
     fontWeight: '900'
   },
   fieldError: {
-    color: '#fca5a5',
+    color: '#FFB3B3',
     fontSize: 12,
-    marginTop: -4
+    marginTop: -3
   },
   errorBox: {
-    backgroundColor: 'rgba(127,29,29,0.25)',
-    borderColor: 'rgba(248,113,113,0.35)',
+    backgroundColor: 'rgba(255,92,92,0.12)',
+    borderColor: 'rgba(255,92,92,0.42)',
     borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10
   },
   errorText: {
-    color: '#fca5a5',
+    color: '#FFB3B3',
     fontSize: 13,
+    fontWeight: '700',
     lineHeight: 18
   },
   submit: {
     alignItems: 'center',
-    backgroundColor: '#ef3b63',
-    borderRadius: 16,
+    backgroundColor: '#E11D48',
+    borderColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 18,
+    borderWidth: 1,
     justifyContent: 'center',
-    marginTop: 8,
-    minHeight: 62,
-    shadowColor: '#ef3b63',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.26,
-    shadowRadius: 28
+    marginTop: 4,
+    minHeight: 58,
+    shadowColor: '#E11D48',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.24,
+    shadowRadius: 24
   },
   submitCompact: {
-    minHeight: 56
+    minHeight: 54
   },
   submitPressed: {
-    opacity: 0.9
+    backgroundColor: '#B91C3B',
+    transform: [{ scale: 0.995 }]
   },
   submitDisabled: {
-    opacity: 0.55
+    opacity: 0.58
   },
   submitText: {
-    color: '#ffffff',
-    fontSize: 18,
+    color: '#FFFFFF',
+    fontSize: 17,
     fontWeight: '900'
   },
-  legalNotice: {
+  recoverAccess: {
     alignItems: 'center',
-    marginTop: -4,
-    paddingHorizontal: 8
+    justifyContent: 'center',
+    minHeight: 36
   },
-  legalText: {
-    color: 'rgba(255,255,255,0.46)',
+  recoverAccessText: {
+    color: '#D9E7EF',
+    fontSize: 14,
+    fontWeight: '800',
+    textDecorationLine: 'underline'
+  },
+  capabilityRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center'
+  },
+  capabilityDot: {
+    backgroundColor: '#E11D48',
+    borderRadius: 3,
+    height: 5,
+    width: 5
+  },
+  capabilityText: {
+    color: '#A7B6C2',
     fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center'
+    fontWeight: '900',
+    textTransform: 'uppercase'
+  },
+  legalLinks: {
+    alignItems: 'center',
+    gap: 6,
+    marginTop: -2
+  },
+  legalButton: {
+    justifyContent: 'center',
+    minHeight: 28
   },
   legalLink: {
-    color: '#ef3b63',
+    color: '#A9C8FF',
+    fontSize: 12,
     fontWeight: '900',
     textDecorationLine: 'underline'
   },
   footerNote: {
-    color: 'rgba(255,255,255,0.30)',
-    fontSize: 15,
+    color: 'rgba(223,234,241,0.48)',
+    fontSize: 12,
     fontWeight: '700',
-    marginTop: 4,
+    marginTop: -2,
     textAlign: 'center'
   }
 });

@@ -306,11 +306,11 @@ export default function WorkOrdersScreen({
                   : '#FFFFFF'
               }
               style={{
-                backgroundColor: _.isEqual(
+                  backgroundColor: _.isEqual(
                   criteria.filterFields,
                   defaultFilterFields
                 )
-                  ? '#E7F3F1'
+                  ? colors.primarySoft
                   : theme.colors.primary
               }}
               onPress={() =>
@@ -556,9 +556,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     alignItems: 'center',
-    backgroundColor: '#E7F3F1',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: '#CBE9E3'
+    borderColor: '#CAD6FF'
   },
   countValue: {
     color: colors.primary,
@@ -604,8 +604,8 @@ const styles = StyleSheet.create({
     padding: 14
   },
   activeCard: {
-    borderColor: '#2B8F7E',
-    backgroundColor: '#F7FFFC'
+    borderColor: colors.primary,
+    backgroundColor: '#F6F8FF'
   },
   pendingCompletionCard: {
     borderColor: '#D97706',
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     gap: 12
   },
   orderIcon: {
-    backgroundColor: '#E7F3F1'
+    backgroundColor: colors.primarySoft
   },
   titleGroup: {
     flex: 1
@@ -644,8 +644,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0'
   },
   nextActionStripActive: {
-    backgroundColor: '#EFFAF7',
-    borderColor: '#BFE7DE'
+    backgroundColor: colors.primarySoft,
+    borderColor: '#CAD6FF'
   },
   nextActionStripWarning: {
     backgroundColor: '#FFFBEB',

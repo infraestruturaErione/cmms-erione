@@ -490,7 +490,7 @@ export default function FieldExecutionSection({
             mode={evidenceRegistered ? 'outlined' : 'contained'}
             icon="camera-plus-outline"
             style={styles.fieldActionButton}
-            buttonColor={evidenceRegistered ? undefined : '#E7F3F1'}
+            buttonColor={evidenceRegistered ? undefined : colors.primarySoft}
             textColor={colors.primary}
             onPress={() => setEvidenceOpen(true)}
           >
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start'
   },
   statusChip: {
-    backgroundColor: '#E7F3F1'
+    backgroundColor: colors.primarySoft
   },
   statusChipText: {
     color: colors.primary,
@@ -603,8 +603,8 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#BFE7DE',
-    backgroundColor: '#EFFAF7'
+    borderColor: '#CAD6FF',
+    backgroundColor: colors.primarySoft
   },
   nextActionLabel: {
     color: colors.primary,
@@ -650,7 +650,7 @@ const styles = StyleSheet.create({
     borderRadius: 14
   },
   timelineItemCurrent: {
-    backgroundColor: '#EFFAF7'
+    backgroundColor: colors.primarySoft
   },
   timelineIcon: {
     margin: 0,
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 8,
-    backgroundColor: '#F6F9FA',
+    backgroundColor: colors.primarySoft,
     marginTop: 6,
     paddingLeft: 8
   }

@@ -348,8 +348,8 @@ const styles = StyleSheet.create({
   },
   shiftHeroCard: {
     marginBottom: 12,
-    backgroundColor: '#0B2F3A',
-    borderColor: '#0B2F3A'
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark
   },
   shiftHeroTop: {
     flexDirection: 'row',
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     gap: 12
   },
   shiftHeroKicker: {
-    color: '#BFE7DE',
+    color: '#C7D6FF',
     fontWeight: '700'
   },
   shiftHeroTitle: {
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     fontWeight: '900'
   },
   shiftStatLabel: {
-    color: '#C7DAD6',
+    color: '#D7E0FF',
     marginTop: 2
   },
   kicker: {
@@ -419,11 +419,11 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   iconButton: {
-    backgroundColor: '#E7F3F1'
+    backgroundColor: colors.primarySoft
   },
   notificationBox: {
     position: 'relative',
-    backgroundColor: '#E7F3F1',
+    backgroundColor: colors.primarySoft,
     borderRadius: 999
   },
   badge: {

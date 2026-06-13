@@ -1,15 +1,15 @@
 export const ERIONE_MOBILE_IDENTITY = {
   appName: 'Erione CMMS',
-  tagline: 'Operação em campo e ordens de serviço',
+  tagline: 'Operacao em campo e ordens de servico',
   colors: {
-    primary: '#0F766E',
-    primaryDark: '#0B2F3A',
-    primarySoft: '#DDF7EC',
-    accent: '#22C55E',
-    accentSoft: '#DDF7EC',
-    background: '#F4F8F7',
+    primary: '#2A4899',
+    primaryDark: '#061826',
+    primarySoft: '#E8EEFF',
+    accent: '#E11D48',
+    accentSoft: '#FDE8EF',
+    background: '#F6F9FA',
     surface: '#FFFFFF',
-    text: '#0B2F3A',
+    text: '#10233F',
     muted: '#64748B'
   }
 };

@@ -8,8 +8,8 @@ const defaultApiUrl = Constants.expoConfig?.extra?.API_URL ?? process.env.API_UR
 export const IS_LOCALHOST = false;
 
 export const legalLinks = {
-  termsOfUse: 'https://erione.com.br/termos',
-  privacyPolicy: 'https://erione.com.br/privacidade'
+  termsOfUse: 'https://cmms.erione.com.br/terms-of-use',
+  privacyPolicy: 'https://cmms.erione.com.br/privacy-policy'
 };
 
 export const getApiUrl = async (): Promise<string> => {

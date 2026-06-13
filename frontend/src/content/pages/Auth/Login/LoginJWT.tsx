@@ -123,6 +123,20 @@ const LoginJWT: FC = () => {
             <Link component={RouterLink} to="/account/recover-password">
               <b>{t('lost_password')}</b>
             </Link>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1.5,
+                mt: { xs: 1, md: 0 }
+              }}
+            >
+              <Link component={RouterLink} to="/privacy-policy">
+                {t('privacy_policy')}
+              </Link>
+              <Link component={RouterLink} to="/terms-of-use">
+                {t('terms_of_service')}
+              </Link>
+            </Box>
           </Box>
 
           <Button

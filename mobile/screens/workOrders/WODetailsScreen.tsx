@@ -1917,8 +1917,8 @@ const styles = StyleSheet.create({
   },
   completionChecklistCard: {
     marginBottom: 12,
-    borderColor: '#BFE7DE',
-    backgroundColor: '#F8FFFD'
+    borderColor: '#CAD6FF',
+    backgroundColor: erioneColors.primarySoft
   },
   completionChecklist: {
     gap: 8,

@@ -1,5 +1,122 @@
 # Log de Alterações — Erione CMMS
 
+## 2026-06-12 - Politica de privacidade publica
+
+### Alteracoes
+- Criada rota publica web `/privacy-policy` com Politica de Privacidade do Erione CMMS.
+- Adicionado link `Politica de privacidade` na tela de login web.
+- Link de privacidade do mobile atualizado para `https://cmms.erione.com.br/privacy-policy`.
+
+### Validacao
+- `cd frontend && npx eslint src/router/index.tsx src/content/pages/Auth/Login/LoginJWT.tsx src/content/pages/PrivacyPolicy/index.tsx`: OK.
+- `cd frontend && npm run build`: OK, apenas warnings conhecidos de sourcemap/CRA.
+- `cd mobile && npx tsc --noEmit`: OK.
+- `graphify update .`: OK.
+
+### Nao alterado
+- Backend.
+- Banco/migrations.
+- Endpoints.
+- Regras de permissao.
+- Customer Scope.
+
+## 2026-06-12 - Redesign do login mobile Erione
+
+### Alteracoes
+- Reformulada a tela de login mobile com fundo navy escuro, grid tecnologico, glows suaves e card glass.
+- Mantido o logo atual `mobile/assets/images/erione-logo.png` como marca padrao do app.
+- CTA atualizado para `Entrar no CMMS`, mantendo o mesmo `useAuth().login` e a mesma validacao Formik/Yup.
+- Links de `Politica de Privacidade` e `Termos de Uso` mantidos no rodape, apontando para `legalLinks`.
+- Incluido atalho `Esqueci minha senha` via e-mail de suporte, sem criar endpoint novo.
+- Corrigidas mensagens visiveis com encoding quebrado na tela de login.
+
+### Validacao
+- `cd mobile && npx tsc --noEmit`: OK.
+- `cd mobile && npx expo export --platform web`: OK, com aviso conhecido de Firebase config ausente.
+
+### Nao alterado
+- Backend.
+- Banco/migrations.
+- Endpoints.
+- Regras de login/API.
+- Customer Scope.
+
+## 2026-06-12 - Termos de Uso publico e ajuste de cor do login mobile
+
+### Alteracoes
+- Criada rota publica web `/terms-of-use` com Termos de Uso do Erione CMMS.
+- Login web passou a exibir links publicos para Politica de Privacidade e Termos de Uso.
+- `mobile/config.ts` passou a apontar `termsOfUse` para `https://cmms.erione.com.br/terms-of-use`.
+- Login mobile removeu o CTA verde e passou a usar vermelho/coral com apoio azul, mais alinhado ao site institucional da Erione.
+- Checklist Google Play atualizado com URLs publicas do CMMS.
+
+### Validacao
+- `cd frontend && npx eslint src/router/index.tsx src/content/pages/Auth/Login/LoginJWT.tsx src/content/pages/PrivacyPolicy/index.tsx src/content/pages/TermsOfUse/index.tsx`: OK.
+- `cd frontend && npm run build`: OK, apenas warnings conhecidos de sourcemap/CRA.
+- `cd mobile && npx tsc --noEmit`: OK.
+- `cd mobile && npx expo export --platform web`: OK, com aviso conhecido de Firebase config ausente.
+
+### Nao alterado
+- Backend.
+- Banco/migrations.
+- Endpoints.
+- Regras de permissao.
+- Customer Scope.
+
+## 2026-06-12 - Background institucional no login mobile
+
+### Alteracoes
+- Adicionado `mobile/assets/images/erione-login-background.png` como background da tela de login mobile.
+- `LoginScreen.tsx` passou a usar `ImageBackground` com overlay escuro leve para contraste.
+- Card de login ficou mais glass: fundo menos opaco, borda azul clara e sombra mais profunda.
+- Confirmado que as cores alteradas estao no codigo mobile e entram no proximo APK/rebuild.
+
+### Validacao
+- `cd mobile && npx tsc --noEmit`: OK.
+- `cd mobile && npx expo export --platform web`: OK, asset incluido no bundle; aviso conhecido de Firebase config ausente.
+
+### Nao alterado
+- Backend.
+- Banco/migrations.
+- Endpoints.
+- Regras de login/API.
+- Customer Scope.
+
+## 2026-06-12 - Favicon Erione no frontend
+
+### Alteracoes
+- Substituidos `frontend/public/favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png` e `favicon.png` por versoes geradas a partir do logo Erione usado no mobile.
+- `frontend/public/manifest.json` atualizado para `theme_color` e `background_color` em navy Erione (`#061826`).
+
+### Validacao
+- `cd frontend && npm run build`: OK, apenas warnings conhecidos de sourcemap/CRA.
+
+### Nao alterado
+- Backend.
+- Banco/migrations.
+- Endpoints.
+- Regras de permissao.
+- Customer Scope.
+
+## 2026-06-13 - Cor primaria global mobile Erione
+
+### Alteracoes
+- Definida cor primaria global do mobile como `rgb(42, 72, 153)` / `#2A4899` em `mobile/config/erioneVisualIdentity.ts`.
+- `primaryDark`, `primarySoft`, `accent` e `accentSoft` alinhados para a identidade navy/azul/coral atual.
+- Hardcoded antigos de identidade teal/verde em Home, lista de OS, detalhe de OS, execucao em campo e componentes Erione foram substituidos por tokens azuis.
+- Verde de sucesso (`theme.colors.success`) foi preservado como estado operacional, nao como identidade de marca.
+
+### Validacao
+- `cd mobile && npx tsc --noEmit`: OK.
+- `cd mobile && npx expo export --platform web`: OK, com aviso conhecido de Firebase config ausente.
+
+### Nao alterado
+- Backend.
+- Banco/migrations.
+- Endpoints.
+- Regras de login/API.
+- Regras de OS/status.
+- Customer Scope.
 ## 2026-05-26 — Correções Nível A na tela de Roles
 
 - `deletePurchaseOrders` gated com `ERIONE_HIDDEN_MODULES.purchaseOrders`
