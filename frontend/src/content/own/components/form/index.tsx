@@ -8,6 +8,7 @@ import {
   useTheme
 } from '@mui/material';
 import { Formik, FormikProps } from 'formik';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import FormikErrorFocus from 'formik-error-focus';
 import * as Yup from 'yup';
@@ -40,16 +41,20 @@ interface PropsType {
 export default (props: PropsType) => {
   const { t }: { t: any } = useTranslation();
   const theme = useTheme();
-  const shape: IHash<any> = {};
 
-  props.fields.forEach((f) => {
-    shape[f.name] = Yup.string();
-    if (f.required) {
-      shape[f.name] = shape[f.name].required();
-    }
-  });
+  const validationSchema = useMemo(() => {
+    if (props.validation) return props.validation;
 
-  const validationSchema = Yup.object().shape(shape);
+    const shape: IHash<any> = {};
+    props.fields.forEach((f) => {
+      shape[f.name] = Yup.string();
+      if (f.required) {
+        shape[f.name] = shape[f.name].required();
+      }
+    });
+
+    return Yup.object().shape(shape);
+  }, [props.fields, props.validation]);
 
   const handleChange = (formik: FormikProps<IHash<any>>, field: string, e) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
@@ -99,7 +104,7 @@ export default (props: PropsType) => {
   return (
     <>
       <Formik<IHash<any>>
-        validationSchema={props.validation || validationSchema}
+        validationSchema={validationSchema}
         validateOnChange={false}
         validateOnBlur={false}
         initialValues={props.values || {}}

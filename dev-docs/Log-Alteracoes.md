@@ -470,3 +470,46 @@ Refetch de focus/visibility agora também dispara `getCalendarWorkOrders` quando
 - Permissoes/roles.
 - Customer Scope.
 
+
+---
+
+## 2026-06-14 - Performance do modal de criacao de OS
+
+### Ajustes aplicados
+
+- Modal `AddWorkOrderTabbedModal` passou a ser carregado com `React.lazy`/`Suspense`, isolando o fluxo de criacao de OS em chunk carregado sob demanda.
+- Campos, shape e schema Yup da OS agora sao memoizados em `WorkOrders/index.tsx`, evitando recriacao em cada render da tela.
+- Valores iniciais e handlers do modal de criacao foram estabilizados com `useMemo`/`useCallback`.
+- `AddWorkOrderTabbedModal` memoiza os campos da aba ativa para reduzir filtros repetidos durante digitacao.
+- Form generico nao recria schema Yup padrao quando recebe `validation` pronta por props.
+
+### Objetivo
+
+- Reduzir input lag no teclado ao criar OS, principalmente nos campos de texto do modal.
+- Evitar carregar codigo pesado de formulario/upload/select/date picker antes do usuario abrir o modal.
+
+### Validacao tecnica
+
+- `frontend`: lint direcionado nos 3 arquivos alterados passou.
+- `frontend`: `npm run build` passou com avisos conhecidos de source map em dependencias e `babel-preset-react-app`.
+- `graphify update .` executado apos alteracao de codigo.
+
+### Nao alterado
+
+- Backend.
+- Banco/migrations.
+- Endpoints.
+- Permissoes/roles.
+- Customer Scope.
+- Regras de OS.
+
+### Ajuste complementar - criacao sem F5
+
+- Apos `addWorkOrder`, a tela agora refaz `getWorkOrders(criteria)` preservando os filtros atuais.
+- Quando a OS e criada a partir/na visao de calendario, tambem refaz `getCalendarWorkOrders` com filtro de arquivamento/status usado pelo calendario.
+- Objetivo: manter a melhoria de performance do modal sem quebrar a atualizacao automatica da lista/calendario apos criar OS.
+
+### Validacao complementar
+
+- `frontend`: lint direcionado passou.
+- `frontend`: `npm run build` passou com os mesmos avisos conhecidos de source map em dependencias e CRA/babel.

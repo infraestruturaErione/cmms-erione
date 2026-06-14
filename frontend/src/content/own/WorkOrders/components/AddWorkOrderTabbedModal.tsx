@@ -9,7 +9,7 @@ import {
   Typography
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Form from '../../components/form';
 import { IField, IHash } from '../../type';
@@ -96,16 +96,20 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
     setActiveTab(newValue);
   };
 
-  const tabFields = fields.filter((f) => {
-    if (f.type === 'titleGroupField') return false;
-    if (activeTab === 0) {
-      return (
-        TAB_CONFIG[0].fieldNames.includes(f.name) ||
-        !allKnownFieldNames.includes(f.name)
-      );
-    }
-    return TAB_CONFIG[activeTab].fieldNames.includes(f.name);
-  });
+  const tabFields = useMemo(
+    () =>
+      fields.filter((f) => {
+        if (f.type === 'titleGroupField') return false;
+        if (activeTab === 0) {
+          return (
+            TAB_CONFIG[0].fieldNames.includes(f.name) ||
+            !allKnownFieldNames.includes(f.name)
+          );
+        }
+        return TAB_CONFIG[activeTab].fieldNames.includes(f.name);
+      }),
+    [activeTab, fields]
+  );
 
   return (
     <Dialog

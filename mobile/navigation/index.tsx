@@ -390,23 +390,20 @@ const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 function AuthNavigator() {
   const { t } = useTranslation();
   return (
-    <AuthStack.Navigator>
+    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen
         name="Login"
         component={LoginScreen}
-        options={{ title: t('login') }}
       />
       {Platform.OS !== 'ios' && (
         <AuthStack.Screen
           name="Register"
           component={RegisterScreen}
-          options={{ title: t('register') }}
         />
       )}
       <AuthStack.Screen
         name="Verify"
         component={VerifyScreen}
-        options={{ title: t('verify_email_title') }}
       />
     </AuthStack.Navigator>
   );

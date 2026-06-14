@@ -93,9 +93,12 @@ import useTableState from '../../../hooks/useTableState';
 import { assetStatuses } from '../../../models/owns/asset';
 import { useExport } from '../../../hooks/useExport';
 import { getCustomFields } from '../../../slices/customField';
-import AddWorkOrderTabbedModal from './components/AddWorkOrderTabbedModal';
 import { CustomFieldEntityType } from '../../../models/owns/customField';
 import WorkOrderStatusCell from './components/WorkOrderStatusCell';
+
+const AddWorkOrderTabbedModal = React.lazy(
+  () => import('./components/AddWorkOrderTabbedModal')
+);
 
 const fieldMapping: Record<string, string> = {
   customId: 'customId',
@@ -441,7 +444,7 @@ function WorkOrders() {
     }
   }, [locationParamObject, assetParamObject, customerParamObject, searchParams]);
 
-  const formatValues = (values) => {
+  const formatValues = useCallback((values) => {
     const newValues = { ...values };
     newValues.assetStatus = newValues.assetStatus?.value ?? null;
     newValues.primaryUser = formatSelect(newValues.primaryUser);
@@ -460,7 +463,7 @@ function WorkOrders() {
       : newValues.requiredSignature;
     newValues.category = formatSelect(newValues.category);
     return formatCustomFields(newValues);
-  };
+  }, []);
   const getPrimaryCustomerValue = (customers?: any[]) => {
     const firstCustomer = customers?.[0];
     if (!firstCustomer) return null;
@@ -469,12 +472,15 @@ function WorkOrders() {
       value: firstCustomer.value ?? firstCustomer.id?.toString()
     };
   };
-  const onCreationSuccess = () => {
+  const onCreationSuccess = useCallback(() => {
     setOpenAddModal(false);
     showSnackBar(t('wo_create_success'), 'success');
-  };
-  const onCreationFailure = (err) =>
-    showSnackBar(getErrorMessage(err, t('wo_create_failure')), 'error');
+  }, [showSnackBar, t]);
+  const onCreationFailure = useCallback(
+    (err) =>
+      showSnackBar(getErrorMessage(err, t('wo_create_failure')), 'error'),
+    [showSnackBar, t]
+  );
   const onEditSuccess = () => {
     setOpenUpdateModal(false);
     showSnackBar(t('changes_saved_success'), 'success');
@@ -698,7 +704,7 @@ function WorkOrders() {
     })
   ];
 
-  const defaultFields: Array<IField> = [
+  const defaultFields = useMemo<Array<IField>>(() => [
     // Geral
     {
       name: 'geralGroup',
@@ -851,70 +857,135 @@ function WorkOrders() {
       label: t('image')
     },
     ...getCustomFieldsIFields(customFields, CustomFieldEntityType.WORK_ORDER)
-  ];
-  const defaultShape: { [key: string]: any } = {
+  ], [customFields, t]);
+  const defaultShape = useMemo<{ [key: string]: any }>(() => ({
     title: Yup.string().required(t('required_wo_title')),
     ...getCustomFieldsRequiredShape(
       customFields,
       CustomFieldEntityType.WORK_ORDER,
       t
     )
-  };
-  const getFieldsAndShapes = (): [Array<IField>, { [key: string]: any }] => {
+  }), [customFields, t]);
+  const getFieldsAndShapes = useCallback((): [Array<IField>, { [key: string]: any }] => {
     return getWOFieldsAndShapes(defaultFields, defaultShape);
-  };
+  }, [defaultFields, defaultShape, getWOFieldsAndShapes]);
+  const [workOrderFields, workOrderShape] = useMemo(
+    () => getFieldsAndShapes(),
+    [getFieldsAndShapes]
+  );
+  const workOrderValidation = useMemo(
+    () => Yup.object().shape(workOrderShape),
+    [workOrderShape]
+  );
+  const addWorkOrderInitialValues = useMemo(
+    () => ({
+      requiredSignature: false,
+      dueDate: initialDueDate,
+      asset: assetParamObject
+        ? { label: assetParamObject.name, value: assetParamObject.id }
+        : null,
+      location: locationParamObject
+        ? {
+            label: locationParamObject.name,
+            value: locationParamObject.id
+          }
+        : null,
+      customers:
+        customerParam && customerParamObject
+          ? {
+              label: customerParamObject.name,
+              value: customerParamObject.id
+            }
+          : null
+    }),
+    [
+      assetParamObject,
+      customerParam,
+      customerParamObject,
+      initialDueDate,
+      locationParamObject
+    ]
+  );
+  const noopFormChange = useCallback(() => {}, []);
+  const handleCloseAddModal = useCallback(() => setOpenAddModal(false), []);
+  const refreshCalendarWorkOrders = useCallback(() => {
+    const archivedFilter = criteria.filterFields.find(
+      (ff) => ff.field === 'archived'
+    );
+    const calendarFilterFields: FilterField[] = [
+      archivedFilter ?? {
+        field: 'archived',
+        operation: 'eq' as const,
+        value: false
+      },
+      {
+        field: 'status',
+        operation: 'in' as const,
+        value: '',
+        values: ['OPEN', 'EN_ROUTE', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE'],
+        enumName: 'STATUS' as const
+      }
+    ];
+    dispatch(
+      getCalendarWorkOrders({
+        filterFields: calendarFilterFields,
+        pageNum: 0,
+        pageSize: 500,
+        sortField: 'estimatedStartDate',
+        direction: 'ASC'
+      })
+    );
+  }, [criteria.filterFields, dispatch]);
+  const handleAddWorkOrderSubmit = useCallback(
+    async (values) => {
+      if (workOrders.totalElements === 0) fireGa4Event('first_wo_creation');
+      let formattedValues = formatValues(values);
+      try {
+        const uploadedFiles = await uploadFiles(
+          formattedValues.files,
+          formattedValues.image
+        );
+
+        const imageAndFiles = getImageAndFiles(uploadedFiles);
+        formattedValues = {
+          ...formattedValues,
+          image: imageAndFiles.image,
+          files: imageAndFiles.files
+        };
+
+        await dispatch(addWorkOrder(formattedValues));
+        dispatch(getWorkOrders(criteria));
+        if (currentTab === 'calendar') {
+          refreshCalendarWorkOrders();
+        }
+        onCreationSuccess();
+      } catch (err) {
+        onCreationFailure(err);
+        throw err;
+      }
+    },
+    [
+      dispatch,
+      formatValues,
+      criteria,
+      currentTab,
+      onCreationFailure,
+      onCreationSuccess,
+      refreshCalendarWorkOrders,
+      uploadFiles,
+      workOrders.totalElements
+    ]
+  );
   const renderWorkOrderAddModal = () => (
     <AddWorkOrderTabbedModal
       open={openAddModal}
-      onClose={() => setOpenAddModal(false)}
-      fields={getFieldsAndShapes()[0]}
-      validation={Yup.object().shape(getFieldsAndShapes()[1])}
+      onClose={handleCloseAddModal}
+      fields={workOrderFields}
+      validation={workOrderValidation}
       submitText={t('add')}
-      values={{
-        requiredSignature: false,
-        dueDate: initialDueDate,
-        asset: assetParamObject
-          ? { label: assetParamObject.name, value: assetParamObject.id }
-          : null,
-        location: locationParamObject
-          ? {
-              label: locationParamObject.name,
-              value: locationParamObject.id
-            }
-          : null,
-        customers:
-          customerParam && customerParamObject
-            ? {
-                label: customerParamObject.name,
-                value: customerParamObject.id
-              }
-            : null
-      }}
-      onChange={({ field, e }) => {}}
-      onSubmit={async (values) => {
-        if (workOrders.totalElements === 0)
-          fireGa4Event('first_wo_creation');
-        let formattedValues = formatValues(values);
-        try {
-          const uploadedFiles = await uploadFiles(
-            formattedValues.files,
-            formattedValues.image
-          );
-
-          const imageAndFiles = getImageAndFiles(uploadedFiles);
-          formattedValues = {
-            ...formattedValues,
-            image: imageAndFiles.image,
-            files: imageAndFiles.files
-          };
-
-          await dispatch(addWorkOrder(formattedValues));
-          onCreationSuccess();
-        } catch (err) {
-          onCreationFailure(err);
-          throw err;
-        }
-      }}
+      values={addWorkOrderInitialValues}
+      onChange={noopFormChange}
+      onSubmit={handleAddWorkOrderSubmit}
     />
   );
   const renderWorkOrderUpdateModal = () => (
@@ -944,8 +1015,8 @@ function WorkOrders() {
       >
         <Box>
           <Form
-            fields={getFieldsAndShapes()[0]}
-            validation={Yup.object().shape(getFieldsAndShapes()[1])}
+            fields={workOrderFields}
+            validation={workOrderValidation}
             submitText={t('save')}
             values={{
               ...currentWorkOrder,
@@ -955,7 +1026,7 @@ function WorkOrders() {
                 getWOBaseValues(t, currentWorkOrder).customers
               )
             }}
-            onChange={({ field, e }) => {}}
+            onChange={noopFormChange}
             onSubmit={async (values) => {
               let formattedValues = formatValues(values);
 
@@ -1303,7 +1374,27 @@ function WorkOrders() {
           </Box>
         </Card>
       </Box>
-      {renderWorkOrderAddModal()}
+      {openAddModal && (
+        <React.Suspense
+          fallback={
+            <Box
+              sx={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: (theme) => theme.zIndex.modal,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none'
+              }}
+            >
+              <CircularProgress />
+            </Box>
+          }
+        >
+          {renderWorkOrderAddModal()}
+        </React.Suspense>
+      )}
       {renderWorkOrderUpdateModal()}
       <Drawer
         anchor="right"
