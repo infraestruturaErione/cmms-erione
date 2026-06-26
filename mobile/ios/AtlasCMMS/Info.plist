@@ -28,7 +28,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>erionecmms</string>
-          <string>com.erione.cmms</string>
+          <string>com.cmms.erione</string>
         </array>
       </dict>
       <dict>

@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     assetPatternsToBeBundled: ['**/*']
   },
   ios: {
-    bundleIdentifier: 'com.erione.cmms',
+    bundleIdentifier: 'com.cmms.erione',
     buildNumber: '2',
     jsEngine: 'hermes',
     supportsTablet: false,
