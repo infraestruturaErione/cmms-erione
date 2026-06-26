@@ -1,0 +1,110 @@
+workflows:
+ios-app-store:
+name: iOS App Store - Erione CMMS
+max_build_duration: 120
+instance_type: mac_mini_m2
+
+```
+integrations:
+  app_store_connect: erione-app-store-connect
+
+environment:
+  groups:
+    - production
+
+  ios_signing:
+    distribution_type: app_store
+    bundle_identifier: com.cmms.erione
+
+  vars:
+    BUNDLE_ID: "com.cmms.erione"
+    API_URL: "https://cmms.erione.com.br/api"
+    ENABLE_FIREBASE: "false"
+    XCODE_WORKSPACE: "ios/AtlasCMMS.xcworkspace"
+    XCODE_SCHEME: "AtlasCMMS"
+
+  node: 20
+  xcode: latest
+  cocoapods: default
+
+scripts:
+  - name: Show environment
+    script: |
+      echo "Bundle ID: $BUNDLE_ID"
+      echo "API URL: $API_URL"
+      echo "Enable Firebase: $ENABLE_FIREBASE"
+      echo "Workspace: $XCODE_WORKSPACE"
+      echo "Scheme: $XCODE_SCHEME"
+      node --version
+      npm --version
+
+  - name: Check production API URL
+    script: |
+      if [ -z "$API_URL" ]; then
+        echo "API_URL is missing"
+        exit 1
+      fi
+
+      if [ "$API_URL" != "https://cmms.erione.com.br/api" ]; then
+        echo "API_URL is not production"
+        echo "Current value: $API_URL"
+        exit 1
+      fi
+
+  - name: Install dependencies
+    script: |
+      npm ci || npm install
+
+  - name: Check iOS workspace
+    script: |
+      if [ ! -d "$XCODE_WORKSPACE" ]; then
+        echo "Xcode workspace not found at: $XCODE_WORKSPACE"
+        echo "Listing ios directory:"
+        ls -la ios || true
+        exit 1
+      fi
+
+  - name: Set iOS export encryption compliance
+    script: |
+      PLIST_FILE="ios/AtlasCMMS/Info.plist"
+
+      if [ ! -f "$PLIST_FILE" ]; then
+        echo "Info.plist not found at expected path: $PLIST_FILE"
+        echo "Trying to find Info.plist..."
+        PLIST_FILE=$(find ios -name "Info.plist" | head -n 1)
+      fi
+
+      if [ -z "$PLIST_FILE" ] || [ ! -f "$PLIST_FILE" ]; then
+        echo "Info.plist not found"
+        exit 1
+      fi
+
+      echo "Using Info.plist: $PLIST_FILE"
+
+      /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST_FILE" || \
+      /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST_FILE"
+
+  - name: Install CocoaPods
+    script: |
+      cd ios
+      pod install
+
+  - name: Set up iOS code signing
+    script: |
+      xcode-project use-profiles
+
+  - name: Build IPA for App Store
+    script: |
+      xcode-project build-ipa \
+        --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
+        --scheme "$XCODE_SCHEME"
+
+artifacts:
+  - build/ios/ipa/*.ipa
+  - /tmp/xcodebuild_logs/*.log
+  - ios/Pods/Manifest.lock
+
+publishing:
+  app_store_connect:
+    auth: integration
+```
