@@ -4,6 +4,7 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 const apiUrl = process.env.API_URL;
 const googleServicesJson = process.env.GOOGLE_SERVICES_JSON;
 const googleServicesPlist = process.env.GOOGLE_SERVICES_PLIST;
+const enableFirebase = process.env.ENABLE_FIREBASE === 'true';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -30,11 +31,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     bundleIdentifier: 'com.cmms.erione',
-    buildNumber: '4',
+    buildNumber: '5',
     jsEngine: 'hermes',
     supportsTablet: false,
     runtimeVersion: '1.0.40',
-    googleServicesFile: googleServicesPlist ?? './GoogleService-Info.plist',
+    ...(enableFirebase
+      ? { googleServicesFile: googleServicesPlist ?? './GoogleService-Info.plist' }
+      : {}),
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false
     }
@@ -66,7 +69,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-font',
     'expo-notifications',
     '@react-native-community/datetimepicker',
-    '@react-native-firebase/app',
+    ...(enableFirebase ? ['@react-native-firebase/app'] : []),
     './plugins/ios/withFmtXcode26Fix',
     [
       'expo-camera',
