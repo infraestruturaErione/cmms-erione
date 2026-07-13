@@ -31,7 +31,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     bundleIdentifier: 'com.cmms.erione',
-    buildNumber: '5',
+    buildNumber: '6',
     jsEngine: 'hermes',
     supportsTablet: false,
     runtimeVersion: '1.0.40',
@@ -65,7 +65,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     }
   },
   plugins: [
-    'react-native-nfc-manager',
     'expo-font',
     'expo-notifications',
     '@react-native-community/datetimepicker',
