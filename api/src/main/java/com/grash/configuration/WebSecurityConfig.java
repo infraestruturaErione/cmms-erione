@@ -136,7 +136,9 @@ public class WebSecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
+        // Cost 10 (~4x faster than 12 on this 2-vCPU host) — still at/above OWASP minimum.
+        // Existing cost-12 hashes keep validating; new hashes are written with cost 10.
+        return new BCryptPasswordEncoder(10);
     }
 
     @Bean

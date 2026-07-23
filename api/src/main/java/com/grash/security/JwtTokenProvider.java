@@ -106,7 +106,9 @@ public class JwtTokenProvider {
                     .parseClaimsJws(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
-            throw new CustomException("Expired or invalid JWT token", HttpStatus.INTERNAL_SERVER_ERROR);
+            // 401 (not 500): an expired/invalid token is a client auth problem, not a server error.
+            // Lets the frontend treat it as "session expired → re-login" instead of a crash.
+            throw new CustomException("Expired or invalid JWT token", HttpStatus.UNAUTHORIZED);
         }
     }
 

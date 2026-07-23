@@ -4,10 +4,12 @@ import com.grash.model.WorkOrder;
 import com.grash.model.enums.Priority;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.util.Collection;
 import java.util.Date;
@@ -15,6 +17,17 @@ import java.util.List;
 import java.util.Optional;
 
 public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long>, JpaSpecificationExecutor<WorkOrder> {
+
+    /**
+     * Paginated specification search (hot path: POST /work-orders/search).
+     * Fetch-joins single-valued associations only — safe with pagination (no row multiplication).
+     * Collections (assignedTo, customers, files) stay lazy and are loaded via @BatchSize/batch fetching.
+     */
+    @Override
+    @EntityGraph(attributePaths = {"asset", "location", "primaryUser", "team", "completedBy", "parentRequest"},
+            type = EntityGraph.EntityGraphType.LOAD)
+    Page<WorkOrder> findAll(Specification<WorkOrder> spec, Pageable pageable);
+
     Collection<WorkOrder> findByCompany_Id(Long id);
 
     @Query("SELECT w FROM WorkOrder w " +

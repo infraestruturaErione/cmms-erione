@@ -300,7 +300,12 @@ public class WorkOrderService {
                 searchCriteria.getDirection(), searchCriteria.getSortField());
         Specification<WorkOrder> spec = builder.build();
         Specification<WorkOrder> distinctSpec = (root, query, cb) -> {
-            query.distinct(true);
+            // DISTINCT only on the count query: PostgreSQL rejects SELECT DISTINCT when the
+            // ORDER BY column comes from a JOIN (e.g. primaryUser.firstName) and is not in the
+            // select list (error 42P10). Restored fix originally validated on 2026-06-19 (F5 sync).
+            if (query.getResultType() == Long.class) {
+                query.distinct(true);
+            }
             return spec.toPredicate(root, query, cb);
         };
         return workOrderRepository.findAll(distinctSpec, page);

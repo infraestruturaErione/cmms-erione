@@ -191,8 +191,7 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
           px: { xs: 1.25, sm: 3.5 },
           py: 1,
           borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
-          backgroundColor: alpha(theme.palette.background.paper, 0.72),
-          backdropFilter: 'blur(14px) saturate(150%)'
+          backgroundColor: theme.palette.background.paper
         }}
       >
         <Tabs
@@ -266,8 +265,7 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
             display: { xs: 'none', md: 'block' },
             borderRadius: 2,
             border: `1px solid ${alpha('#FFFFFF', 0.66)}`,
-            backgroundColor: alpha(theme.palette.background.paper, 0.72),
-            backdropFilter: 'blur(12px) saturate(145%)',
+            backgroundColor: theme.palette.background.paper,
             p: 1.75,
             minHeight: 0,
             overflowY: 'auto'
@@ -346,8 +344,7 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
             overflowY: 'auto',
             borderRadius: 2,
             border: `1px solid ${alpha('#FFFFFF', 0.72)}`,
-            backgroundColor: alpha(theme.palette.background.paper, 0.78),
-            backdropFilter: 'blur(12px) saturate(145%)',
+            backgroundColor: theme.palette.background.paper,
             boxShadow: `0 10px 30px ${alpha(theme.palette.common.black, 0.045)}`,
             '& .MuiGrid-container': {
               alignItems: 'flex-start'
@@ -363,12 +360,11 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
               display: 'flex',
               justifyContent: 'flex-end',
               borderTop: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
-              backgroundColor: alpha(theme.palette.background.paper, 0.94),
+              backgroundColor: theme.palette.background.paper,
               boxShadow: `0 -8px 20px ${alpha(
                 theme.palette.common.black,
                 0.05
-              )}`,
-              backdropFilter: 'blur(10px)'
+              )}`
             },
             '& .MuiGrid-item:last-of-type .MuiButton-root': {
               minWidth: 120,

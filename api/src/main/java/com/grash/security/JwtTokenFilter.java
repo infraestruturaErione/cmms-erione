@@ -31,7 +31,15 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         } catch (CustomException ex) {
             //this is very important, since it guarantees the user is not authenticated at all
             SecurityContextHolder.clearContext();
-            httpServletResponse.sendError(ex.getHttpStatus().value(), ex.getMessage());
+            // Write the status directly instead of sendError(): sendError() triggers an internal
+            // dispatch to /error, which re-enters the security chain unauthenticated and surfaces
+            // as 403, masking the real status. Writing the response here delivers the true code (401).
+            httpServletResponse.setStatus(ex.getHttpStatus().value());
+            httpServletResponse.setContentType("application/json");
+            httpServletResponse.setCharacterEncoding("UTF-8");
+            httpServletResponse.getWriter().write(
+                    "{\"error\":\"" + ex.getHttpStatus().getReasonPhrase() + "\",\"message\":\""
+                            + ex.getMessage() + "\"}");
             return;
         }
 

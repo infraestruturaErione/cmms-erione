@@ -215,4 +215,6 @@
              relativeToChangelogFile="true"/>
     <include file="changelog/2026_06_09_00000000001_add_operational_indexes.xml"
              relativeToChangelogFile="true"/>
+    <include file="changelog/2026_07_21_00000000001_add_workorder_date_indexes.xml"
+             relativeToChangelogFile="true"/>
 </databaseChangeLog>

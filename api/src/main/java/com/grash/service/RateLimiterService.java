@@ -18,6 +18,7 @@ public class RateLimiterService {
     private final ConcurrentMap<String, Bucket> fileUploadCache = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Bucket> publicMiniCache = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Bucket> authenticatedUserCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Bucket> authAttemptCache = new ConcurrentHashMap<>();
 
     /**
      * -- GETTER --
@@ -95,6 +96,25 @@ public class RateLimiterService {
      */
     public Bucket resolveAuthenticatedUserBucket(String userId) {
         return authenticatedUserCache.computeIfAbsent(userId, this::newAuthenticatedUserBucket);
+    }
+
+    /**
+     * Resolve rate limit bucket for unauthenticated auth attempts (login / password reset), keyed by client IP.
+     * Protects against brute-force and email-spam on public endpoints that carry no user identity yet.
+     */
+    public Bucket resolveAuthAttemptBucket(String ipKey) {
+        return authAttemptCache.computeIfAbsent(ipKey, this::newAuthAttemptBucket);
+    }
+
+    private Bucket newAuthAttemptBucket(String key) {
+        // 10 attempts per minute (bursts of legit retries / users behind shared NAT)
+        Bandwidth perMinute = Bandwidth.classic(10, Refill.greedy(10, Duration.ofMinutes(1)));
+        // 60 attempts per hour (hard ceiling against sustained brute-force)
+        Bandwidth perHour = Bandwidth.classic(60, Refill.greedy(60, Duration.ofHours(1)));
+        return Bucket.builder()
+                .addLimit(perMinute)
+                .addLimit(perHour)
+                .build();
     }
 
     private Bucket newAuthenticatedUserBucket(String key) {

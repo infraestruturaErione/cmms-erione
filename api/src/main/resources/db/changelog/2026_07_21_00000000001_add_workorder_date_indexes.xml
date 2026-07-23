@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <changeSet id="20260721-01-add-workorder-date-indexes" author="claude">
+        <sql>
+            CREATE INDEX IF NOT EXISTS idx_work_order_estimated_start_date ON work_order(estimated_start_date);
+            CREATE INDEX IF NOT EXISTS idx_work_order_due_date ON work_order(due_date);
+            CREATE INDEX IF NOT EXISTS idx_work_order_company_estimated_start ON work_order(company_id, estimated_start_date);
+
+            CREATE INDEX IF NOT EXISTS idx_work_order_parent_request_id ON work_order(parent_request_id);
+            CREATE INDEX IF NOT EXISTS idx_work_order_primary_user_id ON work_order(primary_user_id);
+            CREATE INDEX IF NOT EXISTS idx_work_order_asset_id ON work_order(asset_id);
+            CREATE INDEX IF NOT EXISTS idx_work_order_location_id ON work_order(location_id);
+        </sql>
+        <rollback>
+            DROP INDEX IF EXISTS idx_work_order_location_id;
+            DROP INDEX IF EXISTS idx_work_order_asset_id;
+            DROP INDEX IF EXISTS idx_work_order_primary_user_id;
+            DROP INDEX IF EXISTS idx_work_order_parent_request_id;
+
+            DROP INDEX IF EXISTS idx_work_order_company_estimated_start;
+            DROP INDEX IF EXISTS idx_work_order_due_date;
+            DROP INDEX IF EXISTS idx_work_order_estimated_start_date;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
