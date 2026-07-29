@@ -34,6 +34,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -128,7 +129,14 @@ public class LocationController {
     @GetMapping("/mini")
     @PreAuthorize("hasRole('ROLE_CLIENT')")
     public Collection<LocationMiniDTO> getMini(@RequestParam(required = false) @Parameter(description = "Filter " +
-            "locations by customer ID") Long customerId, HttpServletRequest req) {
+            "locations by customer ID") Long customerId,
+                                               @RequestParam(required = false, defaultValue = "false") @Parameter(description =
+                                                       "When true, an absent customerId returns an empty list instead of every location. " +
+                                                               "Used by the Customer -> Location -> Asset flow, where no filter must mean no result.") boolean requireCustomer,
+                                               HttpServletRequest req) {
+        if (requireCustomer && customerId == null) {
+            return Collections.emptyList();
+        }
         User user = userService.whoami(req);
         return customerScopeService.findAllowedLocations(user, customerId).stream().map(locationMapper::toMiniDto).collect(Collectors.toList());
     }

@@ -213,6 +213,7 @@ public class WorkOrderController {
         if (user.getRole().getCreatePermissions().contains(PermissionEntity.WORK_ORDERS)
                 && (workOrderReq.getSignature() == null ||
                 user.getCompany().getSubscription().getSubscriptionPlan().getFeatures().contains(PlanFeatures.SIGNATURE))) {
+            customerScopeService.prepareAndValidateRequestScope(workOrderReq, user);
             if (user.getCompany().getCompanySettings().getGeneralPreferences().isAutoAssignWorkOrders()) {
                 User primaryUser = workOrderReq.getPrimaryUser();
                 workOrderReq.setPrimaryUser(primaryUser == null ? user : primaryUser);
@@ -268,6 +269,7 @@ public class WorkOrderController {
             WorkOrder savedWorkOrder = optionalWorkOrder.get();
             if (savedWorkOrder.canBeEditedBy(user)) {
                 em.detach(savedWorkOrder);
+                customerScopeService.prepareAndValidateRequestScope(workOrder, user);
                 WorkOrder patchedWorkOrder = workOrderService.update(id, workOrder, user);
 
                 if (patchedWorkOrder.isArchived() && !savedWorkOrder.isArchived()) {

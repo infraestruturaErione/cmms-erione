@@ -22,9 +22,11 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -238,6 +240,36 @@ public class CustomerScopeService {
         Optional.ofNullable(request.getAsset()).map(Asset::getId).ifPresent(assetId -> assertCanAccessAsset(user, assetId));
     }
 
+    public void prepareAndValidateRequestScope(WorkOrderBase workOrderBase, User user) {
+        if (!isRequester(user)) {
+            return;
+        }
+        List<Long> allowedCustomerIds = getAllowedCustomerIds(user);
+        if (allowedCustomerIds.isEmpty()) {
+            throw new CustomException("No allowed customers configured for this user", HttpStatus.FORBIDDEN);
+        }
+        List<Customer> workOrderCustomers =
+                workOrderBase.getCustomers() == null ? new ArrayList<>() : workOrderBase.getCustomers();
+        if (workOrderCustomers.isEmpty()) {
+            if (allowedCustomerIds.size() == 1) {
+                Customer allowedCustomer = customerRepository.findById(allowedCustomerIds.get(0))
+                        .orElseThrow(() -> new CustomException("Allowed customer not found", HttpStatus.NOT_FOUND));
+                workOrderBase.setCustomers(new ArrayList<>(Collections.singletonList(allowedCustomer)));
+            } else {
+                throw new CustomException("Customer is required", HttpStatus.FORBIDDEN);
+            }
+        } else {
+            for (Customer customer : workOrderCustomers) {
+                assertCanAccessCustomer(user, customerRepository.findById(customer.getId())
+                        .orElseThrow(() -> new CustomException("Customer not found", HttpStatus.NOT_FOUND)));
+            }
+        }
+        Optional.ofNullable(workOrderBase.getLocation()).map(Location::getId)
+                .ifPresent(locationId -> assertCanAccessLocation(user, locationId));
+        Optional.ofNullable(workOrderBase.getAsset()).map(Asset::getId)
+                .ifPresent(assetId -> assertCanAccessAsset(user, assetId));
+    }
+
     public void prepareAndValidateRequestScope(WorkOrderBasePatchDTO request, User user) {
         if (!isRequester(user)) {
             return;
@@ -255,6 +287,109 @@ public class CustomerScopeService {
         }
         Optional.ofNullable(request.getLocation()).map(Location::getId).ifPresent(locationId -> assertCanAccessLocation(user, locationId));
         Optional.ofNullable(request.getAsset()).map(Asset::getId).ifPresent(assetId -> assertCanAccessAsset(user, assetId));
+    }
+
+    public void validateWorkOrderAssociations(WorkOrderBase workOrderBase, Long companyId) {
+        validateWorkOrderAssociations(workOrderBase, companyId, true, true);
+    }
+
+    public void validateWorkOrderAssociations(WorkOrderBasePatchDTO patch,
+                                              WorkOrderBase workOrderBase,
+                                              Long companyId) {
+        if (patch == null || workOrderBase == null || companyId == null) {
+            return;
+        }
+
+        boolean customersChanged = patch.getCustomers() != null;
+        boolean locationChanged = patch.getLocation() != null;
+        boolean assetChanged = patch.getAsset() != null;
+
+        if (!customersChanged && !locationChanged && !assetChanged) {
+            return;
+        }
+
+        validateWorkOrderAssociations(
+                workOrderBase,
+                companyId,
+                customersChanged || locationChanged,
+                customersChanged || assetChanged
+        );
+    }
+
+    private void validateWorkOrderAssociations(WorkOrderBase workOrderBase,
+                                               Long companyId,
+                                               boolean validateLocationAgainstCustomers,
+                                               boolean validateAssetAgainstCustomers) {
+        if (workOrderBase == null || companyId == null) {
+            return;
+        }
+
+        Set<Long> customerIds = resolveCompanyCustomerIds(workOrderBase.getCustomers(), companyId);
+        Location location = resolveCompanyLocation(workOrderBase.getLocation(), companyId);
+        Asset asset = resolveCompanyAsset(workOrderBase.getAsset(), companyId);
+
+        if (validateLocationAgainstCustomers && !customerIds.isEmpty() && location != null) {
+            boolean customerMatchesLocation = location.getCustomers().stream()
+                    .map(Customer::getId)
+                    .anyMatch(customerIds::contains);
+            if (!customerMatchesLocation) {
+                throw new CustomException("Selected location is not linked to the chosen customer",
+                        HttpStatus.NOT_ACCEPTABLE);
+            }
+        }
+
+        if (validateAssetAgainstCustomers && !customerIds.isEmpty() && asset != null) {
+            boolean assetMatchesCustomers = asset.getCustomers().stream()
+                    .map(Customer::getId)
+                    .anyMatch(customerIds::contains);
+            boolean assetLocationMatchesCustomers = asset.getLocation() != null &&
+                    asset.getLocation().getCustomers().stream()
+                            .map(Customer::getId)
+                            .anyMatch(customerIds::contains);
+            if (!assetMatchesCustomers && !assetLocationMatchesCustomers) {
+                throw new CustomException("Selected asset is not linked to the chosen customer",
+                        HttpStatus.NOT_ACCEPTABLE);
+            }
+        }
+    }
+
+    private Set<Long> resolveCompanyCustomerIds(Collection<Customer> customers, Long companyId) {
+        if (customers == null || customers.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        Set<Long> requestedIds = customers.stream()
+                .filter(Objects::nonNull)
+                .map(Customer::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (requestedIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        Collection<Customer> savedCustomers = customerRepository.findByIdInAndCompany_Id(requestedIds, companyId);
+        if (savedCustomers.size() != requestedIds.size()) {
+            throw new CustomException("Customer not found", HttpStatus.NOT_FOUND);
+        }
+
+        return savedCustomers.stream().map(Customer::getId).collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Location resolveCompanyLocation(Location location, Long companyId) {
+        if (location == null || location.getId() == null) {
+            return null;
+        }
+        return locationRepository.findByIdAndCompany_Id(location.getId(), companyId)
+                .orElseThrow(() -> new CustomException("Location not found", HttpStatus.NOT_FOUND));
+    }
+
+    private Asset resolveCompanyAsset(Asset asset, Long companyId) {
+        if (asset == null || asset.getId() == null) {
+            return null;
+        }
+        return assetRepository.findByIdAndCompany_Id(asset.getId(), companyId)
+                .orElseThrow(() -> new CustomException("Asset not found", HttpStatus.NOT_FOUND));
     }
 
     public boolean canAccessWorkOrderBase(User user, WorkOrderBase workOrderBase) {

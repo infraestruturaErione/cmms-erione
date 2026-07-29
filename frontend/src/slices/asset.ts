@@ -178,7 +178,7 @@ export const reducer = slice.reducer;
 export const getAssets =
   (criteria: SearchCriteria): AppThunk =>
   async (dispatch) => {
-    const { signal } = createCancellableRequest();
+    const { signal } = createCancellableRequest('assets');
     try {
       dispatch(slice.actions.setLoadingGet({ loading: true }));
       const assets = await api.post<Page<AssetDTO>>(
@@ -195,14 +195,21 @@ export const getAssets =
     }
   };
 export const getAssetsMini =
-  (locationId?: number | null, customerId?: number): AppThunk =>
+  (
+    locationId?: number | null,
+    customerId?: number,
+    requireCustomer?: boolean
+  ): AppThunk =>
   async (dispatch) => {
-    const { signal } = createCancellableRequest();
+    const { signal } = createCancellableRequest('assets/mini');
     try {
       dispatch(slice.actions.setLoadingGet({ loading: true }));
       const queryParams = new URLSearchParams();
       if (locationId) queryParams.set('locationId', String(locationId));
       if (customerId) queryParams.set('customerId', String(customerId));
+      // Faz o servidor devolver lista vazia (em vez da consulta global) caso o
+      // customerId nao chegue. Usado no fluxo Cliente -> Localizacao -> Ativo.
+      if (requireCustomer) queryParams.set('requireCustomer', 'true');
       const queryString = queryParams.toString();
       const assets = await api.get<AssetMiniDTO[]>(
         `${basePath}/mini${queryString ? `?${queryString}` : ''}`,

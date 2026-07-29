@@ -192,10 +192,24 @@ function WorkOrderOperationalReport() {
 
   useEffect(() => {
     dispatch(getCustomersMini());
-    dispatch(getLocationsMini());
-    dispatch(getAssetsMini());
     dispatch(getUsersMini());
   }, []);
+
+  // Local e Equipamento seguem o cliente selecionado: sem cliente nao existe
+  // informacao suficiente para determinar as opcoes validas, entao nao ha
+  // consulta global. Com cliente, a busca refaz com o escopo certo.
+  useEffect(() => {
+    const customerId = filters.customerId ? Number(filters.customerId) : null;
+    if (!customerId) return;
+    dispatch(getLocationsMini(customerId, true));
+    dispatch(
+      getAssetsMini(
+        filters.locationId ? Number(filters.locationId) : null,
+        customerId,
+        true
+      )
+    );
+  }, [filters.customerId, filters.locationId]);
 
   const buildCriteria = (
     currentFilters: FilterState,
@@ -301,10 +315,29 @@ function WorkOrderOperationalReport() {
     }
   }, [customersMini, customerParam, searchParams, setSearchParams]);
 
+  // Cascata: trocar o Cliente invalida Local e Equipamento; trocar o Local
+  // invalida o Equipamento. Sem isso da para montar uma combinacao impossivel
+  // (cliente A + local do cliente B) e receber um relatorio vazio sem explicacao.
+  // Só os filtros de texto livre entram aqui — `periodField` é uma união literal
+  // e não aceita string vazia.
+  const dependentFilters: Partial<
+    Record<keyof FilterState, ('locationId' | 'assetId')[]>
+  > = {
+    customerId: ['locationId', 'assetId'],
+    locationId: ['assetId']
+  };
+
   const handleFilterChange =
     (field: keyof FilterState) =>
     (event: ChangeEvent<HTMLInputElement>): void => {
-      setFilters((prev) => ({ ...prev, [field]: event.target.value }));
+      const value = event.target.value;
+      setFilters((prev) => {
+        const next = { ...prev, [field]: value };
+        dependentFilters[field]?.forEach((dependent) => {
+          next[dependent] = '';
+        });
+        return next;
+      });
     };
 
   const handleApply = () => {
@@ -653,6 +686,10 @@ function WorkOrderOperationalReport() {
                     label={t('location')}
                     value={filters.locationId}
                     onChange={handleFilterChange('locationId')}
+                    disabled={!filters.customerId}
+                    helperText={
+                      !filters.customerId ? t('select_customer_first') : ''
+                    }
                   >
                     <MenuItem value="">{t('ALL')}</MenuItem>
                     {locationsMini.map((location) => (
@@ -670,6 +707,10 @@ function WorkOrderOperationalReport() {
                     label={t('camera_equipment')}
                     value={filters.assetId}
                     onChange={handleFilterChange('assetId')}
+                    disabled={!filters.customerId}
+                    helperText={
+                      !filters.customerId ? t('select_customer_first') : ''
+                    }
                   >
                     <MenuItem value="">{t('ALL')}</MenuItem>
                     {assetsMini.map((asset) => (

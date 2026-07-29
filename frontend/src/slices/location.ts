@@ -116,7 +116,7 @@ const slice = createSlice({
 export const reducer = slice.reducer;
 
 export const getLocations = (): AppThunk => async (dispatch) => {
-  const { signal } = createCancellableRequest();
+  const { signal } = createCancellableRequest('locations');
   try {
     const locations = await api.get<Location[]>('locations', { signal });
     dispatch(slice.actions.getLocations({ locations }));
@@ -126,14 +126,19 @@ export const getLocations = (): AppThunk => async (dispatch) => {
   }
 };
 export const getLocationsMini =
-  (customerId?: number): AppThunk =>
+  (customerId?: number, requireCustomer?: boolean): AppThunk =>
   async (dispatch) => {
-    const { signal } = createCancellableRequest();
+    const { signal } = createCancellableRequest('locations/mini');
     try {
       dispatch(slice.actions.setLoadingGet({ loading: true }));
-      const queryParams = customerId ? `?customerId=${customerId}` : '';
+      const params = new URLSearchParams();
+      if (customerId) params.set('customerId', String(customerId));
+      // Faz o servidor devolver lista vazia (em vez da consulta global) caso o
+      // customerId nao chegue. Usado no fluxo Cliente -> Localizacao -> Ativo.
+      if (requireCustomer) params.set('requireCustomer', 'true');
+      const queryString = params.toString();
       const locations = await api.get<LocationMiniDTO[]>(
-        `locations/mini${queryParams}`,
+        `locations/mini${queryString ? `?${queryString}` : ''}`,
         {
           signal
         }

@@ -1,14 +1,20 @@
 import {
   Box,
+  Button,
   Dialog,
   DialogContent,
   DialogTitle,
+  IconButton,
   Stack,
   Tab,
   Tabs,
   Typography
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
+import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
+import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import { FormikProps } from 'formik';
 import { ChangeEvent, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Form from '../../components/form';
@@ -91,9 +97,44 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
     submitText
   } = props;
   const [activeTab, setActiveTab] = useState(0);
+  const isLastTab = activeTab === TAB_CONFIG.length - 1;
 
   const handleTabChange = (_event: ChangeEvent<{}>, newValue: number) => {
     setActiveTab(newValue);
+  };
+
+  const handlePreviousTab = () => {
+    setActiveTab((prev) => Math.max(prev - 1, 0));
+  };
+
+  const handleNextTab = () => {
+    setActiveTab((prev) => Math.min(prev + 1, TAB_CONFIG.length - 1));
+  };
+
+  const handleFinalSubmit = async (formik: FormikProps<IHash<any>>) => {
+    const errors = await formik.validateForm();
+    const errorFields = Object.keys(errors);
+
+    if (errorFields.length) {
+      formik.setTouched(
+        errorFields.reduce((acc, fieldName) => ({ ...acc, [fieldName]: true }), {}),
+        false
+      );
+
+      const firstErrorField = fields.find((field) =>
+        errorFields.includes(field.name)
+      )?.name;
+      const targetTab = TAB_CONFIG.findIndex((tab) =>
+        tab.fieldNames.includes(firstErrorField)
+      );
+
+      if (targetTab >= 0 && targetTab !== activeTab) {
+        setActiveTab(targetTab);
+      }
+      return;
+    }
+
+    await formik.submitForm();
   };
 
   const tabFields = useMemo(
@@ -116,7 +157,11 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
       fullWidth
       maxWidth="lg"
       open={open}
-      onClose={onClose}
+      onClose={(_event, reason) => {
+        if (reason === 'backdropClick' || reason === 'escapeKeyDown') return;
+        onClose();
+      }}
+      disableEscapeKeyDown
       PaperProps={{
         sx: {
           borderRadius: 3,
@@ -171,19 +216,36 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
               app do técnico.
             </Typography>
           </Box>
-          <Box
-            sx={{
-              px: 1.5,
-              py: 1,
-              borderRadius: 1.5,
-              border: `1px solid ${alpha(theme.palette.primary.main, 0.18)}`,
-              backgroundColor: alpha(theme.palette.primary.main, 0.07)
-            }}
-          >
-            <Typography variant="caption" color="primary" fontWeight={800}>
-              Etapa {activeTab + 1} de {TAB_CONFIG.length}
-            </Typography>
-          </Box>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Box
+              sx={{
+                px: 1.5,
+                py: 1,
+                borderRadius: 1.5,
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.18)}`,
+                backgroundColor: alpha(theme.palette.primary.main, 0.07)
+              }}
+            >
+              <Typography variant="caption" color="primary" fontWeight={800}>
+                Etapa {activeTab + 1} de {TAB_CONFIG.length}
+              </Typography>
+            </Box>
+            <IconButton
+              aria-label={t('close')}
+              onClick={onClose}
+              sx={{
+                color: theme.palette.text.secondary,
+                border: `1px solid ${alpha(theme.palette.text.secondary, 0.14)}`,
+                backgroundColor: alpha(theme.palette.common.white, 0.78),
+                '&:hover': {
+                  color: theme.palette.text.primary,
+                  backgroundColor: alpha(theme.palette.common.white, 0.95)
+                }
+              }}
+            >
+              <CloseRoundedIcon fontSize="small" />
+            </IconButton>
+          </Stack>
         </Stack>
       </DialogTitle>
       <Box
@@ -386,10 +448,42 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
           <Form
             fields={tabFields}
             validation={validation}
-            submitText={submitText}
             values={values}
             onChange={onChange}
             onSubmit={onSubmit}
+            renderActions={(formik) => (
+              <Stack
+                direction="row"
+                spacing={1.25}
+                justifyContent="flex-end"
+                sx={{ mt: { xs: 2, sm: 0 } }}
+              >
+                {activeTab > 0 && (
+                  <Button
+                    variant="outlined"
+                    onClick={handlePreviousTab}
+                    startIcon={<ChevronLeftRoundedIcon />}
+                    disabled={formik.isSubmitting}
+                  >
+                    {t('previous')}
+                  </Button>
+                )}
+                <Button
+                  variant="contained"
+                  onClick={() =>
+                    isLastTab ? handleFinalSubmit(formik) : handleNextTab()
+                  }
+                  endIcon={
+                    isLastTab ? null : <ChevronRightRoundedIcon fontSize="small" />
+                  }
+                  disabled={
+                    Boolean(formik.errors.submit) || formik.isSubmitting
+                  }
+                >
+                  {t(isLastTab ? submitText : 'next')}
+                </Button>
+              </Stack>
+            )}
           />
         </Box>
       </DialogContent>

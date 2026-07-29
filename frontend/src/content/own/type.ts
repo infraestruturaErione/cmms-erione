@@ -72,6 +72,12 @@ export interface IField {
   loading?: boolean;
   excluded?: number;
   relatedFields?: { field: string; value?: any; hide?: boolean }[];
+  // Quando true, o campo só carrega opções depois que um cliente estiver
+  // selecionado. Sem cliente a lista fica vazia e o campo desabilitado, em vez
+  // de cair na consulta global. Usado no fluxo Cliente -> Localização -> Ativo.
+  scopedByCustomer?: boolean;
+  // Campos dependentes que devem ser limpos sempre que este campo mudar.
+  clearsOnChange?: string[];
 }
 
 export interface IHash<E> {

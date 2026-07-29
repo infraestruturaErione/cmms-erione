@@ -8,7 +8,7 @@ import {
   useTheme
 } from '@mui/material';
 import { Formik, FormikProps } from 'formik';
-import { useMemo } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import FormikErrorFocus from 'formik-error-focus';
 import * as Yup from 'yup';
@@ -36,6 +36,7 @@ interface PropsType {
   validation?: ObjectSchema<any>;
   isLoading?: boolean;
   isButtonEnabled?: (values: IHash<any>, ...props: any[]) => boolean;
+  renderActions?: (formik: FormikProps<IHash<any>>) => ReactNode;
 }
 
 export default (props: PropsType) => {
@@ -63,6 +64,16 @@ export default (props: PropsType) => {
       formik.setFieldTouched(field, true);
     }
     formik.setFieldValue(field, e);
+
+    // Cascata: limpa os campos dependentes para nao sobrar um id de um contexto
+    // anterior (ex.: trocar de cliente nao pode manter local/ativo do cliente antigo).
+    props.fields
+      .find((f) => f.name === field)
+      ?.clearsOnChange?.forEach((dependentField) => {
+        formik.setFieldValue(dependentField, null);
+        formik.setFieldTouched(dependentField, false);
+      });
+
     return formik.handleChange(field);
   };
 
@@ -291,32 +302,42 @@ export default (props: PropsType) => {
             })}
 
             <Grid item xs={12}>
-              <Button
-                type="submit"
-                sx={{
-                  mt: { xs: 2, sm: 0 }
-                }}
-                onClick={() => formik.handleSubmit()}
-                variant="contained"
-                startIcon={
-                  formik.isSubmitting ? <CircularProgress size="1rem" /> : null
-                }
-                disabled={Boolean(formik.errors.submit) || formik.isSubmitting}
-              >
-                {t(props.submitText)}
-              </Button>
+              {props.renderActions ? (
+                props.renderActions(formik)
+              ) : (
+                <>
+                  <Button
+                    type="submit"
+                    sx={{
+                      mt: { xs: 2, sm: 0 }
+                    }}
+                    onClick={() => formik.handleSubmit()}
+                    variant="contained"
+                    startIcon={
+                      formik.isSubmitting ? (
+                        <CircularProgress size="1rem" />
+                      ) : null
+                    }
+                    disabled={
+                      Boolean(formik.errors.submit) || formik.isSubmitting
+                    }
+                  >
+                    {t(props.submitText)}
+                  </Button>
 
-              {props.onCanceled && (
-                <Button
-                  sx={{
-                    mt: { xs: 2, sm: 0 }
-                  }}
-                  onClick={() => props.onCanceled}
-                  variant="outlined"
-                  disabled
-                >
-                  {t(props.submitText)}
-                </Button>
+                  {props.onCanceled && (
+                    <Button
+                      sx={{
+                        mt: { xs: 2, sm: 0 }
+                      }}
+                      onClick={() => props.onCanceled}
+                      variant="outlined"
+                      disabled
+                    >
+                      {t(props.submitText)}
+                    </Button>
+                  )}
+                </>
               )}
             </Grid>
             <FormikErrorFocus

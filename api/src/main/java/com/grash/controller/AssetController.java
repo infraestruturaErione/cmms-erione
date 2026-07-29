@@ -37,6 +37,7 @@ import jakarta.validation.Valid;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -284,7 +285,13 @@ public class AssetController {
             "by location ID. If not provided, returns all assets") Long locationId,
                                             @RequestParam(required = false) @Parameter(description = "Filter assets " +
                                                     "by customer ID") Long customerId,
+                                            @RequestParam(required = false, defaultValue = "false") @Parameter(description =
+                                                    "When true, an absent customerId returns an empty list instead of every asset. " +
+                                                            "Used by the Customer -> Location -> Asset flow, where no filter must mean no result.") boolean requireCustomer,
                                             HttpServletRequest req) {
+        if (requireCustomer && customerId == null) {
+            return Collections.emptyList();
+        }
         User user = userService.whoami(req);
         List<Asset> assets = new ArrayList<>();
         if (locationId == null) {

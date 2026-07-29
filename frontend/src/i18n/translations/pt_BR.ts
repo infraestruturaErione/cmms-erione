@@ -351,6 +351,7 @@ const ptBRJSON = {
   additional_workers: 'Trabalhadores Adicionais',
   select_team: 'Selecionar equipe',
   select_location: 'Selecionar localização',
+  select_customer_first: 'Selecione o cliente primeiro',
   select_asset: 'Selecionar ativo',
   select_tasks: 'Selecionar Checklist de Atendimento',
   requires_signature: 'Requer Assinatura',

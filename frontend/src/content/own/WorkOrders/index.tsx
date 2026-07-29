@@ -764,7 +764,8 @@ function WorkOrders() {
       type: 'select',
       label: t('customer'),
       type2: 'customer',
-      helperText: 'workOrders.customer_single_mvp_helper'
+      helperText: 'workOrders.customer_single_mvp_helper',
+      clearsOnChange: ['location', 'asset']
     },
     {
       name: 'location',
@@ -772,7 +773,9 @@ function WorkOrders() {
       type2: 'location',
       label: t('location'),
       placeholder: t('select_location'),
-      relatedFields: [{ field: 'customers' }]
+      relatedFields: [{ field: 'customers' }],
+      scopedByCustomer: true,
+      clearsOnChange: ['asset']
     },
     {
       name: 'asset',
@@ -780,7 +783,8 @@ function WorkOrders() {
       type2: 'asset',
       label: t('asset'),
       placeholder: t('select_asset'),
-      relatedFields: [{ field: 'location' }, { field: 'customers' }]
+      relatedFields: [{ field: 'location' }, { field: 'customers' }],
+      scopedByCustomer: true
     },
     // Equipe e Agenda
     {

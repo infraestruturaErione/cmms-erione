@@ -10,6 +10,7 @@ import {
   TextField,
   Typography
 } from '@mui/material';
+import OpenInNewTwoToneIcon from '@mui/icons-material/OpenInNewTwoTone';
 import { FormikProps, useFormikContext } from 'formik';
 import { useContext, useEffect, useState } from 'react';
 import { getLocationsMini } from 'src/slices/location';
@@ -40,6 +41,7 @@ import { LocationMiniDTO } from '../../../../models/owns/location';
 import { AssetMiniDTO } from '../../../../models/owns/asset';
 import { PermissionEntity } from '../../../../models/owns/role';
 import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
+import { getLocationUrl } from '../../../../utils/urlPaths';
 
 interface OptionType {
   label: string;
@@ -106,7 +108,9 @@ export const CustomSelect = ({
     dispatch(getUsersMini());
   };
   const fetchLocations = async () => {
-    dispatch(getLocationsMini(getRelatedCustomerId()));
+    const customerId = getRelatedCustomerId();
+    if (field.scopedByCustomer && !customerId) return;
+    dispatch(getLocationsMini(customerId, field.scopedByCustomer));
   };
   const fetchRoles = async () => {
     dispatch(getRoles());
@@ -115,8 +119,12 @@ export const CustomSelect = ({
   const fetchCategories = async (category: string) => {
     dispatch(getCategories(category));
   };
-  const fetchAssets = async (locationId?: number | null, customerId?: number) => {
-    dispatch(getAssetsMini(locationId, customerId));
+  const fetchAssets = async (
+    locationId?: number | null,
+    customerId?: number
+  ) => {
+    if (field.scopedByCustomer && !customerId) return;
+    dispatch(getAssetsMini(locationId, customerId, field.scopedByCustomer));
   };
   const fetchTeams = async () => {
     dispatch(getTeamsMini());
@@ -387,15 +395,28 @@ export const CustomSelect = ({
       break;
     case 'location':
     case 'parentLocation':
-      const locationOptions = locationsMini
-        .filter((location) => location.id !== excluded)
-        .map((location) => {
-          return {
-            label: location.name,
-            value: location.id
-          };
-        });
-      onOpen = fetchLocations;
+      const customerId = getRelatedCustomerId();
+      // Sem cliente definido nao existe informacao suficiente para determinar as
+      // localizacoes validas: a lista fica vazia em vez de cair na consulta global.
+      const locationScopeMissing = field.scopedByCustomer && !customerId;
+      const selectedLocationId =
+        !field.multiple &&
+        fieldValue &&
+        typeof fieldValue === 'object' &&
+        'value' in fieldValue
+          ? Number(fieldValue.value)
+          : null;
+      const locationOptions = locationScopeMissing
+        ? []
+        : locationsMini
+            .filter((location) => location.id !== excluded)
+            .map((location) => {
+              return {
+                label: location.name,
+                value: location.id
+              };
+            });
+      onOpen = locationScopeMissing ? () => {} : fetchLocations;
 
       return (
         <>
@@ -412,6 +433,8 @@ export const CustomSelect = ({
                 helperText={
                   typeof formik.errors[field.name] === 'string'
                     ? (formik.errors[field.name] as string)
+                    : locationScopeMissing
+                    ? t('select_customer_first')
                     : ''
                 }
                 InputProps={{
@@ -420,6 +443,7 @@ export const CustomSelect = ({
                     <InputAdornment position="end">
                       <IconButton
                         size="small"
+                        disabled={locationScopeMissing}
                         onClick={(e) => {
                           e.stopPropagation();
                           setLocationModalOpen(true);
@@ -433,7 +457,7 @@ export const CustomSelect = ({
               />
             )}
             fullWidth={field.fullWidth || true}
-            disabled={formik.isSubmitting}
+            disabled={formik.isSubmitting || locationScopeMissing}
             onOpen={onOpen}
             key={field.name}
             freeSolo
@@ -527,8 +551,10 @@ export const CustomSelect = ({
             }}
           />
           <SelectLocationModal
-            open={locationModalOpen}
+            open={locationModalOpen && !locationScopeMissing}
             onClose={() => setLocationModalOpen(false)}
+            customerId={customerId}
+            requireCustomer={field.scopedByCustomer}
             excludedLocationIds={[excluded]}
             maxSelections={field.multiple ? 10 : 1}
             onSelect={(selectedLocations) => {
@@ -559,22 +585,49 @@ export const CustomSelect = ({
               ).some((a) => Number(a.value) === location.id)
             )}
           />
+          {field.name === 'location' && selectedLocationId ? (
+            <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
+              <Link
+                href={getLocationUrl(selectedLocationId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                underline="hover"
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  fontSize: '0.875rem',
+                  fontWeight: 600
+                }}
+              >
+                {t('see_details')}
+                <OpenInNewTwoToneIcon fontSize="inherit" />
+              </Link>
+            </Box>
+          ) : null}
         </>
       );
     case 'asset': {
-      const assetOptions = assetsMini
-        .filter((asset) => asset.id !== excluded)
-        .map((asset) => {
-          return {
-            label: asset.name,
-            value: asset.id
-          };
-        });
       const locationId = field.relatedFields?.length
         ? formik.values[field.relatedFields[0].field]?.value ?? null
         : null;
       const customerId = getRelatedCustomerId();
-      onOpen = () => fetchAssets(locationId || null, customerId);
+      // Mesma regra da localizacao: sem cliente, nada e carregado. A localizacao,
+      // quando presente, apenas estreita ainda mais a lista.
+      const assetScopeMissing = field.scopedByCustomer && !customerId;
+      const assetOptions = assetScopeMissing
+        ? []
+        : assetsMini
+            .filter((asset) => asset.id !== excluded)
+            .map((asset) => {
+              return {
+                label: asset.name,
+                value: asset.id
+              };
+            });
+      onOpen = assetScopeMissing
+        ? () => {}
+        : () => fetchAssets(locationId || null, customerId);
 
       return (
         <>
@@ -591,6 +644,8 @@ export const CustomSelect = ({
                 helperText={
                   typeof formik.errors[field.name] === 'string'
                     ? (formik.errors[field.name] as string)
+                    : assetScopeMissing
+                    ? t('select_customer_first')
                     : ''
                 }
                 InputProps={{
@@ -599,6 +654,7 @@ export const CustomSelect = ({
                     <InputAdornment position="end">
                       <IconButton
                         size="small"
+                        disabled={assetScopeMissing}
                         onClick={(e) => {
                           e.stopPropagation();
                           setAssetModalOpen(true);
@@ -612,7 +668,7 @@ export const CustomSelect = ({
               />
             )}
             fullWidth={field.fullWidth || true}
-            disabled={formik.isSubmitting}
+            disabled={formik.isSubmitting || assetScopeMissing}
             onOpen={onOpen}
             key={field.name}
             freeSolo
@@ -705,9 +761,11 @@ export const CustomSelect = ({
             }}
           />
           <SelectAssetModal
-            open={assetModalOpen}
+            open={assetModalOpen && !assetScopeMissing}
             onClose={() => setAssetModalOpen(false)}
             excludedAssetIds={[excluded]}
+            customerId={customerId}
+            requireCustomer={field.scopedByCustomer}
             locationId={locationId}
             maxSelections={field.multiple ? 10 : 1}
             onSelect={(selectedAssets) => {

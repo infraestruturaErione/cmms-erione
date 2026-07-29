@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -8,16 +8,13 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  Typography,
-  useTheme
+  Typography
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from '../../../../store';
-import { getAssetsMini, resetAssetsHierarchy } from '../../../../slices/asset';
+import { getAssetsMini } from '../../../../slices/asset';
 import { AssetMiniDTO } from '../../../../models/owns/asset';
 import ReplayTwoToneIcon from '@mui/icons-material/ReplayTwoTone';
-import NoRowsMessageWrapper from '../NoRowsMessageWrapper';
-import { usePrevious } from '../../../../hooks/usePrevious';
 import { createColumnHelper } from '@tanstack/react-table';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -29,6 +26,9 @@ interface SelectAssetModalProps {
   onSelect: (assets: AssetMiniDTO[]) => void;
   excludedAssetIds?: number[];
   locationId?: number;
+  customerId?: number;
+  // Quando true, sem customerId a lupa nao consulta a API e mostra lista vazia.
+  requireCustomer?: boolean;
   maxSelections?: number;
   initialSelectedAssets?: AssetMiniDTO[];
 }
@@ -40,15 +40,23 @@ const SelectAssetModal: React.FC<SelectAssetModalProps> = ({
   onSelect,
   excludedAssetIds = [],
   locationId,
+  customerId,
+  requireCustomer = false,
   maxSelections,
   initialSelectedAssets = []
 }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
-  const theme = useTheme();
   const { loadingGet, assetsMini } = useSelector((state) => state.assets);
-  const initialized = useRef<boolean>(false);
   const single = maxSelections === 1;
+  const initialSelectionKey = useMemo(
+    () =>
+      initialSelectedAssets
+        .map((asset) => asset.id)
+        .sort((a, b) => a - b)
+        .join(','),
+    [initialSelectedAssets]
+  );
 
   // State for tracking expanded rows
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -63,11 +71,12 @@ const SelectAssetModal: React.FC<SelectAssetModalProps> = ({
       return acc;
     }, {} as Record<string, boolean>)
   );
-  const previousInitialSelectedAssets = usePrevious(initialSelectedAssets);
+
+  const scopeMissing = requireCustomer && !customerId;
 
   const handleReset = (callApi: boolean) => {
-    if (callApi) {
-      dispatch(getAssetsMini());
+    if (callApi && !scopeMissing) {
+      dispatch(getAssetsMini(locationId ?? null, customerId, requireCustomer));
     }
   };
 
@@ -104,41 +113,34 @@ const SelectAssetModal: React.FC<SelectAssetModalProps> = ({
     return result;
   };
 
+  // assetsMini e estado global do Redux e pode estar preenchido por outra tela.
+  // Sem escopo definido a lupa nao pode reaproveitar essa lista.
   const tableData = useMemo(
-    () => getHierarchicalData(assetsMini, expanded),
-    [assetsMini, expanded]
+    () => (scopeMissing ? [] : getHierarchicalData(assetsMini, expanded)),
+    [assetsMini, expanded, scopeMissing]
   );
 
   useEffect(() => {
-    if (
-      open &&
-      (!initialized.current ||
-        JSON.stringify(previousInitialSelectedAssets) !==
-          JSON.stringify(initialSelectedAssets))
-    ) {
-      initialized.current = true;
-      handleReset(true);
-      if (initialSelectedAssets?.length) {
-        setSelectedAssets(initialSelectedAssets);
-        setRowSelection(
-          initialSelectedAssets.reduce((acc, asset) => {
-            acc[asset.id] = true;
-            return acc;
-          }, {} as Record<string, boolean>)
-        );
-      } else {
-        setSelectedAssets([]);
-        setRowSelection({});
-      }
+    if (!open) {
+      return;
     }
-  }, [open, initialSelectedAssets, previousInitialSelectedAssets]);
 
-  useEffect(() => {
-    if (single && open) {
+    handleReset(true);
+    setExpanded({});
+
+    if (initialSelectedAssets.length) {
+      setSelectedAssets(initialSelectedAssets);
+      setRowSelection(
+        initialSelectedAssets.reduce((acc, asset) => {
+          acc[asset.id] = true;
+          return acc;
+        }, {} as Record<string, boolean>)
+      );
+    } else {
       setSelectedAssets([]);
       setRowSelection({});
     }
-  }, [open, single]);
+  }, [open, customerId, locationId, initialSelectionKey]);
 
   const handleToggleExpand = (row: AssetRow) => {
     setExpanded((prev) => ({ ...prev, [row.id]: !prev[row.id] }));

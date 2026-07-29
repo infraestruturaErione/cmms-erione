@@ -332,6 +332,7 @@ const locale = {
   additional_workers: 'Additional Workers',
   select_team: 'Select team',
   select_location: 'Select location',
+  select_customer_first: 'Select the customer first',
   select_asset: 'Select asset',
   select_tasks: 'Select Service Checklist',
   requires_signature: 'Requires Signature',

@@ -99,6 +99,7 @@ public class WorkOrderService {
                 setWOCustomFields(workOrder, workOrderPostDTO.getCustomFields(), company);
             }
         }
+        customerScopeService.validateWorkOrderAssociations(workOrder, company.getId());
         workOrder.setCustomId(getWorkOrderNumber(company));
 
         WorkOrder savedWorkOrder = workOrderRepository.saveAndFlush(workOrder);
@@ -166,6 +167,7 @@ public class WorkOrderService {
             if (!workOrder.getCustomFields().isEmpty()) {
                 setWOCustomFields(newWorkOrder, workOrder.getCustomFields(), user.getCompany());
             }
+            customerScopeService.validateWorkOrderAssociations(workOrder, newWorkOrder, user.getCompany().getId());
             WorkOrder updatedWorkOrder =
                     workOrderRepository.saveAndFlush(newWorkOrder);
             em.refresh(updatedWorkOrder);
