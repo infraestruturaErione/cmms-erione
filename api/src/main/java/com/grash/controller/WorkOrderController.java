@@ -542,8 +542,9 @@ public class WorkOrderController {
                     put("companyPhone", user.getCompany().getPhone());
                     put("companyLogo", user.getCompany().getLogo() == null ? null :
                             storageService.generateSignedUrl(user.getCompany().getLogo(), 5));
-                    put("currency",
-                            user.getCompany().getCompanySettings().getGeneralPreferences().getCurrency().getCode());
+                    com.grash.model.Currency currency =
+                            user.getCompany().getCompanySettings().getGeneralPreferences().getCurrency();
+                    put("currency", currency == null ? null : currency.getCode());
                     put("utils", utils);
                     put("dateFormat", user.getCompany().getCompanySettings().getGeneralPreferences().getDateFormat());
                     put("timeZone", user.getCompany().getCompanySettings().getGeneralPreferences().getTimeZone());

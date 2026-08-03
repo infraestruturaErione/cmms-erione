@@ -34,6 +34,7 @@ import FieldExecutionTimeline from './FieldExecutionTimeline';
 import { useSelector } from '../../../../store';
 import { useTranslation } from 'react-i18next';
 import {
+  formatDurationSeconds,
   getFieldClosureChecklist,
   getFieldDurations,
   getFieldExecutionSummary,
@@ -79,26 +80,6 @@ const getFieldReportText = (content?: string) => {
 
 const formatCoordinate = (value?: number | null): string =>
   typeof value === 'number' ? value.toFixed(6) : '-';
-
-const formatDurationSeconds = (
-  seconds: number | null,
-  inProgress: boolean,
-  t: any
-): string => {
-  if (seconds === null || seconds === undefined) return '-';
-
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const label =
-    seconds > 0 && seconds < 60
-      ? t('less_than_1_min')
-      : hours && minutes
-      ? `${hours}h ${minutes}min`
-      : hours
-      ? `${hours}h`
-      : `${minutes}min`;
-  return inProgress ? `${label} (${t('in_progress')})` : label;
-};
 
 export default function FieldExecutionSection({
   workOrder,

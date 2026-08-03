@@ -6,6 +6,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   Grid,
   MenuItem,
   Select,
@@ -219,7 +220,7 @@ export default function SelectTasks({
   };
   return (
     <Box>
-      <Dialog fullWidth maxWidth="sm" open={open} onClose={onClose}>
+      <Dialog fullWidth maxWidth="md" open={open} onClose={onClose}>
         <DialogTitle
           sx={{
             p: 3
@@ -265,19 +266,15 @@ export default function SelectTasks({
                 {t('task')}
               </Button>
               <Tooltip
-                title={
-                  hasFeature(PlanFeature.CHECKLIST)
-                    ? t('use_a_checklist')
-                    : t('upgrade_checklist')
-                }
+                title={!hasFeature(PlanFeature.CHECKLIST) && t('upgrade_checklist')}
               >
                 <span>
                   <Button
                     disabled={!hasFeature(PlanFeature.CHECKLIST)}
                     startIcon={<AddTwoToneIcon />}
-                    onClick={() => setOpenChecklist(true)}
+                    onClick={() => setOpenChecklist((prev) => !prev)}
                   >
-                    {t('checklist')}
+                    {t('use_a_checklist')}
                   </Button>
                 </span>
               </Tooltip>
@@ -285,33 +282,53 @@ export default function SelectTasks({
           </Box>
           <Box>
             {openChecklist && (
-              <Select
-                displayEmpty
-                defaultValue=""
-                sx={{ mb: 1 }}
-                onChange={(event) =>
-                  addCheckList(
-                    checklists.find(
-                      (checklist) => checklist.id === Number(event.target.value)
-                    )
-                  )
-                }
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  mb: 2,
+                  p: 1.5,
+                  borderRadius: 1,
+                  border: (theme) => `1px solid ${theme.colors.alpha.black[10]}`
+                }}
               >
-                <MenuItem value="">{t('select_checklist')}</MenuItem>
-                {checklists.map((checklist) => (
-                  <MenuItem key={checklist.id} value={checklist.id}>
-                    {checklist.name}
+                <Select
+                  fullWidth
+                  displayEmpty
+                  defaultValue=""
+                  onChange={(event) => {
+                    addCheckList(
+                      checklists.find(
+                        (checklist) =>
+                          checklist.id === Number(event.target.value)
+                      )
+                    );
+                    setOpenChecklist(false);
+                  }}
+                >
+                  <MenuItem value="" disabled>
+                    {t('copy_items_from_checklist')}
                   </MenuItem>
-                ))}
-              </Select>
+                  {checklists.map((checklist) => (
+                    <MenuItem key={checklist.id} value={checklist.id}>
+                      {checklist.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <Button onClick={() => setOpenChecklist(false)}>
+                  {t('cancel')}
+                </Button>
+              </Box>
             )}
             {currentTab === 'edit' && (
               <Box>
-                <Grid container spacing={1}>
+                <Grid container spacing={2}>
                   {['createChecklist', 'editChecklist'].includes(action) && (
                     <>
-                      <Grid item>
+                      <Grid item xs={12} sm={6}>
                         <TextField
+                          fullWidth
                           variant="outlined"
                           label={t('name')}
                           value={name}
@@ -320,8 +337,19 @@ export default function SelectTasks({
                           helperText={t('required_name')}
                         />
                       </Grid>
-                      <Grid item>
+                      <Grid item xs={12} sm={6}>
                         <TextField
+                          fullWidth
+                          variant="outlined"
+                          value={category}
+                          label={t('checklist_tag')}
+                          helperText={t('checklist_tag_helper')}
+                          onChange={(event) => setCategory(event.target.value)}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
                           variant="outlined"
                           label={t('description')}
                           value={description}
@@ -330,17 +358,15 @@ export default function SelectTasks({
                           }
                         />
                       </Grid>
-                      <Grid item>
-                        <TextField
-                          variant="outlined"
-                          value={category}
-                          label={t('category')}
-                          onChange={(event) => setCategory(event.target.value)}
-                        />
+                      <Grid item xs={12}>
+                        <Divider sx={{ my: 1 }} />
+                        <Typography variant="subtitle2" color="text.secondary">
+                          {t('checklist_items_section')}
+                        </Typography>
                       </Grid>
                     </>
                   )}
-                  <Grid item>
+                  <Grid item xs={12}>
                     <DraggableTaskList
                       tasks={tasks}
                       onDragEnd={onDragEnd}

@@ -65,6 +65,8 @@ public class WorkOrderService {
     private final EntityManager em;
     private final MailServiceFactory mailServiceFactory;
     private final WorkOrderCategoryService workOrderCategoryService;
+    private final TaskBaseService taskBaseService;
+    private TaskService taskService;
     private WorkflowService workflowService;
     private final MessageSource messageSource;
     private final CustomSequenceService customSequenceService;
@@ -78,10 +80,12 @@ public class WorkOrderService {
 
     @Autowired
     public void setDeps(@Lazy WorkflowService workflowService,
-                        @Lazy CustomerScopeService customerScopeService
+                        @Lazy CustomerScopeService customerScopeService,
+                        @Lazy TaskService taskService
     ) {
         this.workflowService = workflowService;
         this.customerScopeService = customerScopeService;
+        this.taskService = taskService;
     }
 
     @Transactional
@@ -104,6 +108,7 @@ public class WorkOrderService {
 
         WorkOrder savedWorkOrder = workOrderRepository.saveAndFlush(workOrder);
         em.refresh(savedWorkOrder);
+        applyCategoryDefaults(savedWorkOrder);
         notify(savedWorkOrder, Helper.getLocale(company));
         Collection<Workflow> workflows =
                 workflowService.findByMainConditionAndCompany(WFMainCondition.WORK_ORDER_CREATED, company.getId());
@@ -114,6 +119,38 @@ public class WorkOrderService {
         webhookDispatchService.dispatchWebhook(company, WebhookEvent.NEW_WORK_ORDER, webhookPayload,
                 "newWorkOrder", serializedWorkOrder, null, null, null, null, null);
         return savedWorkOrder;
+    }
+
+    // Aplica os valores sugeridos pela Categoria ("Tipo de tarefa") numa OS
+    // recem-criada: copia os itens do Checklist padrao (pra o tecnico ja abrir
+    // a OS com o checklist pronto pra preencher) e sugere a duracao estimada -
+    // reaproveitando o campo estimatedDuration que ja existe em WorkOrder, sem
+    // criar um campo paralelo. So roda na criacao (nunca mexe numa OS
+    // existente) e so quando a OS ainda nao tem tarefas/duracao definidas - o
+    // que e sempre o caso aqui, porque tarefas adicionadas a mao pelo
+    // formulario web/mobile so sao enviadas numa chamada separada, depois que a
+    // OS ja existe.
+    private void applyCategoryDefaults(WorkOrder workOrder) {
+        if (workOrder.getCategory() == null) return;
+        WorkOrderCategory category = workOrderCategoryService.findById(workOrder.getCategory().getId())
+                .orElse(null);
+        if (category == null) return;
+
+        Checklist defaultChecklist = category.getDefaultChecklist();
+        if (defaultChecklist != null && defaultChecklist.getTaskBases() != null
+                && !defaultChecklist.getTaskBases().isEmpty()) {
+            defaultChecklist.getTaskBases().forEach(sourceTaskBase -> {
+                TaskBase clonedTaskBase = taskBaseService.cloneForNewOwner(sourceTaskBase);
+                String initialValue = clonedTaskBase.getTaskType() == TaskType.SUBTASK ? "OPEN"
+                        : clonedTaskBase.getTaskType() == TaskType.INSPECTION ? "FLAG" : "";
+                taskService.create(new Task(clonedTaskBase, workOrder, null, initialValue));
+            });
+        }
+
+        if (category.getDefaultEstimatedDuration() != null && workOrder.getEstimatedDuration() == 0) {
+            workOrder.setEstimatedDuration(category.getDefaultEstimatedDuration());
+            workOrderRepository.save(workOrder);
+        }
     }
 
     private void setWOCustomFields(WorkOrder workOrder, List<CustomFieldValuePostDTO> customFieldValuePostDTOS,

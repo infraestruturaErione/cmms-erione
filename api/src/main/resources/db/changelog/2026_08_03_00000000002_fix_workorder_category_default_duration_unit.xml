@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <!-- default_estimated_duration_minutes (da migration anterior, ainda nao
+         commitada) duplicava o conceito de estimatedDuration que ja existe em
+         WorkOrder, com unidade diferente (minutos vs horas). Corrige para a
+         Categoria guardar a sugestao na MESMA unidade do campo real que ela
+         alimenta (horas), em vez de manter um campo paralelo. -->
+    <changeSet id="20260803-02-fix-workorder-category-default-duration-unit" author="claude">
+        <sql>
+            ALTER TABLE work_order_category ADD COLUMN IF NOT EXISTS default_estimated_duration DOUBLE PRECISION;
+            UPDATE work_order_category
+                SET default_estimated_duration = default_estimated_duration_minutes / 60.0
+                WHERE default_estimated_duration_minutes IS NOT NULL;
+            ALTER TABLE work_order_category DROP COLUMN IF EXISTS default_estimated_duration_minutes;
+        </sql>
+        <rollback>
+            ALTER TABLE work_order_category ADD COLUMN IF NOT EXISTS default_estimated_duration_minutes INT;
+            UPDATE work_order_category
+                SET default_estimated_duration_minutes = CAST(default_estimated_duration * 60 AS INT)
+                WHERE default_estimated_duration IS NOT NULL;
+            ALTER TABLE work_order_category DROP COLUMN IF EXISTS default_estimated_duration;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

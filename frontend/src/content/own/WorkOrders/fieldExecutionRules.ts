@@ -38,6 +38,28 @@ export interface FieldClosureChecklistItem {
   required: boolean;
 }
 
+// Compartilhado entre a seção de execução em campo e o preview do calendário,
+// que precisa do mesmo texto "Xh Ymin" ao mostrar a duração real de uma OS.
+export const formatDurationSeconds = (
+  seconds: number | null,
+  inProgress: boolean,
+  t: (key: string) => string
+): string => {
+  if (seconds === null || seconds === undefined) return '-';
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const label =
+    seconds > 0 && seconds < 60
+      ? t('less_than_1_min')
+      : hours && minutes
+      ? `${hours}h ${minutes}min`
+      : hours
+      ? `${hours}h`
+      : `${minutes}min`;
+  return inProgress ? `${label} (${t('in_progress')})` : label;
+};
+
 const diffInSeconds = (
   start?: string | null,
   end?: string | Date | null

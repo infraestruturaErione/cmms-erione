@@ -17,7 +17,10 @@ import Field from '../Field';
 import NoteTwoToneIcon from '@mui/icons-material/NoteTwoTone';
 import AttachFileTwoToneIcon from '@mui/icons-material/AttachFileTwoTone';
 import SpeedTwoToneIcon from '@mui/icons-material/SpeedTwoTone';
-import ArrowDropDownCircleTwoToneIcon from '@mui/icons-material/ArrowDropDownCircleTwoTone';
+import CheckCircleTwoToneIcon from '@mui/icons-material/CheckCircleTwoTone';
+import ReportProblemTwoToneIcon from '@mui/icons-material/ReportProblemTwoTone';
+import CancelTwoToneIcon from '@mui/icons-material/CancelTwoTone';
+import RadioButtonUncheckedTwoToneIcon from '@mui/icons-material/RadioButtonUncheckedTwoTone';
 import { Task, TaskOption, TaskType } from '../../../../../models/owns/tasks';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -32,6 +35,11 @@ interface SingleTaskProps {
   task: Task;
   preview?: boolean;
   disabled?: boolean;
+  // Quando true, a resposta e exibida como um resumo de leitura (chip de status,
+  // texto simples, notas/fotos ja visiveis) em vez do formulario de preenchimento.
+  // Usado quando a OS ja esta concluida, para que abrir a OS mostre o resultado
+  // direto, sem precisar de um relatorio separado para ver o que foi preenchido.
+  readOnly?: boolean;
   handleChange?: (value: string | number, id: number) => void;
   handleSaveNotes?: (value: string, id: number) => Promise<void>;
   handleNoteChange?: (value: string, id: number) => void;
@@ -41,12 +49,63 @@ interface SingleTaskProps {
   notes?: Map<number, boolean>;
 }
 
+type StatusVisual = {
+  labelKey: string;
+  color: 'success' | 'warning' | 'error' | 'neutral';
+  icon: JSX.Element;
+};
+
+const getStatusVisual = (
+  taskType: TaskType,
+  value: string | number | undefined
+): StatusVisual | null => {
+  if (!['SUBTASK', 'INSPECTION', 'MULTIPLE'].includes(taskType)) return null;
+  if (!value) {
+    return {
+      labelKey: 'not_filled',
+      color: 'neutral',
+      icon: <RadioButtonUncheckedTwoToneIcon fontSize="inherit" />
+    };
+  }
+  switch (value) {
+    case 'COMPLETE':
+    case 'PASS':
+      return {
+        labelKey: value,
+        color: 'success',
+        icon: <CheckCircleTwoToneIcon fontSize="inherit" />
+      };
+    case 'FLAG':
+    case 'ON_HOLD':
+      return {
+        labelKey: value,
+        color: 'warning',
+        icon: <ReportProblemTwoToneIcon fontSize="inherit" />
+      };
+    case 'FAIL':
+      return {
+        labelKey: value,
+        color: 'error',
+        icon: <CancelTwoToneIcon fontSize="inherit" />
+      };
+    default:
+      // OPEN, IN_PROGRESS ou opcoes de multipla escolha: neutro, sem
+      // conotacao de sucesso/falha.
+      return {
+        labelKey: String(value),
+        color: 'neutral',
+        icon: <RadioButtonUncheckedTwoToneIcon fontSize="inherit" />
+      };
+  }
+};
+
 export default function SingleTask({
   task,
   handleChange,
   handleNoteChange,
   handleSaveNotes,
   preview,
+  readOnly,
   toggleNotes,
   notes,
   handleSelectImages,
@@ -98,6 +157,121 @@ export default function SingleTask({
         break;
     }
   };
+
+  const hasNotesOrImages = Boolean(task.notes) || task.images.length > 0;
+  const statusVisual = getStatusVisual(task.taskBase.taskType, task?.value);
+
+  const colorTokens = {
+    success: {
+      bg: theme.colors.success.lighter,
+      fg: theme.colors.success.main
+    },
+    warning: {
+      bg: theme.colors.warning.lighter,
+      fg: theme.colors.warning.main
+    },
+    error: { bg: theme.colors.error.lighter, fg: theme.colors.error.main },
+    neutral: {
+      bg: theme.colors.alpha.black[10],
+      fg: theme.colors.alpha.black[70]
+    }
+  } as const;
+
+  if (readOnly) {
+    const visual = statusVisual;
+    return (
+      <Box
+        key={task.id}
+        sx={{
+          mt: 1,
+          p: 2,
+          backgroundColor: theme.colors.alpha.black[5],
+          borderRadius: 1
+        }}
+      >
+        <Box
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="flex-start"
+          gap={2}
+        >
+          <Typography variant="body2" sx={{ pt: 0.5 }}>
+            {task.taskBase.label || `<${t('enter_task_name')}>`}
+          </Typography>
+          {visual ? (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                flexShrink: 0,
+                px: 1.2,
+                py: 0.4,
+                borderRadius: 999,
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                backgroundColor: colorTokens[visual.color].bg,
+                color: colorTokens[visual.color].fg
+              }}
+            >
+              {visual.icon}
+              {t(visual.labelKey)}
+            </Box>
+          ) : (
+            <Typography
+              variant="body2"
+              fontWeight={600}
+              sx={{ textAlign: 'right', maxWidth: '60%' }}
+            >
+              {task.value || (
+                <Box
+                  component="span"
+                  sx={{ color: theme.colors.alpha.black[50] }}
+                >
+                  {t('not_filled')}
+                </Box>
+              )}
+            </Typography>
+          )}
+        </Box>
+        {task.notes && (
+          <Typography
+            variant="body2"
+            sx={{
+              mt: 1,
+              p: 1,
+              borderRadius: 1,
+              backgroundColor: theme.colors.alpha.white[100],
+              color: theme.colors.alpha.black[70]
+            }}
+          >
+            {task.notes}
+          </Typography>
+        )}
+        {task.images.length > 0 && (
+          <Grid container spacing={1} sx={{ mt: task.notes ? 0.5 : 1 }}>
+            {task.images.map((image) => (
+              <Grid item key={image.id}>
+                <img
+                  src={image.url}
+                  alt={'task'}
+                  onClick={() =>
+                    handleZoomImage(
+                      task.images.map((img) => img.url),
+                      image.url
+                    )
+                  }
+                  style={{ borderRadius: 5, height: 56, cursor: 'pointer' }}
+                />
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </Box>
+    );
+  }
+
   return (
     <Box
       key={task.id}
@@ -161,11 +335,6 @@ export default function SingleTask({
           )}
         </Box>
         <Box>
-          <Tooltip arrow placement="top" title={t('see_details')}>
-            <IconButton onClick={() => !preview && toggleNotes(task.id)}>
-              <ArrowDropDownCircleTwoToneIcon />
-            </IconButton>
-          </Tooltip>
           {task.taskBase.taskType === 'METER' && (
             <IconButton
               onClick={() =>
@@ -175,7 +344,11 @@ export default function SingleTask({
               <SpeedTwoToneIcon color="primary" />
             </IconButton>
           )}
-          <Tooltip arrow placement="top" title={t('add_notes')}>
+          <Tooltip
+            arrow
+            placement="top"
+            title={t(hasNotesOrImages ? 'see_details' : 'add_notes')}
+          >
             <IconButton onClick={() => !preview && toggleNotes(task.id)}>
               <NoteTwoToneIcon color="primary" />
             </IconButton>

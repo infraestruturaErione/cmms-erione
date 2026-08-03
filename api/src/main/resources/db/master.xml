@@ -217,4 +217,8 @@
              relativeToChangelogFile="true"/>
     <include file="changelog/2026_07_21_00000000001_add_workorder_date_indexes.xml"
              relativeToChangelogFile="true"/>
+    <include file="changelog/2026_08_03_00000000001_add_workorder_category_task_type_fields.xml"
+             relativeToChangelogFile="true"/>
+    <include file="changelog/2026_08_03_00000000002_fix_workorder_category_default_duration_unit.xml"
+             relativeToChangelogFile="true"/>
 </databaseChangeLog>

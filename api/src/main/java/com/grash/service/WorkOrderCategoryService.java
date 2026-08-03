@@ -1,6 +1,6 @@
 package com.grash.service;
 
-import com.grash.dto.CategoryPatchDTO;
+import com.grash.dto.WorkOrderCategoryPatchDTO;
 import com.grash.exception.CustomException;
 import com.grash.mapper.WorkOrderCategoryMapper;
 import com.grash.model.WorkOrderCategory;
@@ -30,7 +30,7 @@ public class WorkOrderCategoryService {
         return workOrderCategoryRepository.save(workOrderCategory);
     }
 
-    public WorkOrderCategory update(Long id, CategoryPatchDTO workOrderCategory) {
+    public WorkOrderCategory update(Long id, WorkOrderCategoryPatchDTO workOrderCategory) {
         if (workOrderCategoryRepository.existsById(id)) {
             WorkOrderCategory saveWorkOrderCategory = workOrderCategoryRepository.findById(id).get();
             return workOrderCategoryRepository.save(workOrderCategoryMapper.updateWorkOrderCategory(saveWorkOrderCategory, workOrderCategory));

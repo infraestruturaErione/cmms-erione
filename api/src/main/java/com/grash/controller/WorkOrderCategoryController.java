@@ -1,7 +1,7 @@
 package com.grash.controller;
 
-import com.grash.dto.CategoryPatchDTO;
 import com.grash.dto.SuccessResponse;
+import com.grash.dto.WorkOrderCategoryPatchDTO;
 import com.grash.exception.CustomException;
 import com.grash.model.User;
 import com.grash.model.WorkOrderCategory;
@@ -72,7 +72,7 @@ public class WorkOrderCategoryController {
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ROLE_CLIENT')")
 
-    public WorkOrderCategory patch(@Parameter(description = "Work order category fields to update") @Valid @RequestBody CategoryPatchDTO categoryPatchDTO, @PathVariable("id") Long id,
+    public WorkOrderCategory patch(@Parameter(description = "Work order category fields to update") @Valid @RequestBody WorkOrderCategoryPatchDTO categoryPatchDTO, @PathVariable("id") Long id,
                                    HttpServletRequest req) {
         User user = userService.whoami(req);
         Optional<WorkOrderCategory> optionalWorkOrderCategory = workOrderCategoryService.findById(id);

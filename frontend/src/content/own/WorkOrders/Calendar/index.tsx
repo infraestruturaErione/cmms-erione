@@ -25,6 +25,7 @@ import {
 } from 'src/slices/workOrder';
 import type { FilterField, SearchCriteria } from 'src/models/owns/page';
 import Actions from './Actions';
+import EventPreviewPopover from './EventPreviewPopover';
 import { useTranslation } from 'react-i18next';
 import { getCalendarLocale } from '../../../../i18n/i18n';
 import type { LocaleSingularArg } from '@fullcalendar/core';
@@ -178,6 +179,15 @@ function ApplicationsCalendar({
   const [activeEnd, setActiveEnd] = useState<Date>(new Date());
   const { t, i18n } = useTranslation();
   const [calendarLocale, setCalendarLocale] = useState<LocaleSingularArg>(enGb);
+  const [previewAnchorEl, setPreviewAnchorEl] = useState<HTMLElement | null>(
+    null
+  );
+  const [previewWorkOrderId, setPreviewWorkOrderId] = useState<number | null>(
+    null
+  );
+  const previewCloseTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   useEffect(() => {
     getCalendarLocale(i18n.language).then(setCalendarLocale);
@@ -355,6 +365,45 @@ function ApplicationsCalendar({
     if (eventId) handleOpenDetails(eventId, getCalendarEventType(arg));
   };
 
+  // Lookup rápido para o preview de hover: calendarWorkOrders já é a mesma
+  // lista completa (WorkOrderShowDTO) usada para montar os eventos, então não
+  // precisa de requisição extra ao passar o mouse.
+  const workOrderById = useMemo(() => {
+    return new Map(calendarWorkOrders.map((wo) => [wo.id, wo]));
+  }, [calendarWorkOrders]);
+
+  const previewWorkOrder = previewWorkOrderId
+    ? workOrderById.get(previewWorkOrderId) ?? null
+    : null;
+
+  const clearPreviewCloseTimeout = () => {
+    if (previewCloseTimeout.current) {
+      clearTimeout(previewCloseTimeout.current);
+      previewCloseTimeout.current = null;
+    }
+  };
+
+  const handleEventMouseEnter = (arg: any) => {
+    if (getCalendarEventType(arg) !== 'WORK_ORDER') return;
+    clearPreviewCloseTimeout();
+    setPreviewAnchorEl(arg.el);
+    setPreviewWorkOrderId(getCalendarEventId(arg));
+  };
+
+  const handleEventMouseLeave = () => {
+    // Pequeno atraso evita o card piscar ao passar o mouse rapidamente entre
+    // dias/eventos vizinhos no mês.
+    clearPreviewCloseTimeout();
+    previewCloseTimeout.current = setTimeout(() => {
+      setPreviewAnchorEl(null);
+      setPreviewWorkOrderId(null);
+    }, 120);
+  };
+
+  useEffect(() => {
+    return () => clearPreviewCloseTimeout();
+  }, []);
+
   const getWorkOrderEventsForCalendar = () => {
     return calendarWorkOrders
       .map(getWorkOrderEvent)
@@ -496,6 +545,8 @@ function ApplicationsCalendar({
           eventDisplay="block"
           eventContent={renderEventContent}
           eventClick={openCalendarEvent}
+          eventMouseEnter={handleEventMouseEnter}
+          eventMouseLeave={handleEventMouseLeave}
           dateClick={(event) => handleAddWorkOrder(event.date)}
           dayMaxEventRows={4}
           events={calendarEvents}
@@ -512,6 +563,10 @@ function ApplicationsCalendar({
           ]}
         />
       </FullCalendarWrapper>
+      <EventPreviewPopover
+        workOrder={previewWorkOrder}
+        anchorEl={previewAnchorEl}
+      />
     </Grid>
   );
 }

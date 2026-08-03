@@ -1,6 +1,7 @@
 package com.grash.utils;
 
 import com.grash.model.*;
+import com.grash.repository.TaskRepository;
 import com.grash.service.AssetDowntimeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Component
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 public class CsvFileGenerator {
     private final MessageSource messageSource;
     private final AssetDowntimeService assetDowntimeService;
+    private final TaskRepository taskRepository;
 
     public void writeWorkOrdersToCsv(Collection<WorkOrder> workOrders, Writer writer, Locale locale,
                                      String csvSeparator) {
@@ -32,9 +35,19 @@ public class CsvFileGenerator {
             List<String> headers = Arrays.asList("ID", "Title", "Status", "Priority", "Description", "Due_Date",
                     "Estimated_Duration", "Requires_Signature", "Category", "Location_Name", "Team_Name",
                     "Primary_User_Email", "Assigned_To_Emails", "Asset_Name", "Completed_By_Email", "Completed_On",
-                    "Archived", "Feedback", "Customers", "Created_At");
+                    "Archived", "Feedback", "Customers", "Checklist_Items", "Checklist_Items_Filled", "Created_At");
             printer.printRecord(headers.stream().map(header -> messageSource.getMessage(header, null, locale)).collect(Collectors.toList()));
+            // Task nao guarda de qual Checklist ele veio (so o TaskBase e copiado ao usar um
+            // checklist salvo), entao o export mostra quantidade/preenchimento por OS, nao o
+            // nome do checklist utilizado.
+            Map<Long, List<Task>> tasksByWorkOrderId = taskRepository.findByWorkOrder_IdIn(
+                    workOrders.stream().map(WorkOrder::getId).collect(Collectors.toList())
+            ).stream().collect(Collectors.groupingBy(task -> task.getWorkOrder().getId()));
             for (WorkOrder workOrder : workOrders) {
+                List<Task> workOrderTasks = tasksByWorkOrderId.getOrDefault(workOrder.getId(), List.of());
+                long filledTasksCount = workOrderTasks.stream()
+                        .filter(task -> task.getValue() != null && !task.getValue().trim().isEmpty())
+                        .count();
                 printer.printRecord(workOrder.getId(),
                         workOrder.getTitle(),
                         workOrder.getStatus() == null ? null :
@@ -56,6 +69,8 @@ public class CsvFileGenerator {
                         Helper.getStringFromBoolean(workOrder.isArchived(), messageSource, locale),
                         workOrder.getFeedback(),
                         Helper.enumerate(workOrder.getCustomers().stream().map(Customer::getName).collect(Collectors.toList())),
+                        workOrderTasks.size(),
+                        filledTasksCount,
                         workOrder.getCreatedAt()
                 );
             }

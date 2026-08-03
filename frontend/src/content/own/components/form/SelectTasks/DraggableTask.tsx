@@ -6,12 +6,17 @@ import {
   Box,
   Button,
   Collapse,
+  FormControl,
   IconButton,
+  InputLabel,
   ListItem,
   Menu,
   MenuItem,
   Select,
-  TextField
+  TextField,
+  Tooltip,
+  Typography,
+  useTheme
 } from '@mui/material';
 import { makeStyles } from '@mui/styles';
 import DragIndicatorTwoToneIcon from '@mui/icons-material/DragIndicatorTwoTone';
@@ -62,6 +67,7 @@ const DraggableListItem = ({
                              metersMini
                            }: DraggableListItemProps) => {
   const classes = useStyles();
+  const theme = useTheme();
   const { t }: { t: any } = useTranslation();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -146,13 +152,32 @@ const DraggableListItem = ({
         <ListItem
           ref={provided.innerRef}
           {...provided.draggableProps}
-          {...provided.dragHandleProps}
           className={snapshot.isDragging ? classes.draggingListItem : ''}
-          sx={{ width: '100%' }}
+          sx={{
+            width: '100%',
+            mb: 1,
+            p: 1.5,
+            borderRadius: 1,
+            border: `1px solid ${theme.colors.alpha.black[10]}`,
+            backgroundColor: theme.colors.alpha.black[5]
+          }}
         >
           {renderMenu()}
           <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
-            <DragIndicatorTwoToneIcon />
+            <Box
+              {...provided.dragHandleProps}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                cursor: 'grab',
+                pr: 1,
+                color: theme.colors.alpha.black[50]
+              }}
+            >
+              <DragIndicatorTwoToneIcon />
+              <Typography variant="caption">{index + 1}</Typography>
+            </Box>
             <Box
               sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}
             >
@@ -160,40 +185,54 @@ const DraggableListItem = ({
                 sx={{
                   display: 'flex',
                   flexDirection: 'row',
-                  justifyContent: 'space-between'
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start'
                 }}
               >
-                <Box sx={{ alignItems: 'center' }}>
+                <Box sx={{ alignItems: 'center', flexGrow: 1 }}>
                   <TextField
+                    fullWidth
+                    label={t('checklist_item_label')}
+                    placeholder={t('checklist_item_label_placeholder')}
                     onChange={(event) =>
                       onLabelChange(event.target.value, task.id)
                     }
                     value={task.taskBase.label}
                   />
                 </Box>
-                <Select
-                  sx={{ ml: 1 }}
-                  value={task.taskBase.taskType}
-                  onChange={(event) => {
-                    if (event.target.value === 'METER') {
-                      setOpenAssignMeter(true);
-                    }
-                    onTypeChange(event.target.value as TaskType, task.id);
-                  }}
-                >
-                  {taskTypes.map((taskType) => (
-                    <MenuItem key={taskType.value} value={taskType.value}>
-                      {taskType.label}
-                    </MenuItem>
-                  ))}
-                </Select>
+                <FormControl sx={{ ml: 1, minWidth: 190 }}>
+                  <InputLabel id={`task-type-label-${task.id}`}>
+                    {t('checklist_item_type')}
+                  </InputLabel>
+                  <Select
+                    labelId={`task-type-label-${task.id}`}
+                    label={t('checklist_item_type')}
+                    value={task.taskBase.taskType}
+                    onChange={(event) => {
+                      if (event.target.value === 'METER') {
+                        setOpenAssignMeter(true);
+                      }
+                      onTypeChange(event.target.value as TaskType, task.id);
+                    }}
+                  >
+                    {taskTypes.map((taskType) => (
+                      <MenuItem key={taskType.value} value={taskType.value}>
+                        {taskType.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
                 <Box>
-                  <IconButton onClick={() => onRemove(task.id)}>
-                    <DoDisturbOnTwoToneIcon color="error" />
-                  </IconButton>
-                  <IconButton onClick={handleOpenMenu}>
-                    <MoreVertTwoToneIcon />
-                  </IconButton>
+                  <Tooltip arrow title={t('remove_item')}>
+                    <IconButton onClick={() => onRemove(task.id)}>
+                      <DoDisturbOnTwoToneIcon color="error" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip arrow title={t('assign_item_to')}>
+                    <IconButton onClick={handleOpenMenu}>
+                      <MoreVertTwoToneIcon />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
               </Box>
               <Collapse

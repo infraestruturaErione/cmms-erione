@@ -1043,6 +1043,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                   disabled={
                     !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
                   }
+                  readOnly={workOrder?.status === 'COMPLETE'}
                 />
               </Box>
             )}

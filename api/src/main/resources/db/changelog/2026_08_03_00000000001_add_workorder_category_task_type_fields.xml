@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <!-- "Tipo de tarefa": WorkOrderCategory ganha SLA (tolerancia/duracao padrao),
+         um Checklist padrao sugerido na criacao da OS, e flags de obrigatoriedade
+         no fechamento. As flags nao bloqueiam nada sozinhas (isso fica para uma
+         fase futura, so depois de validar com uso real) - por enquanto so guardam
+         a configuracao para a UI exibir/sugerir. -->
+    <changeSet id="20260803-01-add-workorder-category-task-type-fields" author="claude">
+        <sql>
+            ALTER TABLE work_order_category ADD COLUMN IF NOT EXISTS tolerance_minutes INT;
+            ALTER TABLE work_order_category ADD COLUMN IF NOT EXISTS default_estimated_duration_minutes INT;
+            ALTER TABLE work_order_category ADD COLUMN IF NOT EXISTS default_checklist_id BIGINT;
+            ALTER TABLE work_order_category ADD COLUMN IF NOT EXISTS require_signature BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE work_order_category ADD COLUMN IF NOT EXISTS require_signer_name BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE work_order_category ADD COLUMN IF NOT EXISTS require_signer_document BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE work_order_category ADD COLUMN IF NOT EXISTS require_photos BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE work_order_category ADD COLUMN IF NOT EXISTS require_field_report BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE work_order_category ADD COLUMN IF NOT EXISTS require_mileage BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE work_order_category ADD COLUMN IF NOT EXISTS require_checklist_completion BOOLEAN NOT NULL DEFAULT FALSE;
+
+            ALTER TABLE work_order_category DROP CONSTRAINT IF EXISTS fk_work_order_category_default_checklist;
+            ALTER TABLE work_order_category
+                ADD CONSTRAINT fk_work_order_category_default_checklist
+                FOREIGN KEY (default_checklist_id) REFERENCES checklist(id) ON DELETE SET NULL;
+
+            -- Campos para o tecnico preencher quando a categoria exigir (assinante e km rodado).
+            ALTER TABLE work_order ADD COLUMN IF NOT EXISTS signer_name VARCHAR(255);
+            ALTER TABLE work_order ADD COLUMN IF NOT EXISTS signer_document VARCHAR(32);
+            ALTER TABLE work_order ADD COLUMN IF NOT EXISTS mileage_traveled DOUBLE PRECISION;
+        </sql>
+        <rollback>
+            ALTER TABLE work_order DROP COLUMN IF EXISTS mileage_traveled;
+            ALTER TABLE work_order DROP COLUMN IF EXISTS signer_document;
+            ALTER TABLE work_order DROP COLUMN IF EXISTS signer_name;
+
+            ALTER TABLE work_order_category DROP CONSTRAINT IF EXISTS fk_work_order_category_default_checklist;
+            ALTER TABLE work_order_category DROP COLUMN IF EXISTS require_checklist_completion;
+            ALTER TABLE work_order_category DROP COLUMN IF EXISTS require_mileage;
+            ALTER TABLE work_order_category DROP COLUMN IF EXISTS require_field_report;
+            ALTER TABLE work_order_category DROP COLUMN IF EXISTS require_photos;
+            ALTER TABLE work_order_category DROP COLUMN IF EXISTS require_signer_document;
+            ALTER TABLE work_order_category DROP COLUMN IF EXISTS require_signer_name;
+            ALTER TABLE work_order_category DROP COLUMN IF EXISTS require_signature;
+            ALTER TABLE work_order_category DROP COLUMN IF EXISTS default_checklist_id;
+            ALTER TABLE work_order_category DROP COLUMN IF EXISTS default_estimated_duration_minutes;
+            ALTER TABLE work_order_category DROP COLUMN IF EXISTS tolerance_minutes;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

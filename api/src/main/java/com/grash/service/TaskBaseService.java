@@ -65,6 +65,34 @@ public class TaskBaseService {
         return savedTaskBase;
     }
 
+    // Clona um TaskBase existente (usado para copiar os itens de um Checklist
+    // padrao de categoria para uma nova OS). Cada OS precisa da sua propria
+    // linha de TaskBase, nao pode compartilhar a mesma referencia do Checklist -
+    // mesma logica de createFromTaskBaseDTO, so partindo de uma entidade em vez
+    // de um DTO.
+    @Transactional
+    public TaskBase cloneForNewOwner(TaskBase source) {
+        TaskBase taskBase = TaskBase.builder()
+                .label(source.getLabel())
+                .taskType(source.getTaskType())
+                .user(source.getUser())
+                .asset(source.getAsset())
+                .meter(source.getMeter())
+                .build();
+        TaskBase savedTaskBase = create(taskBase);
+
+        if (source.getOptions() != null) {
+            source.getOptions().forEach(option -> {
+                if (option.getLabel() != null && !option.getLabel().trim().isEmpty()) {
+                    TaskOption taskOption = new TaskOption(option.getLabel(), savedTaskBase);
+                    TaskOption savedTaskOption = taskOptionService.create(taskOption);
+                    savedTaskBase.getOptions().add(savedTaskOption);
+                }
+            });
+        }
+        return savedTaskBase;
+    }
+
     public TaskBase update(Long id, TaskBasePatchDTO taskBase) {
         if (taskBaseRepository.existsById(id)) {
             TaskBase savedTaskBase = taskBaseRepository.findById(id).get();

@@ -1,4 +1,5 @@
 import {
+  Box,
   Card,
   CardContent,
   CardHeader,
@@ -7,11 +8,12 @@ import {
   DialogTitle,
   Divider,
   FormControl,
-  Typography
+  Typography,
+  useTheme
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import TaskAltTwoToneIcon from '@mui/icons-material/TaskAltTwoTone';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import SingleTask from '../../components/form/SelectTasks/SingleTask';
 import { Task } from '../../../../models/owns/tasks';
 import { getTasksByWorkOrder, patchTask } from '../../../../slices/task';
@@ -26,6 +28,7 @@ interface TasksProps {
   tasksProps: Task[];
   workOrderId: number;
   disabled: boolean;
+  readOnly?: boolean;
   handleZoomImage: (images: string[], image: string) => void;
 }
 
@@ -33,9 +36,11 @@ export default function Tasks({
                                 tasksProps,
                                 workOrderId,
                                 handleZoomImage,
-                                disabled
+                                disabled,
+                                readOnly
                               }: TasksProps) {
   const { t }: { t: any } = useTranslation();
+  const theme = useTheme();
   const [openSelectImages, setOpenSelectImages] = useState<boolean>(false);
   const initialNotes = new Map();
   tasksProps.forEach((task) => {
@@ -163,9 +168,45 @@ export default function Tasks({
       </Dialog>
     );
   };
+  const filledCount = useMemo(
+    () => tasks.filter((task) => Boolean(task.value)).length,
+    [tasks]
+  );
+
   return (
     <Card>
-      <CardHeader title={t('tasks')} avatar={<TaskAltTwoToneIcon />} />
+      <CardHeader
+        title={t('tasks')}
+        avatar={<TaskAltTwoToneIcon />}
+        action={
+          tasks.length > 0 && (
+            <Box
+              sx={{
+                px: 1.5,
+                py: 0.5,
+                mt: 1,
+                mr: 1,
+                borderRadius: 999,
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                backgroundColor:
+                  filledCount === tasks.length
+                    ? theme.colors.success.lighter
+                    : theme.colors.alpha.black[10],
+                color:
+                  filledCount === tasks.length
+                    ? theme.colors.success.main
+                    : theme.colors.alpha.black[70]
+              }}
+            >
+              {t('checklist_progress', {
+                filled: filledCount,
+                total: tasks.length
+              })}
+            </Box>
+          )
+        }
+      />
       <Divider />
       <CardContent>
         <FormControl fullWidth>
@@ -173,6 +214,7 @@ export default function Tasks({
             <SingleTask
               key={task.id}
               disabled={disabled}
+              readOnly={readOnly}
               task={task}
               handleChange={handleChange}
               handleNoteChange={handleNoteChange}

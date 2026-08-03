@@ -60,6 +60,18 @@ public class WorkOrder extends WorkOrderBase {
     @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED, withModifiedFlag = true)
     private String signature;
 
+    @Schema(description = "Name of the person who signed upon work order completion")
+    @NotAudited
+    private String signerName;
+
+    @Schema(description = "CPF/CNPJ of the person who signed upon work order completion")
+    @NotAudited
+    private String signerDocument;
+
+    @Schema(description = "Mileage traveled to complete the work order, in kilometers")
+    @NotAudited
+    private Double mileageTraveled;
+
     @Schema(description = "Indicates whether the work order is archived")
     private boolean archived;
 

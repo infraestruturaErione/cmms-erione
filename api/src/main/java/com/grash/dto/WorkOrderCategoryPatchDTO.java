@@ -1,41 +1,23 @@
-package com.grash.model;
+package com.grash.dto;
 
-import com.grash.model.abstracts.CategoryAbstract;
+import com.grash.model.Checklist;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-
-@Entity
 @Data
+@EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
-@Schema(description = "Work order category for classifying work orders")
-public class WorkOrderCategory extends CategoryAbstract {
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    @Schema(description = "Unique identifier", accessMode = Schema.AccessMode.READ_ONLY)
-    private Long id;
-
+@Schema(description = "DTO for patching an existing work order category (\"tipo de tarefa\")")
+public class WorkOrderCategoryPatchDTO extends CategoryPatchDTO {
     @Schema(description = "Tolerance time in minutes before the work order is considered late")
     private Integer toleranceMinutes;
 
-    // Mesma unidade (horas) e mesmo papel de WorkOrderBase.estimatedDuration -
-    // este campo so serve como valor sugerido pra preencher aquele, na criacao
-    // da OS. Nao e um campo paralelo/duplicado: a duracao "de verdade" da OS
-    // continua sendo so estimatedDuration.
     @Schema(description = "Default estimated duration in hours suggested to pre-fill the work order's " +
             "estimatedDuration when creating a work order of this category")
     private Double defaultEstimatedDuration;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "default_checklist_id")
     @Schema(description = "Checklist suggested by default when creating a work order of this category")
     private Checklist defaultChecklist;
 
@@ -61,8 +43,4 @@ public class WorkOrderCategory extends CategoryAbstract {
     @Schema(description = "Whether work orders of this category should require the checklist to be fully filled " +
             "on completion")
     private boolean requireChecklistCompletion;
-
-    public WorkOrderCategory(String name, CompanySettings companySettings) {
-        super(name, companySettings);
-    }
 }
