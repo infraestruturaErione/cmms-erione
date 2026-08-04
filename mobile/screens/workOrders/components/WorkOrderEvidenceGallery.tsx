@@ -31,71 +31,90 @@ export default function WorkOrderEvidenceGallery({
   const imageUrls = evidenceItems
     .filter((item) => item.file?.url && isEvidenceImage(item.file))
     .map((item) => item.file.url);
+  const workOrderAttachments = evidenceItems.filter(
+    (item) => item.source === 'workOrder'
+  );
+  const fieldEvidence = evidenceItems.filter(
+    (item) => item.source === 'fieldComment'
+  );
+
+  const renderItems = (items: FieldEvidenceItem[]) => (
+    <View style={styles.evidenceGrid}>
+      {items.map((item) => {
+        const isImage = isEvidenceImage(item.file);
+        const canOpen = !!item.file.url;
+
+        return (
+          <TouchableOpacity
+            key={item.id}
+            disabled={!canOpen}
+            style={styles.evidenceTile}
+            onPress={() => {
+              if (!canOpen) return;
+              if (isImage) onOpenImages(imageUrls, item.file.url);
+              else Linking.openURL(item.file.url);
+            }}
+          >
+            {isImage && canOpen ? (
+              <Image source={{ uri: item.file.url }} style={styles.evidenceImage} />
+            ) : (
+              <View style={styles.evidenceFileIcon}>
+                <IconButton icon="file-outline" iconColor={erioneColors.primary} />
+              </View>
+            )}
+            <View style={styles.evidenceInfo}>
+              <Text variant="labelMedium" numberOfLines={1} style={styles.evidenceName}>
+                {item.file.name}
+              </Text>
+              <Text variant="bodySmall" style={styles.evidenceMeta} numberOfLines={2}>
+                {item.source === 'fieldComment' ? t('field_report') : t('work_order_attachment')}
+                {item.author ? ` - ${item.author}` : ''}
+                {item.date ? ` - ${getFormattedDate(item.date)}` : ''}
+              </Text>
+              {!canOpen && (
+                <Text variant="bodySmall" style={styles.evidenceMeta}>
+                  {t('file_without_url')}
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
 
   return (
     <ErioneCard style={styles.detailsCard}>
       <ErioneSectionHeader
-        title={t('work_order_evidence')}
-        subtitle={t('work_order_evidence_helper')}
+        title={t('work_order_files_and_evidence')}
+        subtitle={t('work_order_files_and_evidence_helper')}
       />
       {!evidenceItems.length ? (
         <Text style={styles.emptyStateText}>{t('no_work_order_evidence')}</Text>
       ) : (
-        <View style={styles.evidenceGrid}>
-          {evidenceItems.map((item) => {
-            const isImage = isEvidenceImage(item.file);
-            const canOpen = !!item.file.url;
-
-            return (
-              <TouchableOpacity
-                key={item.id}
-                disabled={!canOpen}
-                style={styles.evidenceTile}
-                onPress={() => {
-                  if (!canOpen) return;
-                  if (isImage) onOpenImages(imageUrls, item.file.url);
-                  else Linking.openURL(item.file.url);
-                }}
-              >
-                {isImage && canOpen ? (
-                  <Image
-                    source={{ uri: item.file.url }}
-                    style={styles.evidenceImage}
-                  />
-                ) : (
-                  <View style={styles.evidenceFileIcon}>
-                    <IconButton
-                      icon="file-outline"
-                      iconColor={erioneColors.primary}
-                    />
-                  </View>
-                )}
-                <View style={styles.evidenceInfo}>
-                  <Text
-                    variant="labelMedium"
-                    numberOfLines={1}
-                    style={styles.evidenceName}
-                  >
-                    {item.file.name}
-                  </Text>
-                  <Text
-                    variant="bodySmall"
-                    style={styles.evidenceMeta}
-                    numberOfLines={2}
-                  >
-                    {item.source === 'fieldComment' ? t('field_report') : t('files')}
-                    {item.author ? ` - ${item.author}` : ''}
-                    {item.date ? ` - ${getFormattedDate(item.date)}` : ''}
-                  </Text>
-                  {!canOpen && (
-                    <Text variant="bodySmall" style={styles.evidenceMeta}>
-                      {t('file_without_url')}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+        <View style={styles.groups}>
+          {!!workOrderAttachments.length && (
+            <View style={styles.group}>
+              <Text variant="titleSmall" style={styles.groupTitle}>
+                {t('work_order_attachments_for_technician')}
+              </Text>
+              <Text variant="bodySmall" style={styles.groupHelper}>
+                {t('work_order_attachments_for_technician_helper')}
+              </Text>
+              {renderItems(workOrderAttachments)}
+            </View>
+          )}
+          {!!fieldEvidence.length && (
+            <View style={styles.group}>
+              <Text variant="titleSmall" style={styles.groupTitle}>
+                {t('technician_field_evidence')}
+              </Text>
+              <Text variant="bodySmall" style={styles.groupHelper}>
+                {t('technician_field_evidence_helper')}
+              </Text>
+              {renderItems(fieldEvidence)}
+            </View>
+          )}
         </View>
       )}
     </ErioneCard>
@@ -116,6 +135,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
     backgroundColor: 'transparent'
+  },
+  groups: {
+    gap: 18,
+    backgroundColor: 'transparent'
+  },
+  group: {
+    backgroundColor: 'transparent'
+  },
+  groupTitle: {
+    color: erioneColors.text,
+    fontWeight: '800'
+  },
+  groupHelper: {
+    color: erioneColors.muted,
+    marginTop: 2,
+    marginBottom: 10
   },
   evidenceTile: {
     width: '48%',

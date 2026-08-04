@@ -285,6 +285,14 @@ const ptBRJSON = {
   required_images: 'Por favor, faça o upload de pelo menos uma imagem',
   add_images: 'Adicionar Imagens',
   tasks: 'Checklist de Execução',
+  task_type: 'Tipo de Tarefa',
+  select_task_type: 'Selecionar Tipo de Tarefa',
+  default_checklist_applied: 'Checklist padrão: {{name}}',
+  default_checklist_applied_helper:
+    'Será aplicado automaticamente ao criar a OS.',
+  additional_checklist_items: '{{count}} itens adicionais',
+  additional_checklist_items_helper:
+    'Opcional: inclua somente itens extras além do checklist padrão.',
   wo_archive_success: 'A Ordem de Serviço foi arquivada',
   wo_archive_failure: 'A Ordem de Serviço não pôde ser arquivada',
   wo_archive_confirm:
@@ -355,6 +363,20 @@ const ptBRJSON = {
   responsible: 'Responsável',
   task_code: 'Código da tarefa',
   actual_duration: 'Duração real',
+  pendencias: 'Pendências',
+  pending_requirements: 'Pendências',
+  pending_requirements_count: '{{done}} de {{total}} concluídos',
+  signer_name: 'Nome do assinante',
+  signer_document: 'CPF/CNPJ do assinante',
+  mileage_traveled: 'Km rodado',
+  km: 'km',
+  photos: 'Fotos',
+  service_checklist: 'Checklist',
+  no_checklist_linked_to_wo: 'Nenhum checklist vinculado a esta ordem de serviço.',
+  travel_and_location: 'Deslocamento e localização',
+  distance_from_location: '{{distance}} de distância do local esperado',
+  signed_by_line: 'Assinado por {{name}}, Documento: {{document}}',
+  unknown: 'Desconhecido',
   not_filled: 'Não preenchido',
   checklist_progress: '{{filled}} de {{total}} preenchidos',
   none: 'Nenhum',
@@ -410,6 +432,7 @@ const ptBRJSON = {
   field_evidence: 'Evidências de Campo',
   field_evidence_helper:
     'Fotos e anexos enviados pelo técnico durante a execução em campo.',
+  field_record: 'Evidências em Campo',
   field_evidence_count: '{{count}} evidência(s)',
   no_field_evidence: 'Nenhuma evidência de campo registrada.',
   to_delete: 'Excluir',
@@ -572,6 +595,9 @@ const ptBRJSON = {
   total_field_duration: 'Duracao total em campo',
   less_than_1_min: 'menos de 1 min',
   field_report: 'Relato em campo',
+  field_report_tab: 'Relato em Campo',
+  field_report_tab_helper:
+    'Registre o serviço executado, as evidências e a assinatura do atendimento.',
   field_execution: 'Execução em Campo',
   field_execution_helper:
     'Acompanhe deslocamento, chegada, saída e relato do atendimento.',
@@ -587,6 +613,31 @@ const ptBRJSON = {
   geolocation_unknown_error: 'Localização indisponível: erro desconhecido',
   current_field_status: 'Status atual em campo',
   closure_readiness: 'Pendências para fechamento',
+  closure_progress: '{{done}} de {{total}} etapas prontas',
+  required_marker: '(obrigatório)',
+  new_field_report: 'Registrar atendimento',
+  new_field_report_helper:
+    'Descreva o serviço executado e anexe as fotos que comprovam o atendimento.',
+  field_report_read_only_helper:
+    'Esta OS está concluída. Consulte abaixo o relato, as evidências e a assinatura registradas.',
+  add_photos: 'Adicionar fotos',
+  selected_photos_count: '{{count}} de {{max}} fotos selecionadas',
+  remove_photo: 'Remover foto',
+  save_field_report: 'Salvar relato',
+  field_report_saved: 'Relato e evidências salvos com sucesso',
+  field_evidence_upload_failed:
+    'Não foi possível enviar todas as fotos. Tente novamente.',
+  field_report_history: 'Histórico do atendimento',
+  field_report_history_empty: 'Nenhum relato registrado',
+  field_report_history_empty_helper:
+    'Os relatos escritos e as fotos enviadas pela equipe aparecerão aqui.',
+  written_reports: 'Relatos escritos',
+  signature_pending: 'Assinatura pendente',
+  signature_pending_helper:
+    'A assinatura será coletada durante a conclusão da ordem de serviço.',
+  signature_not_required: 'Assinatura não obrigatória',
+  signature_not_required_helper:
+    'Este tipo de serviço pode ser concluído sem assinatura.',
   field_duration_estimate_helper:
     'Tempos estimados por eventos de campo; não substituem o tempo de mão de obra.',
   work_order_created: 'OS criada',

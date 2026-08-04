@@ -271,7 +271,8 @@ export default function Form(props: OwnProps) {
         onChange = (values: Category[]) => {
           const value = values.map((category) => ({
             label: category.name,
-            value: category.id
+            value: category.id,
+            category
           }));
           handleChange(formik, field.name, field.multiple ? value : value[0]);
         };
@@ -285,6 +286,10 @@ export default function Form(props: OwnProps) {
             value: task
           }));
           handleChange(formik, field.name, value);
+        };
+        additionalNavigationOptions = {
+          excludedChecklistId: (formik.values.category as any)?.category
+            ?.defaultChecklist?.id
         };
         break;
       default:
@@ -380,22 +385,64 @@ export default function Form(props: OwnProps) {
                 renderValue(value)
               )
             : values && renderValue(values as { label: string; value: number })}
+          {field.type2 === 'category' &&
+            (values as any)?.category?.defaultChecklist && (
+              <View
+                style={{
+                  padding: 12,
+                  marginTop: 10,
+                  borderRadius: 10,
+                  backgroundColor: theme.colors.primaryContainer
+                }}
+              >
+                <Text variant="titleSmall">
+                  {t('default_checklist_applied', {
+                    name: (values as any).category.defaultChecklist.name
+                  })}
+                </Text>
+                <Text variant="bodySmall">
+                  {t('default_checklist_applied_helper')}
+                </Text>
+              </View>
+            )}
         </TouchableOpacity>
       );
     } else if (field.type2 === 'task') {
+      const defaultChecklist = (formik.values.category as any)?.category
+        ?.defaultChecklist;
       // @ts-ignore
       // @ts-ignore
       return (
-        <TouchableOpacity
-          disabled={formik.isSubmitting}
-          onPress={() =>
-            props.navigation.navigate(screenPath, navigationOptions)
-          }
-          style={{
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-        >
+        <View>
+          {defaultChecklist && (
+            <View
+              style={{
+                padding: 12,
+                marginBottom: 10,
+                borderRadius: 10,
+                backgroundColor: theme.colors.primaryContainer
+              }}
+            >
+              <Text variant="titleSmall">
+                {t('default_checklist_applied', {
+                  name: defaultChecklist.name
+                })}
+              </Text>
+              <Text variant="bodySmall">
+                {t('default_checklist_applied_helper')}
+              </Text>
+            </View>
+          )}
+          <TouchableOpacity
+            disabled={formik.isSubmitting}
+            onPress={() =>
+              props.navigation.navigate(screenPath, navigationOptions)
+            }
+            style={{
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
           <View
             style={{
               display: 'flex',
@@ -404,7 +451,9 @@ export default function Form(props: OwnProps) {
               alignItems: 'center'
             }}
           >
-            <Text>{field.label}</Text>
+            <Text>
+              {defaultChecklist ? t('additional_checklist_items_label') : field.label}
+            </Text>
             {!values && (
               <IconButton
                 iconColor={theme.colors.primary}
@@ -474,7 +523,8 @@ export default function Form(props: OwnProps) {
                 />
               </View>
             ))}
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
       );
     }
   };

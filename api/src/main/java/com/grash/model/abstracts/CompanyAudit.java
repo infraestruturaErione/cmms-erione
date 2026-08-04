@@ -47,8 +47,9 @@ public class CompanyAudit extends Audit {
         if (!user.getRole().getRoleType().equals(RoleType.ROLE_SUPER_ADMIN) &&
                 !company.getId().equals(this.getCompany().getId())
                 && !makesException(user)) {
-            throw new CustomException("afterLoad:  the user (id=" + user.getId() + ")  is not authorized to load  " +
-                    "this object (" + this.getClass() + ") with id " + this.id, HttpStatus.FORBIDDEN);
+            // Mensagem propositalmente genérica: nao expor classe/id da entidade de
+            // outra empresa na resposta da API (so em log de servidor, se precisar).
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         }
     }
 

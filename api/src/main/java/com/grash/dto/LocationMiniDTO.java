@@ -23,4 +23,10 @@ public class LocationMiniDTO {
     @Schema(description = "Parent location ID")
     private Long parentId;
 
+    @Schema(description = "The longitude coordinate of the location")
+    private Double longitude;
+
+    @Schema(description = "The latitude coordinate of the location")
+    private Double latitude;
+
 }

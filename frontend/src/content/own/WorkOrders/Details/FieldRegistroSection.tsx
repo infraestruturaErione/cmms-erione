@@ -2,39 +2,36 @@ import {
   alpha,
   Box,
   Chip,
-  Divider,
   Grid,
   Stack,
   Typography,
   useTheme
 } from '@mui/material';
-import CameraAltTwoToneIcon from '@mui/icons-material/CameraAltTwoTone';
 import ArticleTwoToneIcon from '@mui/icons-material/ArticleTwoTone';
-import { useContext, useMemo } from 'react';
+import CameraAltTwoToneIcon from '@mui/icons-material/CameraAltTwoTone';
+import InsertPhotoTwoToneIcon from '@mui/icons-material/InsertPhotoTwoTone';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CompanySettingsContext } from '../../../../contexts/CompanySettingsContext';
 import Comment from '../../../../models/owns/comment';
 import File from '../../../../models/owns/file';
-import Request from '../../../../models/owns/request';
-import WorkOrder from '../../../../models/owns/workOrder';
+import {
+  getFieldReportText,
+  isFieldEvidenceImage,
+  isFieldReportComment
+} from './fieldReportUtils';
 
-const FIELD_REPORT_PREFIX = '[Relato em campo]';
-const PHOTO_ONLY_TEXTS = [
-  'Photo evidence registered.',
-  'Evidência fotográfica registrada.',
-  'Evidencia fotografica registrada.'
-];
+interface FieldRegistroSectionProps {
+  comments: Comment[];
+  onOpenImage: (images: string[], image: string) => void;
+  getFormattedDate: (date: string | Date) => string;
+}
 
-const getFieldReportText = (content?: string): string => {
-  if (!content?.startsWith(FIELD_REPORT_PREFIX)) return '';
-  const text = content.replace(FIELD_REPORT_PREFIX, '').trim();
-  return PHOTO_ONLY_TEXTS.includes(text) ? '' : text;
-};
-
-const isImage = (file: File) =>
-  file.url
-    ? /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(file.url)
-    : /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(file.name ?? '');
+interface EvidenceItem {
+  id: string;
+  file: File;
+  author: string;
+  date: string;
+}
 
 const getFileKey = (file: File): string => {
   const filePath = (file as File & { path?: string }).path;
@@ -44,34 +41,16 @@ const getFileKey = (file: File): string => {
   return `name-${file.name}`;
 };
 
-interface EvidenceItem {
-  id: string;
-  file: File;
-  author: string;
-  date: string;
-  commentId: number;
-}
-
-interface FieldRegistroSectionProps {
-  comments: Comment[];
-  workOrder: WorkOrder;
-  parentRequest?: Request | null;
-  onOpenImage: (images: string[], image: string) => void;
-  getFormattedDate: (date: string | Date) => string;
-}
-
 export default function FieldRegistroSection({
   comments,
-  workOrder,
-  parentRequest,
   onOpenImage,
   getFormattedDate
 }: FieldRegistroSectionProps) {
-  const { t } = useTranslation();
+  const { t }: { t: any } = useTranslation();
   const theme = useTheme();
 
   const fieldReports = useMemo(
-    () => comments.filter((c) => getFieldReportText(c.content)),
+    () => comments.filter((comment) => getFieldReportText(comment.content)),
     [comments]
   );
 
@@ -79,209 +58,181 @@ export default function FieldRegistroSection({
     const seen = new Set<string>();
     const items: EvidenceItem[] = [];
 
-    comments
-      .filter((c) => c.content?.startsWith(FIELD_REPORT_PREFIX))
-      .forEach((comment) => {
-        (comment.files ?? [])
-          .filter(isImage)
-          .forEach((file) => {
-            const key = getFileKey(file);
-            if (seen.has(key)) return;
-            seen.add(key);
-            items.push({
-              id: `comment-${comment.id}-file-${key}`,
-              file,
-              author: comment.user
-                ? `${comment.user.firstName} ${comment.user.lastName}`
-                : '',
-              date: comment.updatedAt ?? comment.createdAt,
-              commentId: comment.id
-            });
-          });
+    comments.filter(isFieldReportComment).forEach((comment) => {
+      (comment.files ?? []).filter(isFieldEvidenceImage).forEach((file) => {
+        const key = getFileKey(file);
+        if (seen.has(key)) return;
+
+        seen.add(key);
+        items.push({
+          id: `comment-${comment.id}-file-${key}`,
+          file,
+          author: comment.user
+            ? `${comment.user.firstName} ${comment.user.lastName}`
+            : t('unknown'),
+          date: comment.updatedAt ?? comment.createdAt
+        });
       });
+    });
 
     return items;
-  }, [comments]);
+  }, [comments, t]);
 
   const imageUrls = useMemo(
-    () => evidenceItems.map((item) => item.file.url).filter(Boolean) as string[],
+    () => evidenceItems.map((item) => item.file.url).filter(Boolean),
     [evidenceItems]
   );
 
-  const hasReports = fieldReports.length > 0;
-  const hasPhotos = evidenceItems.length > 0;
-
-  if (!hasReports && !hasPhotos) return null;
+  if (!fieldReports.length && !evidenceItems.length) {
+    return (
+      <Stack
+        alignItems="center"
+        justifyContent="center"
+        spacing={1}
+        sx={{ py: 5, px: 2, textAlign: 'center' }}
+      >
+        <Box
+          sx={{
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            display: 'grid',
+            placeItems: 'center',
+            color: 'text.secondary',
+            bgcolor: alpha(theme.palette.primary.main, 0.08)
+          }}
+        >
+          <InsertPhotoTwoToneIcon />
+        </Box>
+        <Typography variant="h4">{t('field_report_history_empty')}</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 430 }}>
+          {t('field_report_history_empty_helper')}
+        </Typography>
+      </Stack>
+    );
+  }
 
   return (
-    <Box>
-      <Divider sx={{ mt: 2 }} />
+    <Stack spacing={3}>
+      {fieldReports.length > 0 && (
+        <Box>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+            <ArticleTwoToneIcon color="primary" />
+            <Typography variant="h4">{t('written_reports')}</Typography>
+            <Chip size="small" label={fieldReports.length} />
+          </Stack>
 
-      <Stack
-        direction="row"
-        alignItems="center"
-        spacing={1.5}
-        sx={{ mt: 2, mb: 2 }}
-      >
-        <Typography variant="h3">{t('field_record')}</Typography>
-        {(hasReports || hasPhotos) && (
-          <Chip
-            size="small"
-            color="primary"
-            label={t('field_evidence_count', {
-              count: fieldReports.length + evidenceItems.length
-            })}
-          />
-        )}
-      </Stack>
+          <Stack spacing={1.25}>
+            {fieldReports.map((report) => (
+              <Box
+                key={report.id}
+                sx={{
+                  p: 2,
+                  borderRadius: theme.general.borderRadius,
+                  border: `1px solid ${theme.palette.divider}`,
+                  bgcolor: alpha(theme.palette.primary.main, 0.025)
+                }}
+              >
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  justifyContent="space-between"
+                  spacing={0.5}
+                >
+                  <Typography variant="h6" fontWeight={700}>
+                    {report.user
+                      ? `${report.user.firstName} ${report.user.lastName}`
+                      : t('unknown')}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {getFormattedDate(report.updatedAt ?? report.createdAt)}
+                  </Typography>
+                </Stack>
+                <Typography
+                  variant="body2"
+                  sx={{ mt: 1, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}
+                >
+                  {getFieldReportText(report.content)}
+                </Typography>
+              </Box>
+            ))}
+          </Stack>
+        </Box>
+      )}
 
-      <Stack spacing={3}>
-        {hasReports && (
-          <Box>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-              <ArticleTwoToneIcon
-                fontSize="small"
-                sx={{ color: theme.palette.primary.main }}
-              />
-              <Typography variant="h4" color="text.primary">
-                {t('field_report')}
-              </Typography>
-            </Stack>
+      {evidenceItems.length > 0 && (
+        <Box>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+            <CameraAltTwoToneIcon color="primary" />
+            <Typography variant="h4">{t('field_evidence')}</Typography>
+            <Chip size="small" label={evidenceItems.length} />
+          </Stack>
 
-            <Stack spacing={1.5}>
-              {fieldReports.map((report) => {
-                const text = getFieldReportText(report.content);
-                return (
+          <Grid container spacing={1.5}>
+            {evidenceItems.map((item) => (
+              <Grid item key={item.id} xs={6} sm={4} md={3}>
+                <Box
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onOpenImage(imageUrls, item.file.url)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      onOpenImage(imageUrls, item.file.url);
+                    }
+                  }}
+                  sx={{
+                    position: 'relative',
+                    width: '100%',
+                    paddingTop: '78%',
+                    borderRadius: theme.general.borderRadius,
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    bgcolor: 'action.hover',
+                    outline: 'none',
+                    '&:focus-visible': {
+                      boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.3)}`
+                    },
+                    '&:hover img': { transform: 'scale(1.04)' }
+                  }}
+                >
                   <Box
-                    key={report.id}
+                    component="img"
+                    src={item.file.url}
+                    alt={item.file.name}
                     sx={{
-                      p: 1.5,
-                      borderRadius: 1.5,
-                      border: `1px solid ${theme.palette.divider}`,
-                      bgcolor: alpha(theme.palette.primary.main, 0.03)
-                    }}
-                  >
-                    <Stack
-                      direction="row"
-                      justifyContent="space-between"
-                      alignItems="center"
-                    >
-                      <Typography variant="h6" fontWeight={700}>
-                        {report.user
-                          ? `${report.user.firstName} ${report.user.lastName}`
-                          : t('unknown')}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {getFormattedDate(report.updatedAt ?? report.createdAt)}
-                      </Typography>
-                    </Stack>
-                    {text && (
-                      <Typography
-                        variant="body2"
-                        sx={{ mt: 0.75, whiteSpace: 'pre-wrap' }}
-                      >
-                        {text}
-                      </Typography>
-                    )}
-                  </Box>
-                );
-              })}
-            </Stack>
-          </Box>
-        )}
-
-        {hasPhotos && (
-          <Box>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-              <CameraAltTwoToneIcon
-                fontSize="small"
-                sx={{ color: theme.palette.primary.main }}
-              />
-              <Typography variant="h4" color="text.primary">
-                {t('field_evidence')}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                ({evidenceItems.length})
-              </Typography>
-            </Stack>
-
-            <Grid container spacing={1.5}>
-              {evidenceItems.map((item) => (
-                <Grid item key={item.id} xs={6} sm={4} md={3}>
-                  <Box
-                    onClick={() => onOpenImage(imageUrls, item.file.url)}
-                    sx={{
-                      position: 'relative',
+                      position: 'absolute',
+                      inset: 0,
                       width: '100%',
-                      paddingTop: '100%',
-                      borderRadius: 1.5,
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      bgcolor: theme.palette.action.hover,
-                      '&:hover .overlay': { opacity: 1 },
-                      '&:hover img': { transform: 'scale(1.04)' }
+                      height: '100%',
+                      objectFit: 'cover',
+                      transition: 'transform 180ms ease'
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      p: 1.25,
+                      color: '#fff',
+                      background:
+                        'linear-gradient(to top, rgba(8, 18, 38, 0.82), transparent 62%)'
                     }}
                   >
-                    <Box
-                      component="img"
-                      src={item.file.url}
-                      alt={item.file.name}
-                      sx={{
-                        position: 'absolute',
-                        inset: 0,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        transition: 'transform 0.2s ease'
-                      }}
-                    />
-
-                    <Box
-                      className="overlay"
-                      sx={{
-                        position: 'absolute',
-                        inset: 0,
-                        opacity: 0,
-                        transition: 'opacity 0.2s ease',
-                        background:
-                          'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.1) 55%, transparent 100%)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'flex-end',
-                        p: 1
-                      }}
-                    >
-                      {item.author && (
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: '#fff',
-                            fontWeight: 700,
-                            lineHeight: 1.2,
-                            textShadow: '0 1px 3px rgba(0,0,0,0.6)'
-                          }}
-                        >
-                          {item.author}
-                        </Typography>
-                      )}
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: 'rgba(255,255,255,0.75)',
-                          fontSize: '0.65rem',
-                          textShadow: '0 1px 3px rgba(0,0,0,0.6)'
-                        }}
-                      >
-                        {getFormattedDate(item.date)}
-                      </Typography>
-                    </Box>
+                    <Typography variant="caption" fontWeight={700} color="inherit" noWrap>
+                      {item.author}
+                    </Typography>
+                    <Typography variant="caption" color="inherit" sx={{ opacity: 0.78 }}>
+                      {getFormattedDate(item.date)}
+                    </Typography>
                   </Box>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-        )}
-      </Stack>
-    </Box>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
+    </Stack>
   );
 }

@@ -44,7 +44,6 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
   const {
     fetchUserSettings,
     hasViewPermission,
-    hasViewOtherPermission,
     user
   } = useAuth();
   const { notifications } = useSelector((state) => state.notifications);
@@ -79,13 +78,13 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
       }
     ];
 
-    if (!hasViewOtherPermission(PermissionEntity.WORK_ORDERS)) {
-      filterFields.push({
-        field: 'assignedToUser',
-        operation: 'eq',
-        value: user.id
-      });
-    }
+    // A Home representa o turno do usuario, independentemente da permissao
+    // de consultar OS de colegas na tela de listagem.
+    filterFields.push({
+      field: 'assignedToUser',
+      operation: 'eq',
+      value: user.id
+    });
 
     return {
       filterFields,

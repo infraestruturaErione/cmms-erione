@@ -66,6 +66,11 @@ public class FileController {
         User user = userService.whoami(req);
         if (user.getRole().getCreatePermissions().contains(PermissionEntity.FILES) &&
                 user.getCompany().getSubscription().getSubscriptionPlan().getFeatures().contains(PlanFeatures.FILE)) {
+            // Valida todos os arquivos ANTES de enviar qualquer um: evita que um
+            // arquivo invalido no meio do lote deixe os anteriores ja enviados
+            // orfaos no banco/storage (sem serem retornados pro cliente).
+            Arrays.asList(filesReq).forEach(fileReq -> validateFileForUpload(fileReq, fileType));
+
             Collection<File> result = new ArrayList<>();
             Arrays.asList(filesReq).forEach(fileReq -> {
                 String filePath = storageServiceFactory.getStorageService().upload(fileReq, folder);
@@ -81,6 +86,62 @@ public class FileController {
             });
             return result.stream().map(fileMapper::toShowDto).collect(Collectors.toList());
         } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
+    }
+
+    private static final Map<String, byte[]> IMAGE_MAGIC_BYTES = new LinkedHashMap<String, byte[]>() {{
+        put("JPEG", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF});
+        put("PNG", new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47});
+        put("GIF", new byte[]{0x47, 0x49, 0x46, 0x38});
+        put("BMP", new byte[]{0x42, 0x4D});
+        put("WEBP_RIFF", new byte[]{0x52, 0x49, 0x46, 0x46});
+    }};
+
+    // Bloqueado pra QUALQUER tipo de upload (nao so IMAGE) - anexo administrativo
+    // (type=OTHER) tambem passa por aqui e nao tinha nenhuma validacao de
+    // conteudo antes, so a de imagem. Extensao continua sendo o sinal mais
+    // pratico pra executavel/script disfarcado; nao tentamos cobrir todo tipo
+    // de documento legitimo (pdf, docx, xlsx, etc. continuam livres).
+    private static final Set<String> DANGEROUS_EXTENSIONS = Set.of(
+            "exe", "dll", "bat", "cmd", "com", "scr", "msi", "msp", "jar", "sh", "ps1", "psm1",
+            "vbs", "vbe", "js", "jse", "wsf", "wsh", "app", "apk", "deb", "rpm", "gadget"
+    );
+
+    private void validateFileForUpload(MultipartFile fileReq, FileType fileType) {
+        if (fileReq == null || fileReq.isEmpty()) {
+            throw new CustomException("Arquivo vazio ou inválido: " + (fileReq == null ? "" :
+                    fileReq.getOriginalFilename()), HttpStatus.BAD_REQUEST);
+        }
+        String originalName = fileReq.getOriginalFilename();
+        String extension = originalName != null && originalName.contains(".")
+                ? originalName.substring(originalName.lastIndexOf('.') + 1).toLowerCase()
+                : "";
+        if (DANGEROUS_EXTENSIONS.contains(extension)) {
+            throw new CustomException("Tipo de arquivo não permitido: \"" + originalName + "\".",
+                    HttpStatus.BAD_REQUEST);
+        }
+        if (fileType == FileType.IMAGE) {
+            byte[] header;
+            try (java.io.InputStream inputStream = fileReq.getInputStream()) {
+                header = inputStream.readNBytes(12);
+            } catch (Exception e) {
+                throw new CustomException("Não foi possível ler o arquivo: " + fileReq.getOriginalFilename(),
+                        HttpStatus.BAD_REQUEST);
+            }
+            boolean matchesKnownImage = IMAGE_MAGIC_BYTES.values().stream()
+                    .anyMatch(signature -> startsWith(header, signature));
+            if (!matchesKnownImage) {
+                throw new CustomException("O arquivo \"" + fileReq.getOriginalFilename() + "\" não é uma imagem " +
+                        "válida.", HttpStatus.BAD_REQUEST);
+            }
+        }
+    }
+
+    private static boolean startsWith(byte[] data, byte[] prefix) {
+        if (data.length < prefix.length) return false;
+        for (int i = 0; i < prefix.length; i++) {
+            if (data[i] != prefix[i]) return false;
+        }
+        return true;
     }
 
     @PostMapping(value = "/upload/request-portal/{uuid}", produces = "application/json")

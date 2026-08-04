@@ -100,6 +100,8 @@ public class UserService {
     private boolean cloudVersion;
     @Value("${allowed-organization-admins}")
     private String[] allowedOrganizationAdmins;
+    @Value("${company-signup-enabled:false}")
+    private boolean companySignupEnabled;
 
     public String signin(String email, String password, String type) {
         try {
@@ -167,6 +169,8 @@ public class UserService {
         user.setUsername(utils.generateStringId());
         if (user.getRole() == null) {
             //create company with default roles
+            if (!companySignupEnabled)
+                throw new CustomException("Company signup is disabled", HttpStatus.FORBIDDEN);
             if (!licenseService.hasEntitlement(LicenseEntitlement.MULTI_INSTANCE) && companyService.existsAtLeastOneWithMinWorkOrders())
                 throw new CustomException("You need a license to create another company", HttpStatus.FORBIDDEN);
             Subscription subscription =

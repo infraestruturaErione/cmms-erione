@@ -31,7 +31,7 @@ public class WorkOrderBaseShowDTO extends AuditShowDTO {
     private boolean requiredSignature;
 
     @Schema(description = "Category associated with the work order")
-    private CategoryMiniDTO category;
+    private WorkOrderCategoryMiniDTO category;
 
     @Schema(description = "Location where the work will be performed")
     private LocationMiniDTO location;

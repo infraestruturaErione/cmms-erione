@@ -68,7 +68,8 @@ export const getWorkOrderFields = (t): IField[] => {
     {
       name: 'category',
       type: 'select',
-      label: t('category'),
+      label: t('task_type'),
+      placeholder: t('select_task_type'),
       type2: 'category',
       category: 'work-order-categories'
     },

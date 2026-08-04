@@ -39,6 +39,7 @@ import { MeterMiniDTO } from 'src/models/owns/meter';
 
 interface SelectTasksProps {
   selected: Task[];
+  excludedChecklistId?: number;
   infos?: { name: string; description: string; category: string };
   open: boolean;
   onClose: () => void;
@@ -48,6 +49,7 @@ interface SelectTasksProps {
 
 export default function SelectTasks({
                                       selected,
+                                      excludedChecklistId,
                                       onSelect,
                                       onClose,
                                       open,
@@ -310,11 +312,13 @@ export default function SelectTasks({
                   <MenuItem value="" disabled>
                     {t('copy_items_from_checklist')}
                   </MenuItem>
-                  {checklists.map((checklist) => (
+                  {checklists
+                    .filter((checklist) => checklist.id !== excludedChecklistId)
+                    .map((checklist) => (
                     <MenuItem key={checklist.id} value={checklist.id}>
                       {checklist.name}
                     </MenuItem>
-                  ))}
+                    ))}
                 </Select>
                 <Button onClick={() => setOpenChecklist(false)}>
                   {t('cancel')}

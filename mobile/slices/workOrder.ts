@@ -322,7 +322,14 @@ export const getWorkOrderEvents =
 export const changeWorkOrderStatus =
   (
     id: number,
-    body: { status: string; feedback?: string; signature?: string }
+    body: {
+      status: string;
+      feedback?: string;
+      signature?: string;
+      signerName?: string;
+      signerDocument?: string;
+      mileageTraveled?: number;
+    }
   ): AppThunk =>
   async (dispatch) => {
     const workOrderResponse = await api.patch<WorkOrder>(

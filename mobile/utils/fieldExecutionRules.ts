@@ -1,5 +1,40 @@
 import WorkOrder from '../models/workOrder';
 
+// Distancia entre onde o tecnico marcou deslocamento/check-in/check-out e o
+// local esperado da OS. Usado no lugar de latitude/longitude cruas, mesma
+// logica do web (frontend/src/content/own/WorkOrders/fieldExecutionRules.ts).
+const EARTH_RADIUS_METERS = 6371000;
+export const getDistanceInMeters = (
+  lat1?: number | null,
+  lng1?: number | null,
+  lat2?: number | null,
+  lng2?: number | null
+): number | null => {
+  if (
+    lat1 == null ||
+    lng1 == null ||
+    lat2 == null ||
+    lng2 == null ||
+    Number.isNaN(lat1) ||
+    Number.isNaN(lng1)
+  )
+    return null;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_METERS * c;
+};
+
+export const formatDistanceLabel = (meters: number | null): string | null => {
+  if (meters == null) return null;
+  const rounded = Math.round(meters);
+  return rounded >= 1000 ? `${(rounded / 1000).toFixed(1)} km` : `${rounded} m`;
+};
+
 export type FieldExecutionStatus =
   | 'not_started'
   | 'en_route'

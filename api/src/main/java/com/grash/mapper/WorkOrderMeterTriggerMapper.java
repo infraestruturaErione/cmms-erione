@@ -9,7 +9,7 @@ import org.mapstruct.MappingTarget;
 import org.mapstruct.Mappings;
 
 @Mapper(componentModel = "spring", uses = {PartMapper.class, UserMapper.class, FileMapper.class,
-        CustomFieldValueMapper.class})
+        CustomFieldValueMapper.class, ChecklistMapper.class})
 public interface WorkOrderMeterTriggerMapper {
     WorkOrderMeterTrigger updateWorkOrderMeterTrigger(@MappingTarget WorkOrderMeterTrigger entity,
                                                       WorkOrderMeterTriggerPatchDTO dto);

@@ -8,7 +8,7 @@ import org.mapstruct.Mapper;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.Mappings;
 
-@Mapper(componentModel = "spring", uses = {FileMapper.class, CustomFieldValueMapper.class})
+@Mapper(componentModel = "spring", uses = {FileMapper.class, CustomFieldValueMapper.class, ChecklistMapper.class})
 public interface RequestMapper {
     Request updateRequest(@MappingTarget Request entity, RequestPatchDTO dto);
 

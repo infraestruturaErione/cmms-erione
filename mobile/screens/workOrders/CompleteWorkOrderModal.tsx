@@ -32,6 +32,40 @@ export default function CompleteWorkOrderModal({
       });
       shape = { feedback: Yup.string() };
     }
+    // Campos exigidos pelo Tipo de Tarefa (Categoria da OS) - so aparecem
+    // quando a categoria marcou aquela obrigatoriedade e ainda nao foi
+    // preenchida (mesma logica do web, ver WorkOrderDetails.tsx).
+    if (fieldsConfig.signerName) {
+      fields.push({
+        name: 'signerName',
+        type: 'text',
+        label: t('signer_name')
+      });
+      shape = { ...shape, signerName: Yup.string().required(t('required_field')) };
+    }
+    if (fieldsConfig.signerDocument) {
+      fields.push({
+        name: 'signerDocument',
+        type: 'text',
+        label: t('signer_document')
+      });
+      shape = {
+        ...shape,
+        signerDocument: Yup.string().required(t('required_field'))
+      };
+    }
+    if (fieldsConfig.mileageTraveled) {
+      fields.push({
+        name: 'mileageTraveled',
+        type: 'number',
+        label: t('mileage_traveled'),
+        placeholder: t('km')
+      });
+      shape = {
+        ...shape,
+        mileageTraveled: Yup.number().required(t('required_field'))
+      };
+    }
     if (fieldsConfig.signature) {
       fields.push({
         name: 'signature',
@@ -56,9 +90,17 @@ export default function CompleteWorkOrderModal({
         navigation={navigation}
         onChange={({ field, e }) => {}}
         onSubmit={async (values) => {
-          return onComplete(values.signature, values.feedback || undefined).catch((err) =>
-            showSnackBar(getErrorMessage(err), 'error')
-          );
+          return onComplete({
+            signature: values.signature,
+            feedback: values.feedback || undefined,
+            signerName: values.signerName,
+            signerDocument: values.signerDocument,
+            mileageTraveled:
+              values.mileageTraveled !== undefined &&
+              values.mileageTraveled !== ''
+                ? Number(values.mileageTraveled)
+                : undefined
+          }).catch((err) => showSnackBar(getErrorMessage(err), 'error'));
         }}
       />
     </View>

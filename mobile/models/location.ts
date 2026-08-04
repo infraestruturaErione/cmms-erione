@@ -27,6 +27,8 @@ export interface LocationMiniDTO {
   name: string;
   address: string;
   customId: string;
+  longitude?: number;
+  latitude?: number;
 }
 
 export interface LocationRow extends Location {

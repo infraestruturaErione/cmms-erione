@@ -99,10 +99,15 @@ export type RootStackParamList = {
     locationId: number | null;
   };
   SelectTasks: { onChange: (tasks: Task[]) => void; selected: Task[] };
-  SelectChecklists: { onChange: (tasks: Task[]) => void; selected: Task[] };
+  SelectChecklists: {
+    onChange: (tasks: Task[]) => void;
+    selected: Task[];
+    excludedChecklistId?: number;
+  };
   SelectTasksOrChecklist: {
     onChange: (tasks: Task[]) => void;
     selected: Task[];
+    excludedChecklistId?: number;
   };
   SelectCategories: {
     onChange: (categories: Category[]) => void;
@@ -113,11 +118,20 @@ export type RootStackParamList = {
   SelectNfc: { onChange: (value: string) => void };
   SelectBarcode: { onChange: (value: string) => void };
   CompleteWorkOrder: {
-    onComplete: (
-      signature: string | undefined,
-      feedback: string | undefined
-    ) => Promise<any>;
-    fieldsConfig: { feedback: boolean; signature: boolean };
+    onComplete: (values: {
+      signature?: string;
+      feedback?: string;
+      signerName?: string;
+      signerDocument?: string;
+      mileageTraveled?: number;
+    }) => Promise<any>;
+    fieldsConfig: {
+      feedback: boolean;
+      signature: boolean;
+      signerName?: boolean;
+      signerDocument?: boolean;
+      mileageTraveled?: boolean;
+    };
     initialFeedback?: string;
   };
   NotFound: undefined;

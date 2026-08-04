@@ -15,4 +15,13 @@ public class WorkOrderChangeStatusDTO {
     private String signature;
     @Schema(description = "Feedback or notes provided during the status change")
     private String feedback;
+
+    @Schema(description = "Name of the person who signed, when the category requires it")
+    private String signerName;
+
+    @Schema(description = "CPF/CNPJ of the person who signed, when the category requires it")
+    private String signerDocument;
+
+    @Schema(description = "Mileage traveled to complete the work order, when the category requires it")
+    private Double mileageTraveled;
 }

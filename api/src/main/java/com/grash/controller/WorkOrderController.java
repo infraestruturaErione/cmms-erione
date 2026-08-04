@@ -312,6 +312,9 @@ public class WorkOrderController {
         mutableWO.setSignature(workOrder.getSignature());
         mutableWO.setStatus(workOrder.getStatus());
         mutableWO.setFeedback(workOrder.getFeedback());
+        if (workOrder.getSignerName() != null) mutableWO.setSignerName(workOrder.getSignerName());
+        if (workOrder.getSignerDocument() != null) mutableWO.setSignerDocument(workOrder.getSignerDocument());
+        if (workOrder.getMileageTraveled() != null) mutableWO.setMileageTraveled(workOrder.getMileageTraveled());
 
         if (workOrder.getStatus() != Status.COMPLETE) {
             mutableWO.setCompletedOn(null);
@@ -321,8 +324,14 @@ public class WorkOrderController {
                 user.getCompany().getSubscription().getSubscriptionPlan().getFeatures().contains(PlanFeatures.SIGNATURE))) {
             if (!workOrder.getStatus().equals(Status.IN_PROGRESS)) {
                 if (workOrder.getStatus().equals(Status.COMPLETE)) {
-                    mutableWO.setCompletedBy(user);
-                    mutableWO.setCompletedOn(new Date());
+                    // So grava completedBy/completedOn na primeira transicao pra
+                    // COMPLETE - reenvio duplicado (retry de rede, duplo clique que
+                    // escapou do loading do botao) nao deve reescrever o horario de
+                    // conclusao real.
+                    if (!savedWorkOrderStatusBefore.equals(Status.COMPLETE)) {
+                        mutableWO.setCompletedBy(user);
+                        mutableWO.setCompletedOn(new Date());
+                    }
                     if (mutableWO.getAsset() != null) {
                         Asset asset = mutableWO.getAsset();
                         Collection<WorkOrder> workOrdersOfSameAsset = workOrderService.findByAsset(asset.getId());
@@ -403,12 +412,15 @@ public class WorkOrderController {
                 WorkOrder originalWorkOrder = savedWorkOrder;
                 WorkOrder mutableWO = workOrderService.findById(id).get();
 
-                mutableWO.setDepartureAt(new Date());
-                mutableWO.setDepartureLat(dto.getDepartureLat());
-                mutableWO.setDepartureLng(dto.getDepartureLng());
-
-                WorkOrder patchedWorkOrder = workOrderService.saveAndFlushWithWebhook(mutableWO, user.getCompany(), originalWorkOrder);
-                return workOrderMapper.toShowDto(patchedWorkOrder);
+                // Idempotente: reenvio duplicado (retry de rede, duplo clique) nao
+                // deve reescrever o horario/local do deslocamento ja registrado.
+                if (mutableWO.getDepartureAt() == null) {
+                    mutableWO.setDepartureAt(new Date());
+                    mutableWO.setDepartureLat(dto.getDepartureLat());
+                    mutableWO.setDepartureLng(dto.getDepartureLng());
+                    mutableWO = workOrderService.saveAndFlushWithWebhook(mutableWO, user.getCompany(), originalWorkOrder);
+                }
+                return workOrderMapper.toShowDto(mutableWO);
             } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
         } else throw new CustomException("WorkOrder not found", HttpStatus.NOT_FOUND);
     }
@@ -427,13 +439,15 @@ public class WorkOrderController {
                 WorkOrder originalWorkOrder = savedWorkOrder;
                 WorkOrder mutableWO = workOrderService.findById(id).get();
 
-                mutableWO.setCheckInAt(new Date());
-                mutableWO.setCheckInLat(dto.getCheckInLat());
-                mutableWO.setCheckInLng(dto.getCheckInLng());
-                mutableWO.setCheckInAddress(dto.getCheckInAddress());
-
-                WorkOrder patchedWorkOrder = workOrderService.saveAndFlushWithWebhook(mutableWO, user.getCompany(), originalWorkOrder);
-                return workOrderMapper.toShowDto(patchedWorkOrder);
+                // Idempotente: reenvio duplicado nao deve reescrever o check-in.
+                if (mutableWO.getCheckInAt() == null) {
+                    mutableWO.setCheckInAt(new Date());
+                    mutableWO.setCheckInLat(dto.getCheckInLat());
+                    mutableWO.setCheckInLng(dto.getCheckInLng());
+                    mutableWO.setCheckInAddress(dto.getCheckInAddress());
+                    mutableWO = workOrderService.saveAndFlushWithWebhook(mutableWO, user.getCompany(), originalWorkOrder);
+                }
+                return workOrderMapper.toShowDto(mutableWO);
             } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
         } else throw new CustomException("WorkOrder not found", HttpStatus.NOT_FOUND);
     }
@@ -452,13 +466,15 @@ public class WorkOrderController {
                 WorkOrder originalWorkOrder = savedWorkOrder;
                 WorkOrder mutableWO = workOrderService.findById(id).get();
 
-                mutableWO.setCheckOutAt(new Date());
-                mutableWO.setCheckOutLat(dto.getCheckOutLat());
-                mutableWO.setCheckOutLng(dto.getCheckOutLng());
-                mutableWO.setCheckOutAddress(dto.getCheckOutAddress());
-
-                WorkOrder patchedWorkOrder = workOrderService.saveAndFlushWithWebhook(mutableWO, user.getCompany(), originalWorkOrder);
-                return workOrderMapper.toShowDto(patchedWorkOrder);
+                // Idempotente: reenvio duplicado nao deve reescrever o check-out.
+                if (mutableWO.getCheckOutAt() == null) {
+                    mutableWO.setCheckOutAt(new Date());
+                    mutableWO.setCheckOutLat(dto.getCheckOutLat());
+                    mutableWO.setCheckOutLng(dto.getCheckOutLng());
+                    mutableWO.setCheckOutAddress(dto.getCheckOutAddress());
+                    mutableWO = workOrderService.saveAndFlushWithWebhook(mutableWO, user.getCompany(), originalWorkOrder);
+                }
+                return workOrderMapper.toShowDto(mutableWO);
             } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
         } else throw new CustomException("WorkOrder not found", HttpStatus.NOT_FOUND);
     }

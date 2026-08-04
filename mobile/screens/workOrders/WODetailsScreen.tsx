@@ -215,10 +215,7 @@ export default function WODetailsScreen({
     (status) => ({ value: status, label: t(status) })
   );
   const fieldReportRegistered = hasFieldReport(comments);
-  const fieldEvidenceRegistered =
-    !!workOrder?.image ||
-    !!workOrder?.files?.length ||
-    hasFieldReportEvidence(comments);
+  const fieldEvidenceRegistered = hasFieldReportEvidence(comments);
   const fieldEvidenceItems = workOrder
     ? getFieldEvidenceItems(workOrder, comments)
     : [];
@@ -555,30 +552,51 @@ export default function WODetailsScreen({
 
     setIsExtended(currentScrollPosition <= 0);
   };
-  const onCompleteWO = (
-    signature: string | undefined,
-    feedback: string | undefined
-  ): Promise<any> => {
+  const onCompleteWO = (values: {
+    signature?: string;
+    feedback?: string;
+    signerName?: string;
+    signerDocument?: string;
+    mileageTraveled?: number;
+  }): Promise<any> => {
     return dispatch(
       changeWorkOrderStatus(id, {
         status: 'COMPLETE',
-        feedback: feedback ?? null,
-        signature
+        feedback: values.feedback ?? null,
+        signature: values.signature,
+        signerName: values.signerName,
+        signerDocument: values.signerDocument,
+        mileageTraveled: values.mileageTraveled
       })
     ).then(() => navigation.navigate('Root'));
   };
   const fieldReportContent = getFirstFieldReportText(comments);
 
+  // Une o campo antigo (workOrder.requiredSignature) com as obrigatoriedades
+  // novas da Categoria/Tipo de Tarefa. So pede o que ainda nao foi
+  // preenchido - mesma logica do web (WorkOrderDetails.tsx).
+  const getCompleteWOFieldsConfig = () => {
+    const category = workOrder?.category;
+    return {
+      signature: !!workOrder?.requiredSignature || !!category?.requireSignature,
+      feedback: generalPreferences.askFeedBackOnWOClosed && !fieldReportContent,
+      signerName: !!category?.requireSignerName && !workOrder?.signerName,
+      signerDocument:
+        !!category?.requireSignerDocument && !workOrder?.signerDocument,
+      mileageTraveled:
+        !!category?.requireMileage && !workOrder?.mileageTraveled
+    };
+  };
+
   const onStatusChange = (status: string) => {
     if (status === 'COMPLETE') {
       if (canComplete()) {
-        const needsSignature = workOrder?.requiredSignature;
-        const needsFeedback =
-          generalPreferences.askFeedBackOnWOClosed && !fieldReportContent;
+        const fieldsConfig = getCompleteWOFieldsConfig();
+        const needsAnyField = Object.values(fieldsConfig).some(Boolean);
 
-        if (needsSignature || needsFeedback) {
+        if (needsAnyField) {
           let error;
-          if (needsSignature) {
+          if (fieldsConfig.signature) {
             if (!hasFeature(PlanFeature.SIGNATURE)) {
               error =
                 'Signature on Work Order completion is not available in your current subscription plan.';
@@ -589,10 +607,7 @@ export default function WODetailsScreen({
           } else {
             navigation.navigate('CompleteWorkOrder', {
               onComplete: onCompleteWO,
-              fieldsConfig: {
-                feedback: needsFeedback,
-                signature: needsSignature
-              },
+              fieldsConfig,
               initialFeedback: fieldReportContent || undefined
             });
             return;
@@ -605,7 +620,9 @@ export default function WODetailsScreen({
       changeWorkOrderStatus(id, {
         status
       })
-    ).finally(() => setLoading(false));
+    )
+      .catch((err) => showSnackBar(getErrorMessage(err), 'error'))
+      .finally(() => setLoading(false));
   };
   const groupRelations = (
     relations: Relation[]

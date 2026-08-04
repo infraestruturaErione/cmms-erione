@@ -9,7 +9,7 @@ export default function SelectTasksOrChecklistModal({
   navigation,
   route
 }: RootStackScreenProps<'SelectTasksOrChecklist'>) {
-  const { onChange, selected } = route.params;
+  const { onChange, selected, excludedChecklistId } = route.params;
   const theme = useTheme();
   const { t }: { t: any } = useTranslation();
   const options: {
@@ -39,7 +39,10 @@ export default function SelectTasksOrChecklistModal({
           onPress={() =>
             navigation.navigate(option.screen, {
               onChange,
-              selected
+              selected,
+              ...(option.screen === 'SelectChecklists'
+                ? { excludedChecklistId }
+                : {})
             })
           }
         >

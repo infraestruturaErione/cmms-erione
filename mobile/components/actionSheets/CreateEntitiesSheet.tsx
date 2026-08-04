@@ -70,9 +70,11 @@ export default function CreateEntitiesSheet(
                   style={{ paddingHorizontal: 15 }}
                   title={entity.title}
                   left={() => <List.Icon icon={entity.icon} />}
-                  onPress={() => {
-                    props.payload.navigation.navigate(entity.goTo);
-                    actionSheetRef.current.hide();
+                  onPress={async () => {
+                    await actionSheetRef.current?.hide();
+                    setTimeout(() => {
+                      props.payload.navigation.navigate(entity.goTo);
+                    }, 250);
                   }}
                 />
               ))}

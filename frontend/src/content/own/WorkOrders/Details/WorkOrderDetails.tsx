@@ -2,6 +2,7 @@ import {
   alpha,
   Box,
   Button,
+  Card,
   CircularProgress,
   debounce,
   Divider,
@@ -76,7 +77,12 @@ import {
   getPreventiveMaintenanceUrl,
   getUserUrl
 } from '../../../../utils/urlPaths';
-import CompleteWOModal from './CompleteWOModal';
+import CompleteWOModal, {
+  CompleteWOFieldsConfig,
+  CompleteWOValues
+} from './CompleteWOModal';
+import PendingRequirements from './PendingRequirements';
+import LocationMiniMap from './LocationMiniMap';
 import useAuth from '../../../../hooks/useAuth';
 import { PermissionEntity } from '../../../../models/owns/role';
 import { getSingleUserMini } from '../../../../slices/user';
@@ -85,8 +91,8 @@ import PartQuantitiesList from '../../components/PartQuantitiesList';
 import { PlanFeature } from '../../../../models/owns/subscriptionPlan';
 import AddFileModal from './AddFileModal';
 import CommentsSection from './CommentsSection';
-import FieldRegistroSection from './FieldRegistroSection';
 import FieldExecutionSection from './FieldExecutionSection';
+import FieldReportSection from './FieldReportSection';
 import { ERIONE_HIDDEN_MODULES } from '../../../../config/erioneModules';
 import { useBrand } from '../../../../hooks/useBrand';
 import { useLicenseEntitlement } from '../../../../hooks/useLicenseEntitlement';
@@ -95,30 +101,7 @@ import { getErrorMessage } from '../../../../utils/api';
 import {
   getCommentsByWorkOrder
 } from '../../../../slices/comment';
-
-const FIELD_REPORT_PREFIX = '[Relato em campo]';
-const PHOTO_ONLY_FIELD_REPORT_TEXTS = [
-  'Photo evidence registered.',
-  'Evidência fotográfica registrada.',
-  'Evidencia fotografica registrada.'
-];
-
-const normalizeFieldText = (value: string) =>
-  value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase();
-
-const getFieldReportText = (content?: string) => {
-  if (!content?.startsWith(FIELD_REPORT_PREFIX)) return '';
-  const text = content.replace(FIELD_REPORT_PREFIX, '').trim();
-  const normalizedText = normalizeFieldText(text);
-  const isPhotoOnlyText = PHOTO_ONLY_FIELD_REPORT_TEXTS.some(
-    (photoText) => normalizeFieldText(photoText) === normalizedText
-  );
-  return isPhotoOnlyText ? '' : text;
-};
+import { getFieldReportText } from './fieldReportUtils';
 
 const isExecutionTaskComplete = (task: Task): boolean => {
   const value = task.value?.toString().trim();
@@ -387,6 +370,23 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
 
     return !error;
   };
+  // Une o campo antigo (workOrder.requiredSignature) com as obrigatoriedades
+  // novas da Categoria/Tipo de Tarefa. So pede o que ainda nao foi preenchido -
+  // reabrir o modal de conclusao depois de um erro nao pede de novo o que ja
+  // foi salvo.
+  const getCompleteWOFieldsConfig = (): CompleteWOFieldsConfig => {
+    const category = workOrder.category;
+    return {
+      signature: workOrder.requiredSignature || !!category?.requireSignature,
+      feedback:
+        generalPreferences.askFeedBackOnWOClosed && !fieldReportText,
+      signerName: !!category?.requireSignerName && !workOrder.signerName,
+      signerDocument:
+        !!category?.requireSignerDocument && !workOrder.signerDocument,
+      mileageTraveled:
+        !!category?.requireMileage && !workOrder.mileageTraveled
+    };
+  };
   const onPartQuantityChange = (value: string, partQuantity) => {
     dispatch(
       editPartQuantity(workOrder.id, partQuantity.id, Number(value), false)
@@ -398,16 +398,16 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
     () => debounce(onPartQuantityChange, 1500),
     []
   );
-  const onCompleteWO = (
-    signature: string | undefined,
-    feedback: string | undefined
-  ) => {
+  const onCompleteWO = (values: CompleteWOValues) => {
     setChangingStatus(true);
     return dispatch(
       changeWorkOrderStatus(workOrder?.id, {
         status: 'COMPLETE',
-        feedback: feedback ?? null,
-        signature
+        feedback: values.feedback ?? null,
+        signature: values.signature,
+        signerName: values.signerName,
+        signerDocument: values.signerDocument,
+        mileageTraveled: values.mileageTraveled
       })
     )
       .then(() => dispatch(getLabors(workOrder?.id)))
@@ -417,6 +417,8 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   const tabs = [
     { value: 'details', label: t('details') },
     { value: 'fieldExecution', label: t('field_execution') },
+    { value: 'fieldReport', label: t('field_report_tab') },
+    { value: 'pendencias', label: t('pendencias') },
     {
       value: 'comments',
       label: `${t('comments')}${commentsCount > 0 ? ` (${commentsCount})` : ''}`
@@ -679,13 +681,14 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                       onChange={(event) => {
                         if (event.target.value === 'COMPLETE') {
                           if (canComplete()) {
-                            const needsSignature = workOrder.requiredSignature;
-                            const needsFeedback =
-                              generalPreferences.askFeedBackOnWOClosed && !fieldReportText;
+                            const fieldsConfig = getCompleteWOFieldsConfig();
+                            const needsAnyField = Object.values(
+                              fieldsConfig
+                            ).some(Boolean);
 
-                            if (needsSignature || needsFeedback) {
+                            if (needsAnyField) {
                               let error;
-                              if (needsSignature) {
+                              if (fieldsConfig.signature) {
                                 if (!hasFeature(PlanFeature.SIGNATURE)) {
                                   error =
                                     'Signature on Work Order completion is not available in your current subscription plan.';
@@ -799,6 +802,14 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
               {detailsFieldsToRender(workOrder).map((field, index) => (
                 <BasicField key={index} {...field} />
               ))}
+              {!!workOrder.location?.latitude && !!workOrder.location?.longitude && (
+                <Grid item xs={12}>
+                  <LocationMiniMap
+                    latitude={workOrder.location.latitude}
+                    longitude={workOrder.location.longitude}
+                  />
+                </Grid>
+              )}
               {workOrder.primaryUser && (
                 <Grid item xs={12} lg={6}>
                   <Typography
@@ -888,30 +899,8 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                       <Typography variant="h6">{workOrder.feedback}</Typography>
                     </Grid>
                   )}
-                  {workOrder.signature && (
-                    <Grid item xs={12} lg={6}>
-                      <Typography
-                        variant="h6"
-                        sx={{ color: theme.colors.alpha.black[70] }}
-                      >
-                        {t('signature')}
-                      </Typography>
-                      <img
-                        src={workOrder.signature}
-                        style={{
-                          borderRadius: 5,
-                          height: 100,
-                          cursor: 'pointer'
-                        }}
-                        onClick={() => {
-                          setImageState(
-                            [workOrder.signature],
-                            workOrder.signature
-                          );
-                        }}
-                      />
-                    </Grid>
-                  )}
+                  {/* Assinatura movida para a aba "Execucao em Campo",
+                      junto com Relato e Evidencias - ver FieldExecutionSection. */}
                 </>
               )}
               {workOrder.parentRequest && (
@@ -1023,31 +1012,8 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 </Grid>
               )}
             </Grid>
-            {tasksLoading ? (
-              <Box>
-                <Divider sx={{ mt: 2 }} />
-                <Stack alignItems="center" spacing={1.5} sx={{ py: 3 }}>
-                  <CircularProgress size="1.5rem" />
-                  <Typography color="text.secondary">
-                    {t('service_checklist_loading')}
-                  </Typography>
-                </Stack>
-              </Box>
-            ) : !!tasks.length && (
-              <Box>
-                <Divider sx={{ mt: 2 }} />
-                <Tasks
-                  tasksProps={tasks}
-                  workOrderId={workOrder?.id}
-                  handleZoomImage={setImageState}
-                  disabled={
-                    !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
-                  }
-                  readOnly={workOrder?.status === 'COMPLETE'}
-                />
-              </Box>
-            )}
-
+            {/* Checklist de Execucao e obrigatoriedades moraram na aba
+                "Pendencias" - ver currentTab === 'pendencias' abaixo. */}
 
             {!ERIONE_HIDDEN_MODULES.parts && (
               <Box>
@@ -1127,13 +1093,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 </Button>
               )}
             </Box>
-            <FieldRegistroSection
-              comments={comments}
-              workOrder={workOrder}
-              parentRequest={workOrder.parentRequest}
-              onOpenImage={setImageState}
-              getFormattedDate={getFormattedDate}
-            />
+            {/* Relato, evidencias e assinatura ficam na aba "Relato em Campo". */}
           </Box>
         )}
         {currentTab == 'comments' && (
@@ -1145,6 +1105,48 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
             canEdit={hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)}
             getFormattedDate={getFormattedDate}
           />
+        )}
+        {currentTab == 'fieldReport' && (
+          <FieldReportSection
+            workOrder={workOrder}
+            canEdit={hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)}
+            getFormattedDate={getFormattedDate}
+            onOpenImage={setImageState}
+          />
+        )}
+        {currentTab === 'pendencias' && (
+          <Stack spacing={2}>
+            <PendingRequirements
+              workOrder={workOrder}
+              fieldReportText={fieldReportText}
+              tasks={tasks}
+              comments={comments}
+            />
+            {tasksLoading ? (
+              <Stack alignItems="center" spacing={1.5} sx={{ py: 3 }}>
+                <CircularProgress size="1.5rem" />
+                <Typography color="text.secondary">
+                  {t('service_checklist_loading')}
+                </Typography>
+              </Stack>
+            ) : tasks.length ? (
+              <Card>
+                <Tasks
+                  tasksProps={tasks}
+                  workOrderId={workOrder?.id}
+                  handleZoomImage={setImageState}
+                  disabled={
+                    !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
+                  }
+                  readOnly={workOrder?.status === 'COMPLETE'}
+                />
+              </Card>
+            ) : (
+              <Typography color="text.secondary">
+                {t('no_checklist_linked_to_wo')}
+              </Typography>
+            )}
+          </Stack>
         )}
       </Grid>
 
@@ -1174,10 +1176,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
       <CompleteWOModal
         open={openCompleteModal}
         onClose={() => setOpenCompleteModal(false)}
-        fieldsConfig={{
-          feedback: generalPreferences.askFeedBackOnWOClosed && !fieldReportText,
-          signature: workOrder.requiredSignature
-        }}
+        fieldsConfig={getCompleteWOFieldsConfig()}
         initialFeedback={fieldReportText || undefined}
         onComplete={onCompleteWO}
       />

@@ -28,6 +28,8 @@ export interface LocationMiniDTO {
   address: string;
   customId: string;
   parentId: number;
+  longitude?: number;
+  latitude?: number;
 }
 
 export interface LocationRow extends Location {

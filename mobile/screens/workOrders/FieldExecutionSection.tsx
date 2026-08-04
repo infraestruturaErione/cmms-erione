@@ -31,6 +31,8 @@ import { CompanySettingsContext } from '../../contexts/CompanySettingsContext';
 import { getErrorMessage } from '../../utils/api';
 import { openLibraryWithPermission } from '../../utils/mediaPermissions';
 import {
+  formatDistanceLabel,
+  getDistanceInMeters,
   getFieldDurations,
   getFieldExecutionStatus,
   getRecommendedFieldAction,
@@ -70,9 +72,6 @@ const formatDuration = (seconds: number | null, inProgress?: boolean) => {
   const rest = minutes % 60;
   return `${hours}h ${rest}min${inProgress ? ' em andamento' : ''}`;
 };
-
-const formatCoordinate = (value?: number | null) =>
-  typeof value === 'number' ? value.toFixed(6) : '-';
 
 const getCoordinates = async (): Promise<{
   latitude?: number | null;
@@ -137,11 +136,19 @@ export default function FieldExecutionSection({
   const recommendedAction = getRecommendedFieldAction(workOrder);
   const status = getFieldExecutionStatus(workOrder);
   const durations = getFieldDurations(workOrder);
+  const getDistanceDetail = (lat?: number | null, lng?: number | null) => {
+    const distance = formatDistanceLabel(
+      getDistanceInMeters(
+        lat,
+        lng,
+        workOrder.location?.latitude,
+        workOrder.location?.longitude
+      )
+    );
+    return distance ? t('distance_from_location', { distance }) : '-';
+  };
   const reportRegistered = hasFieldReport(comments);
-  const evidenceRegistered =
-    !!workOrder.image ||
-    !!workOrder.files?.length ||
-    hasFieldReportEvidence(comments);
+  const evidenceRegistered = hasFieldReportEvidence(comments);
   const currentTimelineKey = !workOrder.departureAt
     ? 'departure'
     : !workOrder.checkInAt
@@ -220,18 +227,21 @@ export default function FieldExecutionSection({
 
     if (!result || result.canceled) return;
 
-    setEvidenceFiles((current) => [
-      ...current,
-      ...result.assets.map((asset) => {
-        const fileName =
-          asset.fileName || asset.uri.split('/').pop() || 'photo.jpg';
-        return {
-          uri: asset.uri,
-          name: fileName,
-          type: asset.mimeType || mime.getType(fileName) || 'image/jpeg'
-        };
-      })
-    ]);
+    setEvidenceFiles((current) => {
+      const existingUris = new Set(current.map((file) => file.uri));
+      const newFiles = result.assets
+        .filter((asset) => !existingUris.has(asset.uri))
+        .map((asset) => {
+          const fileName =
+            asset.fileName || asset.uri.split('/').pop() || 'photo.jpg';
+          return {
+            uri: asset.uri,
+            name: fileName,
+            type: asset.mimeType || mime.getType(fileName) || 'image/jpeg'
+          };
+        });
+      return [...current, ...newFiles];
+    });
   };
 
   const handleCameraCapture = (uri: string) => {
@@ -303,18 +313,14 @@ export default function FieldExecutionSection({
       title: t('travel_started'),
       done: !!workOrder.departureAt,
       date: workOrder.departureAt,
-      detail: `${formatCoordinate(workOrder.departureLat)}, ${formatCoordinate(
-        workOrder.departureLng
-      )}`
+      detail: getDistanceDetail(workOrder.departureLat, workOrder.departureLng)
     },
     {
       key: 'check-in',
       title: t('check_in_done'),
       done: !!workOrder.checkInAt,
       date: workOrder.checkInAt,
-      detail: `${formatCoordinate(workOrder.checkInLat)}, ${formatCoordinate(
-        workOrder.checkInLng
-      )}`
+      detail: getDistanceDetail(workOrder.checkInLat, workOrder.checkInLng)
     },
     {
       key: 'site',
@@ -331,9 +337,7 @@ export default function FieldExecutionSection({
       title: t('check_out_done'),
       done: !!workOrder.checkOutAt,
       date: workOrder.checkOutAt,
-      detail: `${formatCoordinate(workOrder.checkOutLat)}, ${formatCoordinate(
-        workOrder.checkOutLng
-      )}`
+      detail: getDistanceDetail(workOrder.checkOutLat, workOrder.checkOutLng)
     },
     {
       key: 'report',

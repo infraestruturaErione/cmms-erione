@@ -39,7 +39,7 @@ export default function SelectChecklistsModal({
   navigation,
   route
 }: RootStackScreenProps<'SelectChecklists'>) {
-  const { onChange, selected } = route.params;
+  const { onChange, selected, excludedChecklistId } = route.params;
   const theme = useTheme();
   const { loadingGet, checklists } = useSelector((state) => state.checklists);
   const { t }: { t: any } = useTranslation();
@@ -72,6 +72,7 @@ export default function SelectChecklistsModal({
         }
       >
         {checklists
+          .filter((checklist) => checklist.id !== excludedChecklistId)
           .filter((mini) =>
             mini.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
           )

@@ -267,6 +267,14 @@ const locale = {
   required_images: 'Please upload at least an image',
   add_images: 'Add Images',
   tasks: 'Execution Checklist',
+  task_type: 'Task Type',
+  select_task_type: 'Select Task Type',
+  default_checklist_applied: 'Default checklist: {{name}}',
+  default_checklist_applied_helper:
+    'It will be applied automatically when the Work Order is created.',
+  additional_checklist_items: '{{count}} additional items',
+  additional_checklist_items_helper:
+    'Optional: add only items that are not part of the default checklist.',
   wo_archive_success: 'The Work Order has been archived',
   wo_archive_failure: "The Work Order couldn't be archived",
   wo_archive_confirm: 'Are you sure you want to archive this Work Order ',
@@ -336,6 +344,20 @@ const locale = {
   responsible: 'Responsible',
   task_code: 'Task code',
   actual_duration: 'Actual duration',
+  pendencias: 'Pending items',
+  pending_requirements: 'Pending items',
+  pending_requirements_count: '{{done}} of {{total}} completed',
+  signer_name: "Signer's name",
+  signer_document: "Signer's ID/tax document",
+  mileage_traveled: 'Mileage traveled',
+  km: 'km',
+  photos: 'Photos',
+  service_checklist: 'Checklist',
+  no_checklist_linked_to_wo: 'No checklist linked to this work order.',
+  travel_and_location: 'Travel and location',
+  distance_from_location: '{{distance}} from the expected location',
+  signed_by_line: 'Signed by {{name}}, ID/tax document: {{document}}',
+  unknown: 'Unknown',
   not_filled: 'Not filled',
   checklist_progress: '{{filled}} of {{total}} filled',
   none: 'None',
@@ -390,6 +412,7 @@ const locale = {
   field_evidence: 'Field Evidence',
   field_evidence_helper:
     'Photos and attachments sent by the technician during field execution.',
+  field_record: 'Field evidence',
   field_evidence_count: '{{count}} evidence item(s)',
   no_field_evidence: 'No field evidence registered.',
   to_delete: 'Delete',
@@ -542,6 +565,9 @@ const locale = {
   total_field_duration: 'Total field duration',
   less_than_1_min: 'less than 1 min',
   field_report: 'Field report',
+  field_report_tab: 'Field Report',
+  field_report_tab_helper:
+    'Record the completed service, evidence, and service signature.',
   field_execution: 'Field Execution',
   field_execution_helper:
     'Track departure, arrival, check-out and field notes for this service.',
@@ -557,6 +583,31 @@ const locale = {
   geolocation_unknown_error: 'Location not available: an unknown error occurred',
   current_field_status: 'Current field status',
   closure_readiness: 'Closure readiness',
+  closure_progress: '{{done}} of {{total}} steps ready',
+  required_marker: '(required)',
+  new_field_report: 'Register service',
+  new_field_report_helper:
+    'Describe the completed service and attach photos that document the work.',
+  field_report_read_only_helper:
+    'This work order is complete. Review its report, evidence and signature below.',
+  add_photos: 'Add photos',
+  selected_photos_count: '{{count}} of {{max}} photos selected',
+  remove_photo: 'Remove photo',
+  save_field_report: 'Save report',
+  field_report_saved: 'Report and evidence saved successfully',
+  field_evidence_upload_failed:
+    'Not all photos could be uploaded. Please try again.',
+  field_report_history: 'Service history',
+  field_report_history_empty: 'No report registered',
+  field_report_history_empty_helper:
+    'Written reports and photos submitted by the team will appear here.',
+  written_reports: 'Written reports',
+  signature_pending: 'Signature pending',
+  signature_pending_helper:
+    'The signature will be collected when the work order is completed.',
+  signature_not_required: 'Signature not required',
+  signature_not_required_helper:
+    'This service type can be completed without a signature.',
   field_duration_estimate_helper:
     'Times are estimated from field events; they do not replace labor time.',
   work_order_created: 'Work order created',

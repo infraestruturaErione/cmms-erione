@@ -132,6 +132,10 @@ storage:
     json-path: ${GCP_JSON_PATH:}
 
 allowed-organization-admins: ${ALLOWED_ORGANIZATION_ADMINS:}
+# Cria nova empresa/organizacao via POST /auth/signup (sem convite). Desligado
+# por padrao - o painel Erione nao oferece esse fluxo hoje. Ligar so quando
+# existir uma entidade/produto separado que precise de auto-cadastro real.
+company-signup-enabled: ${COMPANY_SIGNUP_ENABLED:false}
 cloud-version: ${CLOUD_VERSION:false}
 enable-sso: ${ENABLE_SSO:false}
 oauth2:

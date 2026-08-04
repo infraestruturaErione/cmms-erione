@@ -52,12 +52,6 @@ export const hasFieldReportEvidence = (comments: Comment[]) =>
     (comment) => isFieldReportComment(comment) && !!comment.files?.length
   );
 
-export const hasDirectEvidence = (workOrder: WorkOrder) =>
-  !!workOrder.image || !!workOrder.files?.length;
-
-export const hasAnyEvidence = (workOrder: WorkOrder, comments: Comment[] = []) =>
-  hasDirectEvidence(workOrder) || hasFieldReportEvidence(comments);
-
 export const getNextActionKey = (
   workOrder: WorkOrder,
   comments?: Comment[]
@@ -97,6 +91,14 @@ export const dedupeWorkOrdersById = (items: WorkOrder[]) => {
 export const isSelectableHomeWorkOrder = (workOrder: WorkOrder) =>
   workOrder.status !== 'COMPLETE' &&
   !(workOrder as WorkOrder & { archived?: boolean }).archived;
+
+export const isWorkOrderAssignedToUser = (
+  workOrder: WorkOrder,
+  userId: number
+) =>
+  workOrder.primaryUser?.id === userId ||
+  workOrder.assignedTo?.some((assignedUser) => assignedUser.id === userId) ||
+  workOrder.team?.users?.some((teamUser) => teamUser.id === userId);
 
 export const sortWorkOrdersForField = (items: WorkOrder[]) =>
   dedupeWorkOrdersById(items)

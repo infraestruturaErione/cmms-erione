@@ -45,10 +45,30 @@ public class CommentService {
     @Value("${frontend.url}")
     private String frontendUrl;
 
+    private static final long DUPLICATE_COMMENT_WINDOW_MS = 8000;
+
     public Comment create(@Valid CommentPostDTO commentReq, User user) {
-        Comment comment = commentMapper.fromPostDto(commentReq);
         WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(commentReq.getWorkOrder().getId(), user);
 
+        // Reenvio duplicado (retry de rede, duplo clique que escapou do loading
+        // do botao) do MESMO conteudo pelo mesmo usuario/OS numa janela curta:
+        // devolve o comentario ja existente em vez de criar um relato repetido.
+        if (commentReq.getContent() != null) {
+            Date recentCutoff = new Date(System.currentTimeMillis() - DUPLICATE_COMMENT_WINDOW_MS);
+            Optional<Comment> recentDuplicate = commentRepository
+                    .findFirstByWorkOrder_IdAndUser_IdAndContentAndCreatedAtAfterOrderByCreatedAtDesc(
+                            workOrder.getId(), user.getId(), commentReq.getContent(), recentCutoff);
+            if (recentDuplicate.isPresent()) {
+                int existingFilesCount = recentDuplicate.get().getFiles() == null ? 0 :
+                        recentDuplicate.get().getFiles().size();
+                int incomingFilesCount = commentReq.getFiles() == null ? 0 : commentReq.getFiles().size();
+                if (existingFilesCount == incomingFilesCount) {
+                    return recentDuplicate.get();
+                }
+            }
+        }
+
+        Comment comment = commentMapper.fromPostDto(commentReq);
         comment.setUser(user);
         Comment savedComment = commentRepository.saveAndFlush(comment);
         em.refresh(savedComment);

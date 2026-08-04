@@ -63,23 +63,21 @@ const TAB_CONFIG: { key: string; label: string; fieldNames: string[] }[] = [
     ]
   },
   {
-    key: 'checklist',
-    label: 'Checklist',
-    fieldNames: ['tasks']
-  },
-  {
     key: 'anexos',
     label: 'Anexos',
     fieldNames: ['files', 'image']
   }
 ];
 
-const allKnownFieldNames = TAB_CONFIG.flatMap((tab) => tab.fieldNames);
+const AUTO_MANAGED_FIELD_NAMES = ['tasks'];
+const allKnownFieldNames = [
+  ...TAB_CONFIG.flatMap((tab) => tab.fieldNames),
+  ...AUTO_MANAGED_FIELD_NAMES
+];
 const TAB_HELPERS: Record<string, string> = {
   pedido: 'Defina o problema, prioridade e exigências da ordem.',
   destino: 'Informe cliente, local e equipamento para orientar o atendimento.',
   planejamento: 'Atribua responsáveis, prazo e duração estimada.',
-  checklist: 'Inclua tarefas para padronizar a execução em campo.',
   anexos: 'Adicione imagens e arquivos úteis antes do atendimento.'
 };
 

@@ -23,8 +23,7 @@ import AttachFileTwoToneIcon from '@mui/icons-material/AttachFileTwoTone';
 import { MentionsTextField } from '@jackstenglein/mui-mentions';
 import { getUsersMini } from '../../../../slices/user';
 import { useSearchParams } from 'react-router-dom';
-
-const FIELD_REPORT_PREFIX = '[Relato em campo]';
+import { isFieldReportComment } from './fieldReportUtils';
 
 interface CommentsSectionProps {
   workOrderId: number;
@@ -47,7 +46,7 @@ export default function CommentsSection(props: CommentsSectionProps) {
   const theme = useTheme();
   const comments = commentsByWorkOrder[workOrderId] ?? [];
   const adminComments = comments.filter(
-    (c) => !c.content?.startsWith(FIELD_REPORT_PREFIX)
+    (comment) => !isFieldReportComment(comment)
   );
 
   useEffect(() => {

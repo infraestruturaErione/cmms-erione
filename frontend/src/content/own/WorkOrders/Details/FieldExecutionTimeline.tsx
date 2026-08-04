@@ -14,6 +14,8 @@ import RadioButtonUncheckedTwoToneIcon from '@mui/icons-material/RadioButtonUnch
 import WorkOrder from '../../../../models/owns/workOrder';
 import { useTranslation } from 'react-i18next';
 import {
+  formatDistanceLabel,
+  getDistanceInMeters,
   getFieldExecutionStatus,
   isFieldExecutionFinished
 } from '../fieldExecutionRules';
@@ -48,14 +50,6 @@ const formatDuration = (
   return `${minutes}min`;
 };
 
-const formatCoordinatePair = (
-  lat?: number | null,
-  lng?: number | null
-): string | null => {
-  if (typeof lat !== 'number' || typeof lng !== 'number') return null;
-  return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-};
-
 const compactDetails = (details: (string | null | undefined)[]): string[] =>
   details.filter(Boolean) as string[];
 
@@ -69,6 +63,21 @@ export default function FieldExecutionTimeline({
 
   const getDate = (value?: string | null) =>
     value ? getFormattedDate(value) : t('pending_step');
+
+  const getDistanceDetail = (
+    lat?: number | null,
+    lng?: number | null
+  ): string | null => {
+    const distance = formatDistanceLabel(
+      getDistanceInMeters(
+        lat,
+        lng,
+        workOrder.location?.latitude,
+        workOrder.location?.longitude
+      )
+    );
+    return distance ? t('distance_from_location', { distance }) : null;
+  };
 
   const travelDuration = formatDuration(
     workOrder.departureAt,
@@ -111,7 +120,7 @@ export default function FieldExecutionTimeline({
         ? 'current'
         : 'pending',
       details: compactDetails([
-        formatCoordinatePair(workOrder.departureLat, workOrder.departureLng)
+        getDistanceDetail(workOrder.departureLat, workOrder.departureLng)
       ])
     },
     {
@@ -125,7 +134,7 @@ export default function FieldExecutionTimeline({
         : 'pending',
       details: compactDetails([
         workOrder.checkInAddress,
-        formatCoordinatePair(workOrder.checkInLat, workOrder.checkInLng),
+        getDistanceDetail(workOrder.checkInLat, workOrder.checkInLng),
         travelDuration !== '--'
           ? `${t('travel_duration')}: ${travelDuration}`
           : null
@@ -161,7 +170,7 @@ export default function FieldExecutionTimeline({
         : 'pending',
       details: compactDetails([
         workOrder.checkOutAddress,
-        formatCoordinatePair(workOrder.checkOutLat, workOrder.checkOutLng)
+        getDistanceDetail(workOrder.checkOutLat, workOrder.checkOutLng)
       ])
     },
     {

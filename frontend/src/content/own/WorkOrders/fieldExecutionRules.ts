@@ -1,5 +1,42 @@
 import WorkOrder from '../../../models/owns/workOrder';
 
+// Distancia entre onde o tecnico marcou deslocamento/check-in/check-out e o
+// local esperado da OS. Usado no lugar de latitude/longitude cruas (que nao
+// dizem nada pra quem le) tanto na timeline (FieldExecutionTimeline) quanto
+// no card de detalhe (FieldExecutionSection) - compartilhado aqui pra nao
+// duplicar a formula nos dois arquivos.
+const EARTH_RADIUS_METERS = 6371000;
+export const getDistanceInMeters = (
+  lat1?: number | null,
+  lng1?: number | null,
+  lat2?: number | null,
+  lng2?: number | null
+): number | null => {
+  if (
+    lat1 == null ||
+    lng1 == null ||
+    lat2 == null ||
+    lng2 == null ||
+    Number.isNaN(lat1) ||
+    Number.isNaN(lng1)
+  )
+    return null;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_METERS * c;
+};
+
+export const formatDistanceLabel = (meters: number | null): string | null => {
+  if (meters == null) return null;
+  const rounded = Math.round(meters);
+  return rounded >= 1000 ? `${(rounded / 1000).toFixed(1)} km` : `${rounded} m`;
+};
+
 export type FieldExecutionStatus =
   | 'not_started'
   | 'en_route'
@@ -36,6 +73,10 @@ export interface FieldClosureChecklistItem {
   labelKey: string;
   complete: boolean;
   required: boolean;
+  // false = etapa nao se aplica a esta OS (ex: assinatura nao exigida).
+  // Nesse caso "complete" nao deve ser lido como "foi feito", so como
+  // "nao bloqueia o fechamento" - a UI deve renderizar neutro, nao check verde.
+  applicable: boolean;
 }
 
 // Compartilhado entre a seção de execução em campo e o preview do calendário,
@@ -178,31 +219,38 @@ export const getFieldClosureChecklist = (
     key: 'check-in',
     labelKey: 'check_in_done',
     complete: !!workOrder.checkInAt,
-    required: true
+    required: true,
+    applicable: true
   },
   {
     key: 'check-out',
     labelKey: 'check_out_done',
     complete: !!workOrder.checkOutAt,
-    required: true
+    required: true,
+    applicable: true
   },
   {
     key: 'field-report',
     labelKey: 'field_report_registered',
     complete: hasFieldReport,
-    required: true
+    required: true,
+    applicable: true
   },
   {
     key: 'evidence',
     labelKey: 'evidence_registered',
     complete: hasFieldEvidence || !!workOrder.image || !!workOrder.files?.length,
-    required: false
+    required: false,
+    applicable: true
   },
   {
     key: 'signature',
-    labelKey: 'signature_registered',
-    complete: !workOrder.requiredSignature || !!workOrder.signature,
-    required: !!workOrder.requiredSignature
+    labelKey: workOrder.requiredSignature
+      ? 'signature_registered'
+      : 'signature_not_required',
+    complete: !!workOrder.signature,
+    required: !!workOrder.requiredSignature,
+    applicable: !!workOrder.requiredSignature
   }
 ];
 

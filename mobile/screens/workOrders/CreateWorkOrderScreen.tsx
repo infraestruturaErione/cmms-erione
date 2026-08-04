@@ -55,7 +55,7 @@ export default function CreateWorkOrderScreen({
     showSnackBar(getErrorMessage(err, t('wo_create_failure')), 'error');
   const getFieldsAndShapes = (): [Array<IField>, { [key: string]: any }] => {
     const fields = [
-      ...getWorkOrderFields(t),
+      ...getWorkOrderFields(t).filter((field) => field.name !== 'tasks'),
       ...getCustomFieldsIFields(customFields, CustomFieldEntityType.WORK_ORDER)
     ];
     return getWOFieldsAndShapes(fields, defaultShape);

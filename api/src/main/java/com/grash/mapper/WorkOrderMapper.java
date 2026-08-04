@@ -10,7 +10,7 @@ import org.mapstruct.*;
 
 @Mapper(componentModel = "spring", uses = {PartMapper.class, FileMapper.class, LocationMapper.class
         , TeamMapper.class, UserMapper.class,
-        CustomerMapper.class, AssetMapper.class, CustomFieldValueMapper.class})
+        CustomerMapper.class, AssetMapper.class, CustomFieldValueMapper.class, ChecklistMapper.class})
 public interface WorkOrderMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "assignedTo", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

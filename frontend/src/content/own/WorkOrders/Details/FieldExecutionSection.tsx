@@ -5,41 +5,37 @@ import {
   CardContent,
   Chip,
   CircularProgress,
-  Divider,
   Grid,
   Stack,
   TextField,
   Typography,
   useTheme
 } from '@mui/material';
-import CheckCircleTwoToneIcon from '@mui/icons-material/CheckCircleTwoTone';
 import DirectionsRunTwoToneIcon from '@mui/icons-material/DirectionsRunTwoTone';
 import LoginTwoToneIcon from '@mui/icons-material/LoginTwoTone';
 import LogoutTwoToneIcon from '@mui/icons-material/LogoutTwoTone';
-import RadioButtonUncheckedTwoToneIcon from '@mui/icons-material/RadioButtonUncheckedTwoTone';
-import SendTwoToneIcon from '@mui/icons-material/SendTwoTone';
 import { ReactNode, useContext, useEffect, useState } from 'react';
 import WorkOrder from '../../../../models/owns/workOrder';
-import { useDispatch } from '../../../../store';
+import { useDispatch, useSelector } from '../../../../store';
 import {
   checkInWorkOrder,
   checkOutWorkOrder,
   departWorkOrder
 } from '../../../../slices/workOrder';
-import { createComment, getCommentsByWorkOrder } from '../../../../slices/comment';
 import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
 import { getCoordinates } from '../../../../utils/geolocation';
 import { getErrorMessage } from '../../../../utils/api';
 import FieldExecutionTimeline from './FieldExecutionTimeline';
-import { useSelector } from '../../../../store';
 import { useTranslation } from 'react-i18next';
 import {
+  formatDistanceLabel,
   formatDurationSeconds,
-  getFieldClosureChecklist,
+  getDistanceInMeters,
   getFieldDurations,
   getFieldExecutionSummary,
   RecommendedFieldActionType
 } from '../fieldExecutionRules';
+import { getFieldReportText } from './fieldReportUtils';
 
 interface FieldExecutionSectionProps {
   workOrder: WorkOrder;
@@ -47,40 +43,25 @@ interface FieldExecutionSectionProps {
   getFormattedDate: (date: string | Date) => string;
 }
 
-type FieldAction = 'depart' | 'check-in' | 'check-out' | 'comment';
+const formatDistanceSuffix = (meters: number | null, t: any): string => {
+  const distanceLabel = formatDistanceLabel(meters);
+  return distanceLabel
+    ? ` · ${t('distance_from_location', { distance: distanceLabel })}`
+    : '';
+};
+
+type FieldAction = 'depart' | 'check-in' | 'check-out';
 
 const fieldActionTypes: RecommendedFieldActionType[] = [
   'depart',
   'check-in',
   'check-out'
 ];
-const FIELD_REPORT_PREFIX = '[Relato em campo]';
-const PHOTO_ONLY_FIELD_REPORT_TEXTS = [
-  'Photo evidence registered.',
-  'Evidência fotográfica registrada.',
-  'Evidencia fotografica registrada.'
-];
-
-const normalizeFieldText = (value: string) =>
-  value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase();
-
-const getFieldReportText = (content?: string) => {
-  if (!content?.startsWith(FIELD_REPORT_PREFIX)) return '';
-  const text = content.replace(FIELD_REPORT_PREFIX, '').trim();
-  const normalizedText = normalizeFieldText(text);
-  const isPhotoOnlyText = PHOTO_ONLY_FIELD_REPORT_TEXTS.some(
-    (photoText) => normalizeFieldText(photoText) === normalizedText
-  );
-  return isPhotoOnlyText ? '' : text;
-};
-
-const formatCoordinate = (value?: number | null): string =>
-  typeof value === 'number' ? value.toFixed(6) : '-';
-
+// Aba "Execucao em Campo": status atual, linha do tempo, duracoes e
+// deslocamento/check-in/check-out com distancia calculada (nao mais
+// lat/lng cru). O relato escrito, assinatura e evidencias/fotos ficam na
+// aba separada "Relato em Campo" (FieldReportSection) - Auvo separa essas
+// duas coisas em abas diferentes tambem (Geral vs Relato do usuario).
 export default function FieldExecutionSection({
   workOrder,
   canEdit,
@@ -100,12 +81,7 @@ export default function FieldExecutionSection({
   const [checkOutAddress, setCheckOutAddress] = useState<string>(
     workOrder.checkOutAddress ?? ''
   );
-  const [fieldReport, setFieldReport] = useState<string>('');
   const [now, setNow] = useState<Date>(new Date());
-
-  useEffect(() => {
-    dispatch(getCommentsByWorkOrder(workOrder.id));
-  }, [workOrder.id, dispatch]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 60000);
@@ -158,27 +134,6 @@ export default function FieldExecutionSection({
     }
   };
 
-  const submitFieldReport = async () => {
-    if (!fieldReport.trim()) return;
-
-    setLoadingAction('comment');
-    try {
-      await dispatch(
-        createComment({
-          workOrder: { id: workOrder.id },
-          content: `${FIELD_REPORT_PREFIX} ${fieldReport.trim()}`,
-          files: []
-        })
-      );
-      setFieldReport('');
-      showSnackBar(t('field_report_registered'), 'success');
-    } catch (err) {
-      showSnackBar(getErrorMessage(err), 'error');
-    } finally {
-      setLoadingAction(null);
-    }
-  };
-
   const FieldValue = ({
     label,
     value
@@ -199,16 +154,7 @@ export default function FieldExecutionSection({
   const hasFieldReport = comments.some(
     (comment) => getFieldReportText(comment.content).length > 0
   );
-  const hasFieldEvidence = comments.some(
-    (comment) =>
-      comment.content?.startsWith(FIELD_REPORT_PREFIX) && !!comment.files?.length
-  );
   const summary = getFieldExecutionSummary(workOrder);
-  const checklist = getFieldClosureChecklist(
-    workOrder,
-    hasFieldReport,
-    hasFieldEvidence
-  );
   const durations = getFieldDurations(workOrder, now);
   const recommendedAction = summary.recommendedAction;
   const isRunnableFieldAction = fieldActionTypes.includes(
@@ -338,99 +284,63 @@ export default function FieldExecutionSection({
         </Typography>
       </Box>
 
-      <Grid container spacing={2}>
-        <FieldValue
-          label={t('travel_started')}
-          value={
-            workOrder.departureAt
-              ? getFormattedDate(workOrder.departureAt)
-              : t('pending_step')
-          }
-        />
-        <FieldValue
-          label={t('departure_latitude')}
-          value={formatCoordinate(workOrder.departureLat)}
-        />
-        <FieldValue
-          label={t('departure_longitude')}
-          value={formatCoordinate(workOrder.departureLng)}
-        />
-        <FieldValue
-          label={t('check_in')}
-          value={
-            workOrder.checkInAt
-              ? getFormattedDate(workOrder.checkInAt)
-              : t('pending_step')
-          }
-        />
-        <FieldValue
-          label={t('check_in_latitude')}
-          value={formatCoordinate(workOrder.checkInLat)}
-        />
-        <FieldValue
-          label={t('check_in_longitude')}
-          value={formatCoordinate(workOrder.checkInLng)}
-        />
-        <FieldValue
-          label={t('check_in_address')}
-          value={workOrder.checkInAddress || '-'}
-        />
-        <FieldValue
-          label={t('check_out')}
-          value={
-            workOrder.checkOutAt
-              ? getFormattedDate(workOrder.checkOutAt)
-              : t('pending_step')
-          }
-        />
-        <FieldValue
-          label={t('check_out_latitude')}
-          value={formatCoordinate(workOrder.checkOutLat)}
-        />
-        <FieldValue
-          label={t('check_out_longitude')}
-          value={formatCoordinate(workOrder.checkOutLng)}
-        />
-        <FieldValue
-          label={t('check_out_address')}
-          value={workOrder.checkOutAddress || '-'}
-        />
-      </Grid>
-
-      <Divider sx={{ my: 3 }} />
-
-      <Stack spacing={2}>
-        <Box>
-          <Typography variant="h4" sx={{ mb: 1 }}>
-            {t('closure_readiness')}
-          </Typography>
-          <Grid container spacing={1}>
-            {checklist.map((item) => (
-              <Grid item xs={12} sm={6} md={4} key={item.key}>
-                <Chip
-                  variant={item.complete ? 'filled' : 'outlined'}
-                  color={item.complete ? 'success' : item.required ? 'warning' : 'default'}
-                  icon={
-                    item.complete ? (
-                      <CheckCircleTwoToneIcon />
-                    ) : (
-                      <RadioButtonUncheckedTwoToneIcon />
-                    )
-                  }
-                  label={`${t(item.labelKey)}${
-                    item.required ? ` - ${t('required')}` : ''
-                  }`}
-                  sx={{ maxWidth: '100%' }}
-                />
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-
+      <Box
+        sx={{
+          p: 2,
+          borderRadius: 1,
+          border: `1px solid ${theme.palette.divider}`
+        }}
+      >
+        <Typography variant="overline" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+          {t('travel_and_location')}
+        </Typography>
         <Grid container spacing={2}>
+          <FieldValue
+            label={t('travel_started')}
+            value={
+              workOrder.departureAt
+                ? getFormattedDate(workOrder.departureAt)
+                : t('pending_step')
+            }
+          />
+          <FieldValue
+            label={t('check_in')}
+            value={
+              workOrder.checkInAt
+                ? `${getFormattedDate(workOrder.checkInAt)}${formatDistanceSuffix(
+                    getDistanceInMeters(
+                      workOrder.checkInLat,
+                      workOrder.checkInLng,
+                      workOrder.location?.latitude,
+                      workOrder.location?.longitude
+                    ),
+                    t
+                  )}`
+                : t('pending_step')
+            }
+          />
+          <FieldValue
+            label={t('check_out')}
+            value={
+              workOrder.checkOutAt
+                ? `${getFormattedDate(workOrder.checkOutAt)}${formatDistanceSuffix(
+                    getDistanceInMeters(
+                      workOrder.checkOutLat,
+                      workOrder.checkOutLng,
+                      workOrder.location?.latitude,
+                      workOrder.location?.longitude
+                    ),
+                    t
+                  )}`
+                : t('pending_step')
+            }
+          />
+        </Grid>
+        <Grid container spacing={2} sx={{ mt: 0.5 }}>
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
+              size="small"
               label={t('check_in_address')}
               value={checkInAddress}
               disabled={!!workOrder.checkInAt || !canEdit}
@@ -440,6 +350,7 @@ export default function FieldExecutionSection({
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
+              size="small"
               label={t('check_out_address')}
               value={checkOutAddress}
               disabled={!!workOrder.checkOutAt || !canEdit}
@@ -447,34 +358,7 @@ export default function FieldExecutionSection({
             />
           </Grid>
         </Grid>
-
-        <TextField
-          fullWidth
-          multiline
-          minRows={3}
-          label={t('field_report')}
-          placeholder={t('field_report_placeholder')}
-          value={fieldReport}
-          disabled={!canEdit}
-          onChange={(event) => setFieldReport(event.target.value)}
-        />
-        <Box display="flex" justifyContent="flex-end">
-          <Button
-            variant="outlined"
-            startIcon={
-              loadingAction === 'comment' ? (
-                <CircularProgress size="1rem" />
-              ) : (
-                <SendTwoToneIcon />
-              )
-            }
-            disabled={!canEdit || !fieldReport.trim() || !!loadingAction}
-            onClick={submitFieldReport}
-          >
-            {t('register_field_report')}
-          </Button>
-        </Box>
-      </Stack>
+      </Box>
     </Box>
   );
 }

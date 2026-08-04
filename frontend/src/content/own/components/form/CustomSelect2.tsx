@@ -1,4 +1,5 @@
 import {
+  Alert,
   Autocomplete,
   Box,
   Card,
@@ -815,6 +816,9 @@ export const CustomSelect = ({
             value: category.id
           };
         }) ?? [];
+      const selectedCategoryDefaultChecklist = categories[field.category]?.find(
+        (category) => category.id === Number(fieldValue?.value)
+      )?.defaultChecklist;
       onOpen = () => fetchCategories(field.category);
 
       return (
@@ -947,6 +951,19 @@ export const CustomSelect = ({
               }
             }}
           />
+          {field.category === 'work-order-categories' &&
+            selectedCategoryDefaultChecklist && (
+              <Alert severity="info" sx={{ mt: 1.5, alignItems: 'center' }}>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  {t('default_checklist_applied', {
+                    name: selectedCategoryDefaultChecklist.name
+                  })}
+                </Typography>
+                <Typography variant="body2">
+                  {t('default_checklist_applied_helper')}
+                </Typography>
+              </Alert>
+            )}
         </>
       );
     case 'priority':
@@ -993,17 +1010,41 @@ export const CustomSelect = ({
         </>
       );
     case 'task':
+      const selectedCategoryId = Number(
+        ((formik.values as IHash<any>).category as OptionType | undefined)
+          ?.value
+      );
+      const defaultChecklist = categories['work-order-categories']?.find(
+        (category) => category.id === selectedCategoryId
+      )?.defaultChecklist;
+      const additionalItemsCount = Array.isArray(fieldValue)
+        ? fieldValue.length
+        : 0;
+
       return (
         <>
           <SelectTasksModal
             open={openTask}
             onClose={() => setOpenTask(false)}
             selected={fieldValue ?? []}
+            excludedChecklistId={defaultChecklist?.id}
             onSelect={(tasks) => {
               handleChange(formik, field.name, tasks);
               return Promise.resolve();
             }}
           />
+          {defaultChecklist && (
+            <Alert severity="info" sx={{ mb: 1.5, alignItems: 'center' }}>
+              <Typography variant="subtitle2" fontWeight={700}>
+                {t('default_checklist_applied', {
+                  name: defaultChecklist.name
+                })}
+              </Typography>
+              <Typography variant="body2">
+                {t('default_checklist_applied_helper')}
+              </Typography>
+            </Alert>
+          )}
           <Card onClick={() => setOpenTask(true)} sx={{ cursor: 'pointer' }}>
             <Box
               sx={{
@@ -1017,10 +1058,18 @@ export const CustomSelect = ({
               <AssignmentTwoToneIcon />
               <Box>
                 <Typography variant="h4" color="primary">
-                  {fieldValue ? fieldValue.length : null} {t('tasks')}
+                  {defaultChecklist
+                    ? t('additional_checklist_items', {
+                        count: additionalItemsCount
+                      })
+                    : `${additionalItemsCount} ${t('tasks')}`}
                 </Typography>
                 <Typography variant="subtitle1">
-                  {t('assign_tasks_description')}
+                  {t(
+                    defaultChecklist
+                      ? 'additional_checklist_items_helper'
+                      : 'assign_tasks_description'
+                  )}
                 </Typography>
               </Box>
               <IconButton>

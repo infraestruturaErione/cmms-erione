@@ -28,6 +28,9 @@ export default interface WorkOrder extends WorkOrderBase {
   parentRequest: Request;
   parentPreventiveMaintenance: PreventiveMaintenance;
   signature: string;
+  signerName?: string;
+  signerDocument?: string;
+  mileageTraveled?: number;
   feedback: string;
   requiredSignature: boolean;
   status: WorkOrderStatus;

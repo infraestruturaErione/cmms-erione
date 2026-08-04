@@ -4,6 +4,19 @@ export default interface Category extends Audit {
   id: number;
   name: string;
   description: string;
+  // Campos de "Tipo de Tarefa" - so preenchidos em categorias de Ordem de
+  // Servico (WorkOrderCategory). Nas demais categorias (Ativo, Custo, etc)
+  // ficam undefined.
+  toleranceMinutes?: number;
+  defaultEstimatedDuration?: number;
+  defaultChecklist?: { id: number; name: string };
+  requireSignature?: boolean;
+  requireSignerName?: boolean;
+  requireSignerDocument?: boolean;
+  requirePhotos?: boolean;
+  requireFieldReport?: boolean;
+  requireMileage?: boolean;
+  requireChecklistCompletion?: boolean;
 }
 export interface CategoryMiniDTO {
   id: number;
