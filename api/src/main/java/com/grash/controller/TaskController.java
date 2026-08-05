@@ -47,9 +47,11 @@ public class TaskController {
     @PreAuthorize("permitAll()")
 
     public TaskShowDTO getById(@PathVariable("id") Long id, HttpServletRequest req) {
+        User user = userService.whoami(req);
         Optional<Task> optionalTask = taskService.findById(id);
         if (optionalTask.isPresent()) {
             Task savedTask = optionalTask.get();
+            checkTaskAccess(savedTask, user, false);
             return taskMapper.toShowDto(savedTask);
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
@@ -58,10 +60,9 @@ public class TaskController {
     @PreAuthorize("permitAll()")
 
     public Collection<TaskShowDTO> getByWorkOrder(@PathVariable("id") Long id, HttpServletRequest req) {
-        Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
-        if (optionalWorkOrder.isPresent()) {
-            return taskService.findByWorkOrder(id).stream().map(taskMapper::toShowDto).collect(Collectors.toList());
-        } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
+        User user = userService.whoami(req);
+        workOrderService.checkAccessToWorkOrderId(id, user);
+        return taskService.findByWorkOrder(id).stream().map(taskMapper::toShowDto).collect(Collectors.toList());
     }
 
     @GetMapping("/preventive-maintenance/{id}")
@@ -118,9 +119,10 @@ public class TaskController {
                 StringBuilder value = new StringBuilder();
                 if (taskBase.getTaskType().equals(TaskType.SUBTASK)) {
                     value.append("OPEN");
-                } else if (taskBase.getTaskType().equals(TaskType.INSPECTION)) {
-                    value.append("FLAG");
                 }
+                // INSPECTION fica vazio ate o tecnico responder - ver comentario em
+                // WorkOrderService.applyCategoryDefaults. Mesmo criterio nos dois
+                // caminhos (checklist da categoria e itens adicionados a mao).
                 Task newTask = new Task(taskBase, workOrder, preventiveMaintenance, value.toString());
                 Task createdTask = taskService.create(newTask);
                 resultTasks.add(createdTask);
@@ -209,6 +211,7 @@ public class TaskController {
         Optional<Task> optionalTask = taskService.findById(id);
 
         if (optionalTask.isPresent()) {
+            checkTaskAccess(optionalTask.get(), user, true);
             Task patchedTask = taskService.update(id, task);
             Collection<Workflow> workflows =
                     workflowService.findByMainConditionAndCompany(WFMainCondition.TASK_UPDATED,
@@ -226,10 +229,29 @@ public class TaskController {
 
         Optional<Task> optionalTask = taskService.findById(id);
         if (optionalTask.isPresent()) {
+            checkTaskAccess(optionalTask.get(), user, true);
             taskService.delete(id);
             return new ResponseEntity(new SuccessResponse(true, "Deleted successfully"),
                     HttpStatus.OK);
         } else throw new CustomException("Task not found", HttpStatus.NOT_FOUND);
+    }
+
+    private void checkTaskAccess(Task task, User user, boolean requireEdit) {
+        if (task.getWorkOrder() != null) {
+            WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(task.getWorkOrder().getId(), user);
+            if (requireEdit && !workOrder.canBeEditedBy(user)) {
+                throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+            }
+            return;
+        }
+
+        if (task.getCompany() == null || !task.getCompany().getId().equals(user.getCompany().getId())) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        if (requireEdit && task.getPreventiveMaintenance() != null
+                && !task.getPreventiveMaintenance().canBeEditedBy(user)) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
     }
 
 }

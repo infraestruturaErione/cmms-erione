@@ -64,7 +64,7 @@ public class ChecklistController {
     @PreAuthorize("hasRole('ROLE_CLIENT')")
     Checklist create(@Parameter(description = "Checklist to create") @Valid @RequestBody ChecklistPostDTO checklistReq, HttpServletRequest req) {
         User user = userService.whoami(req);
-        if (user.getRole().getViewPermissions().contains(PermissionEntity.SETTINGS)
+        if (canManageChecklists(user)
                 && user.getCompany().getSubscription().getSubscriptionPlan().getFeatures().contains(PlanFeatures.CHECKLIST)) {
             return checklistService.createPost(checklistReq, user.getCompany());
         } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
@@ -82,7 +82,7 @@ public class ChecklistController {
         if (optionalChecklist.isPresent()) {
             Checklist savedChecklist = optionalChecklist.get();
             checkAccessToChecklist(savedChecklist, user);
-            if (user.getRole().getViewPermissions().contains(PermissionEntity.SETTINGS)) {
+            if (canManageChecklists(user)) {
                 return checklistService.update(id, checklist, user.getCompany());
             } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
         } else throw new CustomException("Checklist not found", HttpStatus.NOT_FOUND);
@@ -98,7 +98,7 @@ public class ChecklistController {
         if (optionalChecklist.isPresent()) {
             Checklist savedChecklist = optionalChecklist.get();
             checkAccessToChecklist(savedChecklist, user);
-            if (user.getRole().getViewPermissions().contains(PermissionEntity.SETTINGS)) {
+            if (canManageChecklists(user)) {
                 checklistService.delete(id);
                 return new ResponseEntity<>(new SuccessResponse(true, "Deleted successfully"),
                         HttpStatus.OK);
@@ -109,6 +109,15 @@ public class ChecklistController {
     private void checkAccessToChecklist(Checklist checklist, User user) {
         if (!checklist.getCompanySettings().getCompany().getId().equals(user.getCompany().getId()))
             throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+    }
+
+    // O checklist de uma categoria de OS agora e' criado/editado direto na tela
+    // de Categorias, entao quem tem permissao de CATEGORIES precisa conseguir
+    // gravar o checklist por baixo mesmo sem ter SETTINGS - sem isso a criacao
+    // da categoria falhava silenciosamente com 403 pra esses usuarios.
+    private boolean canManageChecklists(User user) {
+        return user.getRole().getViewPermissions().contains(PermissionEntity.SETTINGS)
+                || user.getRole().getCreatePermissions().contains(PermissionEntity.CATEGORIES);
     }
 }
 

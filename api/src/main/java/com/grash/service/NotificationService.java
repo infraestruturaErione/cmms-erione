@@ -62,6 +62,14 @@ public class NotificationService {
             }
     }
 
+    public void notifyWorkOrderChanged(Collection<User> users, Long workOrderId) {
+        users.stream()
+                .collect(Collectors.toMap(User::getId, user -> user, (first, second) -> first))
+                .values()
+                .forEach(user -> messagingTemplate.convertAndSend(
+                        "/work-orders/" + user.getId(), workOrderId));
+    }
+
     public Notification update(Long id, NotificationPatchDTO notificationsPatchDTO) {
         if (notificationRepository.existsById(id)) {
             Notification savedNotification = notificationRepository.findById(id).get();

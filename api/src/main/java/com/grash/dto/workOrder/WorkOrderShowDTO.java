@@ -79,4 +79,15 @@ public class WorkOrderShowDTO extends WorkOrderBaseShowDTO {
 
     @Schema(description = "Address where the technician checked out")
     private String checkOutAddress;
+
+    // Estes 3 eram gravados no banco (via change-status) mas nunca voltavam na
+    // resposta - a tela de assinatura no web/mobile lia sempre undefined.
+    @Schema(description = "Name of the person who signed the work order")
+    private String signerName;
+
+    @Schema(description = "Document (CPF/CNPJ) of the person who signed")
+    private String signerDocument;
+
+    @Schema(description = "Mileage traveled to complete the work order")
+    private Double mileageTraveled;
 }

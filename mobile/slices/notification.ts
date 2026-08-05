@@ -5,7 +5,7 @@ import Notification from '../models/notification';
 import api from '../utils/api';
 import { getInitialPage, Page, SearchCriteria } from '../models/page';
 import { revertAll } from '../utils/redux';
-import { refreshWorkOrderById } from './workOrder';
+import { refreshCurrentWorkOrders, refreshWorkOrderById } from './workOrder';
 
 const basePath = 'notifications';
 
@@ -176,7 +176,9 @@ export const newReceivedNotification =
       dispatch(
         slice.actions.newReceivedNotification({ notification })
       );
-      if (notification.notificationType === 'WORK_ORDER')
+      if (notification.notificationType === 'WORK_ORDER') {
         dispatch(refreshWorkOrderById(notification.resourceId));
+        dispatch(refreshCurrentWorkOrders());
+      }
     };
 export default slice;

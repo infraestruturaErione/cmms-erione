@@ -18,6 +18,9 @@ public class CustomerPatchDTO extends BasicInfos {
     @Schema(description = "Type of vendor/customer")
     private String vendorType;
 
+    @Schema(description = "City where the customer is located, used to group/filter work orders in the bulk report")
+    private String city;
+
     @Schema(description = "Description")
     private String description;
 

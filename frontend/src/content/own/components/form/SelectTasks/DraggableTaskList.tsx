@@ -22,7 +22,7 @@ export type DraggableListProps = {
   onTypeChange: (value: TaskType, id: number) => void;
   onAssetChange: (asset: AssetMiniDTO, id: number) => void;
   onMeterChange: (meter: MeterMiniDTO, id: number) => void;
-  onRemove: (id: number) => void;
+  onRemove: (id: number, anchorEl?: HTMLElement) => void;
   onUserChange: (user: UserMiniDTO, id: number) => void;
   onChoicesChange: (choices: string[], id: number) => void;
 };

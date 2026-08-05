@@ -513,3 +513,231 @@ Refetch de focus/visibility agora também dispara `getCalendarWorkOrders` quando
 
 - `frontend`: lint direcionado passou.
 - `frontend`: `npm run build` passou com os mesmos avisos conhecidos de source map em dependencias e CRA/babel.
+## 2026-08-04 - Auditoria MVP operacional, realtime, assinatura e seguranca
+
+- Fluxo admin -> tecnico validado ponta a ponta com checklist, relato, evidencia, check-in/out e assinatura.
+- Atualizacao de atribuicao corrigida via WebSocket/STOMP com fallback de polling no mobile.
+- CORS do WebSocket passou a aceitar as origens extras configuradas, incluindo Expo Web em `8081`.
+- Endpoints de checklist e upload ligado a tarefa passaram a bloquear acesso a OS nao atribuida.
+- Assinatura mobile passa a ser salva ao finalizar o traco.
+- Configuracao Android restaurada para `com.cmms.erione`, `1.0.41 (34)` e API de distribuicao `https://cmms.erione.com.br/api`.
+- APK/AAB ficaram explicitamente pendentes para 2026-08-05; toolchain portatil e copia curta de build foram preservados.
+- Relatorio completo: `dev-docs/Auditoria-MVP-Operacional-2026-08-04.md`.
+
+## 2026-08-05 - Escopo de OS por tecnico, refresh do mobile, checklist 0%, KPIs e assinante ausente
+
+Pedido do usuario: sistema tinha que ficar funcional de verdade (fluxo sem travar,
+OS nao sumir, campos certos no app), escopo de OS precisa ser so do tecnico
+selecionado (nao global), corrigir bug do mobile que exigia trocar de aba pra OS
+aparecer, e melhorar o layout da lista.
+
+### Escopo de OS por tecnico (critico)
+
+- Tecnico enxergava TODAS as OS da empresa, nao so as atribuidas a ele.
+- Causa: `Helper.getDefaultRoles()` incluia `WORK_ORDERS` em `viewOtherPermissions`
+  do papel padrao de Tecnico. `WorkOrderService.getSearchCriteria()` remove o
+  filtro por usuario quando essa permissao esta presente.
+- Corrigido em `api/src/main/java/com/grash/utils/Helper.java`: `WORK_ORDERS`
+  removido de `viewOtherPermissions` do Tecnico (Locais/Ativos/Pecas continuam
+  globais, pois o tecnico precisa consultar o cadastro).
+- `RoleService.updateDefaultRoles()` roda em todo boot e reescreve o papel padrao
+  a partir do `Helper.java` — por isso o fix precisou ser no codigo, nao so no banco.
+- Validado: tecnico so ve OS atribuidas a ele/seu time; acesso direto por ID a uma
+  OS nao atribuida continua bloqueado (HTTP 403).
+
+### Mobile: OS so aparecia depois de trocar de aba
+
+- `HomeScreen.tsx` buscava dados num `useEffect(..., [])` de montagem unica. Como
+  a Home fica montada o tempo todo no tab navigator, uma OS atribuida depois do
+  app aberto so aparecia se o tecnico trocasse de aba e voltasse.
+- Corrigido com `useFocusEffect` (mesmo padrao ja usado em `WorkOrdersScreen.tsx`):
+  recarrega toda vez que a tela ganha foco, sem depender de troca de aba.
+
+### Checklist aparecia parcialmente preenchido antes do tecnico tocar em nada
+
+- Itens `INSPECTION` recem-criados (via checklist padrao da Categoria ou
+  adicionados a mao) nasciam com valor inicial `"FLAG"` em vez de vazio.
+  `FLAG` e uma resposta legitima do tecnico ("sinalizar"), nao um placeholder —
+  isso fazia um checklist novo aparecer como parcialmente concluido.
+- Corrigido em `WorkOrderService.applyCategoryDefaults()` e `TaskController`
+  (caminho de criacao manual), ambos agora comecam `INSPECTION` vazio.
+
+### Assinante, documento e quilometragem sumiam na tela do admin (critico)
+
+- Descoberto durante o teste ponta a ponta do fluxo do tecnico: `signerName`,
+  `signerDocument` e `mileageTraveled` eram gravados corretamente no banco pelo
+  `PATCH /work-orders/{id}/change-status`, mas `GET /work-orders/{id}` devolvia
+  `undefined` nos tres campos (so `signature` ia e voltava certo).
+- Causa: os campos existem na entidade `WorkOrder` e no DTO de entrada
+  (`WorkOrderChangeStatusDTO`), mas nunca foram adicionados ao DTO de saida
+  (`WorkOrderShowDTO`). O card de assinatura no web/mobile le esses campos
+  direto da OS, entao nunca aparecia mesmo com o dado capturado.
+- Corrigido adicionando os 3 campos a `WorkOrderShowDTO`. Isso corrige/atualiza a
+  afirmacao anterior em `Auditoria-MVP-Operacional-2026-08-04.md` de que isso ja
+  estava confirmado — nao estava.
+
+### Layout da lista de OS (web)
+
+- Novo componente `WorkOrderKpiCards.tsx`: 3 cards no topo da lista (Ativas / Em
+  andamento / Concluidas), contagem via o mesmo endpoint de busca que a lista usa
+  (respeita o escopo do usuario logado, tecnico ve so a propria contagem).
+- Card "Atrasadas" avaliado e descartado: filtrar por `dueDate` no
+  `POST /work-orders/search` quebra no backend (`HibernateException` convertendo
+  `String` para `Timestamp`, HTTP 500) — o card ficava preso num skeleton de
+  carregamento. Fica pendente para quando o endpoint suportar filtro de data.
+- Status (`WorkOrderStatusCell.tsx`) e prioridade (`PriorityWrapper.tsx`)
+  redesenhados como chip suave (fundo `alpha(cor, 0.12-0.14)` + texto na cor
+  cheia), no lugar de icone solto / fundo solido pesado.
+- Linhas da tabela (`CustomDatagrid2`) com mais respiro vertical (`py: 1.5`).
+
+### Validado ao vivo
+
+- Fluxo completo do tecnico (criacao -> atribuicao -> visibilidade -> deslocamento
+  -> check-in -> checklist -> relato -> check-out -> conclusao com assinatura)
+  rodado via API real, com OS de teste limpa ao final.
+- `GET /work-orders/{id}` do admin confirmado retornando `signerName: "Pedro Silva"`,
+  `signerDocument`, `mileageTraveled: 42.5` apos o fix.
+- KPIs conferidos contra contagem direta no Postgres.
+- Chip de status/prioridade e altura de linha confirmados no DOM real
+  (`localhost:3000/app/work-orders`), console sem erros.
+- `docker compose build api` e `docker compose build frontend`: sucesso.
+
+### Categoria e Checklist unificados numa tela so
+
+Pedido do usuario: cadastrar uma categoria de OS e montar o questionario dela
+eram duas telas completamente separadas (`Categorias > Ordens de Serviço` só
+tinha um dropdown pra ESCOLHER um checklist já criado em outro lugar;
+`Configurações > Checklists de Atendimento` era onde de fato se montavam as
+perguntas). Pra configurar um "Tipo de Tarefa" do zero era obrigatorio ir e
+voltar entre as duas.
+
+- `CategoriesLayout.tsx`: o dropdown de checklist foi substituido por um editor
+  de perguntas embutido no proprio modal de categoria (reaproveita o componente
+  `SelectTasksModal` ja usado em Configurações > Checklists, só que sem os
+  campos de nome/descrição/categoria do checklist — a categoria de OS já tem
+  os seus).
+- Ao salvar a categoria (criar ou editar), o `Checklist` por baixo é
+  criado/atualizado automaticamente (`persistCategoryChecklist`, usa
+  `addChecklist`/`editChecklist` do slice existente) usando o nome da própria
+  categoria — o usuário nunca mais precisa saber que existe um "Checklist"
+  separado. Editar de novo atualiza o MESMO registro (não duplica).
+- `slices/checklist.ts`: `addChecklist`/`editChecklist` passaram a devolver o
+  checklist criado/atualizado (mesmo padrão já usado em `addCategory`),
+  necessário pra pegar o id recém-criado antes de salvar a categoria.
+- A tela separada `Configurações > Checklists de Atendimento` continua
+  existindo (é reaproveitada por Workflows), só deixou de ser obrigatória no
+  fluxo normal de cadastro de categoria.
+- Validado ao vivo: criei categoria com 1 pergunta pelo modal novo, sem visitar
+  a tela de Checklists; editei e adicionei uma 2a pergunta; conferido no
+  Postgres que é o MESMO `checklist.id` sendo atualizado (sem duplicar); criei
+  uma OS dessa categoria via API e as 2 perguntas vieram auto-preenchidas
+  (`applyCategoryDefaults`, já existente); dados de teste removidos ao final.
+- `docker compose build frontend`: sucesso.
+
+### Fotos nao apareciam no relatorio PDF de uma OS individual
+
+Dois bugs em cadeia, achados a partir de um PDF real gerado pelo usuario onde
+tudo aparecia certo (checklist, assinatura, relato) menos as 2 fotos do relato
+em campo - so o nome do arquivo aparecia como texto.
+
+1. **Mobile** (`mobile/screens/workOrders/FieldExecutionSection.tsx`,
+   `submitEvidence`): chamava `uploadFiles(evidenceFiles, [], false)`, mas a
+   assinatura de `uploadFiles` e' `(files, images, hidden)` onde `files` sobe
+   com `type=OTHER` e `images` com `type=IMAGE`. As fotos do relato em campo
+   iam no parametro errado (`files`), entao gravavam `type=OTHER` no banco -
+   corrigido pra `uploadFiles([], evidenceFiles, false)`.
+2. **Backend** (`WorkOrderController.addEvidenceItem`): mesmo com
+   `type=IMAGE` certo, a foto ainda nao aparecia. O PDF e' montado com
+   `HtmlConverter.convertToPdf` DENTRO do container da API, e a URL da
+   evidencia era uma URL assinada do MinIO com host `localhost:9000` - isso so'
+   funciona pro navegador do usuario (que tem a porta 9000 mapeada pro host);
+   de dentro do proprio container da API, `localhost:9000` e' o container, nao
+   o MinIO (`wget` de dentro do container confirmou `Connection refused`). A
+   foto falhava silenciosamente ao carregar, sem erro visivel. Corrigido
+   baixando os bytes via `storageService.download(file.getPath())` e
+   embutindo como data URI base64 no `<img src>`, mesmo esquema que ja' era
+   usado com sucesso pra `workOrder.signature`.
+- Validado: corrigido `type` dos 2 arquivos de teste direto no banco (WO
+  WO000026/id 703), regerado o PDF via `GET /work-orders/report/703`, e as
+  duas fotos apareceram na secao "Evidencias de campo" (PDF foi de 17KB pra
+  2,5MB, confirmando as imagens embutidas).
+- `docker compose build api`: sucesso.
+
+### Relatorio em massa por cidade (feature que estava adiada desde a rodada do PDF individual)
+
+Pedido do usuario: dentro do Relatorio Operacional de OS, um campo "Cidade"
+que traz todas as OS CONCLUIDAS daquela cidade num periodo, no mesmo padrao
+visual do relatorio individual (com fotos, checklist, assinatura).
+
+- **Cidade no Cliente**: nao existia campo estruturado de cidade em lugar
+  nenhum (só endereco em texto livre). Adicionado `city` em `Customer`
+  (migration `2026_08_05_00000000001_add_customer_city.xml`), no
+  `CustomerPatchDTO`/`CustomerShowDTO`, e no formulario de Cliente
+  (`frontend/src/content/own/VendorsAndCustomers/Customers.tsx` — campo,
+  coluna da tabela, campo de detalhe e busca).
+- **Bug pre-existente achado no caminho (nao era da minha mudanca)**:
+  `PATCH /customers/{id}` retornava HTTP 500 pra QUALQUER edicao, sempre.
+  `CustomerPatchDTO` herda `id` de `CompanyAudit` (via `BasicInfos`); como o
+  corpo do PATCH nunca manda `id`, o MapStruct sobrescrevia o id real da
+  entidade com `null`, e o Hibernate rejeitava o flush ("identifier ...
+  altered from null to X"). Corrigido com `@Mapping(target = "id", ignore =
+  true)` em `CustomerMapper.updateCustomer`. `VendorPatchDTO` tem a MESMA
+  heranca e provavelmente o MESMO bug - sinalizado como tarefa separada
+  (nao corrigido nesta rodada, e' um cadastro diferente).
+- **Relatorio em massa**: `WorkOrderController` ganhou
+  `POST /work-orders/report/bulk` (`{city, periodField, start, end}`).
+  Busca todos os Clientes daquela cidade (case-insensitive, escopado por
+  empresa), depois todas as OS com `status=COMPLETE` desses clientes no
+  periodo (campo de data selecionavel: `createdAt`/`completedOn`/
+  `checkInAt` - mesmo enum ja usado no relatorio operacional). A logica de
+  montar UMA OS pro PDF (evidencias em base64, checklist, timeline) foi
+  extraida do endpoint individual (`buildWorkOrderReportVariables`) pra ser
+  chamada em loop sem duplicar codigo; variaveis de empresa (logo, moeda,
+  fuso) ficaram em `buildCompanyReportVariables`, calculadas uma vez só.
+  Novo template `work-orders-bulk-report.html`: capa com cidade/total/
+  periodo, depois cada OS numa secao com quebra de pagina antes dela
+  (`page-break-before`), reaproveitando o mesmo layout/CSS do relatorio
+  individual.
+- Frontend: novo card "Relatório em massa por cidade" dentro da tela de
+  Relatorio Operacional de OS (`frontend/src/content/own/Reports/
+  WorkOrderOperationalReport/index.tsx`) — campo de periodo (padrao
+  `COMPLETED_ON`, faz mais sentido que `CREATED_AT` pra "OS concluidas"),
+  datas inicial/final e botao "Gerar relatório em massa". Independente dos
+  filtros granulares da tabela (Cliente/Local/Equipamento/Status/Tecnico) -
+  o relatorio em massa e' sempre por cidade + status concluido, nao tem
+  relacao com o que esta filtrado na tabela.
+- **Ajuste pedido pelo usuario apos a primeira versao**: campo de cidade
+  era texto livre (`TextField`); trocado por um dropdown de Cliente (mesma
+  lista `customersMini` ja usada no filtro "Cliente" de cima), que resolve
+  a cidade automaticamente a partir do cliente escolhido - sem o usuario
+  precisar digitar/saber o nome exato da cidade. `CustomerMiniDTO` (backend
+  e frontend) ganhou o campo `city`. Mostra "Cidade: X" como confirmacao,
+  ou aviso se o cliente escolhido nao tem cidade cadastrada.
+- **Bug achado e corrigido nesse ajuste**: o dropdown do MUI entrega o
+  `value` do item selecionado com o TIPO ORIGINAL (`number`, ja que
+  `customer.id` e' number), nao como string, mesmo o estado sendo tipado
+  `string`. A comparacao `String(customer.id) === bulkFilters.customerId`
+  comparava `"1" === 1` (sempre falso), entao a cidade nunca resolvia -
+  o aviso de "cliente sem cidade" aparecia ate pro cliente que TINHA
+  cidade. Corrigido comparando `String(customer.id) === String(...)` dos
+  dois lados.
+- Validado ao vivo: `PATCH /customers/1` com `city` persistiu; `POST
+  /work-orders/report/bulk` pra "Santa Branca" trouxe as 2 OS concluidas
+  certas (WO000009, WO000022), cada uma com secao completa (uma delas com
+  foto embutida, a outra sem porque o arquivo de teste tinha `type=OTHER` -
+  comportamento correto, nao bug); testado tambem clicando o botao de
+  verdade na tela, com o dropdown de Cliente (nao mais texto livre),
+  confirmando "Cidade: Santa Branca" no helperText antes de gerar
+  (`POST /work-orders/report/bulk` → 200, sem erro no console).
+- `docker compose build api` e `docker compose build frontend`: sucesso
+  (2 rodadas de build no frontend - v1 com texto livre, v2 com o dropdown +
+  fix do bug de tipo).
+
+### Pendente (nao corrigido nesta rodada, por decisao explicita do usuario ou escopo)
+
+- Filtro de `dueDate` no `POST /work-orders/search` (HTTP 500) — motivo de o card
+  "Atrasadas" ter sido removido em vez de consertado.
+- `VendorPatchDTO` provavelmente tem o mesmo bug de `id` nulo que quebrava
+  `PATCH /customers/{id}` — sinalizado, nao corrigido (cadastro diferente).
+- Deploy em producao: alteracoes desta secao existem so localmente ate aqui;
+  producao segue no commit `4b59718`, sem o fix de escopo do tecnico.

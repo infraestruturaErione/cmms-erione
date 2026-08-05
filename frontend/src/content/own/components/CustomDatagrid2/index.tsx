@@ -760,6 +760,9 @@ function CustomDatagrid2<TData extends RowData>({
                             overflow: 'hidden',
                             color: textColor,
                             textOverflow: 'ellipsis',
+                            // Mais respiro vertical: a lista estava muito comprimida
+                            // e dificil de varrer com os olhos.
+                            py: 1.5,
                             position: isPinned ? 'sticky' : undefined,
                             left: isPinned ? stickyLeft : undefined,
                             backgroundColor: isPinned ? PINNED_BG : undefined,

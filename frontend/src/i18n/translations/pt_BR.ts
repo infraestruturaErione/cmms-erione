@@ -286,6 +286,8 @@ const ptBRJSON = {
   add_images: 'Adicionar Imagens',
   tasks: 'Checklist de Execução',
   task_type: 'Tipo de Tarefa',
+  in_progress_work_orders: 'Em andamento',
+  overdue_work_orders: 'Atrasadas',
   select_task_type: 'Selecionar Tipo de Tarefa',
   default_checklist_applied: 'Checklist padrão: {{name}}',
   default_checklist_applied_helper:
@@ -386,6 +388,12 @@ const ptBRJSON = {
   task_type_default_duration_helper:
     'Sugere o valor pro campo de duração estimada que já existe na OS',
   task_type_default_checklist: 'Questionário padrão',
+  task_type_checklist_empty: 'Nenhuma pergunta adicionada ainda',
+  task_type_checklist_section_helper:
+    'Esses itens aparecem automaticamente em toda OS desta categoria',
+  task_type_checklist_add_item: 'Adicionar pergunta',
+  task_type_checklist_confirm_remove_item:
+    'Remover esta pergunta do checklist?',
   task_type_requirements_section: 'Obrigatoriedades no fechamento',
   task_type_require_signature: 'Colher assinatura',
   task_type_require_signer_name: 'Exigir nome do assinante',
@@ -581,6 +589,15 @@ const ptBRJSON = {
     'Acompanhe a execucao em campo por cliente, local, equipamento, status e periodo.',
   operational_report_page_summary_note:
     'Nesta fase, os cards de resumo sao calculados somente sobre a pagina carregada.',
+  bulk_report_by_city_title: 'Relatório em massa por cidade',
+  bulk_report_by_city_helper:
+    'Escolha um cliente: o relatório traz as OS concluídas de todos os clientes da mesma cidade, no período selecionado.',
+  bulk_report_resolved_city: 'Cidade: {{city}}',
+  bulk_report_customer_no_city:
+    'Esse cliente não tem cidade cadastrada — edite o cliente antes de gerar',
+  bulk_report_period_required:
+    'Selecione data inicial e final antes de gerar o relatório em massa',
+  generate_bulk_report: 'Gerar relatório em massa',
   period_field: 'Campo de periodo',
   CREATED_AT: 'Criado em',
   COMPLETED_ON: 'Concluido em',
@@ -1032,6 +1049,8 @@ const ptBRJSON = {
   website: 'Website',
   customer_type: 'Tipo de cliente',
   customer_type_description: 'ex. Encanamento, Elétrica',
+  customer_city_helper:
+    'Usado pra agrupar as OS concluídas dessa cidade no relatório em massa',
   customer_description_description:
     'Descreva o propósito deste cliente em algumas linhas...',
   billing_information: 'Informações de Cobrança',

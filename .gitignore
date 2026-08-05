@@ -7,6 +7,15 @@ atlas_backups
 docker-compose-dev.yml
 logo
 
+# Android signing material
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+keystore.properties
+signing.properties
+
 # Dependencies
 node_modules/
 **/node_modules/

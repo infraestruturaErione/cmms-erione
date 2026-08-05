@@ -28,6 +28,7 @@ export interface WorkOrderCheckOutPayload {
 
 interface WorkOrderState {
   workOrders: Page<WorkOrder>;
+  activeCriteria: SearchCriteria | null;
   workOrdersByLocation: { [key: number]: WorkOrder[] };
   workOrdersByPart: { [key: number]: WorkOrder[] };
   workOrderInfos: { [key: number]: { workOrder?: WorkOrder } };
@@ -42,6 +43,7 @@ interface WorkOrderState {
 
 const initialState: WorkOrderState = {
   workOrders: getInitialPage<WorkOrder>(),
+  activeCriteria: null,
   workOrdersByLocation: {},
   workOrdersByPart: {},
   workOrderInfos: {},
@@ -61,10 +63,14 @@ const slice = createSlice({
   reducers: {
     getWorkOrders(
       state: WorkOrderState,
-      action: PayloadAction<{ workOrders: Page<WorkOrder> }>
+      action: PayloadAction<{
+        workOrders: Page<WorkOrder>;
+        criteria: SearchCriteria;
+      }>
     ) {
-      const { workOrders } = action.payload;
+      const { workOrders, criteria } = action.payload;
       state.workOrders = workOrders;
+      state.activeCriteria = criteria;
       state.currentPageNum = 0;
       state.lastPage = workOrders.last;
     },
@@ -176,7 +182,7 @@ export const getWorkOrders =
         `${basePath}/search`,
         criteria
       );
-      dispatch(slice.actions.getWorkOrders({ workOrders }));
+      dispatch(slice.actions.getWorkOrders({ workOrders, criteria }));
     } catch (e) {
       dispatch(slice.actions.setError(getErrorMessage(e, 'Falha ao carregar OS')));
     } finally {
@@ -227,6 +233,22 @@ export const refreshWorkOrderById =
       dispatch(slice.actions.editWorkOrder({ workOrder }));
     } catch (err) {
       // Best-effort realtime refresh: the current filtered view stays intact.
+    }
+  };
+export const refreshCurrentWorkOrders =
+  (): AppThunk =>
+  async (dispatch, getState) => {
+    const criteria = getState().workOrders.activeCriteria;
+    if (!criteria) return;
+
+    try {
+      const workOrders = await api.post<Page<WorkOrder>>(
+        `${basePath}/search`,
+        criteria
+      );
+      dispatch(slice.actions.getWorkOrders({ workOrders, criteria }));
+    } catch (err) {
+      // Realtime is best-effort. Focus and pull-to-refresh remain available.
     }
   };
 export const addWorkOrder =

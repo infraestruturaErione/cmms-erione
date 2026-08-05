@@ -278,7 +278,11 @@ public class Helper {
                                 PermissionEntity.ASSETS, PermissionEntity.LOCATIONS, PermissionEntity.FILES)))
                         .editOtherPermissions(new HashSet<>())
                         .deleteOtherPermissions(new HashSet<>())
-                        .viewOtherPermissions(new HashSet<>(Arrays.asList(PermissionEntity.WORK_ORDERS,
+                        // WORK_ORDERS fica FORA de viewOther de proposito: o tecnico so
+                        // enxerga as OS atribuidas a ele (ou ao time dele), nunca as dos
+                        // colegas. Locais/Ativos/Pecas continuam globais porque ele precisa
+                        // consultar o cadastro pra executar o atendimento.
+                        .viewOtherPermissions(new HashSet<>(Arrays.asList(
                                 PermissionEntity.PARTS_AND_MULTIPARTS, PermissionEntity.LOCATIONS,
                                 PermissionEntity.ASSETS)))
                         .viewPermissions(new HashSet<>(Arrays.asList(PermissionEntity.WORK_ORDERS,

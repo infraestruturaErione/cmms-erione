@@ -36,7 +36,7 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="erionecmms"/>
-        <data android:scheme="com.erione.cmms"/>
+        <data android:scheme="com.cmms.erione"/>
         <data android:scheme="exp+erione-cmms"/>
       </intent-filter>
       <intent-filter android:autoVerify="true">

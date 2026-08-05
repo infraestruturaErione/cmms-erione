@@ -25,6 +25,9 @@ public class Customer extends BasicInfos {
     @Schema(description = "Type of customer")
     private String customerType;
 
+    @Schema(description = "City where the customer is located, used to group/filter work orders in the bulk report")
+    private String city;
+
     @Schema(description = "Customer description")
     private String description;
 

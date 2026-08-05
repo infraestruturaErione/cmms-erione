@@ -128,6 +128,7 @@ const Customers = ({ openModal, handleCloseModal }: PropsType) => {
     onSearchQueryChange<Customer>(event, criteria, setCriteria, [
       'name',
       'customerType',
+      'city',
       'billingName',
       'billingAddress',
       'billingAddress2'
@@ -249,6 +250,13 @@ const Customers = ({ openModal, handleCloseModal }: PropsType) => {
       placeholder: t('address')
     },
     {
+      name: 'city',
+      type: 'text',
+      label: t('city'),
+      placeholder: t('city'),
+      helperText: t('customer_city_helper')
+    },
+    {
       name: 'phone',
       type: 'text',
       label: t('phone'),
@@ -349,6 +357,12 @@ const Customers = ({ openModal, handleCloseModal }: PropsType) => {
     columnHelper.accessor('address', {
       id: 'address',
       header: () => t('address'),
+      cell: (info) => info.getValue(),
+      size: 150
+    }),
+    columnHelper.accessor('city', {
+      id: 'city',
+      header: () => t('city'),
       cell: (info) => info.getValue(),
       size: 150
     }),
@@ -482,6 +496,10 @@ const Customers = ({ openModal, handleCloseModal }: PropsType) => {
     {
       label: t('address'),
       value: currentCustomer?.address
+    },
+    {
+      label: t('city'),
+      value: currentCustomer?.city
     },
     {
       label: t('phone'),

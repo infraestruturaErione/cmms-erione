@@ -27,6 +27,9 @@
       "autoIncrement": true
     },
     "previewAndroid": {
+      "env": {
+        "API_URL": "https://cmms.erione.com.br/api"
+      },
       "android": {
         "buildType": "apk"
       },

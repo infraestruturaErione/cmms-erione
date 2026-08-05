@@ -14,6 +14,7 @@ import com.grash.model.File;
 import com.grash.model.User;
 import com.grash.model.RequestPortal;
 import com.grash.model.Task;
+import com.grash.model.WorkOrder;
 import com.grash.model.enums.*;
 import com.grash.service.FileService;
 import com.grash.service.LicenseService;
@@ -21,6 +22,7 @@ import com.grash.service.RateLimiterService;
 import com.grash.service.RequestPortalService;
 import com.grash.service.TaskService;
 import com.grash.service.UserService;
+import com.grash.service.WorkOrderService;
 import com.grash.utils.Helper;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -49,6 +51,7 @@ public class FileController {
     private final FileService fileService;
     private final UserService userService;
     private final TaskService taskService;
+    private final WorkOrderService workOrderService;
     private final FileMapper fileMapper;
     private final LicenseService licenseService;
     private final RequestPortalService requestPortalService;
@@ -71,21 +74,39 @@ public class FileController {
             // orfaos no banco/storage (sem serem retornados pro cliente).
             Arrays.asList(filesReq).forEach(fileReq -> validateFileForUpload(fileReq, fileType));
 
+            Task associatedTask = null;
+            if (taskId != null) {
+                associatedTask = taskService.findById(taskId.longValue())
+                        .orElseThrow(() -> new CustomException("Task not found", HttpStatus.NOT_FOUND));
+                validateTaskAccess(associatedTask, user);
+            }
+
             Collection<File> result = new ArrayList<>();
+            Task finalAssociatedTask = associatedTask;
+            String safeFolder = "company " + user.getCompany().getId();
             Arrays.asList(filesReq).forEach(fileReq -> {
-                String filePath = storageServiceFactory.getStorageService().upload(fileReq, folder);
-                Task task = null;
-                if (taskId != null) {
-                    Optional<Task> optionalTask = taskService.findById(taskId.longValue());
-                    if (optionalTask.isPresent()) {
-                        task = optionalTask.get();
-                    }
-                }
-                result.add(fileService.create(new File(fileReq.getOriginalFilename(), filePath, fileType, task,
+                String filePath = storageServiceFactory.getStorageService().upload(fileReq, safeFolder);
+                result.add(fileService.create(new File(fileReq.getOriginalFilename(), filePath, fileType,
+                        finalAssociatedTask,
                         hidden.equals("true"))));
             });
             return result.stream().map(fileMapper::toShowDto).collect(Collectors.toList());
         } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
+    }
+
+    private void validateTaskAccess(Task task, User user) {
+        if (task.getWorkOrder() != null) {
+            WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(task.getWorkOrder().getId(), user);
+            if (!workOrder.canBeEditedBy(user)) {
+                throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+            }
+            return;
+        }
+        if (task.getCompany() == null || !task.getCompany().getId().equals(user.getCompany().getId())
+                || task.getPreventiveMaintenance() != null
+                && !task.getPreventiveMaintenance().canBeEditedBy(user)) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
     }
 
     private static final Map<String, byte[]> IMAGE_MAGIC_BYTES = new LinkedHashMap<String, byte[]>() {{

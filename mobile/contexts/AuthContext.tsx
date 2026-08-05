@@ -49,6 +49,10 @@ import { UiConfiguration } from '../models/uiConfiguration';
 import Constants from 'expo-constants';
 import moment from 'moment-timezone';
 import { getCustomFields } from '../slices/customField';
+import {
+  refreshCurrentWorkOrders,
+  refreshWorkOrderById
+} from '../slices/workOrder';
 
 interface AuthState {
   isInitialized: boolean;
@@ -508,7 +512,6 @@ export const AuthProvider: FC<AuthProviderProps> = (props) => {
   const appState = useRef(AppState.currentState);
   const [openedSettings, setOpenedSettings] = useState<boolean>(false);
   const globalDispatch = useDispatch();
-  const [stompClient, setStompClient] = useState(null);
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (
@@ -531,51 +534,71 @@ export const AuthProvider: FC<AuthProviderProps> = (props) => {
     };
   }, [openedSettings]);
   useEffect(() => {
-    const disconnect = () => {
-      if (stompClient) {
-        stompClient.disconnect();
-        setStompClient(null);
-      }
-    };
+    let cancelled = false;
+    let client = null;
+
     const registerStompClient = async () => {
-      if (state?.user) {
-        if (!stompClient) {
-          // Get the current API URL
-          const currentApiUrl = await getApiUrl();
-          const socket = new SockJS(`${currentApiUrl}ws`);
-          const client = Stomp.over(socket);
-          client.connect(
-            { token: await AsyncStorage.getItem('accessToken') },
-            function (frame) {
-              const subscription = client.subscribe(
-                `/notifications/${state.user.id}`,
-                function (message) {
-                  const notification: Notification = JSON.parse(message.body);
-                  globalDispatch(newReceivedNotification(notification));
-                  if (notification.notificationType === 'WORK_ORDER') {
-                    if (
-                      state.userSettings?.statsForAssignedWorkOrders !==
-                      undefined
-                    )
-                      globalDispatch(
-                        getMobileOverviewStats(
-                          state.userSettings.statsForAssignedWorkOrders
-                        )
-                      );
-                  }
-                }
-              );
-              setStompClient(client);
+      if (!state?.user?.id) return;
+
+      const currentApiUrl = await getApiUrl();
+      if (cancelled) return;
+
+      client = Stomp.over(() => new SockJS(`${currentApiUrl}ws`));
+      client.reconnectDelay = 5000;
+      client.connect(
+        { token: await AsyncStorage.getItem('accessToken') },
+        function () {
+          if (cancelled) {
+            client.deactivate();
+            return;
+          }
+
+          client.subscribe(
+            `/notifications/${state.user.id}`,
+            function (message) {
+              const notification: Notification = JSON.parse(message.body);
+              globalDispatch(newReceivedNotification(notification));
+              if (
+                notification.notificationType === 'WORK_ORDER' &&
+                state.userSettings?.statsForAssignedWorkOrders !== undefined
+              ) {
+                globalDispatch(
+                  getMobileOverviewStats(
+                    state.userSettings.statsForAssignedWorkOrders
+                  )
+                );
+              }
+            }
+          );
+          client.subscribe(
+            `/work-orders/${state.user.id}`,
+            function (message) {
+              const workOrderId = Number(JSON.parse(message.body));
+              globalDispatch(refreshCurrentWorkOrders());
+              if (Number.isFinite(workOrderId)) {
+                globalDispatch(refreshWorkOrderById(workOrderId));
+              }
+              if (
+                state.userSettings?.statsForAssignedWorkOrders !== undefined
+              ) {
+                globalDispatch(
+                  getMobileOverviewStats(
+                    state.userSettings.statsForAssignedWorkOrders
+                  )
+                );
+              }
             }
           );
         }
-      } else {
-        disconnect();
-      }
+      );
     };
+
     registerStompClient();
-    return disconnect;
-  }, [state?.user?.id, state?.userSettings, stompClient]);
+    return () => {
+      cancelled = true;
+      client?.deactivate();
+    };
+  }, [state?.user?.id]);
   const switchLanguage = ({ lng }: { lng: any }) => {
     internationalization.changeLanguage(lng);
   };

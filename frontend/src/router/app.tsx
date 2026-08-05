@@ -66,9 +66,6 @@ const VendorsCustomFields = Loader(
 const RolesSettings = Loader(
   lazy(() => import('../content/own/Settings/Roles'))
 );
-const ChecklistsSettings = Loader(
-  lazy(() => import('../content/own/Settings/Checklists'))
-);
 const WorkflowsSettings = Loader(
   lazy(() => import('../content/own/Settings/Features/Workflows'))
 );
@@ -214,10 +211,6 @@ const appRoutes = [
       {
         path: 'roles',
         element: <RolesSettings />
-      },
-      {
-        path: 'checklists',
-        element: <ChecklistsSettings />
       },
       {
         path: 'integrations',

@@ -89,6 +89,7 @@ import { PlanFeature } from '../../../models/owns/subscriptionPlan';
 import { getPreventiveMaintenanceUrl } from 'src/utils/urlPaths';
 import { getErrorMessage } from '../../../utils/api';
 import SplitButton from '../components/SplitButton';
+import WorkOrderKpiCards from './WorkOrderKpiCards';
 import useTableState from '../../../hooks/useTableState';
 import { assetStatuses } from '../../../models/owns/asset';
 import { useExport } from '../../../hooks/useExport';
@@ -1173,6 +1174,7 @@ function WorkOrders() {
             )}
           </Stack>
         </Stack>
+        {currentTab === 'list' && <WorkOrderKpiCards />}
         <Card
           sx={{
             py: 2,

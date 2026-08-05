@@ -6,6 +6,7 @@ export interface Customer extends Audit {
   id: number;
   name: string;
   address: string;
+  city: string;
   phone: string;
   website: string;
   email: string;
@@ -21,4 +22,5 @@ export interface Customer extends Audit {
 export interface CustomerMiniDTO {
   name: string;
   id: number;
+  city?: string;
 }

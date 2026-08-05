@@ -86,6 +86,7 @@ export const addChecklist =
       companySettings: { id: companySettingsId }
     });
     dispatch(slice.actions.addChecklist({ checklist: checklistResponse }));
+    return checklistResponse;
   };
 export const editChecklist =
   (id: number, checklist): AppThunk =>
@@ -95,6 +96,7 @@ export const editChecklist =
       checklist
     );
     dispatch(slice.actions.editChecklist({ checklist: checklistResponse }));
+    return checklistResponse;
   };
 export const deleteChecklist =
   (id: number): AppThunk =>

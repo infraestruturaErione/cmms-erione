@@ -16,7 +16,6 @@ function SettingsLayout() {
     { value: '', label: t('general_settings') },
     { value: 'features', label: t('features') },
     { value: 'roles', label: t('roles') },
-    { value: 'checklists', label: t('checklists') },
     { value: 'integrations', label: t('integrations') }
   ];
 

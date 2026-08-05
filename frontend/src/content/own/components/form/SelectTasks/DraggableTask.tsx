@@ -46,7 +46,7 @@ export type DraggableListItemProps = {
   onAssetChange: (asset: AssetMiniDTO, id: number) => void;
   onMeterChange: (meter: MeterMiniDTO, id: number) => void;
   onChoicesChange: (choices: string[], id: number) => void;
-  onRemove: (id: number) => void;
+  onRemove: (id: number, anchorEl?: HTMLElement) => void;
   assetsMini: AssetMiniDTO[];
   usersMini: UserMiniDTO[];
   metersMini: MeterMiniDTO[];
@@ -224,7 +224,11 @@ const DraggableListItem = ({
                 </FormControl>
                 <Box>
                   <Tooltip arrow title={t('remove_item')}>
-                    <IconButton onClick={() => onRemove(task.id)}>
+                    <IconButton
+                      onClick={(event) =>
+                        onRemove(task.id, event.currentTarget)
+                      }
+                    >
                       <DoDisturbOnTwoToneIcon color="error" />
                     </IconButton>
                   </Tooltip>

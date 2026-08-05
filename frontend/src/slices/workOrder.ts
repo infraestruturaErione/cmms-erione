@@ -450,6 +450,22 @@ export const getPDFReport =
     return message;
   };
 
+export const getBulkPDFReport =
+  (params: {
+    city: string;
+    periodField: string;
+    start: string | null;
+    end: string | null;
+  }): AppThunk =>
+  async (dispatch): Promise<string> => {
+    const response = await api.post<{ success: boolean; message: string }>(
+      `${basePath}/report/bulk`,
+      params
+    );
+    const { message } = response;
+    return message;
+  };
+
 export const getWorkOrderEvents =
   (start: Date, end: Date): AppThunk =>
   async (dispatch) => {

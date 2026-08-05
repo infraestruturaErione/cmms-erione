@@ -63,6 +63,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
           ref={ref}
           onOK={handleOK}
           onBegin={handleBegin}
+          onEnd={saveSignature}
           webStyle={style}
           dataURL={value}
         />

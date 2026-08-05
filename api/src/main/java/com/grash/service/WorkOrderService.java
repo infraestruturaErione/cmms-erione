@@ -141,8 +141,12 @@ public class WorkOrderService {
                 && !defaultChecklist.getTaskBases().isEmpty()) {
             defaultChecklist.getTaskBases().forEach(sourceTaskBase -> {
                 TaskBase clonedTaskBase = taskBaseService.cloneForNewOwner(sourceTaskBase);
-                String initialValue = clonedTaskBase.getTaskType() == TaskType.SUBTASK ? "OPEN"
-                        : clonedTaskBase.getTaskType() == TaskType.INSPECTION ? "FLAG" : "";
+                // INSPECTION nasce VAZIO (nao "FLAG"): FLAG e uma resposta legitima do
+                // tecnico ("sinalizar"), nao um placeholder. Usar FLAG como valor inicial
+                // fazia um checklist recem-criado aparecer como parcialmente preenchido
+                // (ex: 60% concluido antes de o tecnico tocar em qualquer coisa).
+                // SUBTASK mantem "OPEN" porque OPEN ja e tratado como pendente.
+                String initialValue = clonedTaskBase.getTaskType() == TaskType.SUBTASK ? "OPEN" : "";
                 taskService.create(new Task(clonedTaskBase, workOrder, null, initialValue));
             });
         }
@@ -369,6 +373,7 @@ public class WorkOrderService {
         boolean categoryChanged = !Objects.equals(originalCategoryId, newCategoryId);
         WorkOrder updatedWorkOrder = workOrderRepository.saveAndFlush(workOrder);
         em.refresh(updatedWorkOrder);
+        notificationService.notifyWorkOrderChanged(originalWorkOrder.getUsers(), updatedWorkOrder.getId());
         Object serializedWorkOrder = workOrderMapper.toShowDto(updatedWorkOrder);
         Map<String, Object> webhookPayload = new HashMap<>();
         webhookPayload.put("workOrderId", updatedWorkOrder.getId());
@@ -636,6 +641,28 @@ public class WorkOrderService {
 
     public Collection<WorkOrder> findByCompanyAndCreatedAtBetween(Long id, Date start, Date end) {
         return workOrderRepository.findByCompany_IdAndCreatedAtBetween(id, start, end);
+    }
+
+    // Usado pelo relatorio em massa por cidade: todas as OS CONCLUIDAS de um
+    // grupo de clientes (os clientes daquela cidade), num periodo, filtrando
+    // pelo campo de data escolhido (createdAt/completedOn/checkInAt) - mesmo
+    // campo dinamico ja usado no Relatorio Operacional de OS.
+    public List<WorkOrder> findCompletedByCustomersAndPeriod(List<Long> customerIds,
+                                                              com.grash.dto.workOrder.report.WorkOrderOperationalReportPeriodField periodField,
+                                                              Date start, Date end, Long companyId) {
+        Specification<WorkOrder> spec = (root, query, cb) -> {
+            query.distinct(true);
+            jakarta.persistence.criteria.Join<WorkOrder, Customer> customerJoin = root.join("customers");
+            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("company").get("id"), companyId));
+            predicates.add(cb.equal(root.get("status"), Status.COMPLETE));
+            predicates.add(customerJoin.get("id").in(customerIds));
+            String fieldName = periodField.getFieldName();
+            if (start != null) predicates.add(cb.greaterThanOrEqualTo(root.get(fieldName), start));
+            if (end != null) predicates.add(cb.lessThanOrEqualTo(root.get(fieldName), end));
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+        return workOrderRepository.findAll(spec);
     }
 
     public Collection<WorkOrder> findByAssignedToUserAndCreatedAtBetween(Long id, Date start, Date end) {

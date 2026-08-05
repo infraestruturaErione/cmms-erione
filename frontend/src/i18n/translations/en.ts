@@ -268,6 +268,8 @@ const locale = {
   add_images: 'Add Images',
   tasks: 'Execution Checklist',
   task_type: 'Task Type',
+  in_progress_work_orders: 'In progress',
+  overdue_work_orders: 'Overdue',
   select_task_type: 'Select Task Type',
   default_checklist_applied: 'Default checklist: {{name}}',
   default_checklist_applied_helper:
@@ -367,6 +369,12 @@ const locale = {
   task_type_default_duration_helper:
     'Suggests the value for the work order estimated duration field',
   task_type_default_checklist: 'Default checklist',
+  task_type_checklist_empty: 'No questions added yet',
+  task_type_checklist_section_helper:
+    'These items appear automatically on every work order of this category',
+  task_type_checklist_add_item: 'Add question',
+  task_type_checklist_confirm_remove_item:
+    'Remove this question from the checklist?',
   task_type_requirements_section: 'Required on completion',
   task_type_require_signature: 'Signature',
   task_type_require_signer_name: "Signer's name",
@@ -551,6 +559,15 @@ const locale = {
     'Track field execution by customer, location, asset, status and period.',
   operational_report_page_summary_note:
     'In this phase, summary cards are calculated only from the loaded page.',
+  bulk_report_by_city_title: 'Bulk report by city',
+  bulk_report_by_city_helper:
+    'Pick a customer: the report brings completed work orders for every customer in the same city, in the selected period.',
+  bulk_report_resolved_city: 'City: {{city}}',
+  bulk_report_customer_no_city:
+    "This customer has no city set — edit the customer before generating",
+  bulk_report_period_required:
+    'Select a start and end date before generating the bulk report',
+  generate_bulk_report: 'Generate bulk report',
   period_field: 'Period field',
   CREATED_AT: 'Created at',
   COMPLETED_ON: 'Completed on',
@@ -987,6 +1004,8 @@ const locale = {
   website: 'Website',
   customer_type: 'Customer type',
   customer_type_description: 'ex. Plumbing, Electrical',
+  customer_city_helper:
+    'Used to group this customer\'s completed work orders in the bulk report',
   customer_description_description:
     'Describe the purpose of this customer in a few lines...',
   billing_information: 'Billing Information',

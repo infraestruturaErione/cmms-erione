@@ -1,16 +1,17 @@
-import { Box, styled, Typography, useTheme } from '@mui/material';
+import { alpha, Box, styled, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { getPriorityLabel } from '../../../utils/formatters';
 
 const LabelWrapper = styled(Box)(
   ({ theme }) => `
-    font-size: ${theme.typography.pxToRem(10)};
-    font-weight: bold;
+    font-size: ${theme.typography.pxToRem(11)};
+    font-weight: 700;
     text-transform: uppercase;
-    border-radius: ${theme.general.borderRadiusSm};
-    padding: ${theme.spacing(0.9, 1.5, 0.7)};
-    line-height: 1;
+    border-radius: 20px;
+    padding: ${theme.spacing(0.5, 1.25)};
+    line-height: 1.2;
     width: fit-content;
+    white-space: nowrap;
   `
 );
 export default function PriorityWrapper(props: {
@@ -19,24 +20,24 @@ export default function PriorityWrapper(props: {
 }) {
   const { priority, withSuffix } = props;
   const { t }: { t: any } = useTranslation();
-  const theme = useTheme();
   if (!priority) return null;
   return priority === 'NONE' ? (
     <Typography>{getPriorityLabel(priority, t)}</Typography>
   ) : (
     <LabelWrapper
-      sx={{
-        background:
+      sx={(theme) => {
+        // Chip suave: fundo claro + texto na cor forte da mesma familia. Antes era
+        // fundo solido com texto calculado por contraste, que pesava muito na lista.
+        const color =
           priority === 'LOW'
-            ? `${theme.colors.info.main}`
+            ? theme.colors.info.main
             : priority === 'HIGH'
-            ? `${theme.colors.error.main}`
-            : `${theme.colors.warning.main}`,
-        color: `${theme.palette.getContrastText(
-          priority === 'HIGH'
-            ? theme.colors.info.dark
-            : theme.colors.success.dark
-        )}`
+            ? theme.colors.error.main
+            : theme.colors.warning.main;
+        return {
+          backgroundColor: alpha(color, 0.14),
+          color
+        };
       }}
     >
       {t(priority)} {withSuffix ? t('priority') : null}

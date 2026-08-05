@@ -288,7 +288,10 @@ export default function FieldExecutionSection({
     }
     setSavingEvidence(true);
     try {
-      const uploadedFiles = await uploadFiles(evidenceFiles, [], false);
+      // uploadFiles(files, images, hidden) - fotos de evidencia tem que ir no
+      // 2o parametro (images -> type=IMAGE), senao sobem como type=OTHER e o
+      // relatorio PDF nao renderiza a miniatura (so exibe quando type=IMAGE).
+      const uploadedFiles = await uploadFiles([], evidenceFiles, false);
       const fileIds = uploadedFiles.map((file) => ({ id: file.id }));
       await dispatch(
         createComment({

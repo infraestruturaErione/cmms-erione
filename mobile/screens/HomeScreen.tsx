@@ -1,7 +1,8 @@
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Badge, IconButton, Text, useTheme } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useContext, useEffect, useMemo } from 'react';
+import { useCallback, useContext, useEffect, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { RootTabScreenProps } from '../types';
 import useAuth from '../hooks/useAuth';
@@ -103,8 +104,19 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
 
   useEffect(() => {
     fetchUserSettings();
-    loadHome();
   }, []);
+
+  // A Home fica montada o tempo todo no tab navigator, entao um useEffect de
+  // mount so buscava uma vez por sessao: OS atribuida depois do app aberto so
+  // aparecia se o tecnico trocasse de aba e voltasse. Recarregar ao ganhar foco
+  // resolve isso (mesmo padrao ja usado em WorkOrdersScreen).
+  useFocusEffect(
+    useCallback(() => {
+      loadHome();
+      const refreshInterval = setInterval(loadHome, 30000);
+      return () => clearInterval(refreshInterval);
+    }, [user.id])
+  );
 
   const sortedWorkOrders = useMemo(
     () => sortWorkOrdersForField(workOrders.content),

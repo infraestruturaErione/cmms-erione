@@ -12,4 +12,7 @@ public class CustomerMiniDTO {
     
     @Schema(description = "Unique identifier", accessMode = Schema.AccessMode.READ_ONLY)
     private Long id;
+
+    @Schema(description = "City where the customer is located")
+    private String city;
 }

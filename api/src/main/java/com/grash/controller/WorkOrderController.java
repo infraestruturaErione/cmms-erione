@@ -21,6 +21,8 @@ import com.grash.model.abstracts.WorkOrderBase;
 import com.grash.model.enums.*;
 import com.grash.model.enums.workflow.WFMainCondition;
 import com.grash.repository.CommentRepository;
+import com.grash.repository.CustomerRepository;
+import com.grash.dto.workOrder.report.WorkOrderBulkReportRequestDTO;
 import com.grash.service.*;
 import com.grash.utils.Helper;
 import com.grash.utils.MultipartFileImpl;
@@ -53,6 +55,7 @@ import jakarta.validation.Valid;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URLConnection;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -106,6 +109,7 @@ public class WorkOrderController {
     private final WorkOrderOperationalReportService workOrderOperationalReportService;
     private final CustomerScopeService customerScopeService;
     private final CommentRepository commentRepository;
+    private final CustomerRepository customerRepository;
 
 
     @Value("${frontend.url}")
@@ -271,6 +275,7 @@ public class WorkOrderController {
                 em.detach(savedWorkOrder);
                 customerScopeService.prepareAndValidateRequestScope(workOrder, user);
                 WorkOrder patchedWorkOrder = workOrderService.update(id, workOrder, user);
+                notificationService.notifyWorkOrderChanged(savedWorkOrder.getUsers(), patchedWorkOrder.getId());
 
                 if (patchedWorkOrder.isArchived() && !savedWorkOrder.isArchived()) {
                     Collection<Workflow> workflows =
@@ -528,64 +533,8 @@ public class WorkOrderController {
                     (user.getRole().getViewOtherPermissions().contains(PermissionEntity.WORK_ORDERS) || user.getId().equals(savedWorkOrder.getCreatedBy()) || savedWorkOrder.isAssignedTo(user))) {
                 Context thymeleafContext = new Context();
                 thymeleafContext.setLocale(Helper.getLocale(user));
-                Optional<User> creator = savedWorkOrder.getCreatedBy() == null ? Optional.empty() :
-                        userService.findById(savedWorkOrder.getCreatedBy());
-                List<Task> tasks = taskService.findByWorkOrder(id);
-                Map<Long, String[]> tasksImagesUrls = tasks.stream()
-                        .collect(Collectors.toMap(
-                                Task::getId,
-                                task -> task.getImages().stream()
-                                        .map(image -> storageService.generateSignedUrl(image, 5))
-                                        .toArray(String[]::new)
-                        ));
-                Collection<PartQuantity> partQuantities = partQuantityService.findByWorkOrder(id);
-                Collection<Labor> labors = laborService.findByWorkOrder(id);
-                Collection<Relation> relations = relationService.findByWorkOrder(id);
-                Collection<AdditionalCost> additionalCosts = additionalCostService.findByWorkOrder(id);
-                Collection<WorkOrderHistory> workOrderHistories = workOrderHistoryService.findByWorkOrder(id);
-                List<Comment> fieldComments = commentRepository
-                        .findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(List.of(id),
-                                FIELD_REPORT_PREFIX);
-                List<String> fieldReports = fieldComments.stream()
-                        .map(comment -> getRealFieldReportText(comment.getContent()))
-                        .filter(Objects::nonNull)
-                        .filter(fieldReport -> !fieldReport.isBlank())
-                        .collect(Collectors.toList());
-                List<Map<String, Object>> fieldEvidenceItems = buildFieldEvidenceItems(savedWorkOrder, fieldComments,
-                        storageService);
-                Map<String, Object> variables = new HashMap<String, Object>() {{
-                    put("companyName", user.getCompany().getName());
-                    put("companyPhone", user.getCompany().getPhone());
-                    put("companyLogo", user.getCompany().getLogo() == null ? null :
-                            storageService.generateSignedUrl(user.getCompany().getLogo(), 5));
-                    com.grash.model.Currency currency =
-                            user.getCompany().getCompanySettings().getGeneralPreferences().getCurrency();
-                    put("currency", currency == null ? null : currency.getCode());
-                    put("utils", utils);
-                    put("dateFormat", user.getCompany().getCompanySettings().getGeneralPreferences().getDateFormat());
-                    put("timeZone", user.getCompany().getCompanySettings().getGeneralPreferences().getTimeZone());
-                    put("assignedTo",
-                            Helper.enumerate(savedWorkOrder.getAssignedTo().stream().map(User::getFullName).collect(Collectors.toList())));
-                    put("customers",
-                            Helper.enumerate(savedWorkOrder.getCustomers().stream().map(Customer::getName).collect(Collectors.toList())));
-                    put("workOrder", savedWorkOrder);
-                    put("primaryUserName", savedWorkOrder.getPrimaryUser() == null ? null :
-                            savedWorkOrder.getPrimaryUser().getFullName());
-                    put("createdBy", creator.<Object>map(User::getFullName).orElse(null));
-                    put("tasks", tasks);
-                    put("labors", labors);
-                    put("relations", relations);
-                    put("additionalCosts", additionalCosts);
-                    put("workOrderHistories", workOrderHistories);
-                    put("partQuantities", partQuantities);
-                    put("environment", environment);
-                    put("tasksImagesUrls", tasksImagesUrls);
-                    put("fieldReports", fieldReports);
-                    put("fieldEvidenceItems", fieldEvidenceItems);
-                    put("messageSource", messageSource);
-                    put("locale", Helper.getLocale(user));
-                    put("backgroundColor", brandingService.getMailBackgroundColor());
-                }};
+                Map<String, Object> variables = new HashMap<>(buildCompanyReportVariables(user, storageService));
+                variables.putAll(buildWorkOrderReportVariables(savedWorkOrder, storageService));
                 thymeleafContext.setVariables(variables);
 
                 String reportHtml = thymeleafTemplateEngine.process("work-order-report.html", thymeleafContext);
@@ -603,6 +552,123 @@ public class WorkOrderController {
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
 
+    }
+
+    // Variaveis de nivel de EMPRESA usadas pelo template do relatorio - iguais
+    // pra toda OS do mesmo usuario, entao so' precisam ser calculadas uma vez
+    // (usado tanto no relatorio individual quanto no relatorio em massa).
+    private Map<String, Object> buildCompanyReportVariables(User user, StorageService storageService) {
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("companyName", user.getCompany().getName());
+        variables.put("companyPhone", user.getCompany().getPhone());
+        variables.put("companyLogo", user.getCompany().getLogo() == null ? null :
+                storageService.generateSignedUrl(user.getCompany().getLogo(), 5));
+        com.grash.model.Currency currency =
+                user.getCompany().getCompanySettings().getGeneralPreferences().getCurrency();
+        variables.put("currency", currency == null ? null : currency.getCode());
+        variables.put("utils", utils);
+        variables.put("dateFormat", user.getCompany().getCompanySettings().getGeneralPreferences().getDateFormat());
+        variables.put("timeZone", user.getCompany().getCompanySettings().getGeneralPreferences().getTimeZone());
+        variables.put("environment", environment);
+        variables.put("messageSource", messageSource);
+        variables.put("locale", Helper.getLocale(user));
+        variables.put("backgroundColor", brandingService.getMailBackgroundColor());
+        return variables;
+    }
+
+    // Variaveis especificas de UMA OS - extraido do relatorio individual pra
+    // poder ser chamado em loop no relatorio em massa (uma OS por bloco no
+    // mesmo PDF), sem duplicar a logica de evidencias/checklist/etc.
+    private Map<String, Object> buildWorkOrderReportVariables(WorkOrder savedWorkOrder, StorageService storageService) {
+        Long id = savedWorkOrder.getId();
+        Optional<User> creator = savedWorkOrder.getCreatedBy() == null ? Optional.empty() :
+                userService.findById(savedWorkOrder.getCreatedBy());
+        List<Task> tasks = taskService.findByWorkOrder(id);
+        Map<Long, String[]> tasksImagesUrls = tasks.stream()
+                .collect(Collectors.toMap(
+                        Task::getId,
+                        task -> task.getImages().stream()
+                                .map(image -> storageService.generateSignedUrl(image, 5))
+                                .toArray(String[]::new)
+                ));
+        Collection<PartQuantity> partQuantities = partQuantityService.findByWorkOrder(id);
+        Collection<Labor> labors = laborService.findByWorkOrder(id);
+        Collection<Relation> relations = relationService.findByWorkOrder(id);
+        Collection<AdditionalCost> additionalCosts = additionalCostService.findByWorkOrder(id);
+        Collection<WorkOrderHistory> workOrderHistories = workOrderHistoryService.findByWorkOrder(id);
+        List<Comment> fieldComments = commentRepository
+                .findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(List.of(id),
+                        FIELD_REPORT_PREFIX);
+        List<String> fieldReports = fieldComments.stream()
+                .map(comment -> getRealFieldReportText(comment.getContent()))
+                .filter(Objects::nonNull)
+                .filter(fieldReport -> !fieldReport.isBlank())
+                .collect(Collectors.toList());
+        List<Map<String, Object>> fieldEvidenceItems = buildFieldEvidenceItems(savedWorkOrder, fieldComments,
+                storageService);
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("assignedTo",
+                Helper.enumerate(savedWorkOrder.getAssignedTo().stream().map(User::getFullName).collect(Collectors.toList())));
+        variables.put("customers",
+                Helper.enumerate(savedWorkOrder.getCustomers().stream().map(Customer::getName).collect(Collectors.toList())));
+        variables.put("workOrder", savedWorkOrder);
+        variables.put("primaryUserName", savedWorkOrder.getPrimaryUser() == null ? null :
+                savedWorkOrder.getPrimaryUser().getFullName());
+        variables.put("createdBy", creator.<Object>map(User::getFullName).orElse(null));
+        variables.put("tasks", tasks);
+        variables.put("labors", labors);
+        variables.put("relations", relations);
+        variables.put("additionalCosts", additionalCosts);
+        variables.put("workOrderHistories", workOrderHistories);
+        variables.put("partQuantities", partQuantities);
+        variables.put("tasksImagesUrls", tasksImagesUrls);
+        variables.put("fieldReports", fieldReports);
+        variables.put("fieldEvidenceItems", fieldEvidenceItems);
+        return variables;
+    }
+
+    @PostMapping(path = "/report/bulk")
+    @Transactional
+    @PreAuthorize("hasRole('ROLE_CLIENT')")
+    public ResponseEntity<?> getBulkPDF(@Valid @RequestBody WorkOrderBulkReportRequestDTO request,
+                                        HttpServletRequest req) {
+        User user = userService.whoami(req);
+        if (!user.getRole().getViewPermissions().contains(PermissionEntity.WORK_ORDERS)) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        Long companyId = user.getCompany().getId();
+        List<Customer> cityCustomers = customerRepository.findByCityIgnoreCaseAndCompany_Id(request.getCity(),
+                companyId);
+        if (cityCustomers.isEmpty()) {
+            throw new CustomException("Nenhum cliente encontrado para essa cidade", HttpStatus.NOT_FOUND);
+        }
+        List<Long> customerIds = cityCustomers.stream().map(Customer::getId).collect(Collectors.toList());
+        List<WorkOrder> workOrders = workOrderService.findCompletedByCustomersAndPeriod(customerIds,
+                request.getPeriodField(), request.getStart(), request.getEnd(), companyId);
+        if (workOrders.isEmpty()) {
+            throw new CustomException("Nenhuma OS concluida encontrada nesse periodo", HttpStatus.NOT_FOUND);
+        }
+        StorageService storageService = storageServiceFactory.getStorageService();
+        Context thymeleafContext = new Context();
+        thymeleafContext.setLocale(Helper.getLocale(user));
+        Map<String, Object> variables = new HashMap<>(buildCompanyReportVariables(user, storageService));
+        List<Map<String, Object>> workOrderReports = workOrders.stream()
+                .map(workOrder -> buildWorkOrderReportVariables(workOrder, storageService))
+                .collect(Collectors.toList());
+        variables.put("cityLabel", request.getCity());
+        variables.put("periodStart", request.getStart());
+        variables.put("periodEnd", request.getEnd());
+        variables.put("workOrderReports", workOrderReports);
+        thymeleafContext.setVariables(variables);
+
+        String reportHtml = thymeleafTemplateEngine.process("work-orders-bulk-report.html", thymeleafContext);
+        ByteArrayOutputStream target = new ByteArrayOutputStream();
+        HtmlConverter.convertToPdf(reportHtml, target);
+        byte[] bytes = target.toByteArray();
+        MultipartFile file = new MultipartFileImpl(bytes, "Relatorio em Massa - " + request.getCity() + ".pdf");
+        return ResponseEntity.ok()
+                .body(new SuccessResponse(true, storageService.uploadAndSign(file,
+                        "reports/" + companyId)));
     }
 
     private String stripFieldReportPrefix(String content) {
@@ -650,10 +716,28 @@ public class WorkOrderController {
         Map<String, Object> item = new HashMap<>();
         item.put("name", file.getName());
         item.put("type", file.getType());
-        item.put("image", file.getType() == FileType.IMAGE);
+        boolean isImage = file.getType() == FileType.IMAGE;
+        // O PDF e' montado com HtmlConverter.convertToPdf DENTRO do container da API.
+        // Uma URL assinada do MinIO (localhost:9000) so' funciona pro navegador do
+        // usuario - de dentro do proprio container, "localhost" e' o container, nao
+        // o MinIO, entao a imagem falhava silenciosamente (texto aparecia, foto nao).
+        // Baixando os bytes e embutindo como data URI (mesmo esquema ja usado pra
+        // workOrder.signature) elimina esse fetch de rede na hora de gerar o PDF.
+        String url = null;
+        if (isImage) {
+            try {
+                byte[] bytes = storageService.download(file.getPath());
+                String mimeType = Optional.ofNullable(URLConnection.guessContentTypeFromName(file.getName()))
+                        .orElse("image/jpeg");
+                url = "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(bytes);
+            } catch (Exception ignored) {
+                isImage = false;
+            }
+        }
+        item.put("image", isImage);
         item.put("source", source);
         item.put("note", note);
-        item.put("url", storageService.generateSignedUrl(file, 10));
+        item.put("url", url);
         items.add(item);
     }
 

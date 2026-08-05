@@ -221,4 +221,6 @@
              relativeToChangelogFile="true"/>
     <include file="changelog/2026_08_03_00000000002_fix_workorder_category_default_duration_unit.xml"
              relativeToChangelogFile="true"/>
+    <include file="changelog/2026_08_05_00000000001_add_customer_city.xml"
+             relativeToChangelogFile="true"/>
 </databaseChangeLog>
