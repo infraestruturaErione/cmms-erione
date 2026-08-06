@@ -22,7 +22,9 @@ import com.grash.model.enums.*;
 import com.grash.model.enums.workflow.WFMainCondition;
 import com.grash.repository.CommentRepository;
 import com.grash.repository.CustomerRepository;
+import com.grash.repository.GeneratedReportRepository;
 import com.grash.dto.workOrder.report.WorkOrderBulkReportRequestDTO;
+import com.grash.dto.workOrder.report.GeneratedReportShowDTO;
 import com.grash.service.*;
 import com.grash.utils.Helper;
 import com.grash.utils.MultipartFileImpl;
@@ -80,6 +82,7 @@ public class WorkOrderController {
     private final WorkOrderService workOrderService;
     private final WorkOrderMapper workOrderMapper;
     private final UserService userService;
+    private final GeneratedReportRepository generatedReportRepository;
     private final MessageSource messageSource;
     private final AssetService assetService;
     private final LocationService locationService;
@@ -639,8 +642,19 @@ public class WorkOrderController {
         Long companyId = user.getCompany().getId();
         List<Customer> cityCustomers = customerRepository.findByCityIgnoreCaseAndCompany_Id(request.getCity(),
                 companyId);
+        // CNPJ e' opcional hoje: quando informado, so estreita o grupo (que ja
+        // veio filtrado por cidade) a quem bate o CNPJ exato - nunca substitui
+        // o filtro de cidade sozinho, pra nao quebrar quem ainda nao tem CNPJ
+        // cadastrado.
+        String requestedCnpjDigits = onlyDigits(request.getCnpj());
+        if (!requestedCnpjDigits.isEmpty()) {
+            cityCustomers = cityCustomers.stream()
+                    .filter(customer -> requestedCnpjDigits.equals(onlyDigits(customer.getCnpj())))
+                    .collect(Collectors.toList());
+        }
         if (cityCustomers.isEmpty()) {
-            throw new CustomException("Nenhum cliente encontrado para essa cidade", HttpStatus.NOT_FOUND);
+            throw new CustomException("Nenhum cliente encontrado para essa cidade" +
+                    (requestedCnpjDigits.isEmpty() ? "" : "/CNPJ"), HttpStatus.NOT_FOUND);
         }
         List<Long> customerIds = cityCustomers.stream().map(Customer::getId).collect(Collectors.toList());
         List<WorkOrder> workOrders = workOrderService.findCompletedByCustomersAndPeriod(customerIds,
@@ -666,9 +680,78 @@ public class WorkOrderController {
         HtmlConverter.convertToPdf(reportHtml, target);
         byte[] bytes = target.toByteArray();
         MultipartFile file = new MultipartFileImpl(bytes, "Relatorio em Massa - " + request.getCity() + ".pdf");
+        String filePath = storageService.upload(file, "reports/" + companyId);
+
+        java.text.SimpleDateFormat descriptionDateFormat = new java.text.SimpleDateFormat("dd/MM/yyyy");
+        String description = "Cidade: " + request.getCity() +
+                (requestedCnpjDigits.isEmpty() ? "" : " · CNPJ: " + request.getCnpj()) +
+                " · Periodo: " + descriptionDateFormat.format(request.getStart()) + " a " +
+                descriptionDateFormat.format(request.getEnd());
+        Date expiresAt = new Date(System.currentTimeMillis() + GENERATED_REPORT_TTL_MS);
+        generatedReportRepository.save(GeneratedReport.builder()
+                .companyId(companyId)
+                .type(GeneratedReportType.WORK_ORDER_BULK)
+                .status(GeneratedReportStatus.DONE)
+                .description(description)
+                .filePath(filePath)
+                .expiresAt(expiresAt)
+                .build());
+
         return ResponseEntity.ok()
-                .body(new SuccessResponse(true, storageService.uploadAndSign(file,
-                        "reports/" + companyId)));
+                .body(new SuccessResponse(true, storageService.generateSignedUrl(filePath, 10)));
+    }
+
+    private static final long GENERATED_REPORT_TTL_MS = 7L * 24 * 60 * 60 * 1000;
+
+    private static String onlyDigits(String value) {
+        return value == null ? "" : value.replaceAll("\\D", "");
+    }
+
+    @GetMapping(path = "/report/bulk/history")
+    @PreAuthorize("hasRole('ROLE_CLIENT')")
+    public List<GeneratedReportShowDTO> getBulkPDFHistory(HttpServletRequest req) {
+        User user = userService.whoami(req);
+        if (!user.getRole().getViewPermissions().contains(PermissionEntity.WORK_ORDERS)) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        Long companyId = user.getCompany().getId();
+        Date now = new Date();
+        return generatedReportRepository
+                .findByCompanyIdAndTypeOrderByCreatedAtDesc(companyId, GeneratedReportType.WORK_ORDER_BULK)
+                .stream()
+                .map(report -> {
+                    Optional<User> requester = report.getCreatedBy() == null ? Optional.empty() :
+                            userService.findById(report.getCreatedBy());
+                    return GeneratedReportShowDTO.builder()
+                            .id(report.getId())
+                            .description(report.getDescription())
+                            .requestedByName(requester.map(User::getFullName).orElse(null))
+                            .requestedAt(report.getCreatedAt())
+                            .status(report.getStatus())
+                            .expiresAt(report.getExpiresAt())
+                            .available(report.getExpiresAt() != null && report.getExpiresAt().after(now))
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @GetMapping(path = "/report/bulk/history/{id}/download")
+    @PreAuthorize("hasRole('ROLE_CLIENT')")
+    public SuccessResponse downloadBulkPDFFromHistory(@PathVariable("id") Long id, HttpServletRequest req) {
+        User user = userService.whoami(req);
+        if (!user.getRole().getViewPermissions().contains(PermissionEntity.WORK_ORDERS)) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        GeneratedReport report = generatedReportRepository.findById(id)
+                .orElseThrow(() -> new CustomException("Relatorio nao encontrado", HttpStatus.NOT_FOUND));
+        if (!report.getCompanyId().equals(user.getCompany().getId())) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        if (report.getExpiresAt() == null || report.getExpiresAt().before(new Date())) {
+            throw new CustomException("Esse relatorio ja expirou", HttpStatus.GONE);
+        }
+        StorageService storageService = storageServiceFactory.getStorageService();
+        return new SuccessResponse(true, storageService.generateSignedUrl(report.getFilePath(), 10));
     }
 
     private String stripFieldReportPrefix(String content) {

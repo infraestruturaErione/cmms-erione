@@ -741,3 +741,76 @@ visual do relatorio individual (com fotos, checklist, assinatura).
   `PATCH /customers/{id}` — sinalizado, nao corrigido (cadastro diferente).
 - Deploy em producao: alteracoes desta secao existem so localmente ate aqui;
   producao segue no commit `4b59718`, sem o fix de escopo do tecnico.
+
+## 2026-08-06 - Central de Relatorios em Massa, CNPJ e risco de armazenamento no MinIO
+
+### Achado importante: PDFs de relatorio nunca sao apagados
+
+Investigando como os relatorios (individual e em massa) sao armazenados,
+descobri que **todo PDF gerado sobe pro MinIO em `reports/{empresa}/` e fica
+la para sempre**. So o link assinado expira (10 minutos) - o arquivo em si
+nao tinha nenhuma politica de limpeza, nenhuma tabela rastreando o que foi
+gerado, nada. Cada clique em "Gerar relatorio" cria um arquivo novo,
+permanente, sem visibilidade de quantos existem nem quanto espaco ocupam.
+Isso ainda vale hoje pro relatorio **individual** de OS (`GET /work-orders/report/{id}`)
+e pro export PDF da tabela do relatorio operacional - so o relatorio em
+massa ganhou controle nesta rodada (ver abaixo). Pendente resolver pros
+outros casos numa proxima rodada.
+
+### Relatorio em massa virou tela propria com historico ("Central de Relatorios")
+
+Pedido do usuario, inspirado na "Central de downloads" do Auvo: mover o
+relatorio em massa (que estava numa aba dentro de Relatorio Operacional de
+OS) pra uma tela propria em Relatorios > Relatorios em Massa
+(`/app/analytics/work-orders/bulk-report`), com um historico de tudo que ja
+foi gerado.
+
+- Nova entidade `GeneratedReport` (tabela `generated_report`): quem pediu
+  (`createdBy`/`createdAt` herdados de `Audit`, reaproveitados como
+  "solicitado por" / "data da solicitacao"), tipo, status, descricao legivel
+  dos filtros usados, caminho no storage e `expiresAt`.
+- `POST /work-orders/report/bulk` agora salva um registro toda vez que gera
+  um PDF, alem de devolver o link de download de sempre.
+- Novos endpoints: `GET /work-orders/report/bulk/history` (lista os
+  relatorios da empresa) e `GET /work-orders/report/bulk/history/{id}/download`
+  (gera um link assinado novo pra um arquivo ja existente - o link original
+  expira em 10 minutos, mas o arquivo continua disponivel).
+- **Expira em 7 dias e apaga sozinho**: novo job Quartz
+  (`GeneratedReportCleanupJob`, roda todo dia as 3h) apaga o registro no
+  banco E o arquivo no MinIO/GCS para tudo que passou do prazo. Adicionado
+  `StorageService.delete(filePath)` (nao existia metodo de exclusao antes).
+- Geracao continua **sincrona** (gera dentro do proprio request, sem fila de
+  verdade) - decisao explicita pra nao superengenheirar agora. O status fica
+  sempre "Finalizado" na hora; o campo status no banco (QUEUED/PROCESSING/
+  DONE/FAILED) ja existe pronto pra quando isso mudar, sem precisar de
+  migration nova.
+
+### Campo CNPJ no Cliente
+
+Adicionado `Customer.cnpj` (opcional, sem validacao de formato/unicidade por
+enquanto). Motivo: nome e cidade do cliente podem se repetir ou mudar de
+grafia; CNPJ e' mais preciso. Por enquanto e' so mais um campo de busca
+adicional no relatorio em massa (filtro extra que estreita o grupo de
+clientes da cidade escolhida) - o usuario pretende tornar CNPJ o
+identificador principal do relatorio em massa numa proxima rodada, quando
+tiver os CNPJs de todos os clientes reais cadastrados.
+
+### Cidade retroativa em producao
+
+Os clientes reais ja cadastrados em producao (antes do campo Cidade existir)
+ficaram com Cidade vazia. Em vez de editar o banco de producao direto,
+virou uma migration de dados (`2026_08_05_00000000002_backfill_customer_city.xml`)
+que casa por nome exato (11 clientes confirmados: Santa Branca, Tremembe,
+Camanducaia, Sao Jose dos Campos, Cacapava) e so preenche se a cidade ainda
+estiver vazia - nao sobrescreve edicao manual. 4 clientes sem cidade obvia
+no nome (ARC Mobilidade, Energisa, Campos Luz Iluminacao, CFTV - Auvo
+Tecnologia) ficaram de fora de proposito, pendentes de preenchimento manual.
+
+### Nao alterado / pendente
+
+- Relatorio individual de OS e export PDF da tabela continuam sem rastreamento
+  nem expiracao - mesmo risco de crescimento sem controle, so nao foi tratado
+  nesta rodada (fora do pedido especifico do usuario).
+- CNPJ ainda nao e' obrigatorio nem tem validacao de digito verificador.
+- Fila de verdade (processamento assincrono) nao foi implementada - decisao
+  explicita do usuario de manter simples por enquanto.

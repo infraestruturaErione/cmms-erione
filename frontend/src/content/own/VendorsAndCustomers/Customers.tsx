@@ -257,6 +257,13 @@ const Customers = ({ openModal, handleCloseModal }: PropsType) => {
       helperText: t('customer_city_helper')
     },
     {
+      name: 'cnpj',
+      type: 'text',
+      label: t('cnpj'),
+      placeholder: t('cnpj_placeholder'),
+      helperText: t('cnpj_optional_helper')
+    },
+    {
       name: 'phone',
       type: 'text',
       label: t('phone'),

@@ -17,6 +17,12 @@ public class WorkOrderBulkReportRequestDTO {
     @NotBlank
     private String city;
 
+    // Opcional por enquanto (ver Customer.cnpj) - quando informado, restringe
+    // ainda mais o grupo de clientes da cidade a quem tenha esse CNPJ exato,
+    // em vez de trazer todos os clientes daquela cidade.
+    @Schema(description = "Optional CNPJ/CPF to narrow the city match down to a single customer")
+    private String cnpj;
+
     @Schema(description = "Period field used by start/end filters")
     private WorkOrderOperationalReportPeriodField periodField = WorkOrderOperationalReportPeriodField.COMPLETED_ON;
 

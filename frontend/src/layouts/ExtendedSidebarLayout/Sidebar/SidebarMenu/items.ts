@@ -46,6 +46,10 @@ const workOrderAnalyticsItems: MenuItem[] = [
         link: '/app/analytics/work-orders/operational-report'
       },
       {
+        name: 'bulk_report_history',
+        link: '/app/analytics/work-orders/bulk-report'
+      },
+      {
         name: 'status_report',
         link: '/app/analytics/work-orders/status'
       },

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <!-- Preenche a cidade dos clientes reais ja cadastrados em producao antes
+         da coluna city existir (migration anterior so criou a coluna vazia).
+         Casamento por nome exato, so quando city ainda esta vazia - nao
+         sobrescreve nada que ja tenha sido preenchido manualmente pela tela.
+         So os 11 nomes com cidade obvia no proprio nome; os demais (ARC
+         MOBILIDADE, ENERGISA, CAMPOS LUZ ILUMINACAO, CFTV - AUVO TECNOLOGIA)
+         ficam de fora de proposito - sem cidade clara pelo nome, o usuario
+         preenche manualmente pela tela. -->
+    <changeSet id="20260805-02-backfill-customer-city" author="claude">
+        <sql>
+            UPDATE customer SET city = 'Santa Branca'
+                WHERE name = 'PREFEITURA MUNICIPAL DE SANTA BRANCA' AND (city IS NULL OR city = '');
+
+            UPDATE customer SET city = 'Tremembé'
+                WHERE name = 'PREFEITURA MUNICIPAL DA ESTANCIA TURISTICA DE TREMEMBE' AND (city IS NULL OR city = '');
+
+            UPDATE customer SET city = 'Camanducaia'
+                WHERE name IN ('PREFEITURA MUNICIPAL DE CAMANDUCAIA', 'PREFEITURA MUNICIPAL DE CAMANDUCAIA - SEDE')
+                AND (city IS NULL OR city = '');
+
+            UPDATE customer SET city = 'São José dos Campos'
+                WHERE name IN (
+                    'PREFEITURA MUNICIPAL DE SAO JOSE DOS CAMPOS',
+                    'PREFEITURA MUNICIPAL DE SAO JOSE DOS CAMPOS - DEMAIS',
+                    'PREFEITURA MUNICIPAL DE SJC - MATRIZ',
+                    'CAMARA MUNICIPAL DE SAO JOSE DOS CAMPOS',
+                    'AEROPORTO INTERNACIONAL DE SJC'
+                ) AND (city IS NULL OR city = '');
+
+            UPDATE customer SET city = 'Caçapava'
+                WHERE name IN ('GCM - GUARDA CIVIL MUNICIPAL DE CACAPAVA', 'TERMINAL RODOVIARIO DE CACAPAVA')
+                AND (city IS NULL OR city = '');
+        </sql>
+        <rollback>
+            <!-- Intencionalmente vazio: reverter apagaria a cidade mesmo se o
+                 usuario ja tiver editado manualmente depois da migration rodar.
+                 Se precisar desfazer, limpar campo a campo pela tela. -->
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

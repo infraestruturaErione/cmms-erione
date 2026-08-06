@@ -7,6 +7,7 @@ export interface Customer extends Audit {
   name: string;
   address: string;
   city: string;
+  cnpj?: string;
   phone: string;
   website: string;
   email: string;

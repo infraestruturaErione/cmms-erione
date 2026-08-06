@@ -21,6 +21,10 @@ public class CustomerPatchDTO extends BasicInfos {
     @Schema(description = "City where the customer is located, used to group/filter work orders in the bulk report")
     private String city;
 
+    @Schema(description = "CNPJ/CPF of the customer - optional today, planned to become the primary identifier " +
+            "for the bulk report")
+    private String cnpj;
+
     @Schema(description = "Description")
     private String description;
 

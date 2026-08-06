@@ -223,4 +223,10 @@
              relativeToChangelogFile="true"/>
     <include file="changelog/2026_08_05_00000000001_add_customer_city.xml"
              relativeToChangelogFile="true"/>
+    <include file="changelog/2026_08_05_00000000002_backfill_customer_city.xml"
+             relativeToChangelogFile="true"/>
+    <include file="changelog/2026_08_06_00000000001_add_customer_cnpj.xml"
+             relativeToChangelogFile="true"/>
+    <include file="changelog/2026_08_06_00000000002_add_generated_report_table.xml"
+             relativeToChangelogFile="true"/>
 </databaseChangeLog>

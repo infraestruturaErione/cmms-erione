@@ -121,6 +121,9 @@ const WorkOrders = Loader(lazy(() => import('../content/own/WorkOrders')));
 const WorkOrderOperationalReport = Loader(
   lazy(() => import('../content/own/Reports/WorkOrderOperationalReport'))
 );
+const WorkOrderBulkReport = Loader(
+  lazy(() => import('../content/own/Reports/WorkOrderBulkReport'))
+);
 
 const VendorsAndCustomers = Loader(
   lazy(() => import('../content/own/VendorsAndCustomers'))
@@ -338,6 +341,10 @@ const appRoutes = [
   {
     path: 'analytics/work-orders/operational-report',
     element: <WorkOrderOperationalReport />
+  },
+  {
+    path: 'analytics/work-orders/bulk-report',
+    element: <WorkOrderBulkReport />
   },
   {
     path: 'analytics',

@@ -12,6 +12,7 @@ import {
 import PreventiveMaintenance from 'src/models/owns/preventiveMaintenance';
 import { revertAll } from 'src/utils/redux';
 import File from '../models/owns/file';
+import { GeneratedReport } from '../models/owns/generatedReport';
 
 const basePath = 'work-orders';
 
@@ -453,6 +454,7 @@ export const getPDFReport =
 export const getBulkPDFReport =
   (params: {
     city: string;
+    cnpj?: string;
     periodField: string;
     start: string | null;
     end: string | null;
@@ -464,6 +466,21 @@ export const getBulkPDFReport =
     );
     const { message } = response;
     return message;
+  };
+
+export const getBulkPDFReportHistory =
+  (): AppThunk =>
+  async (dispatch): Promise<GeneratedReport[]> => {
+    return api.get<GeneratedReport[]>(`${basePath}/report/bulk/history`);
+  };
+
+export const downloadBulkPDFReportFromHistory =
+  (id: number): AppThunk =>
+  async (dispatch): Promise<string> => {
+    const response = await api.get<{ success: boolean; message: string }>(
+      `${basePath}/report/bulk/history/${id}/download`
+    );
+    return response.message;
   };
 
 export const getWorkOrderEvents =

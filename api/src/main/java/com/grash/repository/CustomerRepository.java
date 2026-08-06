@@ -17,5 +17,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long>, JpaSp
 
     List<Customer> findByCityIgnoreCaseAndCompany_Id(String city, Long companyId);
 
+    List<Customer> findByCnpjAndCompany_Id(String cnpj, Long companyId);
+
     void deleteByCompany_IdAndIsDemoTrue(Long companyId);
 }

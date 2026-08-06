@@ -33,6 +33,14 @@ public interface StorageService {
 
     String generateSignedUrl(String filePath, long expirationMinutes);
 
+    /**
+     * Permanently deletes a file from storage. Used by the generated-report
+     * cleanup job once a report passes its expiration date.
+     *
+     * @param filePath The path of the file to delete.
+     */
+    void delete(String filePath);
+
     default String uploadAndSign(MultipartFile file, String folder) {
         return generateSignedUrl(upload(file, folder), 10);
     }

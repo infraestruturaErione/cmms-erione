@@ -161,6 +161,20 @@ public class MinioService implements StorageService {
         return download(filePath);
     }
 
+    public void delete(String filePath) {
+        checkIfConfigured();
+        try {
+            minioClient.removeObject(
+                    RemoveObjectArgs.builder()
+                            .bucket(minioBucket)
+                            .object(filePath)
+                            .build()
+            );
+        } catch (MinioException | IOException | InvalidKeyException | NoSuchAlgorithmException e) {
+            throw new CustomException("Error deleting file: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     private void checkIfConfigured() {
         if (!configured)
             throw new CustomException("MinIO is not configured. Please define the MinIO credentials in the env " +

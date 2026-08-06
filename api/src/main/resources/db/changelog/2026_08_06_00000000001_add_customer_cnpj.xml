@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <!-- CNPJ/CPF do cliente - opcional por enquanto, planejado pra virar o
+         identificador principal do relatorio em massa (mais preciso que
+         nome/cidade, que podem se repetir ou mudar de grafia). -->
+    <changeSet id="20260806-01-add-customer-cnpj" author="claude">
+        <sql>
+            ALTER TABLE customer ADD COLUMN IF NOT EXISTS cnpj VARCHAR(32);
+        </sql>
+        <rollback>
+            ALTER TABLE customer DROP COLUMN IF EXISTS cnpj;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

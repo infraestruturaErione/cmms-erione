@@ -126,6 +126,15 @@ public class GCPService implements StorageService {
         }
     }
 
+    public void delete(String filePath) {
+        checkIfConfigured();
+        try {
+            storage.delete(BlobId.of(gcpBucketName, filePath));
+        } catch (StorageException e) {
+            throw new CustomException("Error deleting file: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     private void checkIfConfigured() {
         if (!configured)
             throw new CustomException("Google Cloud Storage is not configured. Please define the GCP credentials in " +

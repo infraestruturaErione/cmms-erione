@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <!-- Historico de relatorios gerados (tela "Central de Relatorios" -
+         relatorio em massa por enquanto). Cada PDF gerado vira uma linha
+         aqui, com prazo de expiracao (7 dias); um job diario apaga o
+         registro e o arquivo no storage depois de vencido. -->
+    <changeSet id="20260806-02-add-generated-report-table" author="claude">
+        <sql>
+            CREATE TABLE IF NOT EXISTS generated_report (
+                id BIGSERIAL PRIMARY KEY,
+                company_id BIGINT,
+                type VARCHAR(64),
+                status VARCHAR(32),
+                description VARCHAR(1024),
+                file_path VARCHAR(1024),
+                expires_at TIMESTAMP,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL,
+                created_by BIGINT,
+                updated_by BIGINT
+            );
+            CREATE INDEX IF NOT EXISTS idx_generated_report_company_id ON generated_report (company_id);
+            CREATE INDEX IF NOT EXISTS idx_generated_report_expires_at ON generated_report (expires_at);
+        </sql>
+        <rollback>
+            DROP TABLE IF EXISTS generated_report;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

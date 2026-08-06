@@ -19,6 +19,9 @@ public class CustomerShowDTO extends AuditShowDTO {
     @Schema(description = "City where the customer is located")
     private String city;
 
+    @Schema(description = "CNPJ/CPF of the customer")
+    private String cnpj;
+
     @Schema(description = "Description")
     private String description;
 

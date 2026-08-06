@@ -52,7 +52,7 @@ import {
   WorkOrderOperationalReportSummary
 } from '../../../../models/owns/workOrderOperationalReport';
 import { getWorkOrderOperationalReport } from '../../../../slices/workOrderOperationalReport';
-import { getPDFReport, getBulkPDFReport } from '../../../../slices/workOrder';
+import { getPDFReport } from '../../../../slices/workOrder';
 import CustomDatagrid2, {
   CustomDatagridColumn2
 } from '../../components/CustomDatagrid2';
@@ -179,29 +179,6 @@ function WorkOrderOperationalReport() {
   const [exportingPdf, setExportingPdf] = useState<boolean>(false);
   const [exportingExcel, setExportingExcel] = useState<boolean>(false);
   const [generatingPdfFor, setGeneratingPdfFor] = useState<number | null>(null);
-  // Relatorio em massa por cidade: independente dos filtros granulares acima
-  // (que operam sobre a tabela paginada). Sempre pega OS CONCLUIDAS de todos
-  // os clientes daquela cidade, num periodo - nao tem relacao com Cliente/
-  // Local/Equipamento/Status/Tecnico selecionados na tabela. O usuario escolhe
-  // um Cliente (dropdown, mesma lista ja carregada pros filtros de cima) em
-  // vez de digitar a cidade - a cidade e' resolvida a partir do cliente
-  // escolhido, mas o relatorio ainda traz TODOS os clientes daquela cidade.
-  const [bulkFilters, setBulkFilters] = useState<{
-    customerId: string;
-    periodField: WorkOrderOperationalReportPeriodField;
-    start: string;
-    end: string;
-  }>({ customerId: '', periodField: 'COMPLETED_ON', start: '', end: '' });
-  const [generatingBulkPdf, setGeneratingBulkPdf] = useState<boolean>(false);
-  const bulkSelectedCustomer = customersMini.find(
-    // MUI Select entrega o value do MenuItem com o tipo original (number,
-    // ja' que customer.id e' number) apesar do estado ser tipado como string -
-    // comparar com String() dos dois lados evita o mismatch "1" !== 1.
-    (customer) =>
-      bulkFilters.customerId !== '' &&
-      String(customer.id) === String(bulkFilters.customerId)
-  );
-  const bulkCity = bulkSelectedCustomer?.city ?? '';
   const { singleWorkOrder } = useSelector((state) => state.workOrders);
   const { tasksByWorkOrder } = useSelector((state) => state.tasks);
   const tasks = tasksByWorkOrder[currentWorkOrder?.id] ?? [];
@@ -498,28 +475,6 @@ function WorkOrderOperationalReport() {
       })
       .catch((err) => showSnackBar(getErrorMessage(err), 'error'))
       .finally(() => setGeneratingPdfFor(null));
-  };
-
-  const handleGenerateBulkPdf = () => {
-    if (!bulkCity.trim()) return;
-    if (!bulkFilters.start || !bulkFilters.end) {
-      showSnackBar(t('bulk_report_period_required'), 'error');
-      return;
-    }
-    setGeneratingBulkPdf(true);
-    dispatch(
-      getBulkPDFReport({
-        city: bulkCity.trim(),
-        periodField: bulkFilters.periodField,
-        start: toIsoStart(bulkFilters.start),
-        end: toIsoEnd(bulkFilters.end)
-      })
-    )
-      .then((url: string) => {
-        window.open(url);
-      })
-      .catch((err) => showSnackBar(getErrorMessage(err), 'error'))
-      .finally(() => setGeneratingBulkPdf(false));
   };
 
   const summary: WorkOrderOperationalReportSummary = report.summary;
@@ -870,140 +825,6 @@ function WorkOrderOperationalReport() {
                       onClick={handleApply}
                     >
                       {t('apply_filters')}
-                    </Button>
-                  </Stack>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-
-          <Card variant="outlined">
-            <CardContent>
-              <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                justifyContent="space-between"
-                alignItems={{ xs: 'flex-start', sm: 'center' }}
-                spacing={1}
-              >
-                <Box>
-                  <Typography variant="h5">
-                    {t('bulk_report_by_city_title')}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {t('bulk_report_by_city_helper')}
-                  </Typography>
-                </Box>
-              </Stack>
-              <Divider sx={{ my: 2 }} />
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    label={t('customer')}
-                    value={bulkFilters.customerId}
-                    onChange={(event) =>
-                      setBulkFilters((prev) => ({
-                        ...prev,
-                        customerId: event.target.value
-                      }))
-                    }
-                    helperText={
-                      bulkFilters.customerId && !bulkCity
-                        ? t('bulk_report_customer_no_city')
-                        : bulkCity
-                        ? t('bulk_report_resolved_city', { city: bulkCity })
-                        : ''
-                    }
-                  >
-                    <MenuItem value="">{t('select')}</MenuItem>
-                    {customersMini.map((customer) => (
-                      <MenuItem key={customer.id} value={customer.id}>
-                        {customer.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    label={t('period_field')}
-                    value={bulkFilters.periodField}
-                    onChange={(event) =>
-                      setBulkFilters((prev) => ({
-                        ...prev,
-                        periodField: event.target
-                          .value as WorkOrderOperationalReportPeriodField
-                      }))
-                    }
-                  >
-                    {periodFieldOptions.map((periodField) => (
-                      <MenuItem key={periodField} value={periodField}>
-                        {t(periodField)}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    required
-                    fullWidth
-                    size="small"
-                    type="date"
-                    label={t('start_date')}
-                    value={bulkFilters.start}
-                    error={!bulkFilters.start}
-                    onChange={(event) =>
-                      setBulkFilters((prev) => ({
-                        ...prev,
-                        start: event.target.value
-                      }))
-                    }
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    required
-                    fullWidth
-                    size="small"
-                    type="date"
-                    label={t('end_date')}
-                    value={bulkFilters.end}
-                    error={!bulkFilters.end}
-                    onChange={(event) =>
-                      setBulkFilters((prev) => ({
-                        ...prev,
-                        end: event.target.value
-                      }))
-                    }
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <Stack direction="row" justifyContent="flex-end">
-                    <Button
-                      variant="contained"
-                      color="error"
-                      startIcon={
-                        generatingBulkPdf ? (
-                          <CircularProgress size={18} />
-                        ) : (
-                          <PictureAsPdfTwoToneIcon />
-                        )
-                      }
-                      onClick={handleGenerateBulkPdf}
-                      disabled={
-                        generatingBulkPdf ||
-                        !bulkCity.trim() ||
-                        !bulkFilters.start ||
-                        !bulkFilters.end
-                      }
-                    >
-                      {t('generate_bulk_report')}
                     </Button>
                   </Stack>
                 </Grid>

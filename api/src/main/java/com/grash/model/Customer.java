@@ -28,6 +28,13 @@ public class Customer extends BasicInfos {
     @Schema(description = "City where the customer is located, used to group/filter work orders in the bulk report")
     private String city;
 
+    // Opcional por enquanto - previsto pra virar o identificador principal do
+    // relatorio em massa no futuro (mais preciso que nome/cidade, que podem
+    // se repetir ou mudar). Nao validamos formato/unicidade ainda de proposito.
+    @Schema(description = "CNPJ/CPF of the customer - optional today, planned to become the primary identifier " +
+            "for the bulk report")
+    private String cnpj;
+
     @Schema(description = "Customer description")
     private String description;
 

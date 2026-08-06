@@ -39,6 +39,7 @@ import PendingActionsTwoToneIcon from '@mui/icons-material/PendingActionsTwoTone
 import AttachFileTwoToneIcon from '@mui/icons-material/AttachFileTwoTone';
 import QueryStatsTwoToneIcon from '@mui/icons-material/QueryStatsTwoTone';
 import PriceCheckTwoToneIcon from '@mui/icons-material/PriceCheckTwoTone';
+import CloudDownloadTwoToneIcon from '@mui/icons-material/CloudDownloadTwoTone';
 import { useTranslation } from 'react-i18next';
 
 import useAuth from '../../../hooks/useAuth';
@@ -153,6 +154,13 @@ const curatedSections: TopNavSection[] = [
         link: '/app/analytics/work-orders/analysis',
         icon: <AnalyticsTwoToneIcon fontSize="small" />,
         sourceName: 'wo_analysis'
+      },
+      {
+        name: 'bulk_report_history',
+        description: 'erione_nav_desc_bulk_report_history',
+        link: '/app/analytics/work-orders/bulk-report',
+        icon: <CloudDownloadTwoToneIcon fontSize="small" />,
+        sourceName: 'bulk_report_history'
       }
     ]
   },
