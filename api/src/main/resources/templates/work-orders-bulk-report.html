@@ -220,8 +220,8 @@
                 <td></td>
             </tr>
             <tr>
-                <td><span class="label">Periodo inicial</span><span class="value" th:text="${periodStart == null ? '--' : utils.getFormattedDate(periodStart, dateFormat, timeZone)}"></span></td>
-                <td><span class="label">Periodo final</span><span class="value" th:text="${periodEnd == null ? '--' : utils.getFormattedDate(periodEnd, dateFormat, timeZone)}"></span></td>
+                <td><span class="label">Periodo inicial</span><span class="value" th:text="${periodStart == null or #strings.isEmpty(periodStart) ? '--' : periodStart}"></span></td>
+                <td><span class="label">Periodo final</span><span class="value" th:text="${periodEnd == null or #strings.isEmpty(periodEnd) ? '--' : periodEnd}"></span></td>
             </tr>
         </table>
     </div>

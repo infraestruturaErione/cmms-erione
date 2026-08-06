@@ -62,14 +62,6 @@ const defaultBulkFilters: BulkFilters = {
   end: ''
 };
 
-function toIsoStart(value: string): string {
-  return value ? `${value}T00:00:00.000Z` : null;
-}
-
-function toIsoEnd(value: string): string {
-  return value ? `${value}T23:59:59.999Z` : null;
-}
-
 function WorkOrderBulkReport() {
   const { t }: { t: any } = useTranslation();
   const dispatch = useDispatch();
@@ -115,8 +107,11 @@ function WorkOrderBulkReport() {
         customerId: Number(filters.customerId),
         cnpj: filters.cnpj.trim() || undefined,
         periodField: filters.periodField,
-        start: toIsoStart(filters.start),
-        end: toIsoEnd(filters.end)
+        // Datas civis puras ("2026-08-01"), sem hora/fuso - o backend e' quem
+        // resolve pro instante certo usando o timezone da empresa. Nao
+        // fingir aqui que a data escolhida ja e' um instante UTC.
+        start: filters.start,
+        end: filters.end
       })
     )
       .then((url: string) => {

@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import jakarta.validation.constraints.NotNull;
-import java.util.Date;
+import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
@@ -36,11 +36,19 @@ public class WorkOrderBulkReportRequestDTO {
     // tenderia a trazer TODAS as OS concluidas historicas do cliente de uma
     // vez, o que nao e' o uso pretendido (relatorio de um periodo
     // especifico) e pode gerar um PDF gigante.
-    @Schema(description = "Period start (required)")
+    //
+    // LocalDate (data civil, sem horario/fuso) de proposito: quem escolhe o
+    // periodo pensa em dias no calendario da empresa (ex: "01/08 a 31/08"),
+    // nao em um instante UTC. O backend e' quem decide, a partir do
+    // timezone configurado da empresa, a que instante UTC cada dia civil
+    // corresponde - o frontend nao deve fingir que a data local ja e' UTC.
+    @Schema(description = "Period start, civil date in the company's configured timezone (required)",
+            example = "2026-08-01")
     @NotNull
-    private Date start;
+    private LocalDate start;
 
-    @Schema(description = "Period end (required)")
+    @Schema(description = "Period end, civil date in the company's configured timezone, inclusive (required)",
+            example = "2026-08-31")
     @NotNull
-    private Date end;
+    private LocalDate end;
 }

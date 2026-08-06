@@ -58,6 +58,8 @@ import jakarta.validation.Valid;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URLConnection;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -660,9 +662,26 @@ public class WorkOrderController {
                     HttpStatus.BAD_REQUEST);
         }
 
+        // O periodo representa datas CIVIS (LocalDate) no timezone configurado
+        // da empresa - nao um instante UTC. O frontend manda so a data (ex:
+        // "2026-08-01"), sem fingir que ja e' UTC; quem resolve pro instante
+        // certo e' o backend: inicio do dia inicial (inclusive) ate' o inicio
+        // do dia SEGUINTE ao final (exclusivo), ambos calculados no fuso da
+        // empresa - nunca no fuso do navegador nem no fuso da JVM (que e'
+        // sempre UTC, ver ApiApplication.configureDefaultTimeZone).
+        String companyTimeZoneId = user.getCompany().getCompanySettings().getGeneralPreferences().getTimeZone();
+        ZoneId companyZone;
+        try {
+            companyZone = ZoneId.of(companyTimeZoneId);
+        } catch (Exception invalidZone) {
+            companyZone = ZoneId.of(GeneralPreferences.DEFAULT_TIME_ZONE);
+        }
+        Date periodStartInstant = Date.from(request.getStart().atStartOfDay(companyZone).toInstant());
+        Date periodEndExclusiveInstant = Date.from(request.getEnd().plusDays(1).atStartOfDay(companyZone).toInstant());
+
         List<Long> customerIds = Collections.singletonList(selectedCustomer.getId());
         List<WorkOrder> workOrders = workOrderService.findCompletedByCustomersAndPeriod(customerIds,
-                request.getPeriodField(), request.getStart(), request.getEnd(), companyId);
+                request.getPeriodField(), periodStartInstant, periodEndExclusiveInstant, companyId);
         if (workOrders.isEmpty()) {
             throw new CustomException("Nenhuma OS concluida encontrada nesse periodo", HttpStatus.NOT_FOUND);
         }
@@ -680,8 +699,15 @@ public class WorkOrderController {
         variables.put("customerLabel", customerLabel);
         variables.put("cityLabel", selectedCustomer.getCity());
         variables.put("cnpjLabel", selectedCustomer.getCnpj());
-        variables.put("periodStart", request.getStart());
-        variables.put("periodEnd", request.getEnd());
+        // Periodo exibido usa as LocalDate ORIGINAIS escolhidas pelo usuario,
+        // formatadas direto (sem hora/fuso) - nunca reconstruidas a partir do
+        // instante UTC calculado acima pra query. Assim o PDF/historico
+        // sempre mostram exatamente as datas que foram selecionadas.
+        DateTimeFormatter periodDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        String periodStartLabel = request.getStart().format(periodDateFormatter);
+        String periodEndLabel = request.getEnd().format(periodDateFormatter);
+        variables.put("periodStart", periodStartLabel);
+        variables.put("periodEnd", periodEndLabel);
         variables.put("workOrderReports", workOrderReports);
         thymeleafContext.setVariables(variables);
 
@@ -692,11 +718,9 @@ public class WorkOrderController {
         MultipartFile file = new MultipartFileImpl(bytes, "Relatorio em Massa - " + customerLabel + ".pdf");
         String filePath = storageService.upload(file, "reports/" + companyId);
 
-        java.text.SimpleDateFormat descriptionDateFormat = new java.text.SimpleDateFormat("dd/MM/yyyy");
         String description = "Cliente: " + customerLabel +
                 (requestedCnpjDigits.isEmpty() ? "" : " · CNPJ: " + request.getCnpj()) +
-                " · Periodo: " + descriptionDateFormat.format(request.getStart()) + " a " +
-                descriptionDateFormat.format(request.getEnd());
+                " · Periodo: " + periodStartLabel + " a " + periodEndLabel;
         Date expiresAt = new Date(System.currentTimeMillis() + GENERATED_REPORT_TTL_MS);
         generatedReportRepository.save(GeneratedReport.builder()
                 .companyId(companyId)

@@ -647,6 +647,11 @@ public class WorkOrderService {
     // grupo de clientes (os clientes daquela cidade), num periodo, filtrando
     // pelo campo de data escolhido (createdAt/completedOn/checkInAt) - mesmo
     // campo dinamico ja usado no Relatorio Operacional de OS.
+    // start e' inclusivo, end e' EXCLUSIVO de proposito: o chamador (relatorio
+    // em massa) resolve datas civis pro instante UTC certo no timezone da
+    // empresa e ja manda o inicio do dia seguinte ao ultimo dia como "end" -
+    // usar '<' aqui evita depender de 23:59:59.999 (que quebraria se a coluna
+    // tivesse mais precisao que milissegundos).
     public List<WorkOrder> findCompletedByCustomersAndPeriod(List<Long> customerIds,
                                                               com.grash.dto.workOrder.report.WorkOrderOperationalReportPeriodField periodField,
                                                               Date start, Date end, Long companyId) {
@@ -659,7 +664,7 @@ public class WorkOrderService {
             predicates.add(customerJoin.get("id").in(customerIds));
             String fieldName = periodField.getFieldName();
             if (start != null) predicates.add(cb.greaterThanOrEqualTo(root.get(fieldName), start));
-            if (end != null) predicates.add(cb.lessThanOrEqualTo(root.get(fieldName), end));
+            if (end != null) predicates.add(cb.lessThan(root.get(fieldName), end));
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };
         return workOrderRepository.findAll(spec);
