@@ -9,31 +9,32 @@ import java.util.Date;
 
 @Data
 @NoArgsConstructor
-@Schema(description = "Request for the bulk work order report (all completed work orders of a city, in a period, " +
-        "combined into a single PDF)")
+@Schema(description = "Request for the bulk work order report (all completed work orders of the selected customer, " +
+        "across every location linked to it, in a period, combined into a single PDF)")
 public class WorkOrderBulkReportRequestDTO {
-    // Cliente escolhido no dropdown - sempre obrigatorio. O backend decide
-    // sozinho se agrupa por cidade (quando esse cliente tem Customer.city
-    // preenchido) ou se usa so esse cliente (quando nao tem cidade
-    // cadastrada) - o usuario nao precisa entender/preencher cidade pra
-    // conseguir gerar o relatorio.
-    @Schema(description = "Selected customer id - if that customer has a city set, the report groups every " +
-            "customer sharing that city; otherwise it falls back to just this one customer")
+    // Cliente escolhido no dropdown - sempre obrigatorio. A busca fica
+    // restrita EXCLUSIVAMENTE a esse customerId: nunca amplia pra outros
+    // clientes (nem por cidade, nem por nenhum outro criterio). O relatorio
+    // consolida todas as Locations vinculadas a esse cliente - isso e'
+    // esperado, Location nao e' filtro desse relatorio.
+    @Schema(description = "Selected customer id - the report is restricted exclusively to this customer's work " +
+            "orders (across all of its locations); never expanded to any other customer")
     @NotNull
     private Long customerId;
 
-    // Opcional por enquanto (ver Customer.cnpj) - quando informado, restringe
-    // ainda mais o grupo de clientes (por cidade ou so o cliente escolhido) a
-    // quem tenha esse CNPJ exato.
-    @Schema(description = "Optional CNPJ/CPF to narrow the customer group down to a single customer")
+    // Opcional - quando informado, e' so uma CONFERENCIA contra o CNPJ do
+    // cliente selecionado (Customer.cnpj). Se nao bater, retorna erro de
+    // validacao - nunca troca ou amplia pra outro cliente.
+    @Schema(description = "Optional CNPJ/CPF - when provided, must match the selected customer's own CNPJ " +
+            "(validation only, never used to look up a different customer)")
     private String cnpj;
 
     @Schema(description = "Period field used by start/end filters")
     private WorkOrderOperationalReportPeriodField periodField = WorkOrderOperationalReportPeriodField.COMPLETED_ON;
 
     // Periodo obrigatorio de proposito: sem isso o relatorio em massa
-    // tenderia a trazer TODAS as OS concluidas historicas de uma cidade de
-    // uma vez, o que nao e' o uso pretendido (relatorio de um periodo
+    // tenderia a trazer TODAS as OS concluidas historicas do cliente de uma
+    // vez, o que nao e' o uso pretendido (relatorio de um periodo
     // especifico) e pode gerar um PDF gigante.
     @Schema(description = "Period start (required)")
     @NotNull

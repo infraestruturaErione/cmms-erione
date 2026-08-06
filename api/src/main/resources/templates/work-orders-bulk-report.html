@@ -184,7 +184,9 @@
 </head>
 <body>
 <!--@thymesVar id="workOrderReports" type="java.util.List<java.util.Map>"-->
+<!--@thymesVar id="customerLabel" type="java.lang.String"-->
 <!--@thymesVar id="cityLabel" type="java.lang.String"-->
+<!--@thymesVar id="cnpjLabel" type="java.lang.String"-->
 
 <div class="header">
     <table class="brand-row">
@@ -198,8 +200,8 @@
                 </p>
             </td>
             <td class="brand-right">
-                <div class="kicker">Cidade</div>
-                <h2 th:text="${cityLabel}">Cidade</h2>
+                <div class="kicker">Cliente</div>
+                <h2 th:text="${customerLabel}">Cliente</h2>
             </td>
         </tr>
     </table>
@@ -210,8 +212,12 @@
     <div class="cover-body">
         <table class="grid">
             <tr>
-                <td><span class="label">Cidade</span><span class="value" th:text="${cityLabel}"></span></td>
+                <td><span class="label">Cidade</span><span class="value" th:text="${cityLabel == null or #strings.isEmpty(cityLabel) ? '--' : cityLabel}"></span></td>
+                <td><span class="label">CNPJ</span><span class="value" th:text="${cnpjLabel == null or #strings.isEmpty(cnpjLabel) ? '--' : cnpjLabel}"></span></td>
+            </tr>
+            <tr>
                 <td><span class="label">Total de OS concluidas</span><span class="value" th:text="${#lists.size(workOrderReports)}"></span></td>
+                <td></td>
             </tr>
             <tr>
                 <td><span class="label">Periodo inicial</span><span class="value" th:text="${periodStart == null ? '--' : utils.getFormattedDate(periodStart, dateFormat, timeZone)}"></span></td>
