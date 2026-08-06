@@ -536,7 +536,7 @@ public class WorkOrderService {
         Optional<User> optionalCompletedBy = userService.findByEmailAndCompany(dto.getCompletedByEmail(),
                 company.getId());
         optionalCompletedBy.ifPresent(workOrder::setCompletedBy);
-        workOrder.setCompletedOn(dto.getCompletedOn() == null ? null : Helper.addSeconds(new Date(), 60 * 10));
+        workOrder.setCompletedOn(Helper.getDateFromExcelDate(dto.getCompletedOn()));
         workOrder.setArchived(Helper.getBooleanFromString(dto.getArchived()));
         workOrder.setStatus(Status.getStatusFromString(dto.getStatus()));
         workOrder.setFeedback(dto.getFeedback());
