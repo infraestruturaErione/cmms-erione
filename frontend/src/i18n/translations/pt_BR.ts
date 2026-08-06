@@ -594,8 +594,8 @@ const ptBRJSON = {
   bulk_report_by_city_helper:
     'Escolha um cliente: o relatório traz as OS concluídas de todos os clientes da mesma cidade, no período selecionado.',
   bulk_report_resolved_city: 'Cidade: {{city}}',
-  bulk_report_customer_no_city:
-    'Esse cliente não tem cidade cadastrada — edite o cliente antes de gerar',
+  bulk_report_customer_alone_hint:
+    'Esse cliente não tem cidade cadastrada — o relatório trará só as OS dele',
   bulk_report_period_required:
     'Selecione data inicial e final antes de gerar o relatório em massa',
   generate_bulk_report: 'Gerar relatório em massa',

@@ -640,23 +640,34 @@ public class WorkOrderController {
             throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         }
         Long companyId = user.getCompany().getId();
-        List<Customer> cityCustomers = customerRepository.findByCityIgnoreCaseAndCompany_Id(request.getCity(),
-                companyId);
+        Customer selectedCustomer = customerRepository.findById(request.getCustomerId())
+                .orElseThrow(() -> new CustomException("Cliente nao encontrado", HttpStatus.NOT_FOUND));
+        // O cliente ja passa por CompanyAudit.afterLoad() (lanca 403 sozinho se
+        // for de outra empresa) - nao precisa checar de novo aqui.
+
+        // Nao existe mais bloqueio por "cliente sem cidade": quando o cliente
+        // escolhido tem Customer.city preenchido, agrupa TODOS os clientes
+        // daquela cidade (comportamento original); quando nao tem, usa so o
+        // cliente escolhido. Selecionar qualquer cliente do dropdown sempre
+        // funciona.
+        String city = selectedCustomer.getCity();
+        boolean groupByCity = city != null && !city.isBlank();
+        List<Customer> groupCustomers = groupByCity
+                ? customerRepository.findByCityIgnoreCaseAndCompany_Id(city, companyId)
+                : Collections.singletonList(selectedCustomer);
+
         // CNPJ e' opcional hoje: quando informado, so estreita o grupo (que ja
-        // veio filtrado por cidade) a quem bate o CNPJ exato - nunca substitui
-        // o filtro de cidade sozinho, pra nao quebrar quem ainda nao tem CNPJ
-        // cadastrado.
+        // veio filtrado por cidade/cliente) a quem bate o CNPJ exato.
         String requestedCnpjDigits = onlyDigits(request.getCnpj());
         if (!requestedCnpjDigits.isEmpty()) {
-            cityCustomers = cityCustomers.stream()
+            groupCustomers = groupCustomers.stream()
                     .filter(customer -> requestedCnpjDigits.equals(onlyDigits(customer.getCnpj())))
                     .collect(Collectors.toList());
         }
-        if (cityCustomers.isEmpty()) {
-            throw new CustomException("Nenhum cliente encontrado para essa cidade" +
-                    (requestedCnpjDigits.isEmpty() ? "" : "/CNPJ"), HttpStatus.NOT_FOUND);
+        if (groupCustomers.isEmpty()) {
+            throw new CustomException("Nenhum cliente encontrado com esse CNPJ", HttpStatus.NOT_FOUND);
         }
-        List<Long> customerIds = cityCustomers.stream().map(Customer::getId).collect(Collectors.toList());
+        List<Long> customerIds = groupCustomers.stream().map(Customer::getId).collect(Collectors.toList());
         List<WorkOrder> workOrders = workOrderService.findCompletedByCustomersAndPeriod(customerIds,
                 request.getPeriodField(), request.getStart(), request.getEnd(), companyId);
         if (workOrders.isEmpty()) {
@@ -669,7 +680,10 @@ public class WorkOrderController {
         List<Map<String, Object>> workOrderReports = workOrders.stream()
                 .map(workOrder -> buildWorkOrderReportVariables(workOrder, storageService))
                 .collect(Collectors.toList());
-        variables.put("cityLabel", request.getCity());
+        // Rotulo do relatorio: cidade quando agrupou por cidade, senao o nome
+        // do proprio cliente escolhido.
+        String groupLabel = groupByCity ? city : selectedCustomer.getName();
+        variables.put("cityLabel", groupLabel);
         variables.put("periodStart", request.getStart());
         variables.put("periodEnd", request.getEnd());
         variables.put("workOrderReports", workOrderReports);
@@ -679,11 +693,11 @@ public class WorkOrderController {
         ByteArrayOutputStream target = new ByteArrayOutputStream();
         HtmlConverter.convertToPdf(reportHtml, target);
         byte[] bytes = target.toByteArray();
-        MultipartFile file = new MultipartFileImpl(bytes, "Relatorio em Massa - " + request.getCity() + ".pdf");
+        MultipartFile file = new MultipartFileImpl(bytes, "Relatorio em Massa - " + groupLabel + ".pdf");
         String filePath = storageService.upload(file, "reports/" + companyId);
 
         java.text.SimpleDateFormat descriptionDateFormat = new java.text.SimpleDateFormat("dd/MM/yyyy");
-        String description = "Cidade: " + request.getCity() +
+        String description = (groupByCity ? "Cidade: " + city : "Cliente: " + selectedCustomer.getName()) +
                 (requestedCnpjDigits.isEmpty() ? "" : " · CNPJ: " + request.getCnpj()) +
                 " · Periodo: " + descriptionDateFormat.format(request.getStart()) + " a " +
                 descriptionDateFormat.format(request.getEnd());

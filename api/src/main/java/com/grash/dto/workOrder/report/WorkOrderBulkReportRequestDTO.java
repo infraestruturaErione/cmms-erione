@@ -4,7 +4,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.util.Date;
 
@@ -13,14 +12,20 @@ import java.util.Date;
 @Schema(description = "Request for the bulk work order report (all completed work orders of a city, in a period, " +
         "combined into a single PDF)")
 public class WorkOrderBulkReportRequestDTO {
-    @Schema(description = "City name, matched against Customer.city (case-insensitive)")
-    @NotBlank
-    private String city;
+    // Cliente escolhido no dropdown - sempre obrigatorio. O backend decide
+    // sozinho se agrupa por cidade (quando esse cliente tem Customer.city
+    // preenchido) ou se usa so esse cliente (quando nao tem cidade
+    // cadastrada) - o usuario nao precisa entender/preencher cidade pra
+    // conseguir gerar o relatorio.
+    @Schema(description = "Selected customer id - if that customer has a city set, the report groups every " +
+            "customer sharing that city; otherwise it falls back to just this one customer")
+    @NotNull
+    private Long customerId;
 
     // Opcional por enquanto (ver Customer.cnpj) - quando informado, restringe
-    // ainda mais o grupo de clientes da cidade a quem tenha esse CNPJ exato,
-    // em vez de trazer todos os clientes daquela cidade.
-    @Schema(description = "Optional CNPJ/CPF to narrow the city match down to a single customer")
+    // ainda mais o grupo de clientes (por cidade ou so o cliente escolhido) a
+    // quem tenha esse CNPJ exato.
+    @Schema(description = "Optional CNPJ/CPF to narrow the customer group down to a single customer")
     private String cnpj;
 
     @Schema(description = "Period field used by start/end filters")

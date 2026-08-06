@@ -453,7 +453,7 @@ export const getPDFReport =
 
 export const getBulkPDFReport =
   (params: {
-    city: string;
+    customerId: number;
     cnpj?: string;
     periodField: string;
     start: string | null;

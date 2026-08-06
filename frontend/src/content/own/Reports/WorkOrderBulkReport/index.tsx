@@ -84,9 +84,11 @@ function WorkOrderBulkReport() {
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
-  // Cidade nao e' digitada - vem do cliente escolhido no dropdown (mesma
-  // logica que existia na tela antiga). CNPJ e' um campo a parte, opcional,
-  // que so estreita ainda mais o grupo de clientes daquela cidade.
+  // Selecionar qualquer cliente do dropdown sempre funciona - nao existe
+  // bloqueio por falta de cidade. O backend decide sozinho: se o cliente
+  // escolhido tem Customer.city preenchido, agrupa todos os clientes daquela
+  // cidade; se nao tem, usa so o cliente escolhido. Aqui so mostramos uma
+  // dica do que vai acontecer, nunca impedimos gerar.
   const selectedCustomer = customersMini.find(
     (customer) =>
       filters.customerId !== '' &&
@@ -109,7 +111,7 @@ function WorkOrderBulkReport() {
   };
 
   const handleGenerate = () => {
-    if (!city.trim()) return;
+    if (!filters.customerId) return;
     if (!filters.start || !filters.end) {
       showSnackBar(t('bulk_report_period_required'), 'error');
       return;
@@ -117,7 +119,7 @@ function WorkOrderBulkReport() {
     setGenerating(true);
     dispatch(
       getBulkPDFReport({
-        city: city.trim(),
+        customerId: Number(filters.customerId),
         cnpj: filters.cnpj.trim() || undefined,
         periodField: filters.periodField,
         start: toIsoStart(filters.start),
@@ -202,7 +204,7 @@ function WorkOrderBulkReport() {
                     }
                     helperText={
                       filters.customerId && !city
-                        ? t('bulk_report_customer_no_city')
+                        ? t('bulk_report_customer_alone_hint')
                         : city
                         ? t('bulk_report_resolved_city', { city })
                         : ''
@@ -276,7 +278,7 @@ function WorkOrderBulkReport() {
                         generating ? <CircularProgress size={18} /> : <PictureAsPdfTwoToneIcon />
                       }
                       onClick={handleGenerate}
-                      disabled={generating || !city.trim() || !filters.start || !filters.end}
+                      disabled={generating || !filters.customerId || !filters.start || !filters.end}
                     >
                       {t('generate_bulk_report')}
                     </Button>
