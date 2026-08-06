@@ -87,14 +87,7 @@ function WorkOrderBulkReport() {
   // Selecionar qualquer cliente do dropdown sempre funciona - nao existe
   // bloqueio por falta de cidade. O backend decide sozinho: se o cliente
   // escolhido tem Customer.city preenchido, agrupa todos os clientes daquela
-  // cidade; se nao tem, usa so o cliente escolhido. Aqui so mostramos uma
-  // dica do que vai acontecer, nunca impedimos gerar.
-  const selectedCustomer = customersMini.find(
-    (customer) =>
-      filters.customerId !== '' &&
-      String(customer.id) === String(filters.customerId)
-  );
-  const city = selectedCustomer?.city ?? '';
+  // cidade; se nao tem, usa so o cliente escolhido.
 
   useEffect(() => {
     setTitle(t('bulk_report_history'));
@@ -201,13 +194,6 @@ function WorkOrderBulkReport() {
                     value={filters.customerId}
                     onChange={(event) =>
                       setFilters((prev) => ({ ...prev, customerId: event.target.value }))
-                    }
-                    helperText={
-                      filters.customerId && !city
-                        ? t('bulk_report_customer_alone_hint')
-                        : city
-                        ? t('bulk_report_resolved_city', { city })
-                        : ''
                     }
                   >
                     <MenuItem value="">{t('select')}</MenuItem>

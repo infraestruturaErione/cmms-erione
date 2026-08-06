@@ -563,9 +563,6 @@ const locale = {
   bulk_report_by_city_title: 'Bulk report by city',
   bulk_report_by_city_helper:
     'Pick a customer: the report brings completed work orders for every customer in the same city, in the selected period.',
-  bulk_report_resolved_city: 'City: {{city}}',
-  bulk_report_customer_alone_hint:
-    'This customer has no city set — the report will include only their work orders',
   bulk_report_period_required:
     'Select a start and end date before generating the bulk report',
   generate_bulk_report: 'Generate bulk report',
