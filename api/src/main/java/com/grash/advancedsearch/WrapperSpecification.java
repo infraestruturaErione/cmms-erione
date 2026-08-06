@@ -72,7 +72,12 @@ public class WrapperSpecification<T> implements Specification<T> {
                 result = cb.isNotNull(root.get(filterField.getField()));
                 break;
             case GREATER_THAN:
-                result = cb.greaterThan(root.get(filterField.getField()), (Comparable) filterField.getValue());
+                if (filterField.getEnumName() != null && filterField.getEnumName().equals(EnumName.JS_DATE)) {
+                    result = cb.greaterThan(root.get(filterField.getField()),
+                            Helper.getDateFromJsString(filterField.getValue().toString()));
+                } else {
+                    result = cb.greaterThan(root.get(filterField.getField()), (Comparable) filterField.getValue());
+                }
                 break;
             case GREATER_THAN_EQUAL:
                 if (filterField.getEnumName() != null && filterField.getEnumName().equals(EnumName.JS_DATE)) {
@@ -84,7 +89,12 @@ public class WrapperSpecification<T> implements Specification<T> {
                 }
                 break;
             case LESS_THAN:
-                result = cb.lessThan(root.get(filterField.getField()), (Comparable) filterField.getValue());
+                if (filterField.getEnumName() != null && filterField.getEnumName().equals(EnumName.JS_DATE)) {
+                    result = cb.lessThan(root.get(filterField.getField()),
+                            Helper.getDateFromJsString(filterField.getValue().toString()));
+                } else {
+                    result = cb.lessThan(root.get(filterField.getField()), (Comparable) filterField.getValue());
+                }
                 break;
             case LESS_THAN_EQUAL:
                 if (filterField.getEnumName() != null && filterField.getEnumName().equals(EnumName.JS_DATE)) {
