@@ -9,6 +9,7 @@
   MORE_THAN: 'Greater than',
   LESS_THAN: 'Less than',
   OPEN: 'Open',
+  EN_ROUTE: 'En Route',
   IN_PROGRESS: 'In Progress',
   ON_HOLD: 'On Hold',
   COMPLETE: 'Complete',

@@ -59,16 +59,6 @@ export const getRandomColor = () => {
   return color;
 };
 
-export const pushOrRemove = (array: string[], push: boolean, value: string) => {
-  if (push) {
-    array.push(value);
-  } else {
-    const index = array.findIndex((element) => element === value);
-    if (index !== -1) array.splice(index, 1);
-  }
-  return array;
-};
-
 export const onSearchQueryChange = <T>(
   query,
   criteria: SearchCriteria,
@@ -131,6 +121,7 @@ export const getStatusColor = (
   switch (status) {
     case 'OPEN':
       return theme.colors.tertiary;
+    case 'EN_ROUTE':
     case 'IN_PROGRESS':
       // @ts-ignore
       return theme.colors.success;

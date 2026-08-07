@@ -1,18 +1,8 @@
-import {
-  Checkbox,
-  Dialog,
-  IconButton,
-  Portal,
-  Text,
-  useTheme
-} from 'react-native-paper';
+import { Text, useTheme } from 'react-native-paper';
 import { FilterField } from '../../models/page';
 import { useTranslation } from 'react-i18next';
 import { TouchableOpacity } from 'react-native';
 import * as React from 'react';
-import { useEffect, useState } from 'react';
-import { pushOrRemove } from '../../utils/overall';
-import _ from 'lodash';
 
 interface OwnProps {
   filterFields: FilterField[];
@@ -27,16 +17,17 @@ export default function QuickFilter({
                                     }: OwnProps) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const isSelected: boolean = filterFields.some(filterField => filterField.field === activeFilterField.field);
+  const isSelected: boolean = filterFields.some(
+    (filterField) => filterField.field === activeFilterField.field
+  );
   return (
     <TouchableOpacity
       onPress={() => {
-        let newFilterFields = filterFields;
-        if (isSelected) {
-          newFilterFields = newFilterFields.filter(filterField => filterField.field !== activeFilterField.field);
-        } else {
-          newFilterFields.push(activeFilterField);
-        }
+        const newFilterFields = isSelected
+          ? filterFields.filter(
+              (filterField) => filterField.field !== activeFilterField.field
+            )
+          : [...filterFields, { ...activeFilterField }];
         onChange(newFilterFields);
       }}
       style={{

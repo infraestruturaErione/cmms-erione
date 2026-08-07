@@ -11,13 +11,14 @@ import PreventiveMaintenance from './preventiveMaintenance';
 import { WorkOrderBase } from './workOrderBase';
 
 export type Priority = 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
-export type WorkOrderStatus =
-  | 'OPEN'
-  | 'ON_HOLD'
-  | 'IN_PROGRESS'
-  | 'COMPLETE'
-  | 'CLOSED'
-  | 'CANCELLED';
+export const WORK_ORDER_STATUSES = [
+  'OPEN',
+  'EN_ROUTE',
+  'IN_PROGRESS',
+  'ON_HOLD',
+  'COMPLETE'
+] as const;
+export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number];
 
 export default interface WorkOrder extends WorkOrderBase {
   category: Category | null;

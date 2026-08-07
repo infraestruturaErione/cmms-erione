@@ -11,8 +11,11 @@ import { useTranslation } from 'react-i18next';
 import { TouchableOpacity } from 'react-native';
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-import { pushOrRemove } from '../../utils/overall';
 import _ from 'lodash';
+import {
+  getEffectiveEnumValues,
+  replaceEnumFilterValues
+} from './enumFilterUtils';
 
 interface OwnProps {
   filterFields: FilterField[];
@@ -21,6 +24,7 @@ interface OwnProps {
   initialOptions: string[];
   fieldName: string;
   icon: string;
+  restoreInitialOnEmpty?: boolean;
 }
 
 export default function EnumFilter({
@@ -29,7 +33,8 @@ export default function EnumFilter({
                                      completeOptions,
                                      fieldName,
                                      initialOptions,
-                                     icon
+                                     icon,
+                                     restoreInitialOnEmpty = false
                                    }: OwnProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -43,33 +48,44 @@ export default function EnumFilter({
     statuses,
     completeOptions.map((option) => initialOptions.includes(option))
   );
-  const switchValue = (index: number, option: string) => {
-    const newFilterFields = [...filterFields];
-    const filterFieldIndex = newFilterFields.findIndex(
-      (filterField) => filterField.field === fieldName
+  const switchValue = (index: number) => {
+    const nextStatuses = [...statuses];
+    nextStatuses[index] = !nextStatuses[index];
+    const effectiveValues = getEffectiveEnumValues(
+      completeOptions,
+      nextStatuses,
+      initialOptions,
+      restoreInitialOnEmpty
     );
-    newFilterFields[filterFieldIndex] = {
-      ...newFilterFields[filterFieldIndex],
-      values: pushOrRemove(
-        newFilterFields[filterFieldIndex].values,
-        !statuses[index],
-        option
-      )
-    };
-    const newStatuses = [...statuses];
-    newStatuses[index] = !newStatuses[index];
-    setStatuses(newStatuses);
+    const effectiveStatuses = completeOptions.map((currentOption) =>
+      effectiveValues.includes(currentOption)
+    );
+
+    setStatuses(effectiveStatuses);
+    setNewFilterFields(
+      replaceEnumFilterValues(filterFields, fieldName, effectiveValues)
+    );
   };
 
   useEffect(() => {
-    setStatuses(
-      completeOptions.map((option) =>
-        filterFields.some(
-          (filterField) =>
-            filterField.field === fieldName &&
-            filterField.values.includes(option)
-        )
+    const selectedStatuses = completeOptions.map((option) =>
+      filterFields.some(
+        (filterField) =>
+          filterField.field === fieldName &&
+          filterField.values?.includes(option)
       )
+    );
+    const effectiveValues = getEffectiveEnumValues(
+      completeOptions,
+      selectedStatuses,
+      initialOptions,
+      restoreInitialOnEmpty
+    );
+    setStatuses(
+      completeOptions.map((option) => effectiveValues.includes(option))
+    );
+    setNewFilterFields(
+      replaceEnumFilterValues(filterFields, fieldName, effectiveValues)
     );
   }, [filterFields]);
 
@@ -100,11 +116,11 @@ export default function EnumFilter({
                   flexDirection: 'row',
                   alignItems: 'center'
                 }}
-                onPress={() => switchValue(index, option)}
+                onPress={() => switchValue(index)}
               >
                 <Checkbox
                   status={statuses[index] ? 'checked' : 'unchecked'}
-                  onPress={() => switchValue(index, option)}
+                  onPress={() => switchValue(index)}
                 />
                 <Text>{t(option)}</Text>
               </TouchableOpacity>
@@ -123,7 +139,7 @@ export default function EnumFilter({
             filterFields.some(
               (filterField) =>
                 filterField.field === fieldName &&
-                filterField.values.includes(option)
+                filterField.values?.includes(option)
             )
           )
         );

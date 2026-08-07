@@ -16,7 +16,10 @@ import { getMoreWorkOrders, getWorkOrders } from '../../slices/workOrder';
 import { FilterField, SearchCriteria } from '../../models/page';
 import { Avatar, IconButton, Searchbar, Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import WorkOrder from '../../models/workOrder';
+import WorkOrder, {
+  WORK_ORDER_STATUSES,
+  WorkOrderStatus
+} from '../../models/workOrder';
 import {
   getPriorityColor,
   getStatusColor,
@@ -48,6 +51,12 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 
 const colors = ERIONE_MOBILE_IDENTITY.colors;
+const DEFAULT_ACTIVE_WORK_ORDER_STATUSES: WorkOrderStatus[] = [
+  'OPEN',
+  'EN_ROUTE',
+  'IN_PROGRESS',
+  'ON_HOLD'
+];
 
 export default function WorkOrdersScreen({
   navigation,
@@ -76,7 +85,7 @@ export default function WorkOrdersScreen({
     {
       field: 'status',
       operation: 'in',
-      values: ['OPEN', 'IN_PROGRESS', 'ON_HOLD'],
+      values: [...DEFAULT_ACTIVE_WORK_ORDER_STATUSES],
       value: '',
       enumName: 'STATUS'
     },
@@ -168,9 +177,7 @@ export default function WorkOrdersScreen({
     );
   };
   const onFilterChange = (newFilters: FilterField[]) => {
-    const newCriteria = { ...criteria };
-    newCriteria.filterFields = newFilters;
-    setCriteria(newCriteria);
+    setCriteria({ ...criteria, filterFields: newFilters, pageNum: 0 });
   };
 
   const onQueryChange = (query) => {
@@ -342,10 +349,11 @@ export default function WorkOrdersScreen({
             <EnumFilter
               filterFields={criteria.filterFields}
               onChange={onFilterChange}
-              completeOptions={['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE']}
-              initialOptions={['OPEN', 'IN_PROGRESS', 'ON_HOLD']}
+              completeOptions={[...WORK_ORDER_STATUSES]}
+              initialOptions={[...DEFAULT_ACTIVE_WORK_ORDER_STATUSES]}
               fieldName="status"
               icon="circle-double"
+              restoreInitialOnEmpty
             />
             {!_.isEqual(criteria.filterFields, defaultFilterFields) && (
               <IconButton

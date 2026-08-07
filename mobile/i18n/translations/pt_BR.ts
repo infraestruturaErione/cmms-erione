@@ -9,6 +9,7 @@ const ptBRJSON = {
   MORE_THAN: 'Maior que',
   LESS_THAN: 'Menor que',
   OPEN: 'Aberto',
+  EN_ROUTE: 'A Caminho',
   IN_PROGRESS: 'Em Progresso',
   ON_HOLD: 'Em Espera',
   COMPLETE: 'Concluído',
