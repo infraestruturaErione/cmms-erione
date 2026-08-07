@@ -32,7 +32,6 @@ import useAuth from '../../../../../hooks/useAuth';
 import { PermissionEntity } from '../../../../../models/owns/role';
 import { PlanFeature } from '../../../../../models/owns/subscriptionPlan';
 import { CompanySettingsContext } from '../../../../../contexts/CompanySettingsContext';
-import { isExecutionTaskComplete } from '../../../../../utils/tasks';
 import File from '../../../../../models/owns/file';
 
 interface SingleTaskProps {
@@ -180,7 +179,24 @@ export default function SingleTask({
 
   const hasNotesOrImages = Boolean(task.notes) || task.images.length > 0;
   const statusVisual = getStatusVisual(task.taskBase.taskType, task?.value);
-  const isAnswered = !preview && isExecutionTaskComplete(task);
+  // Cor de destaque (borda esquerda) da apresentacao - independente da regra
+  // de conclusao (isExecutionTaskComplete). So PASS/COMPLETE usam verde;
+  // FLAG/FAIL usam warning/error (nunca verde, para nao sugerir sucesso);
+  // tipos sem semantica de resultado (TEXT/NUMBER/METER) usam neutro/primary
+  // quando ha valor, sem implicar aprovacao.
+  const accentColor = preview
+    ? theme.colors.alpha.black[20]
+    : statusVisual
+    ? statusVisual.color === 'success'
+      ? theme.colors.success.main
+      : statusVisual.color === 'warning'
+      ? theme.colors.warning.main
+      : statusVisual.color === 'error'
+      ? theme.colors.error.main
+      : theme.colors.alpha.black[20]
+    : task.value
+    ? theme.colors.primary.main
+    : theme.colors.alpha.black[20];
   const indexLabel =
     typeof index === 'number' ? String(index + 1).padStart(2, '0') : null;
   const typeLabel = t(taskTypeLabelKeys[task.taskBase.taskType]);
@@ -283,11 +299,7 @@ export default function SingleTask({
           p: 2,
           borderRadius: 1.5,
           border: `1px solid ${theme.colors.alpha.black[10]}`,
-          borderLeft: `3px solid ${
-            isAnswered
-              ? theme.colors.success.main
-              : theme.colors.alpha.black[20]
-          }`,
+          borderLeft: `3px solid ${accentColor}`,
           backgroundColor: theme.colors.alpha.black[5]
         }}
       >
@@ -411,11 +423,7 @@ export default function SingleTask({
         p: 2,
         borderRadius: 1.5,
         border: `1px solid ${theme.colors.alpha.black[10]}`,
-        borderLeft: `3px solid ${
-          isAnswered
-            ? theme.colors.success.main
-            : theme.colors.alpha.black[20]
-        }`,
+        borderLeft: `3px solid ${accentColor}`,
         backgroundColor: theme.colors.alpha.black[5]
       }}
     >
