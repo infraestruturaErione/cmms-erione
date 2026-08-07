@@ -8,6 +8,7 @@ import {
   Link,
   MenuItem,
   Select,
+  Stack,
   TextField,
   Tooltip,
   Typography,
@@ -24,12 +25,15 @@ import RadioButtonUncheckedTwoToneIcon from '@mui/icons-material/RadioButtonUnch
 import { Task, TaskOption, TaskType } from '../../../../../models/owns/tasks';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { useMemo, useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import debounce from 'lodash.debounce';
 import { getAssetUrl, getUserUrl } from '../../../../../utils/urlPaths';
 import useAuth from '../../../../../hooks/useAuth';
 import { PermissionEntity } from '../../../../../models/owns/role';
 import { PlanFeature } from '../../../../../models/owns/subscriptionPlan';
+import { CompanySettingsContext } from '../../../../../contexts/CompanySettingsContext';
+import { isExecutionTaskComplete } from '../../../../../utils/tasks';
+import File from '../../../../../models/owns/file';
 
 interface SingleTaskProps {
   task: Task;
@@ -40,6 +44,9 @@ interface SingleTaskProps {
   // Usado quando a OS ja esta concluida, para que abrir a OS mostre o resultado
   // direto, sem precisar de um relatorio separado para ver o que foi preenchido.
   readOnly?: boolean;
+  // Posicao do item na lista (para a numeracao "01, 02, ..."). Opcional pois
+  // alguns consumidores (ex: preview de PM) nao precisam de numeracao.
+  index?: number;
   handleChange?: (value: string | number, id: number) => void;
   handleSaveNotes?: (value: string, id: number) => Promise<void>;
   handleNoteChange?: (value: string, id: number) => void;
@@ -53,6 +60,15 @@ type StatusVisual = {
   labelKey: string;
   color: 'success' | 'warning' | 'error' | 'neutral';
   icon: JSX.Element;
+};
+
+const taskTypeLabelKeys: Record<TaskType, string> = {
+  SUBTASK: 'sub_task_status',
+  TEXT: 'text_field',
+  NUMBER: 'number_field',
+  INSPECTION: 'inspection_check',
+  MULTIPLE: 'multiple_choices',
+  METER: 'meter_reading'
 };
 
 const getStatusVisual = (
@@ -106,6 +122,7 @@ export default function SingleTask({
   handleSaveNotes,
   preview,
   readOnly,
+  index,
   toggleNotes,
   notes,
   handleSelectImages,
@@ -117,6 +134,9 @@ export default function SingleTask({
   const navigate = useNavigate();
   const [savingNotes, setSavingNotes] = useState<boolean>(false);
   const { user, hasCreatePermission, hasFeature } = useAuth();
+  const { getFormattedDate, getUserNameById } = useContext(
+    CompanySettingsContext
+  );
 
   const changeHandler = (event) =>
     !preview && handleChange(event.target.value, task.id);
@@ -160,6 +180,22 @@ export default function SingleTask({
 
   const hasNotesOrImages = Boolean(task.notes) || task.images.length > 0;
   const statusVisual = getStatusVisual(task.taskBase.taskType, task?.value);
+  const isAnswered = !preview && isExecutionTaskComplete(task);
+  const indexLabel =
+    typeof index === 'number' ? String(index + 1).padStart(2, '0') : null;
+  const typeLabel = t(taskTypeLabelKeys[task.taskBase.taskType]);
+
+  const updatedAtLabel = task.updatedAt
+    ? getFormattedDate?.(task.updatedAt)
+    : null;
+  const updatedByName = task.updatedBy
+    ? getUserNameById?.(task.updatedBy)
+    : null;
+  const metaText = updatedAtLabel
+    ? updatedByName
+      ? t('task_updated_at_by', { name: updatedByName, date: updatedAtLabel })
+      : t('task_updated_at_only', { date: updatedAtLabel })
+    : null;
 
   const colorTokens = {
     success: {
@@ -177,16 +213,82 @@ export default function SingleTask({
     }
   } as const;
 
+  const MAX_VISIBLE_THUMBS = 4;
+  const renderEvidenceGrid = (
+    images: File[],
+    thumbSize: number,
+    cap: boolean
+  ) => {
+    if (!images.length) return null;
+    const visible = cap ? images.slice(0, MAX_VISIBLE_THUMBS) : images;
+    const remaining = images.length - visible.length;
+    const onImageClick = (image: File) =>
+      handleZoomImage &&
+      handleZoomImage(
+        images.map((img) => img.url),
+        image.url
+      );
+    return (
+      <Grid container spacing={1} sx={{ mt: 1 }}>
+        {visible.map((image) => (
+          <Grid item key={image.id}>
+            <img
+              src={image.url}
+              alt="task"
+              onClick={() => onImageClick(image)}
+              style={{
+                borderRadius: 8,
+                width: thumbSize,
+                height: thumbSize,
+                objectFit: 'cover',
+                cursor: handleZoomImage ? 'pointer' : 'default',
+                border: `1px solid ${theme.colors.alpha.black[10]}`
+              }}
+            />
+          </Grid>
+        ))}
+        {remaining > 0 && (
+          <Grid item>
+            <Box
+              onClick={() => onImageClick(visible[visible.length - 1])}
+              sx={{
+                width: thumbSize,
+                height: thumbSize,
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: theme.colors.alpha.black[10],
+                color: theme.colors.alpha.black[70],
+                fontWeight: 600,
+                fontSize: '0.75rem',
+                cursor: handleZoomImage ? 'pointer' : 'default'
+              }}
+            >
+              {t('task_evidence_more', { count: remaining })}
+            </Box>
+          </Grid>
+        )}
+      </Grid>
+    );
+  };
+
   if (readOnly) {
     const visual = statusVisual;
     return (
       <Box
         key={task.id}
         sx={{
-          mt: 1,
+          mt: 1.5,
           p: 2,
-          backgroundColor: theme.colors.alpha.black[5],
-          borderRadius: 1
+          borderRadius: 1.5,
+          border: `1px solid ${theme.colors.alpha.black[10]}`,
+          borderLeft: `3px solid ${
+            isAnswered
+              ? theme.colors.success.main
+              : theme.colors.alpha.black[20]
+          }`,
+          backgroundColor: theme.colors.alpha.black[5]
         }}
       >
         <Box
@@ -196,9 +298,35 @@ export default function SingleTask({
           alignItems="flex-start"
           gap={2}
         >
-          <Typography variant="body2" sx={{ pt: 0.5 }}>
-            {task.taskBase.label || `<${t('enter_task_name')}>`}
-          </Typography>
+          <Box sx={{ minWidth: 0 }}>
+            <Stack direction="row" spacing={1} alignItems="baseline">
+              {indexLabel && (
+                <Typography
+                  variant="body2"
+                  sx={{ fontWeight: 700, color: theme.colors.alpha.black[50] }}
+                >
+                  {indexLabel}
+                </Typography>
+              )}
+              <Typography
+                variant="body1"
+                fontWeight="bold"
+                sx={{ wordBreak: 'break-word' }}
+              >
+                {task.taskBase.label || `<${t('enter_task_name')}>`}
+              </Typography>
+            </Stack>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                fontSize: 12.5,
+                ml: indexLabel ? 3.5 : 0
+              }}
+            >
+              {typeLabel}
+            </Typography>
+          </Box>
           {visual ? (
             <Box
               sx={{
@@ -236,37 +364,40 @@ export default function SingleTask({
           )}
         </Box>
         {task.notes && (
+          <Box sx={{ mt: 1.5 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 600,
+                fontSize: 12.5,
+                color: theme.colors.alpha.black[70]
+              }}
+            >
+              {t('task_notes_label')}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                mt: 0.25,
+                p: 1,
+                borderRadius: 1,
+                backgroundColor: theme.colors.alpha.white[100],
+                color: theme.colors.alpha.black[70]
+              }}
+            >
+              {task.notes}
+            </Typography>
+          </Box>
+        )}
+        {renderEvidenceGrid(task.images, 56, true)}
+        {metaText && (
           <Typography
             variant="body2"
-            sx={{
-              mt: 1,
-              p: 1,
-              borderRadius: 1,
-              backgroundColor: theme.colors.alpha.white[100],
-              color: theme.colors.alpha.black[70]
-            }}
+            color="text.secondary"
+            sx={{ mt: 1.5, fontSize: 12 }}
           >
-            {task.notes}
+            {metaText}
           </Typography>
-        )}
-        {task.images.length > 0 && (
-          <Grid container spacing={1} sx={{ mt: task.notes ? 0.5 : 1 }}>
-            {task.images.map((image) => (
-              <Grid item key={image.id}>
-                <img
-                  src={image.url}
-                  alt={'task'}
-                  onClick={() =>
-                    handleZoomImage(
-                      task.images.map((img) => img.url),
-                      image.url
-                    )
-                  }
-                  style={{ borderRadius: 5, height: 56, cursor: 'pointer' }}
-                />
-              </Grid>
-            ))}
-          </Grid>
         )}
       </Box>
     );
@@ -276,15 +407,39 @@ export default function SingleTask({
     <Box
       key={task.id}
       sx={{
-        mt: 1,
+        mt: 1.5,
         p: 2,
+        borderRadius: 1.5,
+        border: `1px solid ${theme.colors.alpha.black[10]}`,
+        borderLeft: `3px solid ${
+          isAnswered
+            ? theme.colors.success.main
+            : theme.colors.alpha.black[20]
+        }`,
         backgroundColor: theme.colors.alpha.black[5]
       }}
     >
       <Box display="flex" flexDirection="row" justifyContent="space-between">
-        <Box>
-          <Typography variant="h6" fontWeight="bold">
-            {task.taskBase.label || `<${t('enter_task_name')}>`}
+        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+          <Stack direction="row" spacing={1} alignItems="baseline">
+            {indexLabel && (
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 700, color: theme.colors.alpha.black[50] }}
+              >
+                {indexLabel}
+              </Typography>
+            )}
+            <Typography variant="h6" fontWeight="bold">
+              {task.taskBase.label || `<${t('enter_task_name')}>`}
+            </Typography>
+          </Stack>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontSize: 12.5, mb: 1, ml: indexLabel ? 3.5 : 0 }}
+          >
+            {typeLabel}
           </Typography>
           {['SUBTASK', 'INSPECTION', 'MULTIPLE'].includes(
             task.taskBase.taskType
@@ -301,7 +456,7 @@ export default function SingleTask({
               onChange={(event) =>
                 !preview && handleChange(event.target.value, task.id)
               }
-              sx={{ backgroundColor: 'white' }}
+              sx={{ backgroundColor: 'white', minWidth: 220 }}
               disabled={
                 (task.taskBase.user && task.taskBase.user.id !== user.id) ||
                 disabled
@@ -316,7 +471,7 @@ export default function SingleTask({
               )}
             </Select>
           ) : (
-            <Box sx={{ backgroundColor: 'white' }}>
+            <Box sx={{ backgroundColor: 'white', display: 'inline-block' }}>
               <TextField
                 onChange={debouncedChangeHandler}
                 defaultValue={task.value}
@@ -333,8 +488,17 @@ export default function SingleTask({
               />
             </Box>
           )}
+          {!preview && !task.value && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ fontSize: 12.5, mt: 0.5 }}
+            >
+              {t('not_filled')}
+            </Typography>
+          )}
         </Box>
-        <Box>
+        <Box sx={{ flexShrink: 0 }}>
           {task.taskBase.taskType === 'METER' && (
             <IconButton
               onClick={() =>
@@ -415,6 +579,15 @@ export default function SingleTask({
           )}
         </Box>
       )}
+      {metaText && (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mt: 1.5, fontSize: 12 }}
+        >
+          {metaText}
+        </Typography>
+      )}
       <Collapse sx={{ mt: 2 }} in={preview ? false : notes.get(task.id)}>
         <Box sx={{ p: 1, backgroundColor: 'white' }}>
           <Field
@@ -442,23 +615,7 @@ export default function SingleTask({
             {t('save')}
           </Button>
         </Box>
-        <Grid container spacing={1} sx={{ mt: 2 }}>
-          {task.images.map((image) => (
-            <Grid item key={image.id}>
-              <img
-                src={image.url}
-                alt={'task'}
-                onClick={() =>
-                  handleZoomImage(
-                    task.images.map((img) => img.url),
-                    image.url
-                  )
-                }
-                style={{ borderRadius: 5, height: 150, cursor: 'pointer' }}
-              />
-            </Grid>
-          ))}
-        </Grid>
+        {renderEvidenceGrid(task.images, 96, false)}
       </Collapse>
     </Box>
   );

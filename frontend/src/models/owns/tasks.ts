@@ -30,6 +30,10 @@ export interface Task {
   notes: string;
   taskBase: TaskBase;
   images: File[];
+  // Presentes no TaskShowDTO (AuditShowDTO) mas so declarados aqui quando
+  // a UI passou a precisar deles (Sprint 2 - questionario da OS).
+  updatedAt?: string;
+  updatedBy?: number;
 }
 export const tasks: Task[] = [
   {

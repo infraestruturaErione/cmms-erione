@@ -1,18 +1,17 @@
 import {
   Box,
-  Card,
-  CardContent,
-  CardHeader,
   Dialog,
   DialogContent,
   DialogTitle,
   Divider,
   FormControl,
+  LinearProgress,
+  Stack,
   Typography,
   useTheme
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import TaskAltTwoToneIcon from '@mui/icons-material/TaskAltTwoTone';
+import FactCheckTwoToneIcon from '@mui/icons-material/FactCheckTwoTone';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import SingleTask from '../../components/form/SelectTasks/SingleTask';
 import { Task } from '../../../../models/owns/tasks';
@@ -23,13 +22,14 @@ import Form from '../../components/form';
 import * as Yup from 'yup';
 import { addFiles } from '../../../../slices/file';
 import { IField } from '../../type';
+import { isExecutionTaskComplete } from '../../../../utils/tasks';
 
 interface TasksProps {
   tasksProps: Task[];
   workOrderId: number;
   disabled: boolean;
   readOnly?: boolean;
-  handleZoomImage: (images: string[], image: string) => void;
+  handleZoomImage?: (images: string[], image: string) => void;
 }
 
 export default function Tasks({
@@ -169,65 +169,96 @@ export default function Tasks({
     );
   };
   const filledCount = useMemo(
-    () => tasks.filter((task) => Boolean(task.value)).length,
+    () => tasks.filter(isExecutionTaskComplete).length,
     [tasks]
   );
+  const progressPercent = tasks.length
+    ? Math.round((filledCount / tasks.length) * 100)
+    : 0;
 
   return (
-    <Card>
-      <CardHeader
-        title={t('tasks')}
-        avatar={<TaskAltTwoToneIcon />}
-        action={
-          tasks.length > 0 && (
-            <Box
-              sx={{
-                px: 1.5,
-                py: 0.5,
-                mt: 1,
-                mr: 1,
-                borderRadius: 999,
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                backgroundColor:
-                  filledCount === tasks.length
-                    ? theme.colors.success.lighter
-                    : theme.colors.alpha.black[10],
-                color:
-                  filledCount === tasks.length
-                    ? theme.colors.success.main
-                    : theme.colors.alpha.black[70]
-              }}
-            >
-              {t('checklist_progress', {
+    <Box
+      sx={{
+        border: `1px solid ${theme.colors.alpha.black[10]}`,
+        borderRadius: 2,
+        p: { xs: 2, sm: 2.5 },
+        backgroundColor: theme.palette.background.paper
+      }}
+    >
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1.5}
+        sx={{ mb: tasks.length ? 1.5 : 0 }}
+      >
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: theme.colors.alpha.black[5],
+            color: theme.colors.alpha.black[70],
+            flexShrink: 0
+          }}
+        >
+          <FactCheckTwoToneIcon fontSize="small" />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h4">
+            {t('questionnaire_section_title')}
+          </Typography>
+          {tasks.length > 0 && (
+            <Typography variant="body2" color="text.secondary">
+              {t('questionnaire_progress', {
                 filled: filledCount,
                 total: tasks.length
-              })}
-            </Box>
-          )
-        }
-      />
-      <Divider />
-      <CardContent>
-        <FormControl fullWidth>
-          {tasks.map((task) => (
-            <SingleTask
-              key={task.id}
-              disabled={disabled}
-              readOnly={readOnly}
-              task={task}
-              handleChange={handleChange}
-              handleNoteChange={handleNoteChange}
-              handleSaveNotes={handleSaveNotes}
-              toggleNotes={toggleNotes}
-              handleSelectImages={handleSelectImages}
-              handleZoomImage={handleZoomImage}
-              notes={notes}
-            />
-          ))}
-        </FormControl>
-      </CardContent>
+              })}{' '}
+              ({progressPercent}%)
+            </Typography>
+          )}
+        </Box>
+      </Stack>
+      {tasks.length > 0 && (
+        <LinearProgress
+          variant="determinate"
+          value={progressPercent}
+          sx={{
+            height: 6,
+            borderRadius: 999,
+            backgroundColor: theme.colors.alpha.black[10],
+            '& .MuiLinearProgress-bar': {
+              borderRadius: 999,
+              backgroundColor:
+                progressPercent === 100
+                  ? theme.colors.success.main
+                  : theme.colors.primary.main
+            }
+          }}
+        />
+      )}
+      <Divider sx={{ my: 2 }} />
+      <FormControl fullWidth>
+        {tasks.map((task, index) => (
+          <SingleTask
+            key={task.id}
+            index={index}
+            disabled={disabled}
+            readOnly={readOnly}
+            task={task}
+            handleChange={handleChange}
+            handleNoteChange={handleNoteChange}
+            handleSaveNotes={handleSaveNotes}
+            toggleNotes={toggleNotes}
+            handleSelectImages={handleSelectImages}
+            handleZoomImage={handleZoomImage}
+            notes={notes}
+          />
+        ))}
+      </FormControl>
       {renderSelectImages()}
-    </Card>
+    </Box>
   );
 }

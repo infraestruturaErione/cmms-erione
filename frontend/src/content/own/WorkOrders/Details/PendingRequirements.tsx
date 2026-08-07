@@ -7,6 +7,7 @@ import WorkOrder from '../../../../models/owns/workOrder';
 import { Task } from '../../../../models/owns/tasks';
 import Comment from '../../../../models/owns/comment';
 import { hasFieldEvidence } from './fieldReportUtils';
+import { isExecutionTaskComplete } from '../../../../utils/tasks';
 
 interface PendingRequirementsProps {
   workOrder: WorkOrder;
@@ -20,13 +21,6 @@ interface Requirement {
   labelKey: string;
   done: boolean;
 }
-
-const isExecutionTaskComplete = (task: Task): boolean => {
-  const value = task.value?.toString().trim();
-  if (!value) return false;
-  if (task.taskBase.taskType === 'SUBTASK') return value === 'COMPLETE';
-  return true;
-};
 
 // Card "Pendencias" - so lista as obrigatoriedades que o Tipo de Tarefa
 // (Categoria da OS) realmente marcou, checando contra o que ja foi

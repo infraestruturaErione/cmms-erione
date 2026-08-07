@@ -2,7 +2,6 @@ import {
   alpha,
   Box,
   Button,
-  Card,
   CircularProgress,
   debounce,
   Divider,
@@ -42,6 +41,7 @@ import ArchiveTwoToneIcon from '@mui/icons-material/ArchiveTwoTone';
 import PictureAsPdfTwoToneIcon from '@mui/icons-material/PictureAsPdfTwoTone';
 import PriorityWrapper from '../../components/PriorityWrapper';
 import TimerTwoToneIcon from '@mui/icons-material/TimerTwoTone';
+import FactCheckTwoToneIcon from '@mui/icons-material/FactCheckTwoTone';
 import {
   changeWorkOrderStatus,
   editWorkOrder,
@@ -102,13 +102,7 @@ import {
   getCommentsByWorkOrder
 } from '../../../../slices/comment';
 import { getFieldReportText } from './fieldReportUtils';
-
-const isExecutionTaskComplete = (task: Task): boolean => {
-  const value = task.value?.toString().trim();
-  if (!value) return false;
-  if (task.taskBase.taskType === 'SUBTASK') return value === 'COMPLETE';
-  return true;
-};
+import { isExecutionTaskComplete } from '../../../../utils/tasks';
 
 const LabelWrapper = styled(Box)(
   ({ theme }) => `
@@ -416,6 +410,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   const workOrderStatuses = ['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE'];
   const tabs = [
     { value: 'details', label: t('details') },
+    { value: 'questionario', label: t('questionnaire_tab') },
     { value: 'fieldExecution', label: t('field_execution') },
     { value: 'fieldReport', label: t('field_report_tab') },
     { value: 'pendencias', label: t('pendencias') },
@@ -1122,6 +1117,10 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
               tasks={tasks}
               comments={comments}
             />
+          </Stack>
+        )}
+        {currentTab === 'questionario' && (
+          <Stack spacing={2}>
             {tasksLoading ? (
               <Stack alignItems="center" spacing={1.5} sx={{ py: 3 }}>
                 <CircularProgress size="1.5rem" />
@@ -1130,21 +1129,47 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 </Typography>
               </Stack>
             ) : tasks.length ? (
-              <Card>
-                <Tasks
-                  tasksProps={tasks}
-                  workOrderId={workOrder?.id}
-                  handleZoomImage={setImageState}
-                  disabled={
-                    !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
-                  }
-                  readOnly={workOrder?.status === 'COMPLETE'}
-                />
-              </Card>
+              <Tasks
+                tasksProps={tasks}
+                workOrderId={workOrder?.id}
+                handleZoomImage={setImageState}
+                disabled={
+                  !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
+                }
+                readOnly={workOrder?.status === 'COMPLETE'}
+              />
             ) : (
-              <Typography color="text.secondary">
-                {t('no_checklist_linked_to_wo')}
-              </Typography>
+              <Box
+                sx={{
+                  border: `1px dashed ${theme.colors.alpha.black[30]}`,
+                  borderRadius: 2,
+                  p: 4,
+                  textAlign: 'center'
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: theme.colors.alpha.black[10],
+                    color: theme.colors.alpha.black[50],
+                    mx: 'auto',
+                    mb: 1.5
+                  }}
+                >
+                  <FactCheckTwoToneIcon />
+                </Box>
+                <Typography variant="h4" sx={{ mb: 0.5 }}>
+                  {t('questionnaire_empty_title')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t('questionnaire_empty_description')}
+                </Typography>
+              </Box>
             )}
           </Stack>
         )}
