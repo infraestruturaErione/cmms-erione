@@ -210,9 +210,27 @@ public class WorkOrder extends WorkOrderBase {
                         ArrayList::new));
     }
 
+    // "Pode executar a OS": usado pelos endpoints operacionais (deslocamento,
+    // check-in/out, Tasks/questionario, relato, evidencias, assinatura
+    // operacional, mudanca de status/conclusao). De proposito mais permissivo
+    // que edicao administrativa - quem criou ou foi atribuido precisa
+    // continuar executando a OS. NAO usar para decidir se alguem pode editar
+    // campos administrativos (categoria, prioridade, responsaveis, etc) - ver
+    // canBeAdministrativelyEditedBy.
     public boolean canBeEditedBy(User user) {
         return user.getRole().getEditOtherPermissions().contains(PermissionEntity.WORK_ORDERS)
                 || (this.getCreatedBy() != null && this.getCreatedBy().equals(user.getId())) || isAssignedTo(user);
+    }
+
+    // "Pode editar administrativamente a OS": so permissao real de
+    // editOtherPermissions (WORK_ORDERS) - Administrator e Limited
+    // Administrator tem por padrao (Helper.getDefaultRoles()), Technician e
+    // Limited Technician nao. Criar a OS ou estar atribuido a ela NAO da essa
+    // autorizacao (diferente de canBeEditedBy) - o tecnico executa a OS, nao
+    // edita seus dados administrativos (categoria, prioridade, responsaveis,
+    // requiredSignature, etc). Usado hoje so em PATCH /work-orders/{id}.
+    public boolean canBeAdministrativelyEditedBy(User user) {
+        return user.getRole().getEditOtherPermissions().contains(PermissionEntity.WORK_ORDERS);
     }
 
     //in days

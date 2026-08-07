@@ -276,7 +276,13 @@ public class WorkOrderController {
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
         if (optionalWorkOrder.isPresent()) {
             WorkOrder savedWorkOrder = optionalWorkOrder.get();
-            if (savedWorkOrder.canBeEditedBy(user)) {
+            // Edicao administrativa (categoria, prioridade, responsaveis,
+            // requiredSignature, etc) exige permissao real de WORK_ORDERS -
+            // diferente dos endpoints operacionais (depart/check-in/check-out/
+            // Tasks/etc), que continuam usando canBeEditedBy (tecnico
+            // atribuido/criador executa a OS, mas nao a edita
+            // administrativamente).
+            if (savedWorkOrder.canBeAdministrativelyEditedBy(user)) {
                 em.detach(savedWorkOrder);
                 customerScopeService.prepareAndValidateRequestScope(workOrder, user);
                 WorkOrder patchedWorkOrder = workOrderService.update(id, workOrder, user);
