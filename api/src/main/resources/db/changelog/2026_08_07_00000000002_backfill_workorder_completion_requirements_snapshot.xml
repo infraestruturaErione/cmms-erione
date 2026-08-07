@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <!-- Backfill do snapshot para WorkOrders que ja existiam antes desta
+         sprint. So cobre OS ATIVAS (status OPEN=0, EN_ROUTE=1, IN_PROGRESS=2,
+         ON_HOLD=3 - enum com.grash.model.enums.Status, coluna smallint) que
+         tem Category vinculada: copia os valores ATUAIS da categoria.
+
+         required_signature e coluna pre-existente e pode ja ter sido setada
+         manualmente pelo usuario (switch "Requer Assinatura" na criacao/PATCH)
+         antes desta sprint - o backfill usa OR pra nunca desligar um valor
+         real ja gravado, so ligar o que a categoria pedir.
+
+         As outras 6 colunas nasceram FALSE (migration anterior) pra toda
+         linha existente, entao a atribuicao direta abaixo equivale ao mesmo
+         OR (FALSE OR x = x).
+
+         OS sem Category ou ja COMPLETE ficam FALSE (valor default da migration
+         anterior, nao alterado aqui). Isso NAO significa "esses requisitos
+         nunca existiram" pra essas OS - e so um valor tecnico de
+         compatibilidade para registros legados, sem verdade historica sobre o
+         que era exigido na epoca. Nao usar este backfill para revalidar o
+         fechamento de OS COMPLETE. -->
+    <changeSet id="20260807-02-backfill-workorder-completion-requirements-snapshot" author="claude">
+        <sql>
+            UPDATE work_order wo
+            SET required_signature = wo.required_signature OR woc.require_signature,
+                require_signer_name = woc.require_signer_name,
+                require_signer_document = woc.require_signer_document,
+                require_photos = woc.require_photos,
+                require_field_report = woc.require_field_report,
+                require_mileage = woc.require_mileage,
+                require_checklist_completion = woc.require_checklist_completion
+            FROM work_order_category woc
+            WHERE wo.category_id = woc.id
+              AND wo.status IN (0, 1, 2, 3);
+        </sql>
+        <rollback>
+            <!-- Intencionalmente vazio: nao ha como distinguir, apos rodar,
+                 quais valores vieram do backfill e quais ja existiam antes
+                 (ex: required_signature setado manualmente). Reverter
+                 apagaria dado real. Se precisar desfazer, ajustar campo a
+                 campo pela API/tela. -->
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

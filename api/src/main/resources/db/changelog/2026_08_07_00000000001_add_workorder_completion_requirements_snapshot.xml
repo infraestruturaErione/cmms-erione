@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <!-- Sprint 3A: snapshot congelado dos requisitos de conclusao da Category
+         dentro da propria WorkOrder. A WorkOrder ja tinha required_signature
+         (reaproveitado, nao duplicado); estas 6 colunas cobrem os outros 6
+         requisitos que a work_order_category ja guardava (migration
+         2026_08_03_00000000001) mas que nunca eram copiados pra OS. So
+         armazenamento por enquanto - nenhum bloqueio de conclusao usa estas
+         colunas ainda (isso fica pra uma sprint futura, apos validar com uso
+         real, mesma cautela ja aplicada as flags da Category). -->
+    <changeSet id="20260807-01-add-workorder-completion-requirements-snapshot" author="claude">
+        <sql>
+            ALTER TABLE work_order ADD COLUMN IF NOT EXISTS require_signer_name BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE work_order ADD COLUMN IF NOT EXISTS require_signer_document BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE work_order ADD COLUMN IF NOT EXISTS require_photos BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE work_order ADD COLUMN IF NOT EXISTS require_field_report BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE work_order ADD COLUMN IF NOT EXISTS require_mileage BOOLEAN NOT NULL DEFAULT FALSE;
+            ALTER TABLE work_order ADD COLUMN IF NOT EXISTS require_checklist_completion BOOLEAN NOT NULL DEFAULT FALSE;
+        </sql>
+        <rollback>
+            ALTER TABLE work_order DROP COLUMN IF EXISTS require_checklist_completion;
+            ALTER TABLE work_order DROP COLUMN IF EXISTS require_mileage;
+            ALTER TABLE work_order DROP COLUMN IF EXISTS require_field_report;
+            ALTER TABLE work_order DROP COLUMN IF EXISTS require_photos;
+            ALTER TABLE work_order DROP COLUMN IF EXISTS require_signer_document;
+            ALTER TABLE work_order DROP COLUMN IF EXISTS require_signer_name;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

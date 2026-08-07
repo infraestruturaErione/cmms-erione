@@ -90,4 +90,27 @@ public class WorkOrderShowDTO extends WorkOrderBaseShowDTO {
 
     @Schema(description = "Mileage traveled to complete the work order")
     private Double mileageTraveled;
+
+    // Sprint 3A - snapshot congelado dos requisitos de conclusao da Category
+    // no momento da criacao (ver WorkOrder.java / WorkOrderService). So
+    // leitura: propositalmente ausente de WorkOrderPatchDTO/
+    // WorkOrderBasePatchDTO, o snapshot nao deve ser reescrito diretamente via
+    // PATCH nesta sprint.
+    @Schema(description = "Whether the signer's name is required on completion (snapshot from the category)")
+    private boolean requireSignerName;
+
+    @Schema(description = "Whether the signer's CPF/CNPJ is required on completion (snapshot from the category)")
+    private boolean requireSignerDocument;
+
+    @Schema(description = "Whether at least one photo is required on completion (snapshot from the category)")
+    private boolean requirePhotos;
+
+    @Schema(description = "Whether the field report/feedback is required on completion (snapshot from the category)")
+    private boolean requireFieldReport;
+
+    @Schema(description = "Whether mileage traveled is required on completion (snapshot from the category)")
+    private boolean requireMileage;
+
+    @Schema(description = "Whether the checklist must be fully filled on completion (snapshot from the category)")
+    private boolean requireChecklistCompletion;
 }

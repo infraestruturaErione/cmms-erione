@@ -131,10 +131,13 @@ public class WorkOrderService {
     // formulario web/mobile so sao enviadas numa chamada separada, depois que a
     // OS ja existe.
     private void applyCategoryDefaults(WorkOrder workOrder) {
-        if (workOrder.getCategory() == null) return;
-        WorkOrderCategory category = workOrderCategoryService.findById(workOrder.getCategory().getId())
-                .orElse(null);
-        if (category == null) return;
+        WorkOrderCategory category = workOrder.getCategory() == null ? null :
+                workOrderCategoryService.findById(workOrder.getCategory().getId()).orElse(null);
+        applyCategoryCompletionRequirementsSnapshot(workOrder, category);
+        if (category == null) {
+            workOrderRepository.save(workOrder);
+            return;
+        }
 
         Checklist defaultChecklist = category.getDefaultChecklist();
         if (defaultChecklist != null && defaultChecklist.getTaskBases() != null
@@ -153,8 +156,45 @@ public class WorkOrderService {
 
         if (category.getDefaultEstimatedDuration() != null && workOrder.getEstimatedDuration() == 0) {
             workOrder.setEstimatedDuration(category.getDefaultEstimatedDuration());
-            workOrderRepository.save(workOrder);
         }
+        // Uma unica gravacao cobre tanto o snapshot dos 7 requisitos quanto a
+        // duracao sugerida - os dois so mexem no proprio workOrder, sem
+        // relacao com o clone das Tasks (que ja persiste via taskService.create
+        // acima, em entidades separadas).
+        workOrderRepository.save(workOrder);
+    }
+
+    // Congela em workOrder os 7 requisitos de conclusao definidos na Category
+    // ("Tipo de Tarefa") no momento da criacao - editar a Category depois, ou
+    // trocar a Category desta OS, nao reaplica nada (este metodo so e chamado
+    // na criacao, nunca em update()). requiredSignature ja existia e e
+    // diretamente editavel pelo usuario (switch "Requer Assinatura" na
+    // criacao/PATCH); os outros 6 sao novos e nao tem consumidor proprio
+    // ainda. Em ambos os casos o merge e por OR: a categoria so LIGA um
+    // requisito, nunca desliga um valor que ja tenha chegado explicito no
+    // workOrder (do POST, ou pre-preenchido pelo import) - mesma cautela ja
+    // usada em defaultEstimatedDuration (so preenche o que ainda nao foi
+    // definido). category == null simplesmente nao contribui nada ao OR,
+    // preservando o que ja estava no workOrder (default seguro: false, salvo
+    // uso explicito da API).
+    // Visibilidade de pacote (nao private) de proposito: permite teste
+    // unitario direto, sem precisar mockar toda a cadeia de dependencias de
+    // create() so pra exercitar esta logica pura.
+    void applyCategoryCompletionRequirementsSnapshot(WorkOrder workOrder, WorkOrderCategory category) {
+        workOrder.setRequiredSignature(workOrder.isRequiredSignature()
+                || (category != null && category.isRequireSignature()));
+        workOrder.setRequireSignerName(workOrder.isRequireSignerName()
+                || (category != null && category.isRequireSignerName()));
+        workOrder.setRequireSignerDocument(workOrder.isRequireSignerDocument()
+                || (category != null && category.isRequireSignerDocument()));
+        workOrder.setRequirePhotos(workOrder.isRequirePhotos()
+                || (category != null && category.isRequirePhotos()));
+        workOrder.setRequireFieldReport(workOrder.isRequireFieldReport()
+                || (category != null && category.isRequireFieldReport()));
+        workOrder.setRequireMileage(workOrder.isRequireMileage()
+                || (category != null && category.isRequireMileage()));
+        workOrder.setRequireChecklistCompletion(workOrder.isRequireChecklistCompletion()
+                || (category != null && category.isRequireChecklistCompletion()));
     }
 
     private void setWOCustomFields(WorkOrder workOrder, List<CustomFieldValuePostDTO> customFieldValuePostDTOS,
@@ -531,7 +571,18 @@ public class WorkOrderService {
         workOrder.setCompany(company);
         workOrder.setDueDate(Helper.getDateFromExcelDate(dto.getDueDate()));
         workOrder.setCustomId(getWorkOrderNumber(company));
+        // requiredSignature do import continua vindo so da propria linha (dto),
+        // exatamente como antes desta sprint - a coluna do CSV nao distingue
+        // "nao informado" de "informado como false" (Helper.getBooleanFromString
+        // trata ambos como false), entao nao da pra saber se e seguro deixar a
+        // categoria complementar esse valor especifico. O snapshot logo abaixo
+        // ainda assim aplica os outros 6 requisitos (sem coluna propria no
+        // import) a partir da Category resolvida por
+        // populateWorkOrderBaseFromImportDTO, e usa OR tambem para
+        // requiredSignature - nunca desliga o que a linha do import definiu,
+        // so liga o que a categoria pedir a mais.
         workOrder.setRequiredSignature(Helper.getBooleanFromString(dto.getRequiredSignature()));
+        applyCategoryCompletionRequirementsSnapshot(workOrder, workOrder.getCategory());
 
         Optional<User> optionalCompletedBy = userService.findByEmailAndCompany(dto.getCompletedByEmail(),
                 company.getId());

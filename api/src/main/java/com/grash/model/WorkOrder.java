@@ -72,6 +72,46 @@ public class WorkOrder extends WorkOrderBase {
     @NotAudited
     private Double mileageTraveled;
 
+    // Sprint 3A - snapshot congelado dos requisitos de conclusao da Category
+    // no momento em que esta WorkOrder foi criada (ver
+    // WorkOrderService.applyCategoryCompletionRequirementsSnapshot). Editar a
+    // Category depois, ou trocar a Category desta OS, NAO reaplica estes
+    // valores - eles ficam congelados aqui. requiredSignature (em
+    // WorkOrderBase, compartilhado com PreventiveMaintenance) ja cumpria este
+    // papel para assinatura; estes 6 cobrem os requisitos que a
+    // WorkOrderCategory ja guardava mas nunca chegavam na OS. Somente
+    // armazenamento nesta sprint - nenhum bloqueio de conclusao usa estes
+    // campos ainda.
+    @Schema(description = "Whether the signer's name is required on completion (snapshot from the category at " +
+            "creation time)")
+    @NotAudited
+    private boolean requireSignerName;
+
+    @Schema(description = "Whether the signer's CPF/CNPJ is required on completion (snapshot from the category " +
+            "at creation time)")
+    @NotAudited
+    private boolean requireSignerDocument;
+
+    @Schema(description = "Whether at least one photo is required on completion (snapshot from the category at " +
+            "creation time)")
+    @NotAudited
+    private boolean requirePhotos;
+
+    @Schema(description = "Whether the field report/feedback is required on completion (snapshot from the " +
+            "category at creation time)")
+    @NotAudited
+    private boolean requireFieldReport;
+
+    @Schema(description = "Whether mileage traveled is required on completion (snapshot from the category at " +
+            "creation time)")
+    @NotAudited
+    private boolean requireMileage;
+
+    @Schema(description = "Whether the checklist must be fully filled on completion (snapshot from the category " +
+            "at creation time)")
+    @NotAudited
+    private boolean requireChecklistCompletion;
+
     @Schema(description = "Indicates whether the work order is archived")
     private boolean archived;
 

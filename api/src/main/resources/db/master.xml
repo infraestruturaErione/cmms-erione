@@ -229,4 +229,8 @@
              relativeToChangelogFile="true"/>
     <include file="changelog/2026_08_06_00000000002_add_generated_report_table.xml"
              relativeToChangelogFile="true"/>
+    <include file="changelog/2026_08_07_00000000001_add_workorder_completion_requirements_snapshot.xml"
+             relativeToChangelogFile="true"/>
+    <include file="changelog/2026_08_07_00000000002_backfill_workorder_completion_requirements_snapshot.xml"
+             relativeToChangelogFile="true"/>
 </databaseChangeLog>
