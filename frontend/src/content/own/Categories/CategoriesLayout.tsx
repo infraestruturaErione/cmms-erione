@@ -3,22 +3,22 @@ import { useTranslation } from 'react-i18next';
 import MultipleTabsLayout from '../components/MultipleTabsLayout';
 import ConfirmDialog from '../components/ConfirmDialog';
 import {
+  alpha,
   Box,
   Button,
-  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
-  FormControlLabel,
   Grid,
   IconButton,
   List,
   ListItem,
   ListItemText,
   Popover,
+  Switch,
   styled,
   TextField,
   Typography,
@@ -28,6 +28,17 @@ import {
 import EditTwoToneIcon from '@mui/icons-material/EditTwoTone';
 import ClearTwoToneIcon from '@mui/icons-material/ClearTwoTone';
 import AddTwoToneIcon from '@mui/icons-material/AddTwoTone';
+import DescriptionTwoToneIcon from '@mui/icons-material/DescriptionTwoTone';
+import EventAvailableTwoToneIcon from '@mui/icons-material/EventAvailableTwoTone';
+import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
+import FactCheckTwoToneIcon from '@mui/icons-material/FactCheckTwoTone';
+import PhotoCameraTwoToneIcon from '@mui/icons-material/PhotoCameraTwoTone';
+import ArticleTwoToneIcon from '@mui/icons-material/ArticleTwoTone';
+import PlaylistAddCheckTwoToneIcon from '@mui/icons-material/PlaylistAddCheckTwoTone';
+import DirectionsCarTwoToneIcon from '@mui/icons-material/DirectionsCarTwoTone';
+import BorderColorTwoToneIcon from '@mui/icons-material/BorderColorTwoTone';
+import BadgeTwoToneIcon from '@mui/icons-material/BadgeTwoTone';
+import FingerprintTwoToneIcon from '@mui/icons-material/FingerprintTwoTone';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { TitleContext } from '../../../contexts/TitleContext';
@@ -156,6 +167,126 @@ const ListWrapper = styled(List)(
   `
 );
 
+// Bloco visual usado pra separar as 4 secoes do formulario de categoria
+// (Informacoes basicas / Planejamento / Questionario padrao / Requisitos) -
+// borda suave + espacamento consistente, sem sombra pesada.
+const SectionCard = ({ children }: { children: ReactNode }) => (
+  <Box
+    sx={{
+      border: (theme) => `1px solid ${theme.colors.alpha.black[10]}`,
+      borderRadius: 2,
+      p: { xs: 2, sm: 2.5 }
+    }}
+  >
+    {children}
+  </Box>
+);
+
+// Icone + titulo (+ descricao curta opcional) no topo de cada SectionCard.
+const SectionHeader = ({
+  icon,
+  title,
+  description
+}: {
+  icon: ReactNode;
+  title: string;
+  description?: string;
+}) => (
+  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2 }}>
+    <Box
+      sx={{
+        width: 32,
+        height: 32,
+        flexShrink: 0,
+        display: 'grid',
+        placeItems: 'center',
+        borderRadius: 1.5,
+        color: 'primary.main',
+        bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1)
+      }}
+    >
+      {icon}
+    </Box>
+    <Box sx={{ minWidth: 0 }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
+        {title}
+      </Typography>
+      {description && (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mt: 0.25 }}
+        >
+          {description}
+        </Typography>
+      )}
+    </Box>
+  </Box>
+);
+
+// Linha de requisito no estilo "settings toggle": icone + label + switch,
+// com uma legenda curta abaixo. `indent` afasta visualmente os sub-itens da
+// assinatura (nome/documento) do toggle pai "Colher assinatura" - e' so
+// apresentacao, nao muda a logica: cada campo continua um boolean
+// independente, sem nenhuma correcao automatica de combinacao antiga.
+const RequirementToggle = ({
+  icon,
+  label,
+  helper,
+  checked,
+  onChange,
+  indent
+}: {
+  icon: ReactNode;
+  label: string;
+  helper?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  indent?: boolean;
+}) => (
+  <Box
+    sx={{
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: 1.25,
+      py: 1,
+      pl: indent ? 4.5 : 0
+    }}
+  >
+    <Box sx={{ mt: 0.25, color: 'text.secondary', display: 'flex' }}>
+      {icon}
+    </Box>
+    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1
+        }}
+      >
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {label}
+        </Typography>
+        <Switch
+          size="small"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+      </Box>
+      {helper && (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ display: 'block', mt: 0.25, fontSize: 12.5, lineHeight: 1.4 }}
+        >
+          {helper}
+        </Typography>
+      )}
+    </Box>
+  </Box>
+);
+
 interface CategoriesLayoutProps {
   children?: ReactNode;
   tabIndex: number;
@@ -270,10 +401,56 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
       ? [{ value: 'purchase-order', label: t('purchase_orders') }]
       : [])
   ];
-  // Campos extras de "Tipo de tarefa": SLA (tolerancia/duracao padrao),
-  // questionario padrao (itens do checklist geridos aqui mesmo, sem tela
-  // separada) e as obrigatoriedades de fechamento. So aparece na aba Ordens
-  // de Serviço.
+
+  // Secao 1: Nome + Descricao - igual pras 7 abas (so as de "Tipo de tarefa"
+  // ganham as secoes extras abaixo).
+  const renderBasicInfoFields = (
+    values: { name: string; description: string },
+    errors: any,
+    touched: any,
+    handleChange: (e: any) => void,
+    handleBlur: (e: any) => void
+  ) => (
+    <Grid item xs={12}>
+      <SectionCard>
+        <SectionHeader
+          icon={<DescriptionTwoToneIcon fontSize="small" />}
+          title={t('category_section_basic_info')}
+        />
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <TextField
+              error={Boolean(touched.name && errors.name)}
+              fullWidth
+              helperText={touched.name && errors.name}
+              label={t('name')}
+              name="name"
+              onBlur={handleBlur}
+              onChange={handleChange}
+              value={values.name}
+              variant="outlined"
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label={t('description')}
+              multiline
+              rows={2}
+              name="description"
+              onBlur={handleBlur}
+              onChange={handleChange}
+              value={values.description}
+              variant="outlined"
+            />
+          </Grid>
+        </Grid>
+      </SectionCard>
+    </Grid>
+  );
+
+  // Secoes 2-4: Planejamento, Questionario padrao e Requisitos para
+  // conclusao - so aparecem na aba Ordens de Servico ("Tipo de tarefa").
   const renderTaskTypeFields = (
     values: TaskTypeFieldsValues,
     handleChange: (e: any) => void,
@@ -359,60 +536,57 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
 
     return (
       <>
+        {/* Secao 2 - Planejamento */}
         <Grid item xs={12}>
-          <Divider sx={{ my: 1 }} />
-          <Typography variant="subtitle2" color="text.secondary">
-            {t('task_type_sla_section')}
-          </Typography>
+          <SectionCard>
+            <SectionHeader
+              icon={<EventAvailableTwoToneIcon fontSize="small" />}
+              title={t('category_section_planning')}
+            />
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={7}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label={t('task_type_default_duration')}
+                  placeholder={t('hours')}
+                  helperText={t('task_type_default_duration_helper')}
+                  name="defaultEstimatedDuration"
+                  onChange={handleChange}
+                  value={values.defaultEstimatedDuration}
+                  variant="outlined"
+                />
+              </Grid>
+              <Grid item xs={12} sm={5}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label={t('task_type_tolerance_minutes')}
+                  name="toleranceMinutes"
+                  onChange={handleChange}
+                  value={values.toleranceMinutes}
+                  variant="outlined"
+                  InputLabelProps={{ sx: { color: 'text.secondary' } }}
+                  sx={{ mt: { xs: 0, sm: 0.75 } }}
+                />
+              </Grid>
+            </Grid>
+          </SectionCard>
         </Grid>
-        <Grid item xs={6}>
-          <TextField
-            fullWidth
-            type="number"
-            label={t('task_type_tolerance_minutes')}
-            name="toleranceMinutes"
-            onChange={handleChange}
-            value={values.toleranceMinutes}
-            variant="outlined"
-          />
-        </Grid>
-        <Grid item xs={6}>
-          <TextField
-            fullWidth
-            type="number"
-            label={t('task_type_default_duration')}
-            placeholder={t('hours')}
-            helperText={t('task_type_default_duration_helper')}
-            name="defaultEstimatedDuration"
-            onChange={handleChange}
-            value={values.defaultEstimatedDuration}
-            variant="outlined"
-          />
-        </Grid>
+
+        {/* Secao 3 - Questionario padrao */}
         <Grid item xs={12}>
-          <Divider sx={{ my: 1 }} />
-          <Typography variant="subtitle2" color="text.secondary">
-            {t('task_type_default_checklist')}
-          </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block', mb: 1.5 }}
-          >
-            {t('task_type_checklist_section_helper')}
-          </Typography>
-          {!hasFeature(PlanFeature.CHECKLIST) ? (
-            <FeatureErrorMessage message="upgrade_checklist" />
-          ) : (
-            <Box
-              sx={{
-                p: 1.5,
-                borderRadius: 1,
-                border: (theme) => `1px solid ${theme.colors.alpha.black[10]}`,
-                backgroundColor: (theme) => theme.colors.alpha.black[5]
-              }}
-            >
-              {values.checklistTasks.length ? (
+          <SectionCard>
+            <SectionHeader
+              icon={<AssignmentTwoToneIcon fontSize="small" />}
+              title={t('task_type_default_checklist')}
+              description={t('task_type_checklist_section_helper')}
+            />
+            {!hasFeature(PlanFeature.CHECKLIST) ? (
+              <FeatureErrorMessage message="upgrade_checklist" />
+            ) : values.checklistTasks.length ? (
+              <Box>
                 <DraggableTaskList
                   tasks={values.checklistTasks}
                   onDragEnd={onDragEndChecklist}
@@ -424,58 +598,169 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
                   onMeterChange={onMeterChange}
                   onChoicesChange={onChoicesChange}
                 />
-              ) : (
+                <Button
+                  size="small"
+                  startIcon={<AddTwoToneIcon fontSize="small" />}
+                  onClick={addChecklistItem}
+                  sx={{ mt: 0.5 }}
+                >
+                  {t('task_type_checklist_add_item')}
+                </Button>
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  py: 3,
+                  px: 2,
+                  borderRadius: 1.5,
+                  border: (theme) => `1px dashed ${theme.colors.alpha.black[20]}`
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    display: 'grid',
+                    placeItems: 'center',
+                    borderRadius: '50%',
+                    color: 'text.secondary',
+                    bgcolor: (theme) => theme.colors.alpha.black[10],
+                    mb: 1.5
+                  }}
+                >
+                  <PlaylistAddCheckTwoToneIcon fontSize="small" />
+                </Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  {t('task_type_checklist_empty')}
+                </Typography>
                 <Typography
                   variant="body2"
                   color="text.secondary"
-                  sx={{ py: 2, textAlign: 'center' }}
+                  sx={{ mt: 0.5, maxWidth: 360 }}
                 >
-                  {t('task_type_checklist_empty')}
+                  {t('task_type_checklist_empty_helper')}
                 </Typography>
-              )}
-              <Button
-                size="small"
-                startIcon={<AddTwoToneIcon fontSize="small" />}
-                onClick={addChecklistItem}
-              >
-                {t('task_type_checklist_add_item')}
-              </Button>
-            </Box>
-          )}
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AddTwoToneIcon fontSize="small" />}
+                  onClick={addChecklistItem}
+                  sx={{ mt: 2 }}
+                >
+                  {t('task_type_checklist_add_item')}
+                </Button>
+              </Box>
+            )}
+          </SectionCard>
         </Grid>
+
+        {/* Secao 4 - Requisitos para conclusao */}
         <Grid item xs={12}>
-          <Divider sx={{ my: 1 }} />
-          <Typography variant="subtitle2" color="text.secondary">
-            {t('task_type_requirements_section')}
-          </Typography>
-        </Grid>
-        {(
-          [
-            ['requireSignature', 'task_type_require_signature'],
-            ['requireSignerName', 'task_type_require_signer_name'],
-            ['requireSignerDocument', 'task_type_require_signer_document'],
-            ['requirePhotos', 'task_type_require_photos'],
-            ['requireFieldReport', 'task_type_require_field_report'],
-            ['requireMileage', 'task_type_require_mileage'],
-            [
-              'requireChecklistCompletion',
-              'task_type_require_checklist_completion'
-            ]
-          ] as const
-        ).map(([field, labelKey]) => (
-          <Grid item xs={12} sm={6} key={field}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  name={field}
-                  checked={values[field]}
-                  onChange={handleChange}
-                />
-              }
-              label={t(labelKey)}
+          <SectionCard>
+            <SectionHeader
+              icon={<FactCheckTwoToneIcon fontSize="small" />}
+              title={t('task_type_requirements_section')}
             />
-          </Grid>
-        ))}
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Typography
+                  variant="overline"
+                  color="text.secondary"
+                  sx={{ fontWeight: 700 }}
+                >
+                  {t('category_requirements_group_evidence')}
+                </Typography>
+                <RequirementToggle
+                  icon={<PhotoCameraTwoToneIcon fontSize="small" />}
+                  label={t('task_type_require_photos')}
+                  helper={t('category_require_photos_helper')}
+                  checked={values.requirePhotos}
+                  onChange={(checked) =>
+                    setFieldValue('requirePhotos', checked)
+                  }
+                />
+                <RequirementToggle
+                  icon={<ArticleTwoToneIcon fontSize="small" />}
+                  label={t('task_type_require_field_report')}
+                  helper={t('category_require_field_report_helper')}
+                  checked={values.requireFieldReport}
+                  onChange={(checked) =>
+                    setFieldValue('requireFieldReport', checked)
+                  }
+                />
+                <RequirementToggle
+                  icon={<PlaylistAddCheckTwoToneIcon fontSize="small" />}
+                  label={t('task_type_require_checklist_completion')}
+                  helper={t('category_require_checklist_completion_helper')}
+                  checked={values.requireChecklistCompletion}
+                  onChange={(checked) =>
+                    setFieldValue('requireChecklistCompletion', checked)
+                  }
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Divider sx={{ mb: 1 }} />
+                <Typography
+                  variant="overline"
+                  color="text.secondary"
+                  sx={{ fontWeight: 700 }}
+                >
+                  {t('category_requirements_group_travel')}
+                </Typography>
+                <RequirementToggle
+                  icon={<DirectionsCarTwoToneIcon fontSize="small" />}
+                  label={t('task_type_require_mileage')}
+                  helper={t('category_require_mileage_helper')}
+                  checked={values.requireMileage}
+                  onChange={(checked) =>
+                    setFieldValue('requireMileage', checked)
+                  }
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Divider sx={{ mb: 1 }} />
+                <Typography
+                  variant="overline"
+                  color="text.secondary"
+                  sx={{ fontWeight: 700 }}
+                >
+                  {t('category_requirements_group_signature')}
+                </Typography>
+                <RequirementToggle
+                  icon={<BorderColorTwoToneIcon fontSize="small" />}
+                  label={t('task_type_require_signature')}
+                  helper={t('category_require_signature_helper')}
+                  checked={values.requireSignature}
+                  onChange={(checked) =>
+                    setFieldValue('requireSignature', checked)
+                  }
+                />
+                <RequirementToggle
+                  icon={<BadgeTwoToneIcon fontSize="small" />}
+                  label={t('task_type_require_signer_name')}
+                  checked={values.requireSignerName}
+                  onChange={(checked) =>
+                    setFieldValue('requireSignerName', checked)
+                  }
+                  indent
+                />
+                <RequirementToggle
+                  icon={<FingerprintTwoToneIcon fontSize="small" />}
+                  label={t('task_type_require_signer_document')}
+                  checked={values.requireSignerDocument}
+                  onChange={(checked) =>
+                    setFieldValue('requireSignerDocument', checked)
+                  }
+                  indent
+                />
+              </Grid>
+            </Grid>
+          </SectionCard>
+        </Grid>
       </>
     );
   };
@@ -487,16 +772,18 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
       fullScreen={isWorkOrderCategory(basePath) && isMobileViewport}
       open={openAddCategoryModal}
       onClose={handleCloseAdd}
+      PaperProps={{ sx: { borderRadius: 2.5 } }}
     >
       <DialogTitle
         sx={{
-          p: 3
+          p: 3,
+          pb: 2
         }}
       >
         <Typography variant="h4" gutterBottom>
           {t('add_category')}
         </Typography>
-        <Typography variant="subtitle2">
+        <Typography variant="subtitle2" color="text.secondary">
           {t('add_category_description')}
         </Typography>
       </DialogTitle>
@@ -551,50 +838,28 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
             <DialogContent
               dividers
               sx={{
-                p: 3
+                p: 3,
+                bgcolor: (theme) => theme.colors.alpha.black[5]
               }}
             >
-              <Grid container spacing={3}>
-                <Grid item xs={12} lg={12}>
-                  <Grid container spacing={3}>
-                    <Grid item xs={12}>
-                      <TextField
-                        error={Boolean(touched.name && errors.name)}
-                        fullWidth
-                        helperText={touched.name && errors.name}
-                        label={t('name')}
-                        name="name"
-                        onBlur={handleBlur}
-                        onChange={handleChange}
-                        value={values.name}
-                        variant="outlined"
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label={t('description')}
-                        multiline
-                        rows={3}
-                        name="description"
-                        onBlur={handleBlur}
-                        onChange={handleChange}
-                        value={values.description}
-                        variant="outlined"
-                      />
-                    </Grid>
-                    {renderTaskTypeFields(
-                      values as unknown as TaskTypeFieldsValues,
-                      handleChange,
-                      setFieldValue
-                    )}
-                  </Grid>
-                </Grid>
+              <Grid container spacing={2.5}>
+                {renderBasicInfoFields(
+                  values as unknown as { name: string; description: string },
+                  errors,
+                  touched,
+                  handleChange,
+                  handleBlur
+                )}
+                {renderTaskTypeFields(
+                  values as unknown as TaskTypeFieldsValues,
+                  handleChange,
+                  setFieldValue
+                )}
               </Grid>
             </DialogContent>
             <DialogActions
               sx={{
-                p: 3
+                p: 2.5
               }}
             >
               <Button color="secondary" onClick={handleCloseAdd}>
@@ -608,7 +873,7 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
                 disabled={isSubmitting}
                 variant="contained"
               >
-                {t('add_category')}
+                {t('save_category')}
               </Button>
             </DialogActions>
           </form>
@@ -623,16 +888,18 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
       fullScreen={isWorkOrderCategory(basePath) && isMobileViewport}
       open={openUpdateCategoryModal}
       onClose={() => setOpenUpdateCategoryModal(false)}
+      PaperProps={{ sx: { borderRadius: 2.5 } }}
     >
       <DialogTitle
         sx={{
-          p: 3
+          p: 3,
+          pb: 2
         }}
       >
         <Typography variant="h4" gutterBottom>
           {t('edit_category')}
         </Typography>
-        <Typography variant="subtitle2">
+        <Typography variant="subtitle2" color="text.secondary">
           {t('edit_category_description')}
         </Typography>
       </DialogTitle>
@@ -689,50 +956,28 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
             <DialogContent
               dividers
               sx={{
-                p: 3
+                p: 3,
+                bgcolor: (theme) => theme.colors.alpha.black[5]
               }}
             >
-              <Grid container spacing={3}>
-                <Grid item xs={12} lg={12}>
-                  <Grid container spacing={3}>
-                    <Grid item xs={12}>
-                      <TextField
-                        error={Boolean(touched.name && errors.name)}
-                        fullWidth
-                        helperText={touched.name && errors.name}
-                        label={t('name')}
-                        name="name"
-                        onBlur={handleBlur}
-                        onChange={handleChange}
-                        value={values.name}
-                        variant="outlined"
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label={t('description')}
-                        multiline
-                        rows={3}
-                        name="description"
-                        onBlur={handleBlur}
-                        onChange={handleChange}
-                        value={values.description}
-                        variant="outlined"
-                      />
-                    </Grid>
-                    {renderTaskTypeFields(
-                      values as unknown as TaskTypeFieldsValues,
-                      handleChange,
-                      setFieldValue
-                    )}
-                  </Grid>
-                </Grid>
+              <Grid container spacing={2.5}>
+                {renderBasicInfoFields(
+                  values as unknown as { name: string; description: string },
+                  errors,
+                  touched,
+                  handleChange,
+                  handleBlur
+                )}
+                {renderTaskTypeFields(
+                  values as unknown as TaskTypeFieldsValues,
+                  handleChange,
+                  setFieldValue
+                )}
               </Grid>
             </DialogContent>
             <DialogActions
               sx={{
-                p: 3
+                p: 2.5
               }}
             >
               <Button
@@ -749,7 +994,7 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
                 disabled={isSubmitting}
                 variant="contained"
               >
-                {t('save')}
+                {t('save_category')}
               </Button>
             </DialogActions>
           </form>

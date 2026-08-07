@@ -22,7 +22,7 @@ import { makeStyles } from '@mui/styles';
 import DragIndicatorTwoToneIcon from '@mui/icons-material/DragIndicatorTwoTone';
 import { Task, TaskOption, TaskType } from '../../../../../models/owns/tasks';
 import { useTranslation } from 'react-i18next';
-import DoDisturbOnTwoToneIcon from '@mui/icons-material/DoDisturbOnTwoTone';
+import DeleteTwoToneIcon from '@mui/icons-material/DeleteTwoTone';
 import MoreVertTwoToneIcon from '@mui/icons-material/MoreVertTwoTone';
 import CheckTwoToneIcon from '@mui/icons-material/CheckTwoTone';
 import AddTwoToneIcon from '@mui/icons-material/AddTwoTone';
@@ -157,7 +157,7 @@ const DraggableListItem = ({
             width: '100%',
             mb: 1,
             p: 1.5,
-            borderRadius: 1,
+            borderRadius: 1.5,
             border: `1px solid ${theme.colors.alpha.black[10]}`,
             backgroundColor: theme.colors.alpha.black[5]
           }}
@@ -175,8 +175,10 @@ const DraggableListItem = ({
                 color: theme.colors.alpha.black[50]
               }}
             >
-              <DragIndicatorTwoToneIcon />
-              <Typography variant="caption">{index + 1}</Typography>
+              <DragIndicatorTwoToneIcon fontSize="small" />
+              <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                {String(index + 1).padStart(2, '0')}
+              </Typography>
             </Box>
             <Box
               sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}
@@ -225,16 +227,22 @@ const DraggableListItem = ({
                 <Box>
                   <Tooltip arrow title={t('remove_item')}>
                     <IconButton
+                      aria-label={t('remove_item')}
+                      size="small"
                       onClick={(event) =>
                         onRemove(task.id, event.currentTarget)
                       }
                     >
-                      <DoDisturbOnTwoToneIcon color="error" />
+                      <DeleteTwoToneIcon color="error" fontSize="small" />
                     </IconButton>
                   </Tooltip>
                   <Tooltip arrow title={t('assign_item_to')}>
-                    <IconButton onClick={handleOpenMenu}>
-                      <MoreVertTwoToneIcon />
+                    <IconButton
+                      aria-label={t('assign_item_to')}
+                      size="small"
+                      onClick={handleOpenMenu}
+                    >
+                      <MoreVertTwoToneIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                 </Box>
@@ -244,7 +252,8 @@ const DraggableListItem = ({
                   openAssignUser ||
                   openAssignAsset ||
                   openAssignMeter ||
-                  task.taskBase.taskType === 'MULTIPLE'
+                  task.taskBase.taskType === 'MULTIPLE' ||
+                  task.taskBase.taskType === 'INSPECTION'
                 }
               >
                 <Box
@@ -324,6 +333,15 @@ const DraggableListItem = ({
                       ))}
                     </Select>
                   )}
+                  {task.taskBase.taskType === 'INSPECTION' && (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mt: 1, display: 'block', fontSize: 12.5 }}
+                    >
+                      {t('category_inspection_hint')}
+                    </Typography>
+                  )}
                   {task.taskBase.taskType === 'MULTIPLE' && (
                     <Box>
                       {choices.map((choice, index) => (
@@ -345,10 +363,12 @@ const DraggableListItem = ({
                           />
                           {choices.length > 2 && (
                             <IconButton
+                              aria-label={t('remove_item')}
+                              size="small"
                               sx={{ ml: 2 }}
                               onClick={() => handleRemoveOption(index)}
                             >
-                              <DoDisturbOnTwoToneIcon color="error" />
+                              <DeleteTwoToneIcon color="error" fontSize="small" />
                             </IconButton>
                           )}
                         </Box>
