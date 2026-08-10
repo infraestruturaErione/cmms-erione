@@ -144,7 +144,14 @@ public class TaskController {
                              @PathVariable("id") Long id, HttpServletRequest req) {
         User user = userService.whoami(req);
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
-        if (optionalWorkOrder.isPresent() && optionalWorkOrder.get().canBeEditedBy(user)) {
+        // Bulk sync da ESTRUTURA do checklist (cria/preserva/remove itens) - e
+        // edicao administrativa do questionario, nao resposta operacional.
+        // Tecnico atribuido/criador executa a OS (responde Task existente via
+        // PATCH /tasks/{id}, que continua usando canBeEditedBy/checkTaskAccess
+        // sem alteracao), mas nao reestrutura o questionario sem permissao
+        // real de WORK_ORDERS. Mesma guarda do commit 292798c
+        // (WorkOrderController.patch).
+        if (optionalWorkOrder.isPresent() && optionalWorkOrder.get().canBeAdministrativelyEditedBy(user)) {
             List<Task> savedWOTasks = taskService.findByWorkOrder(id);
 
             List<Task> resultTasks = updateEntityTasks(taskBasesReq, savedWOTasks, user, null, optionalWorkOrder.get());

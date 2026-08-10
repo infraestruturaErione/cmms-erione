@@ -1,6 +1,7 @@
 package com.grash.model;
 
 import com.grash.model.enums.PermissionEntity;
+import com.grash.model.enums.RoleCode;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -56,6 +57,29 @@ class WorkOrderAdministrativeEditAuthorizationTest {
         WorkOrder workOrder = workOrder(999L);
 
         assertTrue(workOrder.canBeAdministrativelyEditedBy(limitedAdmin));
+    }
+
+    // Checklist structure fix - perfil administrativo CUSTOMIZADO
+    // (RoleCode.USER_CREATED, nao Administrator/Limited Administrator) com
+    // WORK_ORDERS explicito em editOtherPermissions -> tambem permitido. A
+    // checagem e puramente pela permissao real (Set<PermissionEntity>), nunca
+    // pelo RoleCode/nome do perfil - vale tanto para PATCH /work-orders/{id}
+    // quanto para o bulk sync do checklist em PATCH /tasks/work-order/{id}.
+    @Test
+    void customRoleWithWorkOrdersPermission_canAdministrativelyEdit() {
+        User user = new User();
+        user.setId(10L);
+        Role customRole = Role.builder()
+                .code(RoleCode.USER_CREATED)
+                .name("Coordenador de Campo")
+                .editOtherPermissions(new HashSet<>(Collections.singletonList(PermissionEntity.WORK_ORDERS)))
+                .build();
+        user.setRole(customRole);
+        WorkOrder workOrder = workOrder(999L); // nao criou, nao esta atribuido
+
+        assertTrue(workOrder.canBeAdministrativelyEditedBy(user),
+                "perfil customizado com WORK_ORDERS explicito deve poder editar administrativamente, " +
+                        "independente do RoleCode/nome");
     }
 
     // C) Technician atribuido (editOtherPermissions vazio, igual ao role
