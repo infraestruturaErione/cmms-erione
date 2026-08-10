@@ -1,6 +1,7 @@
 package com.grash.exception;
 
 import com.grash.dto.SuccessResponse;
+import com.grash.dto.WorkOrderCompletionErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.error.ErrorAttributeOptions;
 import org.springframework.boot.web.servlet.error.DefaultErrorAttributes;
@@ -42,6 +43,18 @@ public class GlobalExceptionHandlerController {
     public ResponseEntity<SuccessResponse> handleCustomException(HttpServletResponse res, CustomException ex) {
         log.warn("Business rule violation: {}", ex.getMessage());
         return new ResponseEntity<>(new SuccessResponse(false, ex.getMessage()), ex.getHttpStatus());
+    }
+
+    // Handler dedicado, separado do CustomException/SuccessResponse
+    // existentes - a WorkOrder que nao atende os requisitos de conclusao
+    // (Sprint 3B) responde 409 com a lista de codigos estaveis do que falta,
+    // nao so uma mensagem generica.
+    @ExceptionHandler(WorkOrderCompletionException.class)
+    public ResponseEntity<WorkOrderCompletionErrorResponse> handleWorkOrderCompletionException(
+            WorkOrderCompletionException ex) {
+        log.warn("Work order completion requirements not met: {}", ex.getMissingRequirements());
+        return new ResponseEntity<>(new WorkOrderCompletionErrorResponse(false, ex.getMessage(),
+                ex.getMissingRequirements()), HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

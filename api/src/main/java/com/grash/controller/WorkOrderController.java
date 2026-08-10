@@ -115,6 +115,7 @@ public class WorkOrderController {
     private final CustomerScopeService customerScopeService;
     private final CommentRepository commentRepository;
     private final CustomerRepository customerRepository;
+    private final WorkOrderCompletionValidator workOrderCompletionValidator;
 
 
     @Value("${frontend.url}")
@@ -350,8 +351,12 @@ public class WorkOrderController {
                     // So grava completedBy/completedOn na primeira transicao pra
                     // COMPLETE - reenvio duplicado (retry de rede, duplo clique que
                     // escapou do loading do botao) nao deve reescrever o horario de
-                    // conclusao real.
+                    // conclusao real. Mesma guarda usada pra so revalidar os
+                    // requisitos de conclusao (Sprint 3B) numa transicao GENUINA -
+                    // reabrir e completar de novo entra aqui de novo (revalida);
+                    // reenvio duplicado com status ja COMPLETE nao.
                     if (!savedWorkOrderStatusBefore.equals(Status.COMPLETE)) {
+                        workOrderCompletionValidator.validate(mutableWO, user.getCompany());
                         mutableWO.setCompletedBy(user);
                         mutableWO.setCompletedOn(new Date());
                     }
