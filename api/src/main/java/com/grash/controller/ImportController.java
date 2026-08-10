@@ -50,7 +50,16 @@ public class ImportController {
                                                             @Parameter(description = "Unique identifier for tracking " +
                                                                     "the import job") @RequestParam String uuid) {
         User user = userService.whoami(req);
-        if (user.getRole().getCreatePermissions().contains(PermissionEntity.WORK_ORDERS)
+        // Import de OS historica e capacidade administrativa, nao operacional:
+        // ele grava WorkOrder (inclusive ja COMPLETE) direto, sem passar pelo
+        // fluxo normal de criacao/change-status e sem o
+        // WorkOrderCompletionValidator (decisao explicita da Sprint 3B - o
+        // formato de import nao tem check-in/check-out/relato/foto/assinatura/
+        // km suficientes pra validar). createPermissions.WORK_ORDERS (que o
+        // Technician tem por padrao, pra criar uma OS normal pela tela) nao e'
+        // a permissao certa aqui - exige editOtherPermissions.WORK_ORDERS,
+        // mesma guarda administrativa de canBeAdministrativelyEditedBy.
+        if (user.getRole().getEditOtherPermissions().contains(PermissionEntity.WORK_ORDERS)
                 && user.getCompany().getSubscription().getSubscriptionPlan().getFeatures().contains(PlanFeatures.IMPORT_CSV)) {
             asyncImportService.importWorkOrders(user, toImport, uuid);
             return ResponseEntity.ok()
