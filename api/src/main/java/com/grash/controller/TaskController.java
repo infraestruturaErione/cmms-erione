@@ -236,7 +236,7 @@ public class TaskController {
 
         Optional<Task> optionalTask = taskService.findById(id);
         if (optionalTask.isPresent()) {
-            checkTaskAccess(optionalTask.get(), user, true);
+            checkTaskAdministrativeDeleteAccess(optionalTask.get(), user);
             taskService.delete(id);
             return new ResponseEntity(new SuccessResponse(true, "Deleted successfully"),
                     HttpStatus.OK);
@@ -256,6 +256,34 @@ public class TaskController {
             throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         }
         if (requireEdit && task.getPreventiveMaintenance() != null
+                && !task.getPreventiveMaintenance().canBeEditedBy(user)) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    // DELETE de Task e alteracao ESTRUTURAL (remove item do questionario da
+    // OS), nao resposta operacional - diferente de checkTaskAccess (usado por
+    // PATCH /tasks/{id}, resposta operacional, que continua usando
+    // WorkOrder.canBeEditedBy sem alteracao). Metodo dedicado, nao reaproveita
+    // checkTaskAccess, pra nao arriscar afetar o fluxo de resposta do
+    // tecnico. Mesma guarda administrativa do commit 292798c
+    // (WorkOrderController.patch) e 789ead8 (bulk sync do checklist). Task de
+    // PreventiveMaintenance (ou outro owner que nao WorkOrder) mantem a regra
+    // atual (PreventiveMaintenance.canBeEditedBy), identica a checkTaskAccess
+    // - fora do escopo desta correcao, que e so sobre WorkOrder.
+    private void checkTaskAdministrativeDeleteAccess(Task task, User user) {
+        if (task.getWorkOrder() != null) {
+            WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(task.getWorkOrder().getId(), user);
+            if (!workOrder.canBeAdministrativelyEditedBy(user)) {
+                throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+            }
+            return;
+        }
+
+        if (task.getCompany() == null || !task.getCompany().getId().equals(user.getCompany().getId())) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        if (task.getPreventiveMaintenance() != null
                 && !task.getPreventiveMaintenance().canBeEditedBy(user)) {
             throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         }
