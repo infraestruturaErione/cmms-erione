@@ -219,7 +219,14 @@ public class WorkOrderController {
     WorkOrderShowDTO create(@Parameter(description = "Work order data to create") @Valid @RequestBody WorkOrderPostDTO
                                     workOrderReq, HttpServletRequest req) {
         User user = userService.whoami(req);
-        if (user.getRole().getCreatePermissions().contains(PermissionEntity.WORK_ORDERS)
+        // Criacao direta de WorkOrder (POST /work-orders) e capacidade
+        // administrativa - o tecnico so recebe OS ja atribuida (Request
+        // aprovada, PM/Quartz, meter trigger), nunca cria uma diretamente.
+        // createPermissions.WORK_ORDERS (que o Technician tem por padrao)
+        // nao e' a permissao certa aqui - exige editOtherPermissions.WORK_ORDERS,
+        // mesma guarda administrativa de canBeAdministrativelyEditedBy e do
+        // import de OS.
+        if (user.getRole().getEditOtherPermissions().contains(PermissionEntity.WORK_ORDERS)
                 && (workOrderReq.getSignature() == null ||
                 user.getCompany().getSubscription().getSubscriptionPlan().getFeatures().contains(PlanFeatures.SIGNATURE))) {
             customerScopeService.prepareAndValidateRequestScope(workOrderReq, user);

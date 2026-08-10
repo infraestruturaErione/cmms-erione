@@ -25,7 +25,11 @@ public class AsyncImportService {
     @Async
     public void importWorkOrders(User user, List<WorkOrderImportDTO> toImport, String uuid) {
         try {
-            if (!user.getRole().getCreatePermissions().contains(PermissionEntity.WORK_ORDERS)
+            // Checagem redundante ao gate ja aplicado em ImportController -
+            // mantida por defesa em profundidade, mas alinhada a mesma
+            // permissao administrativa (editOtherPermissions.WORK_ORDERS),
+            // nao mais createPermissions.
+            if (!user.getRole().getEditOtherPermissions().contains(PermissionEntity.WORK_ORDERS)
                     || !user.getCompany().getSubscription().getSubscriptionPlan().getFeatures().contains(PlanFeatures.IMPORT_CSV)) {
                 messagingTemplate.convertAndSend("/imports/" + uuid, "error: Access Denied");
                 return;
