@@ -56,13 +56,16 @@ public class WorkOrderCompletionValidator {
         if (workOrder.getCheckInAt() == null) missing.add(CHECK_IN);
         if (workOrder.getCheckOutAt() == null) missing.add(CHECK_OUT);
 
-        boolean fieldReportRequired = workOrder.isRequireFieldReport();
+        // Relato em campo e' requisito BASE de qualquer OS operacional -
+        // sempre obrigatorio, independente de Category/requireFieldReport/
+        // config global/checklist/foto/assinatura/km (regra de produto
+        // confirmada). requireFieldReport deixou de controlar essa
+        // obrigatoriedade; o campo continua existindo so por compatibilidade
+        // (Category, snapshot, DTOs), sem uso aqui.
         boolean photoRequired = workOrder.isRequirePhotos() || isGlobalFieldRequired(company, "completeFiles");
-        if (fieldReportRequired || photoRequired) {
-            List<Comment> fieldReportComments = findFieldReportComments(workOrder.getId());
-            if (fieldReportRequired && !hasFieldReportText(fieldReportComments)) missing.add(FIELD_REPORT);
-            if (photoRequired && !hasFieldEvidencePhoto(fieldReportComments)) missing.add(PHOTO);
-        }
+        List<Comment> fieldReportComments = findFieldReportComments(workOrder.getId());
+        if (!hasFieldReportText(fieldReportComments)) missing.add(FIELD_REPORT);
+        if (photoRequired && !hasFieldEvidencePhoto(fieldReportComments)) missing.add(PHOTO);
 
         boolean checklistRequired = workOrder.isRequireChecklistCompletion()
                 || isGlobalFieldRequired(company, "completeTasks");

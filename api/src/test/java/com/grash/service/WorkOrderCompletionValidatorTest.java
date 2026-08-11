@@ -6,7 +6,6 @@ import com.grash.model.enums.FieldType;
 import com.grash.model.enums.FileType;
 import com.grash.model.enums.MissingRequirement;
 import com.grash.model.enums.TaskType;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -21,10 +20,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 /**
- * Sprint 3B - WorkOrderCompletionValidator. Usa os snapshots da Sprint 3A
- * (WorkOrder.requireXxx/requiredSignature), NUNCA a Category ao vivo. Cada
- * cenario testa uma regra aprovada isoladamente, mais combinacoes (OR com
- * config global, filhos de assinatura, zero Tasks, multiplas pendencias).
+ * Sprint 3B + fix "require field report" - WorkOrderCompletionValidator. Usa
+ * os snapshots da Sprint 3A (WorkOrder.requireXxx/requiredSignature), NUNCA a
+ * Category ao vivo. Regra de produto: FIELD_REPORT (relato em campo) e'
+ * requisito BASE de qualquer OS operacional - sempre obrigatorio, junto de
+ * CHECK_IN/CHECK_OUT, independente de Category/requireFieldReport/config
+ * global/checklist/foto/assinatura/km. requireFieldReport NAO controla mais
+ * essa obrigatoriedade (continua existindo so por compatibilidade). PHOTO
+ * continua totalmente independente do relato: requirePhotos OR
+ * completeFiles==REQUIRED.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -38,15 +42,30 @@ class WorkOrderCompletionValidatorTest {
     @InjectMocks
     private WorkOrderCompletionValidator validator;
 
+    // Sem relato em campo por padrao - quem quiser isolar outro requisito
+    // (checklist/assinatura/km/etc) deve usar baseWorkOrderWithValidReport().
     private WorkOrder baseWorkOrder() {
         WorkOrder workOrder = new WorkOrder();
         workOrder.setId(1L);
         workOrder.setCheckInAt(new Date());
         workOrder.setCheckOutAt(new Date());
         when(taskService.findByWorkOrder(1L)).thenReturn(Collections.emptyList());
-        when(commentRepository.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(
-                Collections.singletonList(1L), "[Relato em campo]")).thenReturn(Collections.emptyList());
+        stubFieldReportComments(Collections.emptyList());
         return workOrder;
+    }
+
+    // Mesma base, mas com um relato de texto real ja satisfazendo FIELD_REPORT
+    // - usada por todo teste que quer isolar um requisito QUE NAO seja o
+    // proprio relato (regra base agora sempre entra na lista de checagem).
+    private WorkOrder baseWorkOrderWithValidReport() {
+        WorkOrder workOrder = baseWorkOrder();
+        stubFieldReportComments(List.of(fieldReportComment("Atendimento realizado com sucesso.")));
+        return workOrder;
+    }
+
+    private void stubFieldReportComments(List<Comment> comments) {
+        when(commentRepository.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(
+                Collections.singletonList(1L), "[Relato em campo]")).thenReturn(comments);
     }
 
     private Company companyWithGlobalField(String fieldName, FieldType fieldType) {
@@ -81,16 +100,142 @@ class WorkOrderCompletionValidatorTest {
         return task;
     }
 
-    // A) Nenhum requisito ligado, check-in/check-out presentes -> passa.
+    // ===== Relato em campo (regra base - sempre obrigatorio) =====
+
+    // A) OS sem Category e requireFieldReport=false, check-in/check-out ok,
+    // sem relato -> FIELD_REPORT (regra base, independente do snapshot).
     @Test
-    void noRequirements_checkInAndCheckOutPresent_passes() {
-        assertDoesNotThrow(() -> validator.validate(baseWorkOrder(), new Company()));
+    void noFieldReport_requireFieldReportFalse_throwsFieldReport() {
+        WorkOrder workOrder = baseWorkOrder();
+        workOrder.setRequireFieldReport(false);
+
+        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
+                () -> validator.validate(workOrder, new Company()));
+        assertEquals(List.of(MissingRequirement.FIELD_REPORT), ex.getMissingRequirements());
     }
 
-    // B) Check-in ausente -> so CHECK_IN.
+    // B) mesma OS, agora com relato textual valido -> FIELD_REPORT deixa de
+    // faltar, passa.
     @Test
-    void missingCheckIn_throwsCheckInOnly() {
+    void validFieldReportText_satisfiesFieldReport() {
         WorkOrder workOrder = baseWorkOrder();
+        workOrder.setRequireFieldReport(false);
+        stubFieldReportComments(List.of(fieldReportComment("Trocado o filtro de ar.")));
+
+        assertDoesNotThrow(() -> validator.validate(workOrder, new Company()));
+    }
+
+    // C) relato so com o placeholder de "so foto", sem texto real -> nao
+    // conta, continua faltando FIELD_REPORT.
+    @Test
+    void photoOnlyPlaceholderText_stillThrowsFieldReport() {
+        WorkOrder workOrder = baseWorkOrder();
+        stubFieldReportComments(List.of(fieldReportComment("Photo evidence registered.")));
+
+        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
+                () -> validator.validate(workOrder, new Company()));
+        assertEquals(List.of(MissingRequirement.FIELD_REPORT), ex.getMissingRequirements());
+    }
+
+    // D) completeFiles OPTIONAL + requirePhotos=false, com relato valido ->
+    // relato satisfeito, PHOTO nao obrigatorio -> passa.
+    @Test
+    void completeFilesOptional_noPhotoRequired_withValidReport_passes() {
+        WorkOrder workOrder = baseWorkOrder();
+        workOrder.setRequirePhotos(false);
+        stubFieldReportComments(List.of(fieldReportComment("Atendimento concluido sem intercorrencias.")));
+        Company company = companyWithGlobalField("completeFiles", FieldType.OPTIONAL);
+
+        assertDoesNotThrow(() -> validator.validate(workOrder, company));
+    }
+
+    // E) completeFiles REQUIRED, sem relato e sem foto -> FIELD_REPORT e
+    // PHOTO, os dois (independentes um do outro).
+    @Test
+    void completeFilesRequired_noReportNoPhoto_throwsBoth() {
+        WorkOrder workOrder = baseWorkOrder();
+        Company company = companyWithGlobalField("completeFiles", FieldType.REQUIRED);
+
+        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
+                () -> validator.validate(workOrder, company));
+        assertEquals(List.of(MissingRequirement.FIELD_REPORT, MissingRequirement.PHOTO),
+                ex.getMissingRequirements());
+    }
+
+    // F) requirePhotos=true, sem relato e sem foto -> FIELD_REPORT e PHOTO.
+    @Test
+    void requirePhotos_noReportNoPhoto_throwsBoth() {
+        WorkOrder workOrder = baseWorkOrder();
+        workOrder.setRequirePhotos(true);
+
+        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
+                () -> validator.validate(workOrder, new Company()));
+        assertEquals(List.of(MissingRequirement.FIELD_REPORT, MissingRequirement.PHOTO),
+                ex.getMissingRequirements());
+    }
+
+    // G) foto IMAGE presente mas SEM texto real (so placeholder) -> PHOTO
+    // satisfeita, FIELD_REPORT continua pendente - as duas checagens sao
+    // independentes mesmo lendo os mesmos comentarios.
+    @Test
+    void imageWithoutRealText_photoSatisfied_fieldReportStillMissing() {
+        WorkOrder workOrder = baseWorkOrder();
+        workOrder.setRequirePhotos(true);
+        stubFieldReportComments(List.of(
+                fieldReportComment("Evidencia fotografica registrada.", file(FileType.IMAGE))));
+
+        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
+                () -> validator.validate(workOrder, new Company()));
+        assertEquals(List.of(MissingRequirement.FIELD_REPORT), ex.getMissingRequirements());
+    }
+
+    // H) texto real presente mas SEM foto, com foto obrigatoria -> FIELD_REPORT
+    // satisfeito, PHOTO continua pendente.
+    @Test
+    void realTextWithoutPhoto_fieldReportSatisfied_photoStillMissing() {
+        WorkOrder workOrder = baseWorkOrder();
+        workOrder.setRequirePhotos(true);
+        stubFieldReportComments(List.of(fieldReportComment("Camera reinstalada e testada.")));
+
+        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
+                () -> validator.validate(workOrder, new Company()));
+        assertEquals(List.of(MissingRequirement.PHOTO), ex.getMissingRequirements());
+    }
+
+    // I) Company null -> regra base do relato funciona normalmente (nao
+    // depende de Category/company para existir).
+    @Test
+    void nullCompany_baseFieldReportRuleStillApplies() {
+        WorkOrder workOrder = baseWorkOrder();
+
+        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
+                () -> validator.validate(workOrder, null));
+        assertEquals(List.of(MissingRequirement.FIELD_REPORT), ex.getMissingRequirements());
+    }
+
+    // J) requireFieldReport=false NAO desliga o requisito base - mesmo com o
+    // snapshot explicitamente false, o relato continua obrigatorio.
+    @Test
+    void requireFieldReportFalse_doesNotDisableBaseRequirement() {
+        WorkOrder workOrder = baseWorkOrder();
+        workOrder.setRequireFieldReport(false);
+        // com relato valido, passa apesar do snapshot false
+        stubFieldReportComments(List.of(fieldReportComment("Relato registrado normalmente.")));
+
+        assertDoesNotThrow(() -> validator.validate(workOrder, new Company()));
+
+        // sem relato, mesmo com snapshot false, continua bloqueando
+        stubFieldReportComments(Collections.emptyList());
+        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
+                () -> validator.validate(workOrder, new Company()));
+        assertEquals(List.of(MissingRequirement.FIELD_REPORT), ex.getMissingRequirements());
+    }
+
+    // ===== Check-in / check-out =====
+
+    @Test
+    void missingCheckIn_withValidReport_throwsCheckInOnly() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setCheckInAt(null);
 
         WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
@@ -98,11 +243,10 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.CHECK_IN), ex.getMissingRequirements());
     }
 
-    // C) Check-out ausente -> so CHECK_OUT. Deslocamento (departureAt) nunca e'
-    // checado - nao existe requisito pra ele.
+    // Deslocamento (departureAt) nunca e' checado - nao existe requisito pra ele.
     @Test
-    void missingCheckOut_throwsCheckOutOnly() {
-        WorkOrder workOrder = baseWorkOrder();
+    void missingCheckOut_withValidReport_throwsCheckOutOnly() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setCheckOutAt(null);
 
         WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
@@ -110,10 +254,9 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.CHECK_OUT), ex.getMissingRequirements());
     }
 
-    // D) Ambos ausentes -> os dois codigos, nesta ordem.
     @Test
-    void missingBothCheckInAndCheckOut_throwsBoth() {
-        WorkOrder workOrder = baseWorkOrder();
+    void missingBothCheckInAndCheckOut_withValidReport_throwsBoth() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setCheckInAt(null);
         workOrder.setCheckOutAt(null);
 
@@ -122,103 +265,53 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.CHECK_IN, MissingRequirement.CHECK_OUT), ex.getMissingRequirements());
     }
 
-    // E) requireFieldReport=true, nenhum comentario de relato -> FIELD_REPORT.
     @Test
-    void requireFieldReport_noComment_throwsFieldReport() {
+    void allBaseRequirementsMet_passes() {
+        assertDoesNotThrow(() -> validator.validate(baseWorkOrderWithValidReport(), new Company()));
+    }
+
+    // ===== Foto - variacoes ja cobertas (restricao a comentario de relato) =====
+
+    @Test
+    void requirePhotos_nonImageFile_withValidReport_throwsPhotoOnly() {
         WorkOrder workOrder = baseWorkOrder();
-        workOrder.setRequireFieldReport(true);
+        workOrder.setRequirePhotos(true);
+        stubFieldReportComments(List.of(fieldReportComment("Documento anexo.", file(FileType.OTHER))));
 
         WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
                 () -> validator.validate(workOrder, new Company()));
-        assertEquals(List.of(MissingRequirement.FIELD_REPORT), ex.getMissingRequirements());
+        assertEquals(List.of(MissingRequirement.PHOTO), ex.getMissingRequirements());
     }
 
-    // F) requireFieldReport=true, comentario com texto real -> passa.
+    // workOrder.image setado direto (nao via comentario de relato) -> NAO
+    // conta - definicao restrita, diferente do buildFieldEvidenceItems usado
+    // no PDF (que aceita workOrder.image).
     @Test
-    void requireFieldReport_withRealText_passes() {
+    void requirePhotos_workOrderImageDirectlySet_doesNotCount_throwsPhotoOnly() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
+        workOrder.setRequirePhotos(true);
+        workOrder.setImage(file(FileType.IMAGE));
+
+        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
+                () -> validator.validate(workOrder, new Company()));
+        assertEquals(List.of(MissingRequirement.PHOTO), ex.getMissingRequirements());
+    }
+
+    // Um unico comentario com texto real E imagem satisfaz FIELD_REPORT e
+    // PHOTO ao mesmo tempo - fluxo normal de relato com evidencia anexada.
+    @Test
+    void requirePhotos_validReportWithImage_passes() {
         WorkOrder workOrder = baseWorkOrder();
-        workOrder.setRequireFieldReport(true);
-        when(commentRepository.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(
-                Collections.singletonList(1L), "[Relato em campo]"))
-                .thenReturn(List.of(fieldReportComment("Trocado o filtro de ar.")));
+        workOrder.setRequirePhotos(true);
+        stubFieldReportComments(List.of(
+                fieldReportComment("Camera reinstalada, evidencia em anexo.", file(FileType.IMAGE))));
 
         assertDoesNotThrow(() -> validator.validate(workOrder, new Company()));
     }
 
-    // G) requireFieldReport=true, comentario so com o placeholder de "so foto"
-    // -> nao conta como relato, continua faltando.
     @Test
-    void requireFieldReport_onlyPhotoPlaceholderText_throwsFieldReport() {
-        WorkOrder workOrder = baseWorkOrder();
-        workOrder.setRequireFieldReport(true);
-        when(commentRepository.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(
-                Collections.singletonList(1L), "[Relato em campo]"))
-                .thenReturn(List.of(fieldReportComment("Photo evidence registered.")));
-
-        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
-                () -> validator.validate(workOrder, new Company()));
-        assertEquals(List.of(MissingRequirement.FIELD_REPORT), ex.getMissingRequirements());
-    }
-
-    // H) requirePhotos=true, sem evidencia -> PHOTO.
-    @Test
-    void requirePhotos_noEvidence_throwsPhoto() {
-        WorkOrder workOrder = baseWorkOrder();
-        workOrder.setRequirePhotos(true);
-
-        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
-                () -> validator.validate(workOrder, new Company()));
-        assertEquals(List.of(MissingRequirement.PHOTO), ex.getMissingRequirements());
-    }
-
-    // I) requirePhotos=true, comentario de relato com File IMAGE -> passa
-    // (definicao restrita aprovada).
-    @Test
-    void requirePhotos_fieldReportCommentWithImage_passes() {
-        WorkOrder workOrder = baseWorkOrder();
-        workOrder.setRequirePhotos(true);
-        when(commentRepository.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(
-                Collections.singletonList(1L), "[Relato em campo]"))
-                .thenReturn(List.of(fieldReportComment("Evidencia fotografica registrada.", file(FileType.IMAGE))));
-
-        assertDoesNotThrow(() -> validator.validate(workOrder, new Company()));
-    }
-
-    // J) requirePhotos=true, File anexado mas tipo OTHER (nao IMAGE) -> nao
-    // conta, continua faltando PHOTO.
-    @Test
-    void requirePhotos_nonImageFile_throwsPhoto() {
-        WorkOrder workOrder = baseWorkOrder();
-        workOrder.setRequirePhotos(true);
-        when(commentRepository.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(
-                Collections.singletonList(1L), "[Relato em campo]"))
-                .thenReturn(List.of(fieldReportComment("Documento anexo.", file(FileType.OTHER))));
-
-        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
-                () -> validator.validate(workOrder, new Company()));
-        assertEquals(List.of(MissingRequirement.PHOTO), ex.getMissingRequirements());
-    }
-
-    // K) requirePhotos=true, workOrder.image setado direto (nao via
-    // comentario de relato) -> NAO conta - definicao restrita, diferente do
-    // buildFieldEvidenceItems usado no PDF (que aceita workOrder.image).
-    @Test
-    void requirePhotos_workOrderImageDirectlySet_doesNotCount_throwsPhoto() {
-        WorkOrder workOrder = baseWorkOrder();
-        workOrder.setRequirePhotos(true);
-        File administrativeImage = file(FileType.IMAGE);
-        workOrder.setImage(administrativeImage);
-
-        WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
-                () -> validator.validate(workOrder, new Company()));
-        assertEquals(List.of(MissingRequirement.PHOTO), ex.getMissingRequirements());
-    }
-
-    // L) completeFiles global REQUIRED, requirePhotos=false na OS -> ainda
-    // assim exige (OR entre snapshot e config global).
-    @Test
-    void completeFilesGloballyRequired_snapshotFalse_stillThrowsPhoto() {
-        WorkOrder workOrder = baseWorkOrder();
+    void completeFilesGloballyRequired_snapshotFalse_withValidReport_stillThrowsPhotoOnly() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequirePhotos(false);
         Company company = companyWithGlobalField("completeFiles", FieldType.REQUIRED);
 
@@ -227,30 +320,19 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.PHOTO), ex.getMissingRequirements());
     }
 
-    // M) completeFiles global OPTIONAL -> nao ativa a obrigatoriedade (so
-    // REQUIRED ativa).
-    @Test
-    void completeFilesGloballyOptional_doesNotRequirePhoto() {
-        WorkOrder workOrder = baseWorkOrder();
-        Company company = companyWithGlobalField("completeFiles", FieldType.OPTIONAL);
+    // ===== Checklist =====
 
-        assertDoesNotThrow(() -> validator.validate(workOrder, company));
-    }
-
-    // N) requireChecklistCompletion=true, zero Tasks -> nao bloqueia.
     @Test
-    void requireChecklist_zeroTasks_passes() {
-        WorkOrder workOrder = baseWorkOrder();
+    void requireChecklist_zeroTasks_withValidReport_passes() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequireChecklistCompletion(true);
 
         assertDoesNotThrow(() -> validator.validate(workOrder, new Company()));
     }
 
-    // O) requireChecklistCompletion=true, Tasks nao-SUBTASK todas respondidas
-    // -> passa.
     @Test
-    void requireChecklist_nonSubtaskTasksAnswered_passes() {
-        WorkOrder workOrder = baseWorkOrder();
+    void requireChecklist_nonSubtaskTasksAnswered_withValidReport_passes() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequireChecklistCompletion(true);
         when(taskService.findByWorkOrder(1L)).thenReturn(List.of(
                 task(TaskType.TEXT, "Tudo ok"),
@@ -259,10 +341,9 @@ class WorkOrderCompletionValidatorTest {
         assertDoesNotThrow(() -> validator.validate(workOrder, new Company()));
     }
 
-    // P) requireChecklistCompletion=true, uma Task sem valor -> CHECKLIST.
     @Test
-    void requireChecklist_oneTaskBlank_throwsChecklist() {
-        WorkOrder workOrder = baseWorkOrder();
+    void requireChecklist_oneTaskBlank_withValidReport_throwsChecklistOnly() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequireChecklistCompletion(true);
         when(taskService.findByWorkOrder(1L)).thenReturn(List.of(
                 task(TaskType.TEXT, "Tudo ok"),
@@ -273,11 +354,9 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.CHECKLIST), ex.getMissingRequirements());
     }
 
-    // Q) SUBTASK com valor "OPEN" (nao "COMPLETE") -> CHECKLIST, mesmo com
-    // valor preenchido.
     @Test
-    void requireChecklist_subtaskNotComplete_throwsChecklist() {
-        WorkOrder workOrder = baseWorkOrder();
+    void requireChecklist_subtaskNotComplete_withValidReport_throwsChecklistOnly() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequireChecklistCompletion(true);
         when(taskService.findByWorkOrder(1L)).thenReturn(List.of(task(TaskType.SUBTASK, "OPEN")));
 
@@ -286,21 +365,18 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.CHECKLIST), ex.getMissingRequirements());
     }
 
-    // R) SUBTASK com valor "COMPLETE" -> conta como respondida.
     @Test
-    void requireChecklist_subtaskComplete_passes() {
-        WorkOrder workOrder = baseWorkOrder();
+    void requireChecklist_subtaskComplete_withValidReport_passes() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequireChecklistCompletion(true);
         when(taskService.findByWorkOrder(1L)).thenReturn(List.of(task(TaskType.SUBTASK, "COMPLETE")));
 
         assertDoesNotThrow(() -> validator.validate(workOrder, new Company()));
     }
 
-    // S) completeTasks global REQUIRED, snapshot false, checklist incompleto
-    // -> ainda assim exige (OR).
     @Test
-    void completeTasksGloballyRequired_snapshotFalse_stillThrowsChecklist() {
-        WorkOrder workOrder = baseWorkOrder();
+    void completeTasksGloballyRequired_snapshotFalse_withValidReport_throwsChecklistOnly() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         Company company = companyWithGlobalField("completeTasks", FieldType.REQUIRED);
         when(taskService.findByWorkOrder(1L)).thenReturn(List.of(task(TaskType.TEXT, "")));
 
@@ -309,12 +385,13 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.CHECKLIST), ex.getMissingRequirements());
     }
 
-    // T) requiredSignature=false -> SIGNATURE/SIGNER_NAME/SIGNER_DOCUMENT nunca
-    // sao checados, mesmo com requireSignerName/requireSignerDocument=true
-    // (filhos so valem se o pai valer).
+    // ===== Assinatura =====
+
+    // signerName/signerDocument so sao exigidos quando a assinatura em si e'
+    // exigida - nunca isolados.
     @Test
     void signatureNotRequired_childrenIgnoredEvenIfTrue() {
-        WorkOrder workOrder = baseWorkOrder();
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequiredSignature(false);
         workOrder.setRequireSignerName(true);
         workOrder.setRequireSignerDocument(true);
@@ -322,10 +399,9 @@ class WorkOrderCompletionValidatorTest {
         assertDoesNotThrow(() -> validator.validate(workOrder, new Company()));
     }
 
-    // U) requiredSignature=true, assinatura vazia -> SIGNATURE.
     @Test
-    void signatureRequired_blank_throwsSignature() {
-        WorkOrder workOrder = baseWorkOrder();
+    void signatureRequired_blank_withValidReport_throwsSignatureOnly() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequiredSignature(true);
 
         WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
@@ -333,10 +409,9 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.SIGNATURE), ex.getMissingRequirements());
     }
 
-    // V) assinatura presente, requireSignerName=true, nome vazio -> SIGNER_NAME.
     @Test
-    void signerNameRequired_blank_throwsSignerName() {
-        WorkOrder workOrder = baseWorkOrder();
+    void signerNameRequired_blank_withValidReport_throwsSignerNameOnly() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequiredSignature(true);
         workOrder.setSignature("data:image/png;base64,abc");
         workOrder.setRequireSignerName(true);
@@ -346,11 +421,9 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.SIGNER_NAME), ex.getMissingRequirements());
     }
 
-    // W) assinatura presente, requireSignerDocument=true, documento vazio ->
-    // SIGNER_DOCUMENT.
     @Test
-    void signerDocumentRequired_blank_throwsSignerDocument() {
-        WorkOrder workOrder = baseWorkOrder();
+    void signerDocumentRequired_blank_withValidReport_throwsSignerDocumentOnly() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequiredSignature(true);
         workOrder.setSignature("data:image/png;base64,abc");
         workOrder.setRequireSignerDocument(true);
@@ -360,10 +433,9 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.SIGNER_DOCUMENT), ex.getMissingRequirements());
     }
 
-    // X) assinatura + nome + documento presentes -> passa.
     @Test
-    void signatureAndChildren_allPresent_passes() {
-        WorkOrder workOrder = baseWorkOrder();
+    void signatureAndChildren_allPresent_withValidReport_passes() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequiredSignature(true);
         workOrder.setSignature("data:image/png;base64,abc");
         workOrder.setRequireSignerName(true);
@@ -374,10 +446,11 @@ class WorkOrderCompletionValidatorTest {
         assertDoesNotThrow(() -> validator.validate(workOrder, new Company()));
     }
 
-    // Y) requireMileage=true, mileageTraveled=null -> MILEAGE.
+    // ===== Quilometragem =====
+
     @Test
-    void mileageRequired_null_throwsMileage() {
-        WorkOrder workOrder = baseWorkOrder();
+    void mileageRequired_null_withValidReport_throwsMileageOnly() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequireMileage(true);
 
         WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
@@ -385,20 +458,18 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.MILEAGE), ex.getMissingRequirements());
     }
 
-    // Z) requireMileage=true, mileageTraveled=0.0 -> valido, passa.
     @Test
-    void mileageRequired_zero_passes() {
-        WorkOrder workOrder = baseWorkOrder();
+    void mileageRequired_zero_withValidReport_passes() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequireMileage(true);
         workOrder.setMileageTraveled(0.0);
 
         assertDoesNotThrow(() -> validator.validate(workOrder, new Company()));
     }
 
-    // AA) requireMileage=true, mileageTraveled negativo -> MILEAGE.
     @Test
-    void mileageRequired_negative_throwsMileage() {
-        WorkOrder workOrder = baseWorkOrder();
+    void mileageRequired_negative_withValidReport_throwsMileageOnly() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequireMileage(true);
         workOrder.setMileageTraveled(-5.0);
 
@@ -407,19 +478,21 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.MILEAGE), ex.getMissingRequirements());
     }
 
-    // AB) requireMileage=false -> mileage nunca e' checado, mesmo null.
     @Test
-    void mileageNotRequired_nullIgnored_passes() {
-        WorkOrder workOrder = baseWorkOrder();
+    void mileageNotRequired_nullIgnored_withValidReport_passes() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         workOrder.setRequireMileage(false);
         workOrder.setMileageTraveled(null);
 
         assertDoesNotThrow(() -> validator.validate(workOrder, new Company()));
     }
 
-    // AC) Multiplas pendencias combinadas -> todos os codigos aparecem.
+    // ===== Combinacoes / null-safety =====
+
+    // Sem relato (regra base) + check-in ausente + assinatura + km -> todos
+    // os codigos aparecem, inclusive FIELD_REPORT.
     @Test
-    void multipleMissingRequirements_allCodesReturned() {
+    void multipleMissingRequirements_includingFieldReport_allCodesReturned() {
         WorkOrder workOrder = baseWorkOrder();
         workOrder.setCheckInAt(null);
         workOrder.setRequiredSignature(true);
@@ -427,24 +500,15 @@ class WorkOrderCompletionValidatorTest {
 
         WorkOrderCompletionException ex = assertThrows(WorkOrderCompletionException.class,
                 () -> validator.validate(workOrder, new Company()));
-        assertEquals(Set.of(MissingRequirement.CHECK_IN, MissingRequirement.SIGNATURE, MissingRequirement.MILEAGE),
+        assertEquals(
+                Set.of(MissingRequirement.CHECK_IN, MissingRequirement.FIELD_REPORT,
+                        MissingRequirement.SIGNATURE, MissingRequirement.MILEAGE),
                 new HashSet<>(ex.getMissingRequirements()));
     }
 
-    // AD) Company null -> checagens globais nao quebram (null-safe), nenhuma
-    // obrigatoriedade global e' ativada por engano.
     @Test
-    void nullCompany_globalChecksAreNullSafe() {
-        WorkOrder workOrder = baseWorkOrder();
-
-        assertDoesNotThrow(() -> validator.validate(workOrder, null));
-    }
-
-    // AE) CompanySettings/WorkOrderConfiguration presentes mas
-    // fieldConfigurations null -> null-safe, nao quebra nem vira obrigacao.
-    @Test
-    void companySettingsPresentButFieldConfigurationsNull_isNullSafe() {
-        WorkOrder workOrder = baseWorkOrder();
+    void companySettingsPresentButFieldConfigurationsNull_withValidReport_isNullSafe() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
         Company company = new Company();
         CompanySettings settings = new CompanySettings(company);
         WorkOrderConfiguration configuration = new WorkOrderConfiguration(settings);
