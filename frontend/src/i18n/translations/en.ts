@@ -426,6 +426,13 @@ const locale = {
   add_wo: 'Add Work Order',
   add_wo_description:
     'Fill in the fields below to create and add a new Work Order',
+  wo_add_image_title: 'Main photo',
+  wo_add_files_title: 'Supporting files',
+  wo_add_destination_empty_state:
+    'Select a location to preview the destination on the map.',
+  wo_add_destination_no_address: 'No address on file.',
+  wo_add_open_in_maps: 'Open in maps',
+  wo_add_view_location_details: 'View details',
   edit_wo: 'Edit Work Order',
   edit_wo_description: 'Fill in the fields below to update the Work Order',
   'noRows.wo.message':
@@ -1035,6 +1042,8 @@ const locale = {
   meter: 'Meter',
   drag_one_file: 'Drag a unique file here',
   drag_many_files: 'Drag & drop files here',
+  select_image: 'Select image',
+  select_or_drag_files: 'Drag files here or click to select',
   drop_to_start: 'Drop the files to start uploading',
   invalid_files_type: 'You cannot upload these file types',
   you_have_uploaded: 'You have uploaded',

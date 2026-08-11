@@ -57,10 +57,22 @@ export interface IField {
   name: string;
   placeholder?: string;
   fileType?: 'file' | 'image';
+  // Opcional, retrocompativel - default 'default' preserva exatamente a
+  // aparencia atual do FileUpload em todas as telas. So AddWorkOrderTabbedModal
+  // opta por 'light' nesta Sprint de redesign visual.
+  fileVariant?: 'default' | 'light';
   helperText?: string;
   fullWidth?: boolean;
   multiple?: boolean;
   midWidth?: boolean;
+  // Opcional, retrocompativel - so afeta campos multiline (textarea). Sem
+  // isso, comportamento padrao continua rows=4 em todas as telas.
+  rows?: number;
+  // Opcional, retrocompativel - so afeta campos type:'switch'. Sem isso,
+  // CustomSwitch renderiza exatamente como antes (h6 bold + mb:2). So
+  // AddWorkOrderTabbedModal opta por essa apresentacao mais compacta pro
+  // campo "Requer assinatura".
+  compact?: boolean;
   onPress?: () => void;
   required?: boolean;
   error?: any;

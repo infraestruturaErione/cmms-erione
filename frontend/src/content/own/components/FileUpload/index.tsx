@@ -22,6 +22,7 @@ import CloseTwoToneIcon from '@mui/icons-material/CloseTwoTone';
 import CheckTwoToneIcon from '@mui/icons-material/CheckTwoTone';
 import DeleteTwoToneIcon from '@mui/icons-material/DeleteTwoTone';
 import { useSnackbar } from 'notistack';
+import { alpha } from '@mui/material/styles';
 
 const WarningTwoToneIconWrapper = styled(WarningTwoToneIcon)(
   ({ theme }) => `
@@ -120,6 +121,12 @@ interface FileUploadProps {
   files?: any[];
   disabled?: boolean;
   error?: string;
+  // Opcional, retrocompativel - omitido ou 'default' preserva EXATAMENTE a
+  // aparencia atual (caixa escura). 'light' e' uma apresentacao alternativa
+  // mais compacta/clara, usada so onde for explicitamente pedida (ex.:
+  // AddWorkOrderTabbedModal) - mesmo drag&drop, mesma validacao, mesmo
+  // onDrop/payload, so troca cor/tamanho via sx local.
+  variant?: 'default' | 'light';
 }
 function FileUpload(props: FileUploadProps) {
   const { t }: { t: any } = useTranslation();
@@ -133,8 +140,59 @@ function FileUpload(props: FileUploadProps) {
     multiple,
     files: defaultFiles,
     error,
-    disabled
+    disabled,
+    variant = 'default'
   } = props;
+  const isLight = variant === 'light';
+  const lightUploadBoxSx = isLight
+    ? {
+        background: 'transparent',
+        p: 0
+      }
+    : undefined;
+  const lightTitleSx = isLight
+    ? {
+        color: theme.palette.text.primary,
+        fontSize: 15,
+        fontWeight: 700
+      }
+    : undefined;
+  const lightDescriptionSx = isLight
+    ? {
+        color: theme.palette.text.secondary,
+        fontSize: 12.5
+      }
+    : undefined;
+  const lightDropzoneSx = isLight
+    ? {
+        flexDirection: 'row' as const,
+        justifyContent: 'flex-start',
+        gap: 1.25,
+        py: 1.25,
+        px: 1.75,
+        mt: 1,
+        background: alpha(theme.palette.primary.main, 0.03),
+        border: `1px dashed ${alpha(theme.palette.primary.main, 0.28)}`,
+        '&:hover': {
+          background: alpha(theme.palette.primary.main, 0.06),
+          borderColor: alpha(theme.palette.primary.main, 0.45)
+        }
+      }
+    : undefined;
+  const lightAvatarSx = isLight
+    ? {
+        width: 34,
+        height: 34,
+        background: alpha(theme.palette.primary.main, 0.12),
+        color: theme.palette.primary.main
+      }
+    : undefined;
+  const lightDropzoneTextSx = isLight
+    ? { color: theme.palette.text.primary, fontWeight: 600, fontSize: 13.5 }
+    : undefined;
+  const lightFileItemSx = isLight
+    ? { color: theme.palette.text.primary }
+    : undefined;
   const {
     acceptedFiles,
     isDragActive,
@@ -196,7 +254,10 @@ function FileUpload(props: FileUploadProps) {
       key={index}
       sx={{ color: theme.colors.alpha.trueWhite[100] }}
     >
-      <ListItemText primary={file.name} />
+      <ListItemText
+        primary={file.name}
+        primaryTypographyProps={isLight ? { sx: lightFileItemSx } : undefined}
+      />
       <IconButton
         edge="end"
         aria-label="delete"
@@ -213,59 +274,69 @@ function FileUpload(props: FileUploadProps) {
   ));
 
   return (
-    <UploadBox>
-      <TypographyPrimary variant="h4" gutterBottom>
+    <UploadBox sx={lightUploadBoxSx}>
+      <TypographyPrimary
+        variant={isLight ? 'subtitle1' : 'h4'}
+        gutterBottom={!isLight}
+        sx={lightTitleSx}
+      >
         {title || t('file')}
       </TypographyPrimary>
-      <TypographySecondary variant="body1">
-        {description || t('drag_one_file')}
-      </TypographySecondary>
+      {!isLight && (
+        <TypographySecondary variant="body1">
+          {description || t('drag_one_file')}
+        </TypographySecondary>
+      )}
 
-      <BoxUploadWrapper {...getRootProps()} sx={{ borderColor: error ? theme.colors.error.main : undefined }}>
+      <BoxUploadWrapper
+        {...getRootProps()}
+        sx={{
+          borderColor: error ? theme.colors.error.main : undefined,
+          ...lightDropzoneSx
+        }}
+      >
         <input {...getInputProps()} />
         {isDragAccept && (
           <>
-            <AvatarSuccess variant="rounded">
-              <CheckTwoToneIcon />
+            <AvatarSuccess variant="rounded" sx={lightAvatarSx}>
+              <CheckTwoToneIcon fontSize={isLight ? 'small' : 'medium'} />
             </AvatarSuccess>
-            <TypographyPrimary
-              sx={{
-                mt: 2
-              }}
-            >
+            <TypographyPrimary sx={{ mt: isLight ? 0 : 2, ...lightDropzoneTextSx }}>
               {t('drop_to_start')}
             </TypographyPrimary>
           </>
         )}
         {isDragReject && (
           <>
-            <AvatarDanger variant="rounded">
-              <CloseTwoToneIcon />
+            <AvatarDanger variant="rounded" sx={lightAvatarSx}>
+              <CloseTwoToneIcon fontSize={isLight ? 'small' : 'medium'} />
             </AvatarDanger>
-            <TypographyPrimary
-              sx={{
-                mt: 2
-              }}
-            >
+            <TypographyPrimary sx={{ mt: isLight ? 0 : 2, ...lightDropzoneTextSx }}>
               {t('invalid_files_type')}
             </TypographyPrimary>
           </>
         )}
         {!isDragActive && (
           <>
-            <AvatarWrapper variant="rounded">
-              <CloudUploadTwoToneIcon />
+            <AvatarWrapper variant="rounded" sx={lightAvatarSx}>
+              <CloudUploadTwoToneIcon fontSize={isLight ? 'small' : 'medium'} />
             </AvatarWrapper>
-            <TypographyPrimary
-              sx={{
-                mt: 2
-              }}
-            >
-              {multiple ? t('drag_many_files') : t('drag_one_file')}
+            <TypographyPrimary sx={{ mt: isLight ? 0 : 2, ...lightDropzoneTextSx }}>
+              {multiple
+                ? t(isLight ? 'select_or_drag_files' : 'drag_many_files')
+                : t(isLight ? 'select_image' : 'drag_one_file')}
             </TypographyPrimary>
           </>
         )}
       </BoxUploadWrapper>
+      {isLight && description && (
+        <TypographySecondary
+          variant="caption"
+          sx={{ ...lightDescriptionSx, display: 'block', mt: 0.75 }}
+        >
+          {description}
+        </TypographySecondary>
+      )}
       {error && (
         <FormHelperText error sx={{ mx: 2, mt: 1 }}>
           {error}

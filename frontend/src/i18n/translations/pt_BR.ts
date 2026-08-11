@@ -445,6 +445,14 @@ const ptBRJSON = {
   add_wo: 'Adicionar Ordem de Serviço',
   add_wo_description:
     'Preencha os campos abaixo para criar e adicionar uma nova Ordem de Serviço',
+  create_work_order: 'Criar OS',
+  wo_add_image_title: 'Imagem principal',
+  wo_add_files_title: 'Arquivos de apoio',
+  wo_add_destination_empty_state:
+    'Selecione uma localização para visualizar o destino no mapa.',
+  wo_add_destination_no_address: 'Endereço não informado.',
+  wo_add_open_in_maps: 'Abrir no mapa',
+  wo_add_view_location_details: 'Ver detalhes',
   edit_wo: 'Editar Ordem de Serviço',
   edit_wo_description:
     'Preencha os campos abaixo para atualizar a Ordem de Serviço',
@@ -1079,6 +1087,8 @@ const ptBRJSON = {
   //upload
   drag_one_file: 'Arraste um único arquivo aqui',
   drag_many_files: 'Arraste e solte arquivos aqui',
+  select_image: 'Selecionar imagem',
+  select_or_drag_files: 'Arraste arquivos aqui ou clique para selecionar',
   drop_to_start: 'Solte os arquivos para começar o upload',
   invalid_files_type: 'Você não pode fazer upload desses tipos de arquivo',
   you_have_uploaded: 'Você fez upload de',

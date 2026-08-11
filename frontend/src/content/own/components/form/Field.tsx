@@ -38,7 +38,15 @@ export default (props: PropsType) => {
       disabled={props.isDisabled}
       required={props.required || false}
       multiline={props.multiple}
-      rows={props.multiple && 4}
+      // MUI usa react-textarea-autosize por baixo - "rows" sozinho nao
+      // limita a altura real (ela e' recalculada via minRows/maxRows).
+      // Quando props.rows e' passado explicitamente (so pelo
+      // AddWorkOrderTabbedModal ate agora), usamos minRows/maxRows iguais
+      // pra fixar a altura de fato. Sem props.rows, comportamento
+      // EXATAMENTE igual ao anterior (rows=4, sem min/maxRows).
+      {...(props.multiple && props.rows
+        ? { minRows: props.rows, maxRows: props.rows }
+        : { rows: props.multiple ? 4 : undefined })}
       InputProps={
         props.icon && {
           startAdornment: (

@@ -165,6 +165,34 @@ export default (props: PropsType) => {
                       name={field.name}
                       handleChange={formik.handleChange}
                       checked={formik.values[field.name]}
+                      // field.compact e' opcional/retrocompativel - undefined
+                      // mantem sx/titleSx como undefined, ou seja, o mesmo
+                      // visual de sempre (h6 bold + mb:2) em todas as outras
+                      // telas que usam type:'switch'.
+                      sx={
+                        field.compact
+                          ? {
+                              mb: 0,
+                              p: 1.25,
+                              borderRadius: 1.5,
+                              border: `1px solid ${theme.colors.alpha.black[10]}`,
+                              backgroundColor: theme.colors.alpha.white[100]
+                            }
+                          : undefined
+                      }
+                      titleSx={
+                        field.compact
+                          ? { typography: 'body1', fontWeight: 700 }
+                          : undefined
+                      }
+                      // Este CustomSwitch ja esta dentro do <Grid item> logo
+                      // acima (linha ~138) - sem isso, o <Grid item> proprio
+                      // do CustomSwitch fica aninhado direto dentro de outro
+                      // <Grid item>, herda as CSS vars de spacing do
+                      // container e duplica o gutter, o que so quebra
+                      // visualmente quando o campo e' midWidth (por isso
+                      // reaproveita o mesmo field.compact).
+                      disableGridItem={field.compact}
                     />
                   ) : field.type === 'titleGroupField' ? (
                     <Typography variant="h3" sx={{ pb: 1 }}>
@@ -176,6 +204,7 @@ export default (props: PropsType) => {
                         multiple={field.multiple}
                         title={field.label}
                         type={field.fileType || 'file'}
+                        variant={field.fileVariant}
                         description={t('upload')}
                         files={
                           Array.isArray(formik.values[field.name])
