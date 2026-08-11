@@ -34,6 +34,12 @@ export default interface WorkOrder extends WorkOrderBase {
   mileageTraveled?: number;
   feedback: string;
   requiredSignature: boolean;
+  requireSignerName: boolean;
+  requireSignerDocument: boolean;
+  requirePhotos: boolean;
+  requireFieldReport: boolean;
+  requireMileage: boolean;
+  requireChecklistCompletion: boolean;
   status: WorkOrderStatus;
   audioDescription: File;
   customId: string;

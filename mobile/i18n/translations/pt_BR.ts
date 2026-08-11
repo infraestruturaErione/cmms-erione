@@ -1662,6 +1662,18 @@ const ptBRJSON = {
   missing_to_complete: 'Pendente',
   signature_requested_on_completion:
     'A assinatura será solicitada ao concluir.',
+  completion_requirement_check_in: 'Check-in',
+  completion_requirement_check_out: 'Check-out',
+  completion_requirement_field_report: 'Relato em campo',
+  completion_requirement_photo: 'Evidência fotográfica',
+  completion_requirement_checklist: 'Questionário/checklist',
+  completion_requirement_signature: 'Assinatura',
+  completion_requirement_signer_name: 'Nome do assinante',
+  completion_requirement_signer_document: 'Documento do assinante',
+  completion_requirement_mileage: 'Quilometragem',
+  work_order_completion_missing_requirements:
+    'Não foi possível concluir. Falta: {{requirements}}.',
+  mileage_must_be_non_negative: 'A quilometragem não pode ser negativa',
   completion: 'Conclusão',
   service_checklist: 'Checklist de Execução',
   service_checklist_loading: 'Carregando Checklist de Execução...',

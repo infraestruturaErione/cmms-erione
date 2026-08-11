@@ -1613,6 +1613,18 @@
   missing_to_complete: 'Pending',
   signature_requested_on_completion:
     'Signature will be requested when completing.',
+  completion_requirement_check_in: 'Check-in',
+  completion_requirement_check_out: 'Check-out',
+  completion_requirement_field_report: 'Field report',
+  completion_requirement_photo: 'Photo evidence',
+  completion_requirement_checklist: 'Questionnaire/checklist',
+  completion_requirement_signature: 'Signature',
+  completion_requirement_signer_name: 'Signer name',
+  completion_requirement_signer_document: 'Signer document',
+  completion_requirement_mileage: 'Mileage',
+  work_order_completion_missing_requirements:
+    'Unable to complete. Missing: {{requirements}}.',
+  mileage_must_be_non_negative: 'Mileage cannot be negative',
   completion: 'Completion',
   service_checklist: 'Execution Checklist',
   service_checklist_loading: 'Loading Execution Checklist...',

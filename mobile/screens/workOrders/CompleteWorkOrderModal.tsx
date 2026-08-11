@@ -4,11 +4,10 @@ import { View } from '../../components/Themed';
 import { RootStackScreenProps } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { useContext } from 'react';
-import { CompanySettingsContext } from '../../contexts/CompanySettingsContext';
 import { IField } from '../../models/form';
 import Form from '../../components/form';
-import { getErrorMessage } from '../../utils/api';
 import { CustomSnackBarContext } from '../../contexts/CustomSnackBarContext';
+import { getWorkOrderCompletionErrorMessage } from '../../utils/workOrderCompletion';
 
 export default function CompleteWorkOrderModal({
   navigation,
@@ -16,7 +15,6 @@ export default function CompleteWorkOrderModal({
 }: RootStackScreenProps<'CompleteWorkOrder'>) {
   const { onComplete, fieldsConfig, initialFeedback } = route.params;
   const { t }: { t: any } = useTranslation();
-  const { uploadFiles } = useContext(CompanySettingsContext);
   const { showSnackBar } = useContext(CustomSnackBarContext);
 
   const getFieldsAndShape = (): [Array<IField>, { [key: string]: any }] => {
@@ -32,16 +30,18 @@ export default function CompleteWorkOrderModal({
       });
       shape = { feedback: Yup.string() };
     }
-    // Campos exigidos pelo Tipo de Tarefa (Categoria da OS) - so aparecem
-    // quando a categoria marcou aquela obrigatoriedade e ainda nao foi
-    // preenchida (mesma logica do web, ver WorkOrderDetails.tsx).
+    // Campos exigidos pelos snapshots congelados da WorkOrder. A Category
+    // atual nao participa da regra de conclusao.
     if (fieldsConfig.signerName) {
       fields.push({
         name: 'signerName',
         type: 'text',
         label: t('signer_name')
       });
-      shape = { ...shape, signerName: Yup.string().required(t('required_field')) };
+      shape = {
+        ...shape,
+        signerName: Yup.string().required(t('required_field'))
+      };
     }
     if (fieldsConfig.signerDocument) {
       fields.push({
@@ -63,7 +63,9 @@ export default function CompleteWorkOrderModal({
       });
       shape = {
         ...shape,
-        mileageTraveled: Yup.number().required(t('required_field'))
+        mileageTraveled: Yup.number()
+          .min(0, t('mileage_must_be_non_negative'))
+          .required(t('required_field'))
       };
     }
     if (fieldsConfig.signature) {
@@ -100,7 +102,9 @@ export default function CompleteWorkOrderModal({
               values.mileageTraveled !== ''
                 ? Number(values.mileageTraveled)
                 : undefined
-          }).catch((err) => showSnackBar(getErrorMessage(err), 'error'));
+          }).catch((err) =>
+            showSnackBar(getWorkOrderCompletionErrorMessage(err, t), 'error')
+          );
         }}
       />
     </View>

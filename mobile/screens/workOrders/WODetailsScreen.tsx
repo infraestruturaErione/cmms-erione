@@ -87,10 +87,7 @@ import { TriggersConfig } from 'react-native-controlled-mentions/dist/types/type
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import FieldExecutionSection, {
-  hasFieldReport,
-  hasFieldReportEvidence
-} from './FieldExecutionSection';
+import FieldExecutionSection from './FieldExecutionSection';
 import {
   FIELD_REPORT_PREFIX,
   getFieldEvidenceItems,
@@ -105,15 +102,14 @@ import {
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
 import { ERIONE_HIDDEN_MODULES, isErioneModuleHidden } from '../../config/erioneModules';
 import WorkOrderEvidenceGallery from './components/WorkOrderEvidenceGallery';
+import {
+  formatMissingCompletionRequirements,
+  getWorkOrderCompletionErrorMessage,
+  getWorkOrderCompletionReadiness,
+  isExecutionTaskComplete
+} from '../../utils/workOrderCompletion';
 
 const erioneColors = ERIONE_MOBILE_IDENTITY.colors;
-
-const isExecutionTaskComplete = (task: Task): boolean => {
-  const value = task.value?.toString().trim();
-  if (!value) return false;
-  if (task.taskBase.taskType === 'SUBTASK') return value === 'COMPLETE';
-  return true;
-};
 
 const getRemainingTasksLength = (tasks: Task[]): number =>
   tasks.filter((task) => !isExecutionTaskComplete(task)).length;
@@ -214,8 +210,15 @@ export default function WODetailsScreen({
   const statuses = ['OPEN', 'ON_HOLD', 'IN_PROGRESS', 'COMPLETE'].map(
     (status) => ({ value: status, label: t(status) })
   );
-  const fieldReportRegistered = hasFieldReport(comments);
-  const fieldEvidenceRegistered = hasFieldReportEvidence(comments);
+  const completionReadiness = workOrder
+    ? getWorkOrderCompletionReadiness({
+        workOrder,
+        fieldConfigurations:
+          workOrderConfiguration.workOrderFieldConfigurations,
+        comments,
+        tasks
+      })
+    : null;
   const fieldEvidenceItems = workOrder
     ? getFieldEvidenceItems(workOrder, comments)
     : [];
@@ -316,11 +319,6 @@ export default function WODetailsScreen({
   const showLaborSection =
     !generalPreferences.simplifiedWorkOrder &&
     !isWorkOrderFieldHidden('completeTime');
-
-  const isCompletionFieldRequired = (fieldName: string): boolean =>
-    workOrderConfiguration.workOrderFieldConfigurations.find(
-      (woFC) => woFC.fieldName === fieldName
-    )?.fieldType === 'REQUIRED';
 
   const getInfos = () => {
     if (!workOrderProp) {
@@ -489,62 +487,33 @@ export default function WODetailsScreen({
       showSnackBar(t('field_comments_load_error'), 'error');
       return false;
     }
-    if (!fieldReportRegistered) {
-      showSnackBar(t('field_report_required_on_completion'), 'error');
-      return false;
-    }
-    const completeTasksConfig =
-      workOrderConfiguration.workOrderFieldConfigurations.find(
-        (woFC) => woFC.fieldName === 'completeTasks'
-      );
-    if (completeTasksConfig?.fieldType === 'REQUIRED' && loadingTasks[id]) {
+    if (
+      completionReadiness?.requirements.CHECKLIST.required &&
+      loadingTasks[id]
+    ) {
       showSnackBar(t('service_checklist_loading'), 'error');
       return false;
     }
-    let error;
-    const fieldsToTest = [
-      {
-        name: 'completeFiles',
-        condition: !fieldEvidenceRegistered,
-        message: 'required_files_on_completion'
-      },
-      {
-        name: 'completeTasks',
-        condition: tasks.some((task) => !isExecutionTaskComplete(task)),
-        message: 'required_tasks_on_completion'
-      },
-      {
-        name: 'completeTime',
-        condition: labors
-          .filter((labor) => labor.logged)
-          .some((labor) => !labor.duration),
-        message: 'required_labor_on_completion'
-      },
-      {
-        name: 'completeParts',
-        condition: !partQuantities.length,
-        message: 'required_part_on_completion'
-      },
-      {
-        name: 'completeCost',
-        condition: !additionalCosts.length,
-        message: 'required_cost_on_completion'
-      }
-    ];
-    fieldsToTest.every((field) => {
-      const fieldConfig =
-        workOrderConfiguration.workOrderFieldConfigurations.find(
-          (woFC) => woFC.fieldName === field.name
-        );
-      if (fieldConfig.fieldType === 'REQUIRED' && field.condition) {
-        showSnackBar(t(field.message), 'error');
-        error = true;
-        return false;
-      }
-      return true;
-    });
+    const blockingRequirements =
+      completionReadiness?.missingRequirements.filter((requirement) =>
+        [
+          'CHECK_IN',
+          'CHECK_OUT',
+          'FIELD_REPORT',
+          'PHOTO',
+          'CHECKLIST'
+        ].includes(requirement)
+      ) ?? [];
+    const missingMessage = formatMissingCompletionRequirements(
+      blockingRequirements,
+      t
+    );
+    if (missingMessage) {
+      showSnackBar(missingMessage, 'error');
+      return false;
+    }
 
-    return !error;
+    return true;
   };
   const onScroll = ({ nativeEvent }) => {
     const currentScrollPosition =
@@ -572,19 +541,21 @@ export default function WODetailsScreen({
   };
   const fieldReportContent = getFirstFieldReportText(comments);
 
-  // Une o campo antigo (workOrder.requiredSignature) com as obrigatoriedades
-  // novas da Categoria/Tipo de Tarefa. So pede o que ainda nao foi
-  // preenchido - mesma logica do web (WorkOrderDetails.tsx).
   const getCompleteWOFieldsConfig = () => {
-    const category = workOrder?.category;
+    const requirements = completionReadiness?.requirements;
     return {
-      signature: !!workOrder?.requiredSignature || !!category?.requireSignature,
+      signature:
+        !!requirements?.SIGNATURE.required &&
+        !requirements.SIGNATURE.satisfied,
       feedback: generalPreferences.askFeedBackOnWOClosed && !fieldReportContent,
-      signerName: !!category?.requireSignerName && !workOrder?.signerName,
+      signerName:
+        !!requirements?.SIGNER_NAME.required &&
+        !requirements.SIGNER_NAME.satisfied,
       signerDocument:
-        !!category?.requireSignerDocument && !workOrder?.signerDocument,
+        !!requirements?.SIGNER_DOCUMENT.required &&
+        !requirements.SIGNER_DOCUMENT.satisfied,
       mileageTraveled:
-        !!category?.requireMileage && !workOrder?.mileageTraveled
+        !!requirements?.MILEAGE.required && !requirements.MILEAGE.satisfied
     };
   };
 
@@ -621,7 +592,9 @@ export default function WODetailsScreen({
         status
       })
     )
-      .catch((err) => showSnackBar(getErrorMessage(err), 'error'))
+      .catch((err) =>
+        showSnackBar(getWorkOrderCompletionErrorMessage(err, t), 'error')
+      )
       .finally(() => setLoading(false));
   };
   const groupRelations = (
@@ -902,44 +875,45 @@ export default function WODetailsScreen({
   };
 
   const renderCompletionChecklist = () => {
+    const requirements = completionReadiness?.requirements;
     const checklistItems = [
       {
         label: t('field_report'),
-        done: fieldReportRegistered,
+        done: !!requirements?.FIELD_REPORT.satisfied,
         visible: true
       },
       {
-        label: t('work_order_evidence'),
-        done: fieldEvidenceRegistered,
-        visible: isCompletionFieldRequired('completeFiles')
+        label: t('completion_requirement_photo'),
+        done: !!requirements?.PHOTO.satisfied,
+        visible: !!requirements?.PHOTO.required
       },
       {
-        label: t('tasks'),
-        done: !tasks.some((task) => !isExecutionTaskComplete(task)),
-        visible: isCompletionFieldRequired('completeTasks')
+        label: t('completion_requirement_checklist'),
+        done: !!requirements?.CHECKLIST.satisfied,
+        visible: !!requirements?.CHECKLIST.required
       },
       {
-        label: t('time'),
-        done: !labors
-          .filter((labor) => labor.logged)
-          .some((labor) => !labor.duration),
-        visible: isCompletionFieldRequired('completeTime')
+        label: t('completion_requirement_signature'),
+        done: !!requirements?.SIGNATURE.satisfied,
+        visible: !!requirements?.SIGNATURE.required,
+        helper: requirements?.SIGNATURE.satisfied
+          ? undefined
+          : t('signature_requested_on_completion')
       },
       {
-        label: t('parts'),
-        done: !!partQuantities.length,
-        visible: showPartsSection && isCompletionFieldRequired('completeParts')
+        label: t('completion_requirement_signer_name'),
+        done: !!requirements?.SIGNER_NAME.satisfied,
+        visible: !!requirements?.SIGNER_NAME.required
       },
       {
-        label: t('costs'),
-        done: !!additionalCosts.length,
-        visible: showAdditionalCostsSection && isCompletionFieldRequired('completeCost')
+        label: t('completion_requirement_signer_document'),
+        done: !!requirements?.SIGNER_DOCUMENT.satisfied,
+        visible: !!requirements?.SIGNER_DOCUMENT.required
       },
       {
-        label: t('signature'),
-        done: false,
-        visible: !!workOrder?.requiredSignature,
-        helper: t('signature_requested_on_completion')
+        label: t('completion_requirement_mileage'),
+        done: !!requirements?.MILEAGE.satisfied,
+        visible: !!requirements?.MILEAGE.required
       }
     ].filter((item) => item.visible);
 
