@@ -46,10 +46,8 @@ public class PartQuantityController {
     public Collection<PartQuantityShowDTO> getByWorkOrder(HttpServletRequest req,
                                                           @PathVariable("id") Long id) {
         User user = userService.whoami(req);
-        Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
-        if (optionalWorkOrder.isPresent()) {
-            return partQuantityService.findByWorkOrder(id).stream().map(partQuantityMapper::toShowDto).collect(Collectors.toList());
-        } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
+        workOrderService.checkAccessToWorkOrderId(id, user);
+        return partQuantityService.findByWorkOrder(id).stream().map(partQuantityMapper::toShowDto).collect(Collectors.toList());
     }
 
     @GetMapping("/purchase-order/{id}")
@@ -72,38 +70,38 @@ public class PartQuantityController {
                                                           @PathVariable("id") Long id,
                                                           HttpServletRequest req) {
         User user = userService.whoami(req);
-        Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
-
-        if (optionalWorkOrder.isPresent()) {
-            WorkOrder savedWorkOrder = optionalWorkOrder.get();
+        WorkOrder savedWorkOrder = workOrderService.checkAccessToWorkOrderId(id, user);
+        if (savedWorkOrder.canBeEditedBy(user)) {
+            // Mutacao (firstTimeToReact) so DEPOIS da autorizacao funcional -
+            // antes ficava entre o check de scope e o de canBeEditedBy, entao
+            // um usuario sem permissao de EDITAR (so de ver) ainda causava um
+            // efeito colateral persistido antes de receber o 403.
             if (savedWorkOrder.getFirstTimeToReact() == null) {
                 savedWorkOrder.setFirstTimeToReact(new Date());
                 workOrderService.save(savedWorkOrder);
             }
-            if (savedWorkOrder.canBeEditedBy(user)) {
-                Collection<PartQuantity> partQuantities = partQuantityService.findByWorkOrder(id);
-                Collection<Long> partQuantityMappedPartIds = partQuantities.stream().map
-                        (partQuantity -> partQuantity.getPart().getId()).collect(Collectors.toList());
-                parts.forEach(partId -> {
-                    if (!partQuantityMappedPartIds.contains(partId)) {
-                        Optional<Part> optionalPart = partService.findById(partId);
-                        if (optionalPart.isPresent()) {
-                            partService.consumePart(optionalPart.get().getId(), 1, savedWorkOrder,
-                                    Helper.getLocale(user));
-                            PartQuantity partQuantity = new PartQuantity(optionalPart.get(), savedWorkOrder, null, 1);
-                            partQuantityService.create(partQuantity);
-                        } else throw new CustomException("Part not found", HttpStatus.NOT_FOUND);
-                    }
-                });
-                partQuantityMappedPartIds.forEach(partId -> {
-                    if (!parts.contains(partId)) {
-                        partQuantityService.delete(partQuantities.stream().filter(partQuantity ->
-                                partQuantity.getPart().getId().equals(partId)).findFirst().get().getId());
-                    }
-                });
-                return partQuantityService.findByWorkOrder(id).stream().map(partQuantityMapper::toShowDto).collect(Collectors.toList());
-            } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
-        } else throw new CustomException("WorkOrder not found", HttpStatus.NOT_FOUND);
+            Collection<PartQuantity> partQuantities = partQuantityService.findByWorkOrder(id);
+            Collection<Long> partQuantityMappedPartIds = partQuantities.stream().map
+                    (partQuantity -> partQuantity.getPart().getId()).collect(Collectors.toList());
+            parts.forEach(partId -> {
+                if (!partQuantityMappedPartIds.contains(partId)) {
+                    Optional<Part> optionalPart = partService.findById(partId);
+                    if (optionalPart.isPresent()) {
+                        partService.consumePart(optionalPart.get().getId(), 1, savedWorkOrder,
+                                Helper.getLocale(user));
+                        PartQuantity partQuantity = new PartQuantity(optionalPart.get(), savedWorkOrder, null, 1);
+                        partQuantityService.create(partQuantity);
+                    } else throw new CustomException("Part not found", HttpStatus.NOT_FOUND);
+                }
+            });
+            partQuantityMappedPartIds.forEach(partId -> {
+                if (!parts.contains(partId)) {
+                    partQuantityService.delete(partQuantities.stream().filter(partQuantity ->
+                            partQuantity.getPart().getId().equals(partId)).findFirst().get().getId());
+                }
+            });
+            return partQuantityService.findByWorkOrder(id).stream().map(partQuantityMapper::toShowDto).collect(Collectors.toList());
+        } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
     }
 
     @PatchMapping("/purchase-order/{id}")
@@ -160,6 +158,9 @@ public class PartQuantityController {
         Optional<PartQuantity> optionalPartQuantity = partQuantityService.findById(id);
         if (optionalPartQuantity.isPresent()) {
             PartQuantity savedPartQuantity = optionalPartQuantity.get();
+            if (savedPartQuantity.getWorkOrder() != null) {
+                workOrderService.checkAccessToWorkOrderId(savedPartQuantity.getWorkOrder().getId(), user);
+            }
             return partQuantityMapper.toShowDto(savedPartQuantity);
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
@@ -169,6 +170,12 @@ public class PartQuantityController {
     PartQuantityShowDTO create(@Parameter(description = "Part quantity to create") @Valid @RequestBody PartQuantity partQuantityReq,
                                HttpServletRequest req) {
         User user = userService.whoami(req);
+        if (partQuantityReq.getWorkOrder() != null) {
+            // Ler a WO (ex.: Requester acompanhando a Request que a originou)
+            // nao autoriza consumir/lancar peca nela - ver
+            // checkWriteAccessToWorkOrderId.
+            workOrderService.checkWriteAccessToWorkOrderId(partQuantityReq.getWorkOrder().getId(), user);
+        }
         PartQuantity savedPartQuantity = partQuantityService.create(partQuantityReq);
         return partQuantityMapper.toShowDto(savedPartQuantity);
     }
@@ -183,6 +190,9 @@ public class PartQuantityController {
         Optional<PartQuantity> optionalPartQuantity = partQuantityService.findById(id);
         if (optionalPartQuantity.isPresent()) {
             PartQuantity savedPartQuantity = optionalPartQuantity.get();
+            if (savedPartQuantity.getWorkOrder() != null) {
+                workOrderService.checkWriteAccessToWorkOrderId(savedPartQuantity.getWorkOrder().getId(), user);
+            }
             if (savedPartQuantity.getPart().getUnit() == null) {
                 partQuantity.setQuantity((int) partQuantity.getQuantity());
             }
@@ -205,6 +215,9 @@ public class PartQuantityController {
         Optional<PartQuantity> optionalPartQuantity = partQuantityService.findById(id);
         if (optionalPartQuantity.isPresent()) {
             PartQuantity savedPartQuantity = optionalPartQuantity.get();
+            if (savedPartQuantity.getWorkOrder() != null) {
+                workOrderService.checkWriteAccessToWorkOrderId(savedPartQuantity.getWorkOrder().getId(), user);
+            }
             if
             (user.getId().equals(savedPartQuantity.getCreatedBy())
                     || user.getRole().getDeleteOtherPermissions().contains(PermissionEntity.PARTS_AND_MULTIPARTS)) {

@@ -42,7 +42,7 @@ public class WorkOrderOperationalReportService {
     public WorkOrderOperationalReportResponseDTO buildReport(WorkOrderOperationalReportRequestDTO request, User user) {
         SearchCriteria criteria = buildCriteria(request);
         Page<WorkOrder> workOrders = workOrderService.findBySearchCriteria(workOrderService.getSearchCriteria(user,
-                criteria));
+                criteria), user);
         List<Comment> fieldComments = getFieldComments(workOrders.getContent());
         Map<Long, String> fieldReports = getLatestFieldReports(fieldComments);
         Map<Long, List<Comment>> fieldCommentsByWorkOrder = fieldComments.stream()

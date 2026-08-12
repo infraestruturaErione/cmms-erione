@@ -4,7 +4,6 @@ import com.grash.dto.WorkOrderHistoryShowDTO;
 import com.grash.exception.CustomException;
 import com.grash.mapper.WorkOrderHistoryMapper;
 import com.grash.model.User;
-import com.grash.model.WorkOrder;
 import com.grash.model.WorkOrderHistory;
 import com.grash.service.UserService;
 import com.grash.service.WorkOrderHistoryService;
@@ -43,7 +42,9 @@ public class WorkOrderHistoryController {
         Optional<WorkOrderHistory> optionalWorkOrderHistory = workOrderHistoryService.findById(id);
         if (optionalWorkOrderHistory.isPresent()) {
             WorkOrderHistory savedWorkOrderHistory = optionalWorkOrderHistory.get();
-            savedWorkOrderHistory.getWorkOrder();//security check
+            // Verifica acesso a WO PAI antes de retornar qualquer dado do
+            // historico - mesma logica central usada por GET /work-orders/{id}.
+            workOrderService.checkAccessToWorkOrderId(savedWorkOrderHistory.getWorkOrder().getId(), user);
             return workOrderHistoryMapper.toShowDto(savedWorkOrderHistory);
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
@@ -54,10 +55,8 @@ public class WorkOrderHistoryController {
     public Collection<WorkOrderHistoryShowDTO> getByWorkOrder(@PathVariable("id") Long id,
                                                               HttpServletRequest req) {
         User user = userService.whoami(req);
-        Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
-        if (optionalWorkOrder.isPresent()) {
-            return workOrderHistoryService.findByWorkOrder(id).stream().map(workOrderHistoryMapper::toShowDto).collect(Collectors.toList());
-        } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
+        workOrderService.checkAccessToWorkOrderId(id, user);
+        return workOrderHistoryService.findByWorkOrder(id).stream().map(workOrderHistoryMapper::toShowDto).collect(Collectors.toList());
     }
 
 }

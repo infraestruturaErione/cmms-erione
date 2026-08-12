@@ -53,12 +53,8 @@ public class AdditionalCostController {
     public Collection<AdditionalCost> getByWorkOrder(@PathVariable("id") Long id,
                                                      HttpServletRequest req) {
         User user = userService.whoami(req);
-        Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
-        if (optionalWorkOrder.isPresent()) {
-            WorkOrder workOrder = optionalWorkOrder.get();
-            checkAccessToWorkOrder(workOrder, user);
-            return additionalCostService.findByWorkOrder(id);
-        } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
+        workOrderService.checkAccessToWorkOrderId(id, user);
+        return additionalCostService.findByWorkOrder(id);
     }
 
     @PostMapping("")
@@ -67,7 +63,12 @@ public class AdditionalCostController {
                                  HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getCompany().getSubscription().getSubscriptionPlan().getFeatures().contains(PlanFeatures.ADDITIONAL_COST)) {
-            WorkOrder workOrder = workOrderService.findById(additionalCostReq.getWorkOrder().getId()).get();
+            // Autorizacao ANTES de qualquer efeito colateral (firstTimeToReact,
+            // save, create) - checkWriteAccessToWorkOrderId cobre Company +
+            // permissao + customer scope (leitura) E autorizacao funcional de
+            // escrita (canBeEditedBy) - ler a WO (ex.: Requester acompanhando
+            // a Request que originou ela) nao autoriza lancar custo nela.
+            WorkOrder workOrder = workOrderService.checkWriteAccessToWorkOrderId(additionalCostReq.getWorkOrder().getId(), user);
             if (workOrder.getFirstTimeToReact() == null) {
                 workOrder.setFirstTimeToReact(new Date());
                 workOrderService.save(workOrder);
@@ -85,7 +86,7 @@ public class AdditionalCostController {
 
         if (optionalAdditionalCost.isPresent()) {
             AdditionalCost savedAdditionalCost = optionalAdditionalCost.get();
-            checkAccessToAdditionalCost(savedAdditionalCost, user);
+            checkWriteAccessToAdditionalCost(savedAdditionalCost, user);
             return additionalCostService.update(id, additionalCost);
         } else throw new CustomException("AdditionalCost not found", HttpStatus.NOT_FOUND);
     }
@@ -98,7 +99,7 @@ public class AdditionalCostController {
         Optional<AdditionalCost> optionalAdditionalCost = additionalCostService.findById(id);
         if (optionalAdditionalCost.isPresent()) {
             AdditionalCost savedAdditionalCost = optionalAdditionalCost.get();
-            checkAccessToAdditionalCost(savedAdditionalCost, user);
+            checkWriteAccessToAdditionalCost(savedAdditionalCost, user);
             additionalCostService.delete(id);
             return new ResponseEntity(new SuccessResponse(true, "Deleted successfully"),
                     HttpStatus.OK);
@@ -106,15 +107,15 @@ public class AdditionalCostController {
     }
 
     private void checkAccessToAdditionalCost(AdditionalCost additionalCost, User user) {
-        if (!additionalCost.getWorkOrder().getCompany().getId().equals(user.getCompany().getId())) {
-            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
-        }
+        // Delega pra WO pai - mesma logica central (Company + permissao +
+        // customer scope) usada pelos outros endpoints filhos de WorkOrder.
+        workOrderService.checkAccessToWorkOrderId(additionalCost.getWorkOrder().getId(), user);
     }
 
-    private void checkAccessToWorkOrder(WorkOrder workOrder, User user) {
-        if (!workOrder.getCompany().getId().equals(user.getCompany().getId())) {
-            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
-        }
+    // Leitura da WO pai (isAccessibleBy) NAO autoriza escrever custo nela -
+    // ver checkWriteAccessToWorkOrderId.
+    private void checkWriteAccessToAdditionalCost(AdditionalCost additionalCost, User user) {
+        workOrderService.checkWriteAccessToWorkOrderId(additionalCost.getWorkOrder().getId(), user);
     }
 
 }

@@ -300,7 +300,49 @@ public class WorkOrderService {
     public WorkOrder checkAccessToWorkOrderId(Long workOrderId, User user) {
         WorkOrder workOrder = findById(workOrderId).orElseThrow(() -> new CustomException("Patient not found",
                 HttpStatus.NOT_FOUND));
+        // Company e' o primeiro limite de tenant - isAccessibleBy nunca checava
+        // isso, ficava so na permissao/ownership. Ponto central usado por
+        // GET /work-orders/{id}, Comments, Files, Tasks e os controllers
+        // filhos de WorkOrder (history/labor/additional-cost/part-quantity/
+        // relation) - corrigir aqui propaga pra todos de uma vez.
+        if (!workOrder.getCompany().getId().equals(user.getCompany().getId()))
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         if (!workOrder.isAccessibleBy(user))
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        if (!customerScopeService.canAccessWorkOrderBase(user, workOrder))
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        return workOrder;
+    }
+
+    // checkAccessToWorkOrderId e' autorizacao de LEITURA (Company + view/
+    // ownership/assignment + customer scope) - isAccessibleBy concede acesso
+    // de leitura tambem a quem criou a Request que originou a WO
+    // (getParentRequest().getCreatedBy()), o que e' correto pro Requester
+    // ACOMPANHAR a WO. Isso NUNCA deveria ter sido usado sozinho como gate
+    // pra escrever custos/horas/pecas/relacoes da WO - ler != administrar.
+    // canBeEditedBy (criador da PROPRIA WO, atribuido, ou editOtherPermissions)
+    // e' a autorizacao FUNCIONAL de escrita/execucao ja usada por
+    // controlTimer e patchWorkOrder (bulk parts) - centralizando aqui evita
+    // reintroduzir o mesmo gap nos demais writes filhos de WorkOrder
+    // (AdditionalCost/Labor/PartQuantity/Relation).
+    //
+    // Bloqueio explicito de Requester (achado do Gepeto, ultimo P1): um
+    // Requester controla os campos da PROPRIA Request (primaryUser/
+    // assignedTo/team - WorkOrderBasePatchDTO expoe todos), e
+    // getWorkOrderFromWorkOrderBase copia esses campos pra WorkOrder
+    // aprovada sem alteracao. Isso faz canBeEditedBy(requester) retornar
+    // true (createdBy, isAssignedTo via primaryUser/team/assignedTo), dando
+    // autorizacao de ESCRITA a alguem que so deveria poder ACOMPANHAR a WO.
+    // Requester nunca administra WorkOrder, entao nunca pode passar aqui -
+    // independente de createdBy/assignedTo/primaryUser/team/parentRequest
+    // ou qualquer outra relacao que canBeEditedBy venha a checar no futuro.
+    // Reusa CustomerScopeService.isRequester (helper central), nao
+    // comparacao manual de role espalhada pelos controllers.
+    public WorkOrder checkWriteAccessToWorkOrderId(Long workOrderId, User user) {
+        WorkOrder workOrder = checkAccessToWorkOrderId(workOrderId, user);
+        if (customerScopeService.isRequester(user))
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        if (!workOrder.canBeEditedBy(user))
             throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         return workOrder;
     }
@@ -376,9 +418,16 @@ public class WorkOrderService {
         return workOrderRepository.findByLocation_Id(id);
     }
 
-    public Page<WorkOrder> findBySearchCriteria(SearchCriteria searchCriteria) {
+    public Page<WorkOrder> findBySearchCriteria(SearchCriteria searchCriteria, User user) {
         SpecificationBuilder<WorkOrder> builder = new SpecificationBuilder<>();
         searchCriteria.getFilterFields().forEach(builder::with);
+        // Customer Scope como Specification dedicada, ANDada por fora da
+        // arvore de FilterField/alternatives do request - ver
+        // CustomerScopeService.customerScopeSpecification.
+        Specification<WorkOrder> scopeSpec = customerScopeService.customerScopeSpecification(user, "customers");
+        if (scopeSpec != null) {
+            builder.with(scopeSpec);
+        }
         Pageable page = PageRequest.of(searchCriteria.getPageNum(), searchCriteria.getPageSize(),
                 searchCriteria.getDirection(), searchCriteria.getSortField());
         Specification<WorkOrder> spec = builder.build();
@@ -665,7 +714,11 @@ public class WorkOrderService {
                         .value(user.getId())
                         .operation("eq")
                         .values(new ArrayList<>()).build());
-                customerScopeService.addCustomerManyToManyScopeFilter(searchCriteria, user, "customers");
+                // Customer Scope NAO e' mais aplicado aqui como FilterField -
+                // vira uma Specification dedicada, ANDada em findBySearchCriteria
+                // (e em countUrgent, que tambem usa este metodo mas nao passa
+                // pelo findBySearchCriteria) - ver
+                // CustomerScopeService.customerScopeSpecification.
             }
             searchCriteria.getFilterFields().
                     removeIf(filterField -> filterField.getField().equals("assignedToUser"));
@@ -687,6 +740,13 @@ public class WorkOrderService {
                         .build()));
         searchCriteria = getSearchCriteria(user, searchCriteria);
         searchCriteria.getFilterFields().forEach(builder::with);
+        // getSearchCriteria nao aplica mais Customer Scope como FilterField -
+        // aplica aqui como Specification dedicada (mesmo mecanismo de
+        // findBySearchCriteria).
+        Specification<WorkOrder> scopeSpec = customerScopeService.customerScopeSpecification(user, "customers");
+        if (scopeSpec != null) {
+            builder.with(scopeSpec);
+        }
         return Math.toIntExact(workOrderRepository.count(builder.build()));
     }
 

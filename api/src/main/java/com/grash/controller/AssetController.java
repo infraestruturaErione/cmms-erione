@@ -5,6 +5,7 @@ import com.grash.dto.AssetMiniDTO;
 import com.grash.dto.AssetPatchDTO;
 import com.grash.dto.AssetPostDTO;
 import com.grash.dto.AssetShowDTO;
+import com.grash.dto.CustomerMiniDTO;
 import com.grash.dto.SuccessResponse;
 import com.grash.dto.license.LicenseEntitlement;
 import com.grash.exception.CustomException;
@@ -61,6 +62,54 @@ public class AssetController {
     private final AssetRepository assetRepository;
     private final CustomerScopeService customerScopeService;
 
+    // Asset pode ser legitimamente compartilhado entre Clientes A e B; um
+    // Requester escopado so a A pode acessar (assertCanAccessAsset/
+    // findAllowedAssets ja garantem isso), mas a REPRESENTACAO nao pode
+    // revelar o Cliente B. So filtra o campo customers do DTO - nunca o
+    // relacionamento real no banco. No-op pra Admin/escopo amplo.
+    private AssetShowDTO toScopedShowDto(AssetShowDTO dto, User user) {
+        dto.setCustomers(customerScopeService.filterCustomerMiniDTOs(user, dto.getCustomers(),
+                CustomerMiniDTO::getId));
+        return dto;
+    }
+
+    // Pagina de verdade sobre uma List ja filtrada em memoria (Customer
+    // Scope nao da pra empurrar pro banco nesses 2 pontos sem reescrever a
+    // query) - fatia por pageNum/pageSize de fato, em vez de devolver a
+    // colecao inteira em toda pagina (PageImpl(list, pageable, list.size())
+    // usa pageable so pro metadado do Page, nao filtra o conteudo).
+    // findAllowedAssets nao aceita Sort (retorna do repositorio sem ordenar)
+    // - constroi um Comparator generico a partir do Pageable.getSort() via
+    // BeanWrapperImpl (acesso a propriedade por nome, igual o Spring usa
+    // internamente pra binding), pra ordenar em memoria antes de paginar.
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <T> java.util.Comparator<T> comparatorFor(org.springframework.data.domain.Sort sort) {
+        java.util.Comparator<T> comparator = null;
+        for (org.springframework.data.domain.Sort.Order order : sort) {
+            java.util.Comparator<T> orderComparator = (a, b) -> {
+                Object va = new org.springframework.beans.BeanWrapperImpl(a).getPropertyValue(order.getProperty());
+                Object vb = new org.springframework.beans.BeanWrapperImpl(b).getPropertyValue(order.getProperty());
+                if (va == null && vb == null) return 0;
+                if (va == null) return order.isAscending() ? -1 : 1;
+                if (vb == null) return order.isAscending() ? 1 : -1;
+                int result = ((Comparable) va).compareTo(vb);
+                return order.isAscending() ? result : -result;
+            };
+            comparator = comparator == null ? orderComparator : comparator.thenComparing(orderComparator);
+        }
+        return comparator;
+    }
+
+    private <T> Page<T> pageOf(List<T> content, Pageable pageable) {
+        int start = (int) pageable.getOffset();
+        if (start >= content.size()) {
+            return new org.springframework.data.domain.PageImpl<>(java.util.Collections.emptyList(), pageable,
+                    content.size());
+        }
+        int end = Math.min(start + pageable.getPageSize(), content.size());
+        return new org.springframework.data.domain.PageImpl<>(content.subList(start, end), pageable, content.size());
+    }
+
     @PostMapping("/search")
     @PreAuthorize("permitAll()")
     public ResponseEntity<Page<AssetShowDTO>> search(@Parameter(description = "Search criteria for filtering assets") @RequestBody SearchCriteria searchCriteria,
@@ -69,7 +118,9 @@ public class AssetController {
         if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
             if (customerScopeService.isRequester(user)) {
                 searchCriteria.filterCompany(user);
-                customerScopeService.addCustomerManyToManyScopeFilter(searchCriteria, user, "customers");
+                // Customer Scope da QUERY agora e' aplicado dentro de
+                // assetService.findBySearchCriteria (Specification dedicada -
+                // ver CustomerScopeService.customerScopeSpecification).
             } else if (user.getRole().getViewPermissions().contains(PermissionEntity.ASSETS)) {
                 searchCriteria.filterCompany(user);
                 boolean canViewOthers = user.getRole().getViewOtherPermissions().contains(PermissionEntity.ASSETS);
@@ -78,7 +129,8 @@ public class AssetController {
                 }
             } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
         }
-        return ResponseEntity.ok(assetService.findBySearchCriteria(searchCriteria));
+        Page<AssetShowDTO> rawPage = assetService.findBySearchCriteria(searchCriteria, user);
+        return ResponseEntity.ok(rawPage.map(dto -> toScopedShowDto(dto, user)));
     }
 
     @GetMapping("/nfc")
@@ -88,7 +140,12 @@ public class AssetController {
         if (!licenseService.hasEntitlement(LicenseEntitlement.NFC_BARCODE))
             throw new CustomException("You need a license to scan an asset", HttpStatus.FORBIDDEN);
         Optional<Asset> optionalAsset = assetService.findByNfcIdAndCompany(nfcId, user.getCompany().getId());
-        return assetMapper.toMiniDto(optionalAsset.get());
+        if (!optionalAsset.isPresent()) throw new CustomException("Not found", HttpStatus.NOT_FOUND);
+        Asset savedAsset = optionalAsset.get();
+        if (customerScopeService.isRequester(user)) {
+            customerScopeService.assertCanAccessAsset(user, savedAsset.getId());
+        }
+        return assetMapper.toMiniDto(savedAsset);
     }
 
     @GetMapping("/barcode")
@@ -98,7 +155,12 @@ public class AssetController {
         if (!licenseService.hasEntitlement(LicenseEntitlement.NFC_BARCODE))
             throw new CustomException("You need a license to scan an asset", HttpStatus.FORBIDDEN);
         Optional<Asset> optionalAsset = assetService.findByBarcodeAndCompany(data, user.getCompany().getId());
-        return assetMapper.toMiniDto(optionalAsset.get());
+        if (!optionalAsset.isPresent()) throw new CustomException("Not found", HttpStatus.NOT_FOUND);
+        Asset savedAsset = optionalAsset.get();
+        if (customerScopeService.isRequester(user)) {
+            customerScopeService.assertCanAccessAsset(user, savedAsset.getId());
+        }
+        return assetMapper.toMiniDto(savedAsset);
     }
 
     @GetMapping("/{id}")
@@ -114,11 +176,11 @@ public class AssetController {
             Asset savedAsset = optionalAsset.get();
             if (customerScopeService.isRequester(user)) {
                 customerScopeService.assertCanAccessAsset(user, savedAsset.getId());
-                return assetMapper.toShowDto(savedAsset, assetService);
+                return toScopedShowDto(assetMapper.toShowDto(savedAsset, assetService), user);
             }
             if (user.getRole().getViewPermissions().contains(PermissionEntity.ASSETS) &&
                     (user.getRole().getViewOtherPermissions().contains(PermissionEntity.ASSETS) || savedAsset.getCreatedBy().equals(user.getId()))) {
-                return assetMapper.toShowDto(savedAsset, assetService);
+                return toScopedShowDto(assetMapper.toShowDto(savedAsset, assetService), user);
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
@@ -132,7 +194,7 @@ public class AssetController {
             if (customerScopeService.isRequester(user)) {
                 customerScopeService.assertCanAccessLocation(user, id);
             }
-            return customerScopeService.findAllowedAssets(user, id).stream().map(asset -> assetMapper.toShowDto(asset, assetService)).collect(Collectors.toList());
+            return customerScopeService.findAllowedAssets(user, id).stream().map(asset -> toScopedShowDto(assetMapper.toShowDto(asset, assetService), user)).collect(Collectors.toList());
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
 
@@ -143,7 +205,13 @@ public class AssetController {
         User user = userService.whoami(req);
         Optional<Part> optionalPart = partService.findById(id);
         if (optionalPart.isPresent()) {
-            return optionalPart.get().getAssets().stream().map(asset -> assetMapper.toShowDto(asset, assetService)).collect(Collectors.toList());
+            Collection<Asset> assets = optionalPart.get().getAssets();
+            if (customerScopeService.isRequester(user)) {
+                java.util.Set<Long> allowedAssetIds = customerScopeService.findAllowedAssets(user, null).stream()
+                        .map(Asset::getId).collect(Collectors.toSet());
+                assets = assets.stream().filter(asset -> allowedAssetIds.contains(asset.getId())).collect(Collectors.toList());
+            }
+            return assets.stream().map(asset -> toScopedShowDto(assetMapper.toShowDto(asset, assetService), user)).collect(Collectors.toList());
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
 
@@ -155,9 +223,9 @@ public class AssetController {
         User user = userService.whoami(req);
         if (id.equals(0L) && user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
             if (customerScopeService.isRequester(user)) {
-                return customerScopeService.findAllowedAssets(user, null).stream().filter(asset -> asset.getParentAsset() == null).map(asset -> assetMapper.toShowDto(asset, assetService)).collect(Collectors.toList());
+                return customerScopeService.findAllowedAssets(user, null).stream().filter(asset -> asset.getParentAsset() == null).map(asset -> toScopedShowDto(assetMapper.toShowDto(asset, assetService), user)).collect(Collectors.toList());
             }
-            return assetService.findByCompanyAndParentAssetNull(user.getCompany().getId(), pageable).stream().map(asset -> assetMapper.toShowDto(asset, assetService)).collect(Collectors.toList());
+            return assetService.findByCompanyAndParentAssetNull(user.getCompany().getId(), pageable).stream().map(asset -> toScopedShowDto(assetMapper.toShowDto(asset, assetService), user)).collect(Collectors.toList());
         }
         Optional<Asset> optionalAsset = assetService.findById(id);
         if (optionalAsset.isPresent()) {
@@ -166,11 +234,12 @@ public class AssetController {
                 customerScopeService.assertCanAccessAsset(user, savedAsset.getId());
                 return assetService.findAssetChildren(id, pageable.getSort()).stream()
                         .filter(asset -> customerScopeService.findAllowedAssets(user, null).stream().anyMatch(allowed -> allowed.getId().equals(asset.getId())))
-                        .map(asset -> assetMapper.toShowDto(asset, assetService)).collect(Collectors.toList());
+                        .map(asset -> toScopedShowDto(assetMapper.toShowDto(asset, assetService), user)).collect(Collectors.toList());
             }
             if (user.getRole().getViewPermissions().contains(PermissionEntity.ASSETS)) {
-                return assetService.findAssetChildren(id, pageable.getSort()).stream().map(asset -> assetMapper.toShowDto(asset,
-                        assetService)).collect(Collectors.toList());
+                return assetService.findAssetChildren(id, pageable.getSort()).stream()
+                        .map(asset -> toScopedShowDto(assetMapper.toShowDto(asset, assetService), user))
+                        .collect(Collectors.toList());
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
 
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
@@ -186,24 +255,41 @@ public class AssetController {
             if (customerScopeService.isRequester(user)) {
                 List<Asset> allowedAssets = customerScopeService.findAllowedAssets(user, null).stream()
                         .filter(asset -> asset.getParentAsset() == null).collect(Collectors.toList());
-                return new org.springframework.data.domain.PageImpl<>(allowedAssets, pageable, allowedAssets.size())
-                        .map(asset -> assetMapper.toShowDto(asset, assetService));
+                if (pageable.getSort().isSorted()) {
+                    allowedAssets.sort(comparatorFor(pageable.getSort()));
+                }
+                return pageOf(allowedAssets, pageable).map(asset -> toScopedShowDto(assetMapper.toShowDto(asset, assetService), user));
             }
             Page<Asset> assetsPage = assetRepository.findByCompany_IdAndParentAssetIsNull(user.getCompany().getId(),
                     pageable);
-            return assetsPage.map(asset -> assetMapper.toShowDto(asset, assetService));
+            return assetsPage.map(asset -> toScopedShowDto(assetMapper.toShowDto(asset, assetService), user));
         }
         Optional<Asset> optionalAsset = assetService.findById(id);
         if (optionalAsset.isPresent()) {
             Asset savedAsset = optionalAsset.get();
             if (customerScopeService.isRequester(user)) {
                 customerScopeService.assertCanAccessAsset(user, savedAsset.getId());
-                Page<Asset> assetsPage = assetService.findAssetChildren(id, pageable);
-                return assetsPage.map(asset -> assetMapper.toShowDto(asset, assetService));
+                // Mesmo filtro de filhos ja aplicado na versao NAO paginada
+                // (getChildrenById) - o pai acessivel nao garante que TODO
+                // filho tambem esteja no escopo (pai A, filho exclusivo de
+                // B). Sem isso, essa versao paginada vazava filhos fora do
+                // escopo que a nao-paginada ja bloqueava.
+                List<Asset> allowedChildren = assetService.findAssetChildren(id, pageable.getSort()).stream()
+                        .filter(asset -> customerScopeService.findAllowedAssets(user, null).stream()
+                                .anyMatch(allowed -> allowed.getId().equals(asset.getId())))
+                        .collect(Collectors.toList());
+                // pageOf: pagina de verdade (fatia pageNum/pageSize sobre a
+                // lista ja filtrada por escopo, ja ordenada por
+                // findAssetChildren(id, sort)) - a versao anterior colocava a
+                // colecao INTEIRA em toda pagina (PageImpl(list, pageable,
+                // list.size()) ignora pageable pra montar o conteudo, so usa
+                // pra metadado), entao pageSize/pageNum nao tinham efeito
+                // nenhum no resultado.
+                return pageOf(allowedChildren, pageable).map(asset -> toScopedShowDto(assetMapper.toShowDto(asset, assetService), user));
             }
             if (user.getRole().getViewPermissions().contains(PermissionEntity.ASSETS)) {
                 Page<Asset> assetsPage = assetService.findAssetChildren(id, pageable);
-                return assetsPage.map(asset -> assetMapper.toShowDto(asset, assetService));
+                return assetsPage.map(asset -> toScopedShowDto(assetMapper.toShowDto(asset, assetService), user));
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
 
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);

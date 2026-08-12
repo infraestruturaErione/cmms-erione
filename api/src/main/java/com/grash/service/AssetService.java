@@ -63,6 +63,7 @@ public class AssetService {
     private final LicenseService licenseService;
     private WebhookDispatchService webhookDispatchService;
     private final CustomFieldValueService customFieldValueService;
+    private final CustomerScopeService customerScopeService;
 
     @Autowired
     public void setDeps(@Lazy LocationService locationService, @Lazy LaborService laborService,
@@ -299,9 +300,17 @@ public class AssetService {
         }
     }
 
-    public Page<AssetShowDTO> findBySearchCriteria(SearchCriteria searchCriteria) {
+    public Page<AssetShowDTO> findBySearchCriteria(SearchCriteria searchCriteria, User user) {
         SpecificationBuilder<Asset> builder = new SpecificationBuilder<>();
         searchCriteria.getFilterFields().forEach(builder::with);
+        // Customer Scope como Specification dedicada, ANDada por fora da
+        // arvore de FilterField/alternatives do request - ver
+        // CustomerScopeService.customerScopeSpecification.
+        org.springframework.data.jpa.domain.Specification<Asset> scopeSpec =
+                customerScopeService.customerScopeSpecification(user, "customers");
+        if (scopeSpec != null) {
+            builder.with(scopeSpec);
+        }
         Pageable page = PageRequest.of(searchCriteria.getPageNum(), searchCriteria.getPageSize(),
                 searchCriteria.getDirection(), searchCriteria.getSortField());
         return assetRepository.findAll(builder.build(), page).map(asset -> assetMapper.toShowDto(asset, this));

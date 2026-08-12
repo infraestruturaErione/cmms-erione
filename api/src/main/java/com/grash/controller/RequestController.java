@@ -1,5 +1,6 @@
 package com.grash.controller;
 
+import com.grash.advancedsearch.FilterField;
 import com.grash.advancedsearch.SearchCriteria;
 import com.grash.dto.*;
 import com.grash.dto.workOrder.WorkOrderShowDTO;
@@ -84,6 +85,22 @@ public class RequestController {
         private boolean success;
     }
 
+    // Aplica em searchCriteria (ja existente ou recem-montado) o MESMO
+    // recorte - Company + customer scope de Requester + createdBy quando sem
+    // viewOther - usado tanto por /search quanto por /pending. Um so lugar
+    // define o universo de Requests visivel, pra nunca divergirem.
+    private void applyVisibleRequestsScope(SearchCriteria searchCriteria, User user) {
+        searchCriteria.filterCompany(user);
+        // Customer Scope da QUERY (Requester) agora e' aplicado dentro de
+        // requestService.findBySearchCriteria (Specification dedicada - ver
+        // CustomerScopeService.customerScopeSpecification), nao mais aqui
+        // como FilterField.
+        boolean canViewOthers = user.getRole().getViewOtherPermissions().contains(PermissionEntity.REQUESTS);
+        if (!canViewOthers) {
+            searchCriteria.filterCreatedBy(user);
+        }
+    }
+
     @PostMapping("/search")
     @PreAuthorize("permitAll()")
     public ResponseEntity<Page<RequestShowDTO>> search(@Parameter(description = "Search criteria for filtering " +
@@ -92,17 +109,22 @@ public class RequestController {
         User user = userService.whoami(req);
         if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
             if (user.getRole().getViewPermissions().contains(PermissionEntity.REQUESTS)) {
-                searchCriteria.filterCompany(user);
-                if (customerScopeService.isRequester(user)) {
-                    customerScopeService.addCustomerManyToManyScopeFilter(searchCriteria, user, "customers");
-                }
-                boolean canViewOthers = user.getRole().getViewOtherPermissions().contains(PermissionEntity.REQUESTS);
-                if (!canViewOthers) {
-                    searchCriteria.filterCreatedBy(user);
-                }
+                applyVisibleRequestsScope(searchCriteria, user);
             } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
         }
-        return ResponseEntity.ok(requestService.findBySearchCriteria(searchCriteria));
+        Page<RequestShowDTO> rawPage = requestService.findBySearchCriteria(searchCriteria, user);
+        return ResponseEntity.ok(rawPage.map(dto -> toScopedShowDto(dto, user)));
+    }
+
+    // Request pode ser legitimamente compartilhada entre Clientes A e B; um
+    // Requester escopado so a A pode acessar (canAccessWorkOrderBase ja
+    // garante isso), mas a REPRESENTACAO nao pode revelar o Cliente B. So
+    // filtra o campo customers do DTO - nunca o relacionamento real no banco.
+    // No-op pra Admin/escopo amplo.
+    private RequestShowDTO toScopedShowDto(RequestShowDTO dto, User user) {
+        dto.setCustomers(customerScopeService.filterCustomerMiniDTOs(user, dto.getCustomers(),
+                com.grash.dto.CustomerMiniDTO::getId));
+        return dto;
     }
 
     @GetMapping("/pending")
@@ -110,7 +132,20 @@ public class RequestController {
     public SuccessResponse getPending(HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT) && user.getRole().getViewPermissions().contains(PermissionEntity.REQUESTS)) {
-            return new SuccessResponse(true, requestService.countPending(user.getCompany().getId()).toString());
+            // new SearchCriteria() (nao .builder()) de proposito - o builder
+            // do Lombok NAO aplica os inicializadores de campo (direction,
+            // pageSize etc.) a menos que cada um seja setado explicitamente,
+            // o que gerava "Direction must not be null" no PageRequest.of.
+            SearchCriteria searchCriteria = new SearchCriteria();
+            applyVisibleRequestsScope(searchCriteria, user);
+            searchCriteria.getFilterFields().add(FilterField.builder()
+                    .field("status")
+                    .value("")
+                    .values(Collections.singletonList("PENDING"))
+                    .build());
+            searchCriteria.setPageSize(1);
+            long total = requestService.findBySearchCriteria(searchCriteria, user).getTotalElements();
+            return new SuccessResponse(true, Long.toString(total));
         } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
     }
 
@@ -127,7 +162,7 @@ public class RequestController {
                 if (!customerScopeService.canAccessWorkOrderBase(user, savedRequest)) {
                     throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
                 }
-                return requestMapper.toShowDto(savedRequest);
+                return toScopedShowDto(requestMapper.toShowDto(savedRequest), user);
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
@@ -163,6 +198,8 @@ public class RequestController {
                           HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getRole().getCreatePermissions().contains(PermissionEntity.REQUESTS)) {
+            assertNoOperationalAssignmentByRequester(user, requestReq.getPrimaryUser(), requestReq.getAssignedTo(),
+                    requestReq.getTeam());
             customerScopeService.prepareAndValidateRequestScope(requestReq, user);
             Request createdRequest = requestService.create(requestReq, user.getCompany());
             onRequestCreation(createdRequest, user.getCompany(), user.getFullName());
@@ -205,10 +242,27 @@ public class RequestController {
 
         if (optionalRequest.isPresent()) {
             Request savedRequest = optionalRequest.get();
+            // Company + customer scope ATUAL primeiro, antes de qualquer
+            // checagem de ownership/permissao funcional. Sem isso, quem
+            // criou a Request continuava conseguindo editar so por ser
+            // createdBy mesmo depois de um Admin reassocia-la a um Customer
+            // fora do escopo do Requester.
+            checkRequestCompanyAndCustomerScope(savedRequest, user);
             if (savedRequest.getWorkOrder() != null) {
                 throw new CustomException("Can't patch an approved request", HttpStatus.NOT_ACCEPTABLE);
             }
             if (user.getRole().getEditOtherPermissions().contains(PermissionEntity.REQUESTS) || savedRequest.getCreatedBy().equals(user.getId())) {
+                // Payload sem "customers" nao pode apagar a associacao atual -
+                // o mapper (MapStruct) sobrescreve com null se o campo vier
+                // ausente do JSON, o que devolveria a Request pro estado "sem
+                // customer" e reabriria a janela de ownership de
+                // canAccessWorkOrderBase (mesmo apos ter sido reassociada a um
+                // Customer fora do escopo).
+                if (request.getCustomers() == null) {
+                    request.setCustomers(savedRequest.getCustomers());
+                }
+                assertNoOperationalAssignmentByRequester(user, request.getPrimaryUser(), request.getAssignedTo(),
+                        request.getTeam());
                 customerScopeService.prepareAndValidateRequestScope(request, user);
                 Request patchedRequest = requestService.update(id, request, user.getCompany());
                 return requestMapper.toShowDto(patchedRequest);
@@ -363,6 +417,7 @@ public class RequestController {
         Optional<Request> optionalRequest = requestService.findById(id);
         if (optionalRequest.isPresent()) {
             Request savedRequest = optionalRequest.get();
+            checkRequestCompanyAndCustomerScope(savedRequest, user);
             if (Objects.equals(savedRequest.getCreatedBy(), user.getId()) ||
                     user.getRole().getDeleteOtherPermissions().contains(PermissionEntity.REQUESTS)) {
                 requestService.delete(id);
@@ -370,6 +425,45 @@ public class RequestController {
                         HttpStatus.OK);
             } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
         } else throw new CustomException("Request not found", HttpStatus.NOT_FOUND);
+    }
+
+    // Company + customer scope ATUAL da Request - chamado ANTES de qualquer
+    // checagem de ownership/permissao funcional em PATCH/DELETE (GET/{id} ja
+    // fazia isso). Cenario que isso fecha: Requester cria Request no Cliente
+    // A -> Admin reassocia pro Cliente B -> Requester (ainda createdBy) nao
+    // pode mais GET, PATCH nem DELETE.
+    // Requester nunca administra a WorkOrder resultante (ver
+    // WorkOrderService.checkWriteAccessToWorkOrderId) - mas os campos de
+    // atribuicao operacional (primaryUser/assignedTo/team) sao aceitos no
+    // mesmo payload de create/patch de Request (RequestPostDTO extends
+    // Request, RequestPatchDTO extends WorkOrderBasePatchDTO - ambos expoe
+    // os 3 campos), e WorkOrderService.getWorkOrderFromWorkOrderBase copia
+    // esses valores SEM alteracao pra WorkOrder criada na aprovacao. Um
+    // Requester que se autoatribui ali ganharia canBeEditedBy=true na WO
+    // aprovada (createdBy/isAssignedTo). Falha explicita (400) em vez de
+    // ignorar silenciosamente - Requester legitimo nunca preenche esses
+    // campos (so acompanha a propria Request), entao isso nao quebra fluxo
+    // real nenhum. Admin (fora deste bloqueio) continua podendo preencher.
+    private void assertNoOperationalAssignmentByRequester(User user, User primaryUser, List<User> assignedTo,
+                                                           Team team) {
+        if (!customerScopeService.isRequester(user)) {
+            return;
+        }
+        boolean hasOperationalAssignment = primaryUser != null || team != null
+                || (assignedTo != null && !assignedTo.isEmpty());
+        if (hasOperationalAssignment) {
+            throw new CustomException("Requester cannot set operational assignment fields (primaryUser/assignedTo" +
+                    "/team)", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void checkRequestCompanyAndCustomerScope(Request request, User user) {
+        if (!request.getCompany().getId().equals(user.getCompany().getId())) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        if (!customerScopeService.canAccessWorkOrderBase(user, request)) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
     }
 
 }

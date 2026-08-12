@@ -46,6 +46,7 @@ public class LaborController {
         Optional<Labor> optionalLabor = laborService.findById(id);
         if (optionalLabor.isPresent()) {
             Labor savedLabor = optionalLabor.get();
+            workOrderService.checkAccessToWorkOrderId(savedLabor.getWorkOrder().getId(), user);
             return savedLabor;
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
 
@@ -56,10 +57,8 @@ public class LaborController {
 
     public Collection<Labor> getByWorkOrder(@PathVariable("id") Long id, HttpServletRequest req) {
         User user = userService.whoami(req);
-        Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
-        if (optionalWorkOrder.isPresent()) {
-            return laborService.findByWorkOrder(id);
-        } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
+        workOrderService.checkAccessToWorkOrderId(id, user);
+        return laborService.findByWorkOrder(id);
     }
 
     @PostMapping("/work-order/{id}")
@@ -69,6 +68,9 @@ public class LaborController {
                               @Parameter(description = "Whether to start the labor timer")
                               @RequestParam(defaultValue = "true") boolean start) {
         User user = userService.whoami(req);
+        // Company/permissao/customer scope primeiro (visao); canBeEditedBy
+        // depois, especifico pra permissao de EDICAO/execucao da OS.
+        workOrderService.checkAccessToWorkOrderId(id, user);
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
         if (optionalWorkOrder.isPresent() && optionalWorkOrder.get().canBeEditedBy(user)) {
             Optional<Labor> optionalLabor =
@@ -114,7 +116,9 @@ public class LaborController {
                  HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getCompany().getSubscription().getSubscriptionPlan().getFeatures().contains(PlanFeatures.ADDITIONAL_TIME)) {
-            WorkOrder workOrder = workOrderService.findById(laborReq.getWorkOrder().getId()).get();
+            // Ler a WO (ex.: Requester acompanhando a Request que a originou)
+            // nao autoriza lancar hora nela - ver checkWriteAccessToWorkOrderId.
+            WorkOrder workOrder = workOrderService.checkWriteAccessToWorkOrderId(laborReq.getWorkOrder().getId(), user);
             if (workOrder.getFirstTimeToReact() == null) {
                 workOrder.setFirstTimeToReact(new Date());
                 workOrderService.save(workOrder);
@@ -134,6 +138,7 @@ public class LaborController {
 
         if (optionalLabor.isPresent()) {
             Labor savedLabor = optionalLabor.get();
+            workOrderService.checkWriteAccessToWorkOrderId(savedLabor.getWorkOrder().getId(), user);
             return laborService.update(id, labor);
         } else throw new CustomException("Labor not found", HttpStatus.NOT_FOUND);
     }
@@ -147,6 +152,7 @@ public class LaborController {
         Optional<Labor> optionalLabor = laborService.findById(id);
         if (optionalLabor.isPresent()) {
             Labor savedLabor = optionalLabor.get();
+            workOrderService.checkWriteAccessToWorkOrderId(savedLabor.getWorkOrder().getId(), user);
             laborService.delete(id);
             return new ResponseEntity(new SuccessResponse(true, "Deleted successfully"),
                     HttpStatus.OK);

@@ -16,6 +16,7 @@ import com.grash.repository.CustomerRepository;
 import com.grash.repository.LocationRepository;
 import jakarta.persistence.criteria.JoinType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -157,21 +158,57 @@ public class CustomerScopeService {
                 .build());
     }
 
-    public void addCustomerManyToManyScopeFilter(SearchCriteria searchCriteria, User user, String field) {
+    // Customer Scope como Specification DEDICADA, nunca como FilterField
+    // dentro da arvore de busca controlada pelo cliente/frontend. A tentativa
+    // anterior (FilterField "inm" + interseccao manual de alternatives, em
+    // qualquer profundidade) sempre deixava uma brecha estrutural: se o
+    // proprio filtro do usuario ja usava o campo "customers" com suas
+    // PROPRIAS alternatives em OUTRO campo (ex.: customers=[1] OR
+    // title='XYZ'), nao havia como reaproveitar/intersectar esse FilterField
+    // sem His alternatives ficarem sem nenhuma restricao de customer - o
+    // ramo "title='XYZ'" simplesmente nao tem customer nenhum pra
+    // intersectar. Falta de arquitetura, nao falta de mais um caso especial.
+    //
+    // A solucao correta: SpecificationBuilder.with(Specification<T>) e' um
+    // predicate OBRIGATORIO combinado com AND no nivel raiz, DEPOIS de toda
+    // a arvore de FilterField (loop em build()) - nao faz parte dela, entao
+    // nenhum OR/alternative do lado do usuario consegue alcancar ou substituir
+    // esse predicate. A query final fica sempre:
+    //   SECURITY_SCOPE AND ( USER_FILTER_TREE )
+    // nunca "SECURITY_SCOPE OR USER_FILTER".
+    //
+    // EXISTS (subquery correlacionada), NAO JOIN no root: Customer Scope e'
+    // uma checagem de existencia ("este recurso tem pelo menos um Customer
+    // permitido?"), nao uma projecao. Um JOIN no root multiplica linhas do
+    // resultado principal quando o recurso tem 2+ Customers permitidos
+    // (ex.: Requester com allowed=[A,B] buscando um recurso associado a A E
+    // B), o que exigiria DISTINCT pra desduplicar - e DISTINCT em Hibernate
+    // 6 sempre vira SQL "SELECT DISTINCT" de verdade (nao ha mais
+    // "pass distinct through"/dedup em memoria como havia no Hibernate 5),
+    // o que quebra no Postgres (erro 42P10) sempre que o ORDER BY usa uma
+    // coluna de outro JOIN que nao esteja no SELECT (confirmado ao vivo
+    // contra Postgres real, ex. sort por "category.name"). EXISTS nunca
+    // multiplica linha nenhuma do root, entao nao precisa de DISTINCT.
+    //
+    // Retorna null pra usuario nao-Requester (nada a restringir - o chamador
+    // so aplica via builder.with(...) quando != null).
+    public <T> Specification<T> customerScopeSpecification(User user, String field) {
         if (!isRequester(user)) {
-            return;
+            return null;
         }
         List<Long> allowedCustomerIds = getAllowedCustomerIds(user);
-        List<Object> filterValues = allowedCustomerIds.isEmpty()
+        List<Long> effectiveIds = allowedCustomerIds.isEmpty()
                 ? Collections.singletonList(-1L)
-                : new ArrayList<>(allowedCustomerIds);
-        searchCriteria.getFilterFields().add(FilterField.builder()
-                .field(field)
-                .operation("inm")
-                .joinType(JoinType.LEFT)
-                .value("")
-                .values(filterValues)
-                .build());
+                : allowedCustomerIds;
+        return (root, query, cb) -> {
+            jakarta.persistence.criteria.Subquery<Long> subquery = query.subquery(Long.class);
+            jakarta.persistence.criteria.Root<T> correlatedRoot = subquery.correlate(root);
+            jakarta.persistence.criteria.Join<Object, Object> customerJoin =
+                    correlatedRoot.join(field, JoinType.INNER);
+            subquery.select(customerJoin.get("id"));
+            subquery.where(customerJoin.get("id").in(effectiveIds));
+            return cb.exists(subquery);
+        };
     }
 
     public void assertCanAccessCustomer(User user, Customer customer) {
@@ -399,10 +436,34 @@ public class CustomerScopeService {
         if (getAllowedCustomerIds(user).isEmpty()) {
             return false;
         }
-        if (workOrderBase instanceof Request && workOrderBase.getCreatedBy() != null && workOrderBase.getCreatedBy().equals(user.getId())) {
-            return true;
+        boolean hasCustomers = workOrderBase.getCustomers() != null && !workOrderBase.getCustomers().isEmpty();
+        if (!hasCustomers) {
+            // Ownership so cobre a janela ANTES de um customer ser atribuido
+            // (ex.: Request recem-criada pelo portal, ainda nao triada por um
+            // admin). Uma vez que um customer explicito e' atribuido, essa
+            // atribuicao manda - ownership nao pode mais atravessar customer
+            // scope (ex.: admin reassocia a Request/WO do Requester pro
+            // Cliente B depois de criada).
+            return workOrderBase instanceof Request && workOrderBase.getCreatedBy() != null
+                    && workOrderBase.getCreatedBy().equals(user.getId());
         }
-        return workOrderBase.getCustomers() != null && workOrderBase.getCustomers().stream()
+        return workOrderBase.getCustomers().stream()
                 .anyMatch(customer -> canAccessCustomer(user, customer.getId()));
+    }
+
+    // So usado por telas que retornam a lista de Customers de um recurso
+    // COMPARTILHADO (ex.: Location.customers em LocationShowDTO) - o recurso
+    // em si pode ser legitimamente acessivel a um Requester escopado ao
+    // Cliente A mesmo se tambem estiver associado ao Cliente B; o que nao
+    // pode e' a resposta revelar a existencia/nome do Cliente B pra esse
+    // usuario. Nao remove nada do banco, so filtra a REPRESENTACAO.
+    public <T> List<T> filterCustomerMiniDTOs(User user, List<T> customerDtos, java.util.function.Function<T, Long> idExtractor) {
+        if (!isRequester(user) || customerDtos == null) {
+            return customerDtos;
+        }
+        List<Long> allowedCustomerIds = getAllowedCustomerIds(user);
+        return customerDtos.stream()
+                .filter(dto -> allowedCustomerIds.contains(idExtractor.apply(dto)))
+                .collect(Collectors.toList());
     }
 }

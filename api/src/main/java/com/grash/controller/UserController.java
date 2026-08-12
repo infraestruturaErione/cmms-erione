@@ -11,6 +11,7 @@ import com.grash.model.enums.PermissionEntity;
 import com.grash.model.enums.RoleType;
 import com.grash.security.CurrentUser;
 import com.grash.service.CompanyService;
+import com.grash.service.CustomerScopeService;
 import com.grash.service.IntercomService;
 import com.grash.service.RoleService;
 import com.grash.service.UserService;
@@ -44,6 +45,7 @@ public class UserController {
     private final UserMapper userMapper;
     private final IntercomService intercomService;
     private final CompanyService companyService;
+    private final CustomerScopeService customerScopeService;
 
     @PostMapping("/search")
     @PreAuthorize("permitAll()")
@@ -105,20 +107,33 @@ public class UserController {
 
     public Collection<UserMiniDTO> getMini(@Parameter(hidden = true) @CurrentUser User user,
                                            @Parameter(description = "Include requesters in the response") @RequestParam(required = false) Boolean withRequesters) {
-        return Boolean.TRUE.equals(withRequesters) ?
+        // Requester: nunca lista OUTROS Requesters (withRequesters ignorado -
+        // enumeraria contatos/portal-users de outros clientes) e nunca recebe
+        // telefone (so o necessario pra selecao: id/nome/foto).
+        boolean isRequester = customerScopeService.isRequester(user);
+        boolean effectiveWithRequesters = Boolean.TRUE.equals(withRequesters) && !isRequester;
+        Collection<UserMiniDTO> result = effectiveWithRequesters ?
                 userService.findByCompany(user.getCompany().getId()).stream()
                         .filter(User::isEnabled).map(userMapper::toMiniDto).collect(Collectors.toList()) :
                 userService.findWorkersByCompany(user.getCompany().getId()).stream()
                         .filter(User::isEnabledInSubscription)
                         .filter(User::isEnabled)
                         .map(userMapper::toMiniDto).collect(Collectors.toList());
+        if (isRequester) {
+            result.forEach(dto -> dto.setPhone(null));
+        }
+        return result;
     }
 
     @GetMapping("/mini/disabled")
     @PreAuthorize("hasRole('ROLE_CLIENT')")
 
     public Collection<UserMiniDTO> getMiniDisabled(@Parameter(hidden = true) @CurrentUser User user) {
-        return userService.findByCompany(user.getCompany().getId()).stream().filter(user1 -> !user1.isEnabledInSubscription()).map(userMapper::toMiniDto).collect(Collectors.toList());
+        Collection<UserMiniDTO> result = userService.findByCompany(user.getCompany().getId()).stream().filter(user1 -> !user1.isEnabledInSubscription()).map(userMapper::toMiniDto).collect(Collectors.toList());
+        if (customerScopeService.isRequester(user)) {
+            result.forEach(dto -> dto.setPhone(null));
+        }
+        return result;
     }
 
 
@@ -158,7 +173,33 @@ public class UserController {
         if (optionalUser.isPresent()) {
             User savedUser = optionalUser.get();
             if (user.getCompany().getId().equals(savedUser.getCompany().getId())) {
-                return userMapper.toResponseDto(savedUser);
+                UserResponseDTO dto = userMapper.toResponseDto(savedUser);
+                // Ver o proprio perfil, ou ter permissao de administrar
+                // pessoas/equipes, da o DTO completo. Qualquer outro colega
+                // com sessao valida (ex.: Requester resolvendo o nome do
+                // tecnico atribuido na propria OS, via WorkOrderDetails) so
+                // continua vendo o suficiente pra exibir quem e' - nunca
+                // email/role/allowedCustomers/telefone/configuracoes de
+                // outra pessoa.
+                boolean isSelf = user.getId().equals(savedUser.getId());
+                boolean canAdministerPeople =
+                        user.getRole().getViewPermissions().contains(PermissionEntity.PEOPLE_AND_TEAMS);
+                if (!isSelf && !canAdministerPeople) {
+                    dto.setUsername(null);
+                    dto.setEmail(null);
+                    dto.setRole(null);
+                    dto.setRate(0);
+                    dto.setPhone(null);
+                    dto.setAllowedCustomers(new java.util.ArrayList<>());
+                    dto.setSuperAccountRelations(new java.util.ArrayList<>());
+                    dto.setParentSuperAccount(null);
+                    dto.setUiConfiguration(null);
+                    dto.setLastLogin(null);
+                    dto.setPaddleUserId(null);
+                    dto.setCompanySettingsId(null);
+                    dto.setUserSettingsId(null);
+                }
+                return dto;
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }

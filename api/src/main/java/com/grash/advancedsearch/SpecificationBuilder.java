@@ -20,8 +20,15 @@ public class SpecificationBuilder<T> {
         return this;
     }
 
+    // Combina (AND) em vez de sobrescrever - permite empilhar mais de um
+    // predicate obrigatorio (ex.: uma Specification de negocio + uma
+    // Specification de Customer Scope) sem que a segunda chamada apague a
+    // primeira. Comportamento de chamadores existentes com UMA so chamada
+    // fica identico (with(spec) sozinho == andSpecification = spec).
     public final SpecificationBuilder<T> with(Specification<T> specification) {
-        this.andSpecification = specification;
+        this.andSpecification = (this.andSpecification == null)
+                ? specification
+                : this.andSpecification.and(specification);
         return this;
     }
     public final SpecificationBuilder<T> or(Specification<T> specification) {

@@ -132,7 +132,7 @@ public class CustomerOperationalService {
                 .sortField("id")
                 .direction(Sort.Direction.ASC)
                 .build();
-        return workOrderService.findBySearchCriteria(workOrderService.getSearchCriteria(user, criteria))
+        return workOrderService.findBySearchCriteria(workOrderService.getSearchCriteria(user, criteria), user)
                 .getTotalElements();
     }
 

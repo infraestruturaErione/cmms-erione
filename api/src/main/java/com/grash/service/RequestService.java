@@ -52,6 +52,7 @@ public class RequestService {
     private final FieldConfigurationRepository fieldConfigurationRepository;
     private final WebhookDispatchService webhookDispatchService;
     private final CustomFieldValueService customFieldValueService;
+    private final CustomerScopeService customerScopeService;
 
 
     @Transactional
@@ -167,7 +168,7 @@ public class RequestService {
         return requestRepository.findByCreatedAtBetweenAndCompany_Id(date1, date2, id);
     }
 
-    public Page<RequestShowDTO> findBySearchCriteria(SearchCriteria searchCriteria) {
+    public Page<RequestShowDTO> findBySearchCriteria(SearchCriteria searchCriteria, User user) {
         SpecificationBuilder<Request> builder = new SpecificationBuilder<>();
         SearchCriteria searchCriteriaClone = searchCriteria.clone();
 
@@ -208,6 +209,14 @@ public class RequestService {
             }
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         });
+        // Customer Scope como Specification dedicada, ANDada por fora da
+        // arvore de FilterField/alternatives do request (with(Specification)
+        // agora combina/AND em vez de sobrescrever - ver SpecificationBuilder)
+        // - ver CustomerScopeService.customerScopeSpecification.
+        Specification<Request> scopeSpec = customerScopeService.customerScopeSpecification(user, "customers");
+        if (scopeSpec != null) {
+            builder.with(scopeSpec);
+        }
         searchCriteria.getFilterFields().
                 removeIf(filterField -> filterField.getField().equals("status") || filterField.getField().equals(
                         "priority"));

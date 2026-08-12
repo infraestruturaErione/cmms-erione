@@ -52,6 +52,7 @@ public class LocationService {
     private final LicenseService licenseService;
     private final WebhookDispatchService webhookDispatchService;
     private final CustomFieldValueService customFieldValueService;
+    private final CustomerScopeService customerScopeService;
 
     @Transactional
     public Location create(Location location, Company company) {
@@ -236,9 +237,18 @@ public class LocationService {
         return locationRepository.findByIdInAndCompany_Id(ids, companyId);
     }
 
-    public Page<LocationShowDTO> findBySearchCriteria(SearchCriteria searchCriteria) {
+    public Page<LocationShowDTO> findBySearchCriteria(SearchCriteria searchCriteria, User user) {
         SpecificationBuilder<Location> builder = new SpecificationBuilder<>();
         searchCriteria.getFilterFields().forEach(builder::with);
+        // Customer Scope como Specification dedicada, ANDada no nivel raiz
+        // por fora da arvore de FilterField/alternatives controlada pelo
+        // request - nunca representada como mais um FilterField (ver
+        // CustomerScopeService.customerScopeSpecification).
+        org.springframework.data.jpa.domain.Specification<Location> scopeSpec =
+                customerScopeService.customerScopeSpecification(user, "customers");
+        if (scopeSpec != null) {
+            builder.with(scopeSpec);
+        }
         Pageable page = PageRequest.of(searchCriteria.getPageNum(), searchCriteria.getPageSize(),
                 searchCriteria.getDirection(), searchCriteria.getSortField());
         return locationRepository.findAll(builder.build(), page).map(location -> locationMapper.toShowDto(location,

@@ -121,14 +121,27 @@ public class WorkOrderController {
     @Value("${frontend.url}")
     private String frontendUrl;
 
+    // WorkOrder/Request pode ser legitimamente compartilhado entre Clientes A
+    // e B; um Requester escopado so a A pode acessar (canAccessWorkOrderBase
+    // ja garante isso), mas a REPRESENTACAO nao pode revelar o Cliente B. So
+    // filtra o campo customers do DTO - nunca o relacionamento real no banco.
+    // No-op pra Admin/escopo amplo.
+    private WorkOrderShowDTO toScopedShowDto(WorkOrder workOrder, User user) {
+        WorkOrderShowDTO dto = workOrderMapper.toShowDto(workOrder);
+        dto.setCustomers(customerScopeService.filterCustomerMiniDTOs(user, dto.getCustomers(),
+                CustomerMiniDTO::getId));
+        return dto;
+    }
+
     @PostMapping("/search")
     @PreAuthorize("permitAll()")
     public ResponseEntity<Page<WorkOrderShowDTO>> search(@Parameter(description = "Search criteria for filtering work" +
                                                                  " orders") @RequestBody SearchCriteria searchCriteria,
                                                          HttpServletRequest req) {
         User user = userService.whoami(req);
-        return ResponseEntity.ok(workOrderService.findBySearchCriteria(workOrderService.getSearchCriteria(user,
-                searchCriteria)).map(workOrderMapper::toShowDto));
+        Page<WorkOrder> rawPage = workOrderService.findBySearchCriteria(workOrderService.getSearchCriteria(user,
+                searchCriteria), user);
+        return ResponseEntity.ok(rawPage.map(workOrder -> toScopedShowDto(workOrder, user)));
     }
 
     @PostMapping("/search/mini")
@@ -138,7 +151,7 @@ public class WorkOrderController {
                                                                  HttpServletRequest req) {
         User user = userService.whoami(req);
         return ResponseEntity.ok(workOrderService.findBySearchCriteria(workOrderService.getSearchCriteria(user,
-                        searchCriteria))
+                        searchCriteria), user)
                 .map(workOrderMapper::toBaseMiniDto));
     }
 
@@ -189,7 +202,7 @@ public class WorkOrderController {
             return workOrderService.findByAsset(id).stream()
                     .filter(workOrder -> canViewWorkOrderBase(user, workOrder))
                     .filter(workOrder -> customerScopeService.canAccessWorkOrderBase(user, workOrder))
-                    .map(workOrderMapper::toShowDto).collect(Collectors.toList());
+                    .map(workOrder -> toScopedShowDto(workOrder, user)).collect(Collectors.toList());
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
 
@@ -204,7 +217,7 @@ public class WorkOrderController {
             return workOrderService.findByLocation(id).stream()
                     .filter(workOrder -> canViewWorkOrderBase(user, workOrder))
                     .filter(workOrder -> customerScopeService.canAccessWorkOrderBase(user, workOrder))
-                    .map(workOrderMapper::toShowDto).collect(Collectors.toList());
+                    .map(workOrder -> toScopedShowDto(workOrder, user)).collect(Collectors.toList());
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
 
@@ -212,7 +225,7 @@ public class WorkOrderController {
     @PreAuthorize("permitAll()")
     public WorkOrderShowDTO getById(@PathVariable("id") Long id, HttpServletRequest req) {
         User user = userService.whoami(req);
-        return workOrderMapper.toShowDto(workOrderService.checkAccessToWorkOrderId(id, user));
+        return toScopedShowDto(workOrderService.checkAccessToWorkOrderId(id, user), user);
     }
 
     @PostMapping("")
@@ -270,7 +283,10 @@ public class WorkOrderController {
             Collection<WorkOrder> uniqueWorkOrders =
                     workOrders.stream().collect(collectingAndThen(toCollection(() -> new TreeSet<>(comparingLong(WorkOrder::getId))),
                             ArrayList::new));
-            return uniqueWorkOrders.stream().map(workOrderMapper::toShowDto).collect(Collectors.toList());
+            return uniqueWorkOrders.stream()
+                    .filter(workOrder -> canViewWorkOrderBase(user, workOrder))
+                    .filter(workOrder -> customerScopeService.canAccessWorkOrderBase(user, workOrder))
+                    .map(workOrder -> toScopedShowDto(workOrder, user)).collect(Collectors.toList());
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
 
