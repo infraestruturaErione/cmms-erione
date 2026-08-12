@@ -814,3 +814,118 @@ Tecnologia) ficaram de fora de proposito, pendentes de preenchimento manual.
 - CNPJ ainda nao e' obrigatorio nem tem validacao de digito verificador.
 - Fila de verdade (processamento assincrono) nao foi implementada - decisao
   explicita do usuario de manter simples por enquanto.
+
+### Correcao no mesmo dia: removido bloqueio "cliente sem cidade cadastrada"
+
+A primeira versao do relatorio em massa recusava gerar (`400`) quando o
+cliente escolhido nao tinha `Customer.city` preenchido, com a mensagem
+"Esse cliente nao tem cidade cadastrada — edite o cliente antes de gerar".
+O usuario apontou que esse bloqueio nao fazia sentido no modelo mental dele:
+pra ele Cliente e Cidade sao a mesma coisa (ex: "Prefeitura de Santa Branca"
+JA E' a identidade completa - nao existe uma "cidade" separada faltando).
+
+- `WorkOrderBulkReportRequestDTO` trocou o campo obrigatorio `city` (String)
+  por `customerId` (Long) - o usuario so escolhe um cliente no dropdown,
+  nunca digita cidade.
+- `WorkOrderController.getBulkPDF` agora carrega o `Customer` escolhido e
+  decide sozinho: se ele tem `city` preenchido, agrupa todos os clientes da
+  mesma cidade (comportamento original); se nao tem, usa so aquele cliente
+  sozinho, sem erro. Selecionar qualquer cliente do dropdown sempre funciona.
+  Aproveitou que `Customer` extends `CompanyAudit`, cujo `@PostLoad
+  afterLoad()` ja lanca 403 sozinho se o cliente for de outra empresa - nao
+  precisou checagem manual de propriedade.
+- Removido tambem da tela o texto auxiliar que mencionava "cidade
+  cadastrada" perto do campo Cliente (`bulk_report_customer_alone_hint` /
+  `bulk_report_resolved_city`, chaves de traducao apagadas) - o usuario nao
+  quer que a interface fale de "cidade" como um conceito separado do
+  cliente.
+- Testado local com um cliente com cidade (Santa Branca, agrupa) e um sem
+  cidade (Prefeitura de Jacarei, gera usando so ele - antes dava 400, agora
+  so retorna "nenhuma OS concluida" quando nao ha OS de teste no periodo).
+- Commits: `72aac1b` (fallback sem cidade) e `dee2b14` (remocao do texto na
+  tela). Ainda nao subiu pra producao - usuario disse que quer testar antes.
+
+### Correcao no mesmo dia: relatorio em massa nao pode mais misturar OS de clientes diferentes por cidade
+
+Auditoria de leitura encontrada apos a correcao acima: o fallback "agrupa
+por cidade" ainda usava `findByCityIgnoreCaseAndCompany_Id`, que retornava
+TODOS os clientes da empresa com o mesmo texto em `Customer.city` - mesmo
+sem nenhum vinculo real (matriz/filial/grupo) entre eles. Um cliente com
+`city="Santa Branca"` juntava OS de qualquer outro cliente cadastrado com
+essa mesma string, mesmo sendo empresas totalmente nao relacionadas.
+
+- Busca do relatorio em massa restrita EXCLUSIVAMENTE ao `customerId`
+  selecionado - removido `findByCityIgnoreCaseAndCompany_Id` (metodo
+  deletado do `CustomerRepository`, ficou sem uso).
+- CNPJ virou validacao de conferencia (400 se nao bater com o cliente
+  selecionado) em vez de criterio de busca por outro cliente.
+- Cabecalho/nome do arquivo do PDF passam a identificar o Cliente (antes
+  mostravam "Cidade"); cidade e CNPJ aparecem so como dado informativo do
+  proprio cliente selecionado.
+- Confirmado por analise de codigo que Location (varios locais por
+  Customer) NAO deveria virar filtro - o relatorio consolida corretamente
+  todas as Locations de um Customer, isso e' esperado nesse modelo de
+  negocio (Customer = cliente contratante, Locations = unidades/destinos).
+- Testado com 5 cenarios obrigatorios (cliente com CNPJ vazio/certo/errado,
+  cliente sem cidade, dois clientes mesma cidade) - todos passaram.
+- Commit: `02315ca`.
+
+### Correcao no mesmo dia: completedOn da importacao de OS
+
+`WorkOrderService.importWorkOrder` gravava `Helper.addSeconds(new
+Date(), 60*10)` (agora + 10 minutos) no lugar da data real vinda do
+arquivo importado, sempre que `dto.getCompletedOn()` nao era nulo -
+descartando completamente a data do Excel. So afetava OS importadas
+(fluxo normal de conclusao pela tela nao era afetado). Corrigido pra usar
+o mesmo padrao ja usado no `dueDate`: `Helper.getDateFromExcelDate(dto
+.getCompletedOn())`. Testado com data conhecida, sem completedOn, perto da
+meia-noite, regressao do dueDate, e conclusao pelo fluxo normal - todos
+corretos. Commit: `be3aa0e`.
+
+### Correcao no mesmo dia: periodo do relatorio em massa respeitando o timezone da empresa
+
+O periodo escolhido na tela era tratado como um instante UTC
+(`${date}T00:00:00.000Z`), quando na verdade representa um dia civil no
+timezone configurado da empresa (America/Sao_Paulo, UTC-3) - perdia as
+ultimas 3h do ultimo dia local e incluia 3h do dia anterior.
+
+- Frontend manda so a data civil ("2026-08-01"), sem fingir que ja e' UTC.
+- DTO (`start`/`end`) trocou de `Date` pra `LocalDate`.
+- Backend resolve o timezone da empresa e converte: inicio do dia inicial
+  (inclusivo) ate' o inicio do dia SEGUINTE ao final (exclusivo) - evita
+  depender de `23:59:59.999`.
+- Historico/PDF exibem as `LocalDate` originais escolhidas, formatadas
+  direto - nunca reconstruidas a partir do instante UTC da query.
+- Validado com os 6 casos de fronteira obrigatorios (America/Sao_Paulo) +
+  controle com tz=UTC. Achado a parte (nao e' bug da correcao): existe um
+  cache de usuario (Caffeine, TTL 5min, invalidado so no login) que pode
+  manter o timezone antigo por ate 5min se alguem mudar a config da
+  empresa sem relogar - registrado como recomendacao futura, nao corrigido.
+- Commit: `e2039c6`. Deploy em producao feito no mesmo dia (backup previo,
+  build, containers recriados, boot limpo confirmado).
+
+### Correcao no mesmo dia: filtro de data (`gt`/`lt`) quebrava com HibernateException
+
+Investigacao motivada por um comentario em `WorkOrderKpiCards.tsx`
+avisando que filtrar `dueDate` quebrava o backend. Reproduzido de verdade
+via API: `GREATER_THAN_EQUAL`/`LESS_THAN_EQUAL` (`ge`/`le`) ja convertiam
+valores marcados `enumName=JS_DATE` (String -> Date), mas
+`GREATER_THAN`/`LESS_THAN` (`gt`/`lt`) nunca faziam essa conversao,
+lancando `HibernateException: Could not convert 'java.lang.String' to
+'java.sql.Timestamp'`. Confirmado que NAO era especifico de `dueDate` -
+`createdAt` e `completedOn` (campos "que ja funcionavam") quebram do
+mesmo jeito com `lt`/`gt`, so nunca foi exposto porque a tela de filtros
+(`MoreFilters.tsx`) so usa `ge`/`le`.
+
+- Correcao minima e isolada em `WrapperSpecification.java`: `gt` e `lt`
+  passaram a espelhar exatamente o mesmo padrao if/else ja usado e
+  testado em `ge`/`le`. Nenhum outro branch do switch alterado.
+- Testado via API real: `dueDate`/`createdAt`/`completedOn`/`updatedAt`
+  com os 4 operadores, filtro numerico, texto, enum, join, paginacao, e
+  outro modulo (`Asset`, mesmo motor `WrapperSpecification`) - todos
+  voltando 200 sem excecao, zero regressao.
+- Regra de negocio de "Atrasada"/"Vence hoje"/"No prazo"/"Sem prazo" foi
+  discutida e documentada pra proxima rodada, mas NAO implementada ainda
+  (nenhum card, filtro ou destaque visual nesta rodada - so o motor
+  generico de filtros foi corrigido).
+- Commit: `08b69fe`. Local, ainda nao enviado ao GitHub.
