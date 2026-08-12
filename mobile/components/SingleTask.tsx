@@ -15,6 +15,9 @@ import { SheetManager } from 'react-native-actions-sheet';
 import { PermissionEntity } from '../models/role';
 import { PlanFeature } from '../models/subscriptionPlan';
 import { Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { ERIONE_MOBILE_IDENTITY } from '../config/erioneVisualIdentity';
+
+const colors = ERIONE_MOBILE_IDENTITY.colors;
 
 interface SingleTaskProps {
   task: Task;
@@ -26,6 +29,8 @@ interface SingleTaskProps {
   handleZoomImage?: (images: string[], image: string) => void;
   toggleNotes?: (id: number) => void;
   notes?: Map<number, boolean>;
+  index?: number;
+  completed?: boolean;
 }
 
 export default function SingleTask({
@@ -37,7 +42,9 @@ export default function SingleTask({
   toggleNotes,
   notes,
   handleSelectImages,
-  handleZoomImage
+  handleZoomImage,
+  index,
+  completed = false
 }: SingleTaskProps) {
   const theme = useTheme();
   const { t }: { t: any } = useTranslation();
@@ -97,37 +104,53 @@ export default function SingleTask({
     }
   };
   return (
-    <View style={{ marginBottom: 10 }}>
-      <View
-        style={{
-          display: 'flex',
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}
-      >
-        <Text variant="titleMedium" style={{ width: '70%' }}>
-          {task.taskBase.label || `<${t('enter_task_name')}>`}
-        </Text>
-        <View style={{ display: 'flex', flexDirection: 'row' }}>
+    <View style={[styles.card, completed && styles.cardComplete]}>
+      <View style={styles.taskHeader}>
+        <View style={styles.taskStateIcon}>
           <IconButton
-            iconColor={theme.colors.primary}
-            icon={'image'}
-            onPress={() => handleSelectImages(task.id)}
-            disabled={
-              preview ||
-              !(
-                hasCreatePermission(PermissionEntity.FILES) &&
-                hasFeature(PlanFeature.FILE)
-              )
-            }
-          />
-          <IconButton
-            iconColor={theme.colors.primary}
-            icon={'note-outline'}
-            onPress={() => !preview && toggleNotes(task.id)}
+            icon={completed ? 'check-circle' : 'alert-circle-outline'}
+            size={22}
+            iconColor={completed ? colors.primary : '#B45309'}
+            style={styles.stateIcon}
           />
         </View>
+        <View style={styles.taskTitleGroup}>
+          <Text variant="titleSmall" style={styles.taskTitle}>
+            {index ? `${index}. ` : ''}
+            {task.taskBase.label || `<${t('enter_task_name')}>`}
+          </Text>
+          <Text
+            variant="labelSmall"
+            style={[styles.taskState, completed && styles.taskStateComplete]}
+          >
+            {t(completed ? 'question_answered' : 'question_pending')}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.taskActions}>
+        <Button
+          compact
+          mode="text"
+          icon="image-plus"
+          onPress={() => handleSelectImages(task.id)}
+          disabled={
+            preview ||
+            !(
+              hasCreatePermission(PermissionEntity.FILES) &&
+              hasFeature(PlanFeature.FILE)
+            )
+          }
+        >
+          {t('images')}
+        </Button>
+        <Button
+          compact
+          mode="text"
+          icon="note-text-outline"
+          onPress={() => !preview && toggleNotes(task.id)}
+        >
+          {t('notes')}
+        </Button>
       </View>
       {['SUBTASK', 'INSPECTION', 'MULTIPLE'].includes(
         task.taskBase.taskType
@@ -189,14 +212,7 @@ export default function SingleTask({
         />
       )}
       {task.taskBase.asset && (
-        <View
-          style={{
-            marginVertical: 10,
-            display: 'flex',
-            flexDirection: 'row',
-            justifyContent: 'space-between'
-          }}
-        >
+        <View style={styles.metaRow}>
           <Text style={{ fontWeight: 'bold' }}>{t('concerned_asset')}</Text>
           <TouchableOpacity>
             <Text style={{ color: theme.colors.primary }}>
@@ -206,14 +222,7 @@ export default function SingleTask({
         </View>
       )}
       {task.taskBase.user && (
-        <View
-          style={{
-            marginVertical: 10,
-            display: 'flex',
-            flexDirection: 'row',
-            justifyContent: 'space-between'
-          }}
-        >
+        <View style={styles.metaRow}>
           <Text style={{ fontWeight: 'bold' }}>{t('assigned_to')}</Text>
           <TouchableOpacity>
             <Text
@@ -223,7 +232,7 @@ export default function SingleTask({
         </View>
       )}
       {notes.get(task.id) && (
-        <View>
+        <View style={styles.notesBox}>
           <TextInput
             mode={'outlined'}
             multiline
@@ -249,24 +258,91 @@ export default function SingleTask({
           </Button>
         </View>
       )}
-      {task.images.map((image) => (
-        <TouchableOpacity
-          key={image.id}
-          onPress={() =>
-            handleZoomImage(
-              task.images.map((img) => img.url),
-              image.url
-            )
-          }
-          style={{ marginTop: 10 }}
-        >
-          <Image
-            source={{ uri: image.url }}
-            style={{ borderRadius: 5, height: 150 }}
-          />
-        </TouchableOpacity>
-      ))}
+      {!!task.images.length && (
+        <View style={styles.imageRow}>
+          {task.images.map((image) => (
+            <TouchableOpacity
+              key={image.id}
+              onPress={() =>
+                handleZoomImage(
+                  task.images.map((img) => img.url),
+                  image.url
+                )
+              }
+            >
+              <Image source={{ uri: image.url }} style={styles.taskImage} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  card: {
+    marginBottom: 10,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF'
+  },
+  cardComplete: {
+    borderColor: '#B8E3D0'
+  },
+  taskHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start'
+  },
+  taskStateIcon: {
+    width: 32
+  },
+  stateIcon: {
+    margin: 0,
+    marginLeft: -5,
+    marginTop: -4
+  },
+  taskTitleGroup: {
+    flex: 1
+  },
+  taskTitle: {
+    color: colors.text,
+    fontWeight: '800',
+    lineHeight: 20
+  },
+  taskState: {
+    color: '#B45309',
+    fontWeight: '700',
+    marginTop: 2
+  },
+  taskStateComplete: {
+    color: '#15805D'
+  },
+  taskActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 2,
+    marginBottom: 4
+  },
+  metaRow: {
+    marginVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12
+  },
+  notesBox: {
+    marginTop: 8
+  },
+  imageRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10
+  },
+  taskImage: {
+    width: 88,
+    height: 72,
+    borderRadius: 10,
+    backgroundColor: '#E5ECEF'
+  }
+});

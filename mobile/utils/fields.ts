@@ -1,10 +1,6 @@
-import { Platform } from 'react-native';
 import { IField } from '../models/form';
 import { formatSelect, formatSelectMultiple } from './formatters';
 import { isTask } from '../models/tasks';
-
-// iOS build must ignore NFC-specific fields and logic.
-const isIos = Platform.OS === 'ios';
 
 export const getWorkOrderFields = (t): IField[] => {
   return [
@@ -215,20 +211,6 @@ export const getAssetFields = (t): Array<IField> => {
       placeholder: t('serial_number'),
       midWidth: true
     },
-    {
-      name: 'barCode',
-      type: 'barcode',
-      label: t('barcode')
-    },
-    ...(!isIos
-      ? [
-          {
-            name: 'nfcId',
-            type: 'nfc' as const,
-            label: t('nfc_tag')
-          }
-        ]
-      : []),
     {
       name: 'category',
       midWidth: true,
@@ -574,11 +556,6 @@ export const getPartFields = (t): IField[] => {
       name: 'nonStock',
       type: 'switch',
       label: t('non_stock')
-    },
-    {
-      name: 'barcode',
-      type: 'barcode',
-      label: t('barcode')
     },
     {
       name: 'area',

@@ -197,7 +197,6 @@ export default function AssetsScreen({
         'description',
         'model',
         'additionalInfos',
-        'barCode',
         'area',
         'serialNumber',
         'manufacturer',

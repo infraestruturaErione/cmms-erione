@@ -20,7 +20,6 @@ import {
   Button,
   Dialog,
   Divider,
-  FAB,
   IconButton,
   List,
   Portal,
@@ -75,7 +74,6 @@ import LoadingDialog from '../../components/LoadingDialog';
 import WorkOrder from '../../models/workOrder';
 import Labor from '../../models/labor';
 import { AudioPlayer } from '../../components/AudioPlayer';
-import { Task } from '../../models/tasks';
 import { getErrorMessage } from '../../utils/api';
 import ImageView from 'react-native-image-viewing';
 import { getCustomFieldValuesForDetails } from '../../models/form';
@@ -86,8 +84,9 @@ import { getUsersMini } from '../../slices/user';
 import { TriggersConfig } from 'react-native-controlled-mentions/dist/types/types';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import FieldExecutionSection from './FieldExecutionSection';
+import FieldExecutionSection, {
+  FieldExecutionHistory
+} from './FieldExecutionSection';
 import {
   FIELD_REPORT_PREFIX,
   getFieldEvidenceItems,
@@ -105,14 +104,11 @@ import WorkOrderEvidenceGallery from './components/WorkOrderEvidenceGallery';
 import {
   formatMissingCompletionRequirements,
   getWorkOrderCompletionErrorMessage,
-  getWorkOrderCompletionReadiness,
-  isExecutionTaskComplete
+  getWorkOrderCompletionReadiness
 } from '../../utils/workOrderCompletion';
 
 const erioneColors = ERIONE_MOBILE_IDENTITY.colors;
 
-const getRemainingTasksLength = (tasks: Task[]): number =>
-  tasks.filter((task) => !isExecutionTaskComplete(task)).length;
 const triggersConfig: TriggersConfig<'mention'> = {
   mention: {
     trigger: '@',
@@ -159,7 +155,6 @@ export default function WODetailsScreen({
   const [loading, setLoading] = useState<boolean>(false);
   const theme = useTheme();
   const headerHeight = useHeaderHeight();
-  const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState<boolean>(false);
   const [imageViewImages, setImageViewImages] = useState<{ uri: string }[]>([]);
@@ -199,6 +194,7 @@ export default function WODetailsScreen({
   >([]);
   const [commentsLoadError, setCommentsLoadError] = useState(false);
   const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const [problemExpanded, setProblemExpanded] = useState(false);
   const { commentsByWorkOrder, loadingComments, loadingCreate } = useSelector(
     (state) => state.comments
   );
@@ -207,9 +203,14 @@ export default function WODetailsScreen({
   const adminComments = comments.filter(
     (c) => !c.content?.startsWith(FIELD_REPORT_PREFIX)
   );
-  const statuses = ['OPEN', 'ON_HOLD', 'IN_PROGRESS', 'COMPLETE'].map(
+  const statuses = ['OPEN', 'EN_ROUTE', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE'].map(
     (status) => ({ value: status, label: t(status) })
   );
+  const hasAdministrativeWorkOrderPermission =
+    user.role.editOtherPermissions.includes(PermissionEntity.WORK_ORDERS);
+  const showManualLaborTimer =
+    !generalPreferences.simplifiedWorkOrder &&
+    hasAdministrativeWorkOrderPermission;
   const completionReadiness = workOrder
     ? getWorkOrderCompletionReadiness({
         workOrder,
@@ -224,7 +225,6 @@ export default function WODetailsScreen({
     : [];
   const [openDelete, setOpenDelete] = React.useState(false);
   const [openArchive, setOpenArchive] = React.useState(false);
-  const remainingTasksLength = getRemainingTasksLength(tasks);
   const loadingDetails =
     loadingPartQuantities[id] ||
     loadingTasks[id] ||
@@ -329,7 +329,10 @@ export default function WODetailsScreen({
     if (showPartsSection) {
       dispatch(getPartQuantitiesByWorkOrder(id));
     }
-    if (showLaborSection && !ERIONE_HIDDEN_MODULES.labor) {
+    if (
+      (showLaborSection && !ERIONE_HIDDEN_MODULES.labor) ||
+      showManualLaborTimer
+    ) {
       dispatch(getLabors(id));
     }
     if (showAdditionalCostsSection && !ERIONE_HIDDEN_MODULES.additionalCosts) {
@@ -424,6 +427,13 @@ export default function WODetailsScreen({
       labor.duration +
         (new Date().getTime() - new Date(labor.startedAt).getTime()) / 1000
     );
+  };
+
+  const handleLaborTimer = () => {
+    setControllingTime(true);
+    dispatch(controlTimer(!runningTimer, id))
+      .catch((err) => showSnackBar(getErrorMessage(err), 'error'))
+      .finally(() => setControllingTime(false));
   };
   const onDeleteSuccess = () => {
     showSnackBar(t('wo_delete_success'), 'success');
@@ -878,6 +888,16 @@ export default function WODetailsScreen({
     const requirements = completionReadiness?.requirements;
     const checklistItems = [
       {
+        label: t('completion_requirement_check_in'),
+        done: !!requirements?.CHECK_IN.satisfied,
+        visible: true
+      },
+      {
+        label: t('completion_requirement_check_out'),
+        done: !!requirements?.CHECK_OUT.satisfied,
+        visible: true
+      },
+      {
         label: t('field_report'),
         done: !!requirements?.FIELD_REPORT.satisfied,
         visible: true
@@ -916,12 +936,34 @@ export default function WODetailsScreen({
         visible: !!requirements?.MILEAGE.required
       }
     ].filter((item) => item.visible);
+    const completedItems = checklistItems.filter((item) => item.done).length;
+    const isCompleted = workOrder.status === 'COMPLETE';
 
     return (
       <ErioneCard style={styles.completionChecklistCard}>
         <ErioneSectionHeader
-          title={t('before_complete_work_order')}
-          subtitle={t('before_complete_work_order_helper')}
+          title={t(isCompleted ? 'closing_requirements' : 'closing')}
+          subtitle={
+            isCompleted
+              ? t('closing_requirements_complete_helper')
+              : t('before_complete_work_order_helper')
+          }
+        />
+        <View style={styles.completionProgressRow}>
+          <Text variant="titleMedium" style={styles.completionProgressValue}>
+            {t('completion_progress', {
+              completed: completedItems,
+              total: checklistItems.length
+            })}
+          </Text>
+          <Text variant="labelMedium" style={styles.completionProgressPercent}>
+            {Math.round((completedItems / checklistItems.length) * 100)}%
+          </Text>
+        </View>
+        <ProgressBar
+          progress={completedItems / checklistItems.length}
+          color={erioneColors.primary}
+          style={styles.completionProgressBar}
         />
         {commentsLoadError && (
           <Text style={styles.completionErrorText}>
@@ -945,7 +987,14 @@ export default function WODetailsScreen({
               <View style={{ flex: 1 }}>
                 <Text style={styles.completionChecklistLabel}>{item.label}</Text>
                 <Text style={styles.completionChecklistStatus}>
-                  {item.helper ?? t(item.done ? 'ready_to_complete' : 'missing_to_complete')}
+                  {item.helper ??
+                    t(
+                      item.done
+                        ? 'ready_to_complete'
+                        : isCompleted
+                        ? 'not_recorded'
+                        : 'missing_to_complete'
+                    )}
                 </Text>
               </View>
             </View>
@@ -991,9 +1040,25 @@ export default function WODetailsScreen({
         subtitle={t('work_order_problem_helper')}
       />
       {workOrder.description ? (
-        <Text variant="bodyMedium" style={styles.problemText}>
-          {workOrder.description}
-        </Text>
+        <View>
+          <Text
+            variant="bodyMedium"
+            style={styles.problemText}
+            numberOfLines={problemExpanded ? undefined : 4}
+          >
+            {workOrder.description}
+          </Text>
+          {workOrder.description.length > 180 && (
+            <Button
+              compact
+              mode="text"
+              onPress={() => setProblemExpanded((current) => !current)}
+              style={styles.problemToggle}
+            >
+              {t(problemExpanded ? 'show_less' : 'show_more')}
+            </Button>
+          )}
+        </View>
       ) : (
         <Text style={styles.emptyStateText}>{t('no_description')}</Text>
       )}
@@ -1010,6 +1075,78 @@ export default function WODetailsScreen({
         >
           <Image style={styles.workOrderImage} source={{ uri: workOrder.image.url }} />
         </TouchableOpacity>
+      )}
+    </ErioneCard>
+  );
+
+  const renderCompletedSummary = () => (
+    <ErioneCard style={styles.completedSummaryCard}>
+      <View style={styles.completedHeading}>
+        <IconButton
+          icon="check-circle"
+          size={28}
+          iconColor="#15805D"
+          style={styles.completedIcon}
+        />
+        <View style={{ flex: 1 }}>
+          <Text variant="titleLarge" style={styles.completedTitle}>
+            {t('work_order_completed')}
+          </Text>
+          <Text variant="bodySmall" style={styles.completedMeta}>
+            {getFormattedDate(workOrder.completedOn)}
+            {workOrder.completedBy
+              ? ` · ${t('completed_by')} ${workOrder.completedBy.firstName} ${workOrder.completedBy.lastName}`
+              : ''}
+          </Text>
+        </View>
+      </View>
+      <Divider style={styles.completedDivider} />
+      <Text variant="titleSmall" style={styles.completedSectionTitle}>
+        {t('service_record')}
+      </Text>
+      <Text variant="labelMedium" style={styles.completedLabel}>
+        {t('field_report')}
+      </Text>
+      <Text variant="bodyMedium" style={styles.completedText}>
+        {fieldReportContent || t('not_recorded')}
+      </Text>
+      {workOrder.signature ? (
+        <View style={styles.completedField}>
+          <Text variant="labelMedium" style={styles.completedLabel}>
+            {t('signature')}
+          </Text>
+          <Image source={{ uri: workOrder.signature }} style={styles.signatureImage} />
+          {!!workOrder.signerName && (
+            <Text variant="bodySmall" style={styles.completedMeta}>
+              {workOrder.signerName}
+              {workOrder.signerDocument ? ` · ${workOrder.signerDocument}` : ''}
+            </Text>
+          )}
+        </View>
+      ) : (
+        <View style={styles.completedField}>
+          <Text variant="labelMedium" style={styles.completedLabel}>
+            {t('signature')}
+          </Text>
+          <Text variant="bodyMedium" style={styles.completedText}>
+            {completionReadiness?.requirements.SIGNATURE.required
+              ? t('not_recorded')
+              : t('not_required')}
+          </Text>
+        </View>
+      )}
+      {completionReadiness?.requirements.MILEAGE.required && (
+        <View style={styles.completedField}>
+          <Text variant="labelMedium" style={styles.completedLabel}>
+            {t('mileage_traveled')}
+          </Text>
+          <Text variant="bodyMedium" style={styles.completedText}>
+            {workOrder.mileageTraveled !== null &&
+            workOrder.mileageTraveled !== undefined
+              ? `${workOrder.mileageTraveled} km`
+              : t('not_recorded')}
+          </Text>
+        </View>
       )}
     </ErioneCard>
   );
@@ -1066,7 +1203,7 @@ export default function WODetailsScreen({
               ref={scrollViewRef}
               contentContainerStyle={[
                 styles.detailsContent,
-                { paddingBottom: 100 + insets.bottom }
+                { paddingBottom: 28 }
               ]}
               keyboardDismissMode={
                 Platform.OS === 'ios' ? 'interactive' : 'none'
@@ -1112,35 +1249,50 @@ export default function WODetailsScreen({
                   )}
                 </View>
               </ErioneCard>
+              {workOrder.status === 'COMPLETE' && renderCompletedSummary()}
               {renderDestinationCard()}
               {renderProblemCard()}
               <FieldExecutionSection
                 workOrder={workOrder}
                 comments={comments}
+                readiness={completionReadiness}
+                tasks={tasks}
+                onOpenTasks={() =>
+                  navigation.navigate('Tasks', {
+                    workOrderId: id,
+                    tasksProps: tasks
+                  })
+                }
+                onReviewClosure={() => onStatusChange('COMPLETE')}
                 canEdit={hasEditPermission(
                   PermissionEntity.WORK_ORDERS,
                   workOrder
                 )}
               />
               {renderEvidenceGallery()}
+              {renderCompletionChecklist()}
               {workOrder.status !== 'COMPLETE' &&
                 workOrder.checkOutAt &&
-                hasEditPermission(
-                  PermissionEntity.WORK_ORDERS,
-                  workOrder
+                hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) &&
+                !completionReadiness?.missingRequirements.some((requirement) =>
+                  ['CHECK_IN', 'CHECK_OUT', 'FIELD_REPORT', 'PHOTO', 'CHECKLIST'].includes(
+                    requirement
+                  )
                 ) && (
-                  <Fragment>
-                    {renderCompletionChecklist()}
                     <ErionePrimaryButton
                       icon="check-circle"
                       style={styles.completeButton}
                       disabled={loadingComments || commentsLoadError}
                       onPress={() => onStatusChange('COMPLETE')}
                     >
-                      {t('complete_work_order_short')}
+                      {t(
+                        completionReadiness?.missingRequirements.length
+                          ? 'review_closure'
+                          : 'complete_work_order_short'
+                      )}
                     </ErionePrimaryButton>
-                  </Fragment>
-              )}
+                )}
+              <FieldExecutionHistory workOrder={workOrder} comments={comments} />
               <ErioneCard style={styles.detailsCard}>
                 <TouchableOpacity
                   style={styles.collapsibleHeader}
@@ -1159,31 +1311,80 @@ export default function WODetailsScreen({
                 </TouchableOpacity>
                 {showMoreDetails && (
                   <Fragment>
-                    <TouchableOpacity
-                      disabled={
-                        !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
-                      }
-                      style={[styles.statusSelector, { borderColor: statusColor }]}
-                      onPress={() =>
-                        SheetManager.show('dropdown-sheet', {
-                          payload: {
-                            items: statuses,
-                            value: workOrder.status,
-                            setValue: handleStatusSelect
+                    {hasAdministrativeWorkOrderPermission ? (
+                      <TouchableOpacity
+                        style={[styles.statusSelector, { borderColor: statusColor }]}
+                        onPress={() =>
+                          SheetManager.show('dropdown-sheet', {
+                            payload: {
+                              items: statuses,
+                              value: workOrder.status,
+                              setValue: handleStatusSelect
+                            }
+                          })
+                        }
+                      >
+                        <Text style={{ color: statusColor }}>
+                          {statuses.find((s) => s.value === workOrder.status)?.label}
+                        </Text>
+                        <IconButton
+                          iconColor={statusColor}
+                          icon="menu-down"
+                          size={24}
+                          style={{ margin: -5 }}
+                        />
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={styles.readOnlyStatus}>
+                        <Text variant="labelSmall" style={styles.readOnlyStatusLabel}>
+                          {t('status')}
+                        </Text>
+                        <ErioneStatusBadge
+                          label={
+                            statuses.find((s) => s.value === workOrder.status)
+                              ?.label ?? t(workOrder.status)
                           }
-                        })
-                      }
-                    >
-                      <Text style={{ color: statusColor }}>
-                        {statuses.find((s) => s.value === workOrder.status)?.label}
-                      </Text>
-                      <IconButton
-                        iconColor={statusColor}
-                        icon="menu-down"
-                        size={24}
-                        style={{ margin: -5 }}
-                      />
-                    </TouchableOpacity>
+                          color={statusColor}
+                          subtle
+                        />
+                      </View>
+                    )}
+                    {showManualLaborTimer && (
+                      <View style={styles.manualLaborTimer}>
+                        <Text
+                          variant="labelMedium"
+                          style={styles.manualLaborTimerTitle}
+                        >
+                          {t('manual_labor_timer')}
+                        </Text>
+                        <Text
+                          variant="bodySmall"
+                          style={styles.manualLaborTimerHelper}
+                        >
+                          {t('manual_labor_timer_helper')}
+                        </Text>
+                        <Button
+                          compact
+                          mode="outlined"
+                          icon={runningTimer ? 'stop' : 'play'}
+                          loading={controllingTime}
+                          disabled={controllingTime}
+                          onPress={handleLaborTimer}
+                        >
+                          {runningTimer
+                            ? t('stop_work_order')
+                            : t('run_timer')}
+                        </Button>
+                        <Text
+                          variant="labelSmall"
+                          style={styles.manualLaborTimerValue}
+                        >
+                          {runningTimer
+                            ? runningTimerDuration
+                            : durationToHours(primaryTime?.duration)}
+                        </Text>
+                      </View>
+                    )}
                     {fieldsToRender.map(
                       ({ label, value, isLink }) =>
                         value && label !== t('description') && (
@@ -1228,47 +1429,6 @@ export default function WODetailsScreen({
                 )}
               </ErioneCard>
 
-                {workOrder.status === 'COMPLETE' && (
-                  <ErioneCard style={styles.detailsCard}>
-                    <ErioneSectionHeader title={t('completion')} />
-                    {workOrder.completedBy && (
-                      <ObjectField
-                        label={t('completed_by')}
-                        value={`${workOrder.completedBy.firstName} ${workOrder.completedBy.lastName}`}
-                        link={{
-                          route: 'UserDetails',
-                          id: workOrder.completedBy.id
-                        }}
-                        permissionEntity={PermissionEntity.PEOPLE_AND_TEAMS}
-                      />
-                    )}
-                    <BasicField
-                      label={t('completed_on')}
-                      value={getFormattedDate(workOrder.completedOn)}
-                    />
-                    {workOrder.feedback && (
-                      <BasicField
-                        label={t('feedback')}
-                        value={workOrder.feedback}
-                      />
-                    )}
-                    {workOrder.signature && (
-                      <View style={{ marginTop: 20 }}>
-                        <Divider style={{ marginBottom: 20 }} />
-                        <Text
-                          variant="titleMedium"
-                          style={{ fontWeight: 'bold' }}
-                        >
-                          {t('signature')}
-                        </Text>
-                        <Image
-                          source={{ uri: workOrder.signature }}
-                          style={styles.signatureImage}
-                        />
-                      </View>
-                    )}
-                  </ErioneCard>
-                )}
                 {workOrder.parentRequest && (
                   <ObjectField
                     label={t('requested_by')}
@@ -1442,47 +1602,6 @@ export default function WODetailsScreen({
                       )}
                       </View>
                     )}
-                  </View>
-                )}
-                {!!tasks.length && (
-                  <View style={styles.shadowedCard}>
-                    <Text
-                      style={{
-                        marginBottom: 10,
-                        color: theme.colors.onSurfaceVariant
-                      }}
-                    >
-                      {t('service_checklist')}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() =>
-                        navigation.navigate('Tasks', {
-                          workOrderId: id,
-                          tasksProps: tasks
-                        })
-                      }
-                    >
-                      <Text variant="titleLarge" style={{ fontWeight: 'bold' }}>
-                        {' '}
-                        {t('remaining_service_checklist_items', {
-                          count: remainingTasksLength
-                        })}
-                      </Text>
-                      <Text variant="bodyMedium">
-                        {t('complete_tasks_percent', {
-                          percent: (
-                            ((tasks.length - remainingTasksLength) * 100) /
-                            tasks.length
-                          ).toFixed(0)
-                        })}
-                      </Text>
-                      <Divider style={{ marginTop: 5 }} />
-                      <ProgressBar
-                        progress={
-                          (tasks.length - remainingTasksLength) / tasks.length
-                        }
-                      />
-                    </TouchableOpacity>
                   </View>
                 )}
                 {!generalPreferences.simplifiedWorkOrder && (
@@ -1752,29 +1871,6 @@ export default function WODetailsScreen({
                 )}
             </ScrollView>
           </KeyboardAvoidingView>
-          {!generalPreferences.simplifiedWorkOrder &&
-            hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
-              <FAB
-                icon={runningTimer ? 'stop' : 'play'}
-                label={
-                  runningTimer
-                    ? runningTimerDuration
-                    : durationToHours(primaryTime?.duration)
-                }
-                disabled={controllingTime}
-                theme={theme}
-                variant={runningTimer ? 'primary' : 'secondary'}
-                color="white"
-                onPress={() => {
-                  setControllingTime(true);
-                  dispatch(controlTimer(!runningTimer, id))
-                    .catch((err) => showSnackBar(getErrorMessage(err), 'error'))
-                    .finally(() => setControllingTime(false));
-                }}
-                visible={true}
-                style={[styles.fabStyle]}
-              />
-            )}
           {!!imageViewImages.length && (
             <ImageView
               images={imageViewImages}
@@ -1840,6 +1936,11 @@ const styles = StyleSheet.create({
     color: erioneColors.text,
     lineHeight: 21
   },
+  problemToggle: {
+    alignSelf: 'flex-start',
+    marginLeft: -8,
+    marginTop: 2
+  },
   problemImageWrap: {
     marginTop: 14
   },
@@ -1859,6 +1960,40 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: '#FFFFFF'
   },
+  readOnlyStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    gap: 12,
+    backgroundColor: 'transparent'
+  },
+  readOnlyStatusLabel: {
+    color: erioneColors.muted,
+    fontWeight: '700'
+  },
+  manualLaborTimer: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC'
+  },
+  manualLaborTimerTitle: {
+    color: erioneColors.text,
+    fontWeight: '800'
+  },
+  manualLaborTimerHelper: {
+    color: erioneColors.muted,
+    marginTop: 2,
+    marginBottom: 10
+  },
+  manualLaborTimerValue: {
+    color: erioneColors.muted,
+    marginTop: 6,
+    textAlign: 'right'
+  },
   audioBox: {
     backgroundColor: '#F6F9FA',
     borderRadius: 12,
@@ -1874,6 +2009,47 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 12,
     backgroundColor: '#FFFFFF'
+  },
+  completedSummaryCard: {
+    marginBottom: 12,
+    borderColor: '#B8E3D0',
+    backgroundColor: '#F2FBF7'
+  },
+  completedHeading: {
+    flexDirection: 'row',
+    alignItems: 'flex-start'
+  },
+  completedIcon: {
+    margin: 0,
+    marginRight: 6
+  },
+  completedTitle: {
+    color: '#12684E',
+    fontWeight: '900'
+  },
+  completedMeta: {
+    color: erioneColors.muted,
+    marginTop: 3
+  },
+  completedDivider: {
+    marginVertical: 14
+  },
+  completedSectionTitle: {
+    color: erioneColors.text,
+    fontWeight: '800',
+    marginBottom: 10
+  },
+  completedLabel: {
+    color: erioneColors.muted,
+    fontWeight: '700'
+  },
+  completedText: {
+    color: erioneColors.text,
+    marginTop: 3,
+    lineHeight: 20
+  },
+  completedField: {
+    marginTop: 14
   },
   emptyStateText: {
     color: erioneColors.muted,
@@ -1901,11 +2077,6 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF'
   },
-  fabStyle: {
-    bottom: 16,
-    right: 16,
-    position: 'absolute'
-  },
   completionChecklistCard: {
     marginBottom: 12,
     borderColor: '#CAD6FF',
@@ -1914,6 +2085,28 @@ const styles = StyleSheet.create({
   completionChecklist: {
     gap: 8,
     backgroundColor: 'transparent'
+  },
+  completionProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 8,
+    backgroundColor: 'transparent'
+  },
+  completionProgressValue: {
+    flex: 1,
+    color: erioneColors.text,
+    fontWeight: '900'
+  },
+  completionProgressPercent: {
+    color: erioneColors.primary,
+    fontWeight: '900'
+  },
+  completionProgressBar: {
+    height: 7,
+    borderRadius: 999,
+    marginBottom: 12
   },
   completionChecklistItem: {
     flexDirection: 'row',

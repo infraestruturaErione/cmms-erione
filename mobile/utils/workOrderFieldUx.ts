@@ -1,6 +1,7 @@
 import WorkOrder from '../models/workOrder';
 import Comment from '../models/comment';
 import File from '../models/file';
+import { getGuidedWorkOrderAction } from './fieldExecutionRules';
 
 export const FIELD_REPORT_PREFIX = '[Relato em campo]';
 export const FIELD_EVIDENCE_AUTO_TEXT = 'Evidencia fotografica registrada.';
@@ -56,15 +57,20 @@ export const getNextActionKey = (
   workOrder: WorkOrder,
   comments?: Comment[]
 ): WorkOrderNextAction => {
-  if (workOrder.status === 'COMPLETE') return 'work_order_completed';
-  if (workOrder.checkOutAt) return 'complete_work_order';
+  const action = getGuidedWorkOrderAction({ workOrder });
+  if (action.type === 'view' && workOrder.status === 'COMPLETE') {
+    return 'work_order_completed';
+  }
+  if (action.type === 'depart') return 'start_travel';
+  if (action.type === 'check-in') return 'make_check_in';
+  if (action.type === 'closure-details' || action.type === 'complete') {
+    return 'complete_work_order';
+  }
   if (workOrder.checkInAt && !comments) return 'continue_service';
   if (workOrder.checkInAt && !hasFieldReportComment(comments)) {
     return 'add_field_report';
   }
-  if (workOrder.checkInAt) return 'make_check_out';
-  if (workOrder.departureAt) return 'make_check_in';
-  return 'start_travel';
+  return action.type === 'check-out' ? 'make_check_out' : 'continue_service';
 };
 
 export const isWorkOrderInField = (workOrder: WorkOrder) =>

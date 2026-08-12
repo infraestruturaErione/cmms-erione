@@ -6,7 +6,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { RootTabScreenProps } from '../types';
 import useAuth from '../hooks/useAuth';
-import { PermissionEntity } from '../models/role';
 import { SearchCriteria } from '../models/page';
 import WorkOrder from '../models/workOrder';
 import { getNotifications } from '../slices/notification';
@@ -23,12 +22,11 @@ import {
 } from '../components/erione/ErioneUI';
 import { IconWithLabel } from '../components/IconWithLabel';
 import { ERIONE_MOBILE_IDENTITY } from '../config/erioneVisualIdentity';
-import { getStatusColor } from '../utils/overall';
+import { getPriorityColor, getStatusColor } from '../utils/overall';
 import {
   getNextActionKey,
   isPastDue,
   isPendingCompletion,
-  isSelectableHomeWorkOrder,
   isWorkOrderInField,
   sortWorkOrdersForField
 } from '../utils/workOrderFieldUx';
@@ -42,11 +40,7 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
   const netInfo = useNetInfo();
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const { getFormattedDate } = useContext(CompanySettingsContext);
-  const {
-    fetchUserSettings,
-    hasViewPermission,
-    user
-  } = useAuth();
+  const { fetchUserSettings, user } = useAuth();
   const { notifications } = useSelector((state) => state.notifications);
   const { workOrders, loadingGet } = useSelector((state) => state.workOrders);
 
@@ -69,7 +63,7 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
         field: 'status',
         operation: 'in',
         value: '',
-        values: ['OPEN', 'IN_PROGRESS', 'ON_HOLD'],
+        values: ['OPEN', 'EN_ROUTE', 'IN_PROGRESS', 'ON_HOLD'],
         enumName: 'STATUS'
       },
       {
@@ -123,11 +117,10 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
     [workOrders.content]
   );
 
-  const activeWorkOrder = sortedWorkOrders.find(isWorkOrderInField);
-  const nextWorkOrder = sortedWorkOrders.find(
-    (workOrder) =>
-      isSelectableHomeWorkOrder(workOrder) && workOrder.id !== activeWorkOrder?.id
-  );
+  const activeWorkOrders = sortedWorkOrders.filter(isWorkOrderInField);
+  const upcomingWorkOrders = sortedWorkOrders
+    .filter((workOrder) => !isWorkOrderInField(workOrder))
+    .slice(0, 3);
   const activeCount = sortedWorkOrders.filter(isWorkOrderInField).length;
   const highOrLate = sortedWorkOrders.filter(
     (wo) => wo.priority === 'HIGH' || isPastDue(wo)
@@ -142,18 +135,12 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
   };
 
   const WorkOrderSummaryCard = ({
-    title,
-    workOrder,
-    emptyText
+    workOrder
   }: {
-    title: string;
-    workOrder?: WorkOrder;
-    emptyText: string;
+    workOrder: WorkOrder;
   }) => (
     <ErioneCard style={styles.sectionCard}>
-      <ErioneSectionHeader title={title} />
-      {workOrder ? (
-        <TouchableOpacity activeOpacity={0.86} onPress={() => openWorkOrder(workOrder)}>
+      <TouchableOpacity activeOpacity={0.86} onPress={() => openWorkOrder(workOrder)}>
           <View style={styles.orderHeader}>
             <View style={{ flex: 1 }}>
               <Text variant="labelMedium" style={styles.orderCode}>
@@ -169,6 +156,15 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
               subtle
             />
           </View>
+          {workOrder.priority !== 'NONE' && (
+            <View style={styles.priorityRow}>
+              <ErioneStatusBadge
+                label={t('priority_label', { priority: t(workOrder.priority) })}
+                color={getPriorityColor(workOrder.priority, theme)}
+                subtle
+              />
+            </View>
+          )}
           <View style={styles.orderMeta}>
             {!!workOrder.customers?.length && (
               <IconWithLabel
@@ -214,14 +210,9 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
             onPress={() => openWorkOrder(workOrder)}
             style={styles.continueButton}
           >
-            {t('continue_service')}
+            {t(isWorkOrderInField(workOrder) ? 'continue_service' : 'open_work_order')}
           </ErionePrimaryButton>
         </TouchableOpacity>
-      ) : (
-        <Text variant="bodyMedium" style={styles.emptyText}>
-          {emptyText}
-        </Text>
-      )}
     </ErioneCard>
   );
 
@@ -252,17 +243,6 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
             </Text>
           </View>
           <View style={styles.headerActions}>
-            {hasViewPermission(PermissionEntity.ASSETS) && (
-              <IconButton
-                icon="magnify-scan"
-                style={styles.iconButton}
-                iconColor={colors.primary}
-                onPress={() => {
-                  if (netInfo.isInternetReachable) navigation.navigate('ScanAsset');
-                  else showSnackBar(t('no_internet_connection'), 'error');
-                }}
-              />
-            )}
             <View style={styles.notificationBox}>
               <IconButton
                 icon="bell-outline"
@@ -294,11 +274,7 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
                   : t('my_shift_helper')}
               </Text>
               <Text variant="titleLarge" style={styles.shiftHeroTitle}>
-                {activeWorkOrder
-                  ? t('continue_service')
-                  : nextWorkOrder
-                  ? t('next_work_order')
-                  : t('no_next_work_order')}
+                {t('daily_summary')}
               </Text>
             </View>
             <View style={styles.onlinePill}>
@@ -314,17 +290,53 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
           </View>
         </ErioneCard>
 
-        <WorkOrderSummaryCard
-          title={t('active_service_now')}
-          workOrder={activeWorkOrder}
-          emptyText={t('no_active_service_now')}
-        />
+        <View style={styles.sectionBlock}>
+          <ErioneSectionHeader
+            title={t('active_service_now')}
+            subtitle={t('active_service_now_helper')}
+          />
+          {activeWorkOrders.length ? (
+            activeWorkOrders.slice(0, 3).map((workOrder) => (
+              <WorkOrderSummaryCard key={workOrder.id} workOrder={workOrder} />
+            ))
+          ) : (
+            <ErioneCard style={styles.emptyCard}>
+              <Text variant="bodyMedium" style={styles.emptyText}>
+                {t('no_active_service_now')}
+              </Text>
+            </ErioneCard>
+          )}
+        </View>
 
-        <WorkOrderSummaryCard
-          title={t('next_work_order')}
-          workOrder={nextWorkOrder}
-          emptyText={loadingGet ? t('loading_work_orders') : t('no_next_work_order')}
-        />
+        <View style={styles.sectionBlock}>
+          <ErioneSectionHeader
+            title={t('upcoming_work_orders')}
+            subtitle={t('upcoming_work_orders_helper')}
+          />
+          {upcomingWorkOrders.length ? (
+            upcomingWorkOrders.map((workOrder) => (
+              <WorkOrderSummaryCard key={workOrder.id} workOrder={workOrder} />
+            ))
+          ) : (
+            <ErioneCard style={styles.emptyCard}>
+              <Text variant="bodyMedium" style={styles.emptyText}>
+                {loadingGet ? t('loading_work_orders') : t('no_next_work_order')}
+              </Text>
+            </ErioneCard>
+          )}
+          <ErionePrimaryButton
+            icon="format-list-bulleted"
+            onPress={() =>
+              navigation.navigate('WorkOrders', {
+                filterFields: getShiftCriteria().filterFields,
+                fromHome: true
+              })
+            }
+            style={styles.allButton}
+          >
+            {t('view_all_work_orders')}
+          </ErionePrimaryButton>
+        </View>
 
       </ScrollView>
     </ErioneScreen>
@@ -429,9 +441,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center'
   },
-  iconButton: {
-    backgroundColor: colors.primarySoft
-  },
   notificationBox: {
     position: 'relative',
     backgroundColor: colors.primarySoft,
@@ -444,6 +453,14 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     marginBottom: 12
+  },
+  sectionBlock: {
+    marginTop: 8,
+    marginBottom: 4
+  },
+  emptyCard: {
+    marginBottom: 12,
+    paddingVertical: 14
   },
   orderHeader: {
     flexDirection: 'row',
@@ -463,6 +480,9 @@ const styles = StyleSheet.create({
     gap: 7,
     marginTop: 12
   },
+  priorityRow: {
+    marginTop: 10
+  },
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -481,6 +501,7 @@ const styles = StyleSheet.create({
     color: colors.muted
   },
   allButton: {
-    marginTop: 2
+    marginTop: 2,
+    marginBottom: 8
   }
 });

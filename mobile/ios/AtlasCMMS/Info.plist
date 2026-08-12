@@ -54,7 +54,7 @@
       <true/>
     </dict>
     <key>NSCameraUsageDescription</key>
-    <string>Allow Erione CMMS to use the camera to scan.</string>
+    <string>Allow Erione CMMS to use the camera for work order photos and field evidence.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Permita que o Erione CMMS use sua localizacao para registrar deslocamento, check-in e check-out da OS.</string>
     <key>NSMicrophoneUsageDescription</key>

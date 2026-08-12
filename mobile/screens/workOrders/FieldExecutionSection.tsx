@@ -3,7 +3,13 @@ import * as Location from 'expo-location';
 import { useNetInfo } from '@react-native-community/netinfo';
 import mime from 'mime';
 import { useContext, useState } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import {
   Button,
   Chip,
@@ -11,6 +17,7 @@ import {
   Divider,
   IconButton,
   Portal,
+  ProgressBar,
   Text,
   TextInput,
   useTheme
@@ -19,7 +26,7 @@ import { useTranslation } from 'react-i18next';
 import InAppCamera from '../../components/InAppCamera';
 import Comment from '../../models/comment';
 import WorkOrder from '../../models/workOrder';
-import { createComment } from '../../slices/comment';
+import { createComment, updateComment } from '../../slices/comment';
 import {
   checkInWorkOrder,
   checkOutWorkOrder,
@@ -35,12 +42,16 @@ import {
   getDistanceInMeters,
   getFieldDurations,
   getFieldExecutionStatus,
-  getRecommendedFieldAction,
+  getGuidedWorkOrderAction,
   RecommendedFieldActionType
 } from '../../utils/fieldExecutionRules';
+import type { WorkOrderCompletionReadiness } from '../../utils/workOrderCompletion';
+import { Task } from '../../models/tasks';
+import { isExecutionTaskComplete } from '../../utils/workOrderCompletion';
 import {
   FIELD_EVIDENCE_AUTO_TEXT,
   FIELD_REPORT_PREFIX,
+  getFieldReportText,
   hasFieldReportComment,
   hasFieldReportEvidence
 } from '../../utils/workOrderFieldUx';
@@ -50,6 +61,7 @@ import {
   ErioneSectionHeader
 } from '../../components/erione/ErioneUI';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
+import useAuth from '../../hooks/useAuth';
 
 const colors = ERIONE_MOBILE_IDENTITY.colors;
 
@@ -62,6 +74,10 @@ interface Props {
   workOrder: WorkOrder;
   comments: Comment[];
   canEdit: boolean;
+  readiness?: WorkOrderCompletionReadiness | null;
+  tasks?: Task[];
+  onOpenTasks?: () => void;
+  onReviewClosure?: () => void;
 }
 
 const formatDuration = (seconds: number | null, inProgress?: boolean) => {
@@ -111,14 +127,162 @@ export const hasFieldReport = (comments: Comment[]) =>
 
 export { hasFieldReportEvidence };
 
+export function FieldExecutionHistory({
+  workOrder,
+  comments
+}: {
+  workOrder: WorkOrder;
+  comments: Comment[];
+}) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const { getFormattedDate } = useContext(CompanySettingsContext);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const durations = getFieldDurations(workOrder);
+  const reportRegistered = hasFieldReport(comments);
+  const evidenceRegistered = hasFieldReportEvidence(comments);
+  const getDistanceDetail = (lat?: number | null, lng?: number | null) => {
+    const distance = formatDistanceLabel(
+      getDistanceInMeters(
+        lat,
+        lng,
+        workOrder.location?.latitude,
+        workOrder.location?.longitude
+      )
+    );
+    return distance ? t('distance_from_location', { distance }) : '-';
+  };
+  const timelineItems = [
+    {
+      key: 'created',
+      title: t('work_order_created'),
+      done: true,
+      date: workOrder.createdAt,
+      detail: null
+    },
+    {
+      key: 'departure',
+      title: t('travel_started'),
+      done: !!workOrder.departureAt,
+      date: workOrder.departureAt,
+      detail: getDistanceDetail(workOrder.departureLat, workOrder.departureLng)
+    },
+    {
+      key: 'check-in',
+      title: t('check_in_done'),
+      done: !!workOrder.checkInAt,
+      date: workOrder.checkInAt,
+      detail: getDistanceDetail(workOrder.checkInLat, workOrder.checkInLng)
+    },
+    {
+      key: 'site',
+      title: t('field_service_in_progress'),
+      done: !!workOrder.checkInAt,
+      date: null,
+      detail: `${t('site_duration')}: ${formatDuration(
+        durations.site.seconds,
+        durations.site.inProgress
+      )}`
+    },
+    {
+      key: 'check-out',
+      title: t('check_out_done'),
+      done: !!workOrder.checkOutAt,
+      date: workOrder.checkOutAt,
+      detail: getDistanceDetail(workOrder.checkOutLat, workOrder.checkOutLng)
+    },
+    {
+      key: 'report',
+      title: t('field_report'),
+      done: reportRegistered,
+      date: null,
+      detail: t(reportRegistered ? 'field_report_registered' : 'field_report_pending')
+    },
+    {
+      key: 'evidence',
+      title: t('work_order_evidence'),
+      done: evidenceRegistered,
+      date: null,
+      detail: t(evidenceRegistered ? 'evidence_registered' : 'evidence_pending')
+    },
+    {
+      key: 'complete',
+      title: t('work_order_completed'),
+      done: workOrder.status === 'COMPLETE',
+      date: workOrder.completedOn,
+      detail:
+        workOrder.status === 'COMPLETE' && workOrder.completedBy
+          ? `${t('completed_by')} ${workOrder.completedBy.firstName} ${workOrder.completedBy.lastName}`
+          : t(workOrder.status === 'COMPLETE' ? 'completed_step' : 'pending_completion')
+    }
+  ];
+
+  return (
+    <ErioneCard style={styles.historyCard}>
+      <TouchableOpacity
+        style={styles.historyHeader}
+        onPress={() => setHistoryOpen((current) => !current)}
+      >
+        <View style={{ flex: 1 }}>
+          <Text variant="titleMedium" style={styles.historyTitle}>
+            {t('execution_history')}
+          </Text>
+          <Text variant="bodySmall" style={styles.historyHelper}>
+            {t('execution_history_helper')}
+          </Text>
+        </View>
+        <IconButton
+          icon={historyOpen ? 'chevron-up' : 'chevron-down'}
+          size={22}
+          iconColor={colors.primary}
+          style={{ margin: 0 }}
+        />
+      </TouchableOpacity>
+      {historyOpen &&
+        timelineItems.map((item) => (
+          <View key={item.key} style={styles.timelineItem}>
+            <IconButton
+              icon={item.done ? 'check-circle' : 'circle-outline'}
+              size={22}
+              iconColor={item.done ? theme.colors.primary : theme.colors.outline}
+              style={styles.timelineIcon}
+            />
+            <View style={{ flex: 1 }}>
+              <Text
+                variant="bodyMedium"
+                style={[styles.timelineTitle, item.done && styles.timelineDone]}
+              >
+                {item.title}
+              </Text>
+              <Text variant="bodySmall" style={styles.timelineMeta}>
+                {item.done ? t('completed_step') : t('pending_step')}
+                {item.date ? ` · ${getFormattedDate(item.date)}` : ''}
+              </Text>
+              {!!item.detail && (
+                <Text variant="bodySmall" style={styles.timelineMeta}>
+                  {item.detail}
+                </Text>
+              )}
+            </View>
+          </View>
+        ))}
+    </ErioneCard>
+  );
+}
+
 export default function FieldExecutionSection({
   workOrder,
   comments,
-  canEdit
+  canEdit,
+  readiness,
+  tasks = [],
+  onOpenTasks,
+  onReviewClosure
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const dispatch = useDispatch();
+  const { user } = useAuth();
   const netInfo = useNetInfo();
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const { getFormattedDate, uploadFiles } = useContext(CompanySettingsContext);
@@ -133,35 +297,31 @@ export default function FieldExecutionSection({
   const [savingReport, setSavingReport] = useState(false);
   const [savingEvidence, setSavingEvidence] = useState(false);
 
-  const recommendedAction = getRecommendedFieldAction(workOrder);
+  const guidedAction = getGuidedWorkOrderAction({ workOrder, readiness });
   const status = getFieldExecutionStatus(workOrder);
   const durations = getFieldDurations(workOrder);
-  const getDistanceDetail = (lat?: number | null, lng?: number | null) => {
-    const distance = formatDistanceLabel(
-      getDistanceInMeters(
-        lat,
-        lng,
-        workOrder.location?.latitude,
-        workOrder.location?.longitude
-      )
-    );
-    return distance ? t('distance_from_location', { distance }) : '-';
-  };
   const reportRegistered = hasFieldReport(comments);
-  const evidenceRegistered = hasFieldReportEvidence(comments);
-  const currentTimelineKey = !workOrder.departureAt
-    ? 'departure'
-    : !workOrder.checkInAt
-    ? 'check-in'
-    : !reportRegistered
-    ? 'report'
-    : !evidenceRegistered
-    ? 'evidence'
-    : !workOrder.checkOutAt
-    ? 'check-out'
-    : workOrder.status !== 'COMPLETE'
-    ? 'complete'
-    : '';
+  const completedMode = workOrder.status === 'COMPLETE';
+  const existingFieldReport = comments.find(
+    (comment) => getFieldReportText(comment).length > 0
+  );
+  const canUpdateExistingReport =
+    !!existingFieldReport &&
+    existingFieldReport.user?.id === user.id &&
+    !completedMode &&
+    canEdit;
+  const completedTasks = tasks.filter(isExecutionTaskComplete).length;
+  const taskProgress = tasks.length ? completedTasks / tasks.length : 0;
+  const fieldEvidenceCount = comments
+    .filter((comment) => comment.content?.startsWith(FIELD_REPORT_PREFIX))
+    .reduce((count, comment) => count + (comment.files?.length ?? 0), 0);
+
+  const openFieldReport = () => {
+    setFieldReport(
+      existingFieldReport ? getFieldReportText(existingFieldReport) : ''
+    );
+    setReportOpen(true);
+  };
 
   const runFieldAction = async (action: FieldAction) => {
     if (loadingAction) return;
@@ -214,6 +374,26 @@ export default function FieldExecutionSection({
     }
   };
 
+  const runGuidedAction = () => {
+    if (
+      guidedAction.type === 'depart' ||
+      guidedAction.type === 'check-in' ||
+      guidedAction.type === 'check-out'
+    ) {
+      runFieldAction(guidedAction.type);
+      return;
+    }
+    if (guidedAction.type === 'questionnaire') onOpenTasks?.();
+    if (guidedAction.type === 'field-report') openFieldReport();
+    if (guidedAction.type === 'photo') setEvidenceOpen(true);
+    if (
+      guidedAction.type === 'closure-details' ||
+      guidedAction.type === 'complete'
+    ) {
+      onReviewClosure?.();
+    }
+  };
+
   const pickEvidenceImage = async () => {
     if (netInfo.isInternetReachable === false) {
       showSnackBar(t('field_evidence_offline_error'), 'error');
@@ -262,14 +442,28 @@ export default function FieldExecutionSection({
     }
     setSavingReport(true);
     try {
-      await dispatch(
-        createComment({
-          workOrder: { id: workOrder.id },
-          content: `${FIELD_REPORT_PREFIX} ${fieldReport.trim()}`.trim(),
-          files: []
-        })
-      );
-      setFieldReport('');
+      const content = `${FIELD_REPORT_PREFIX} ${fieldReport.trim()}`.trim();
+      if (existingFieldReport) {
+        if (!canUpdateExistingReport) return;
+        await dispatch(
+          updateComment(
+            existingFieldReport.id,
+            {
+              content,
+              files: existingFieldReport.files.map((file) => ({ id: file.id }))
+            },
+            workOrder.id
+          )
+        );
+      } else {
+        await dispatch(
+          createComment({
+            workOrder: { id: workOrder.id },
+            content,
+            files: []
+          })
+        );
+      }
       setReportOpen(false);
       showSnackBar(t('field_report_save_success'), 'success');
     } catch (error) {
@@ -310,68 +504,6 @@ export default function FieldExecutionSection({
     }
   };
 
-  const timelineItems = [
-    {
-      key: 'departure',
-      title: t('travel_started'),
-      done: !!workOrder.departureAt,
-      date: workOrder.departureAt,
-      detail: getDistanceDetail(workOrder.departureLat, workOrder.departureLng)
-    },
-    {
-      key: 'check-in',
-      title: t('check_in_done'),
-      done: !!workOrder.checkInAt,
-      date: workOrder.checkInAt,
-      detail: getDistanceDetail(workOrder.checkInLat, workOrder.checkInLng)
-    },
-    {
-      key: 'site',
-      title: t('field_service_in_progress'),
-      done: !!workOrder.checkInAt,
-      date: null,
-      detail: `${t('site_duration')}: ${formatDuration(
-        durations.site.seconds,
-        durations.site.inProgress
-      )}`
-    },
-    {
-      key: 'check-out',
-      title: t('check_out_done'),
-      done: !!workOrder.checkOutAt,
-      date: workOrder.checkOutAt,
-      detail: getDistanceDetail(workOrder.checkOutLat, workOrder.checkOutLng)
-    },
-    {
-      key: 'report',
-      title: t('field_report'),
-      done: reportRegistered,
-      date: null,
-      detail: reportRegistered
-        ? t('field_report_registered')
-        : t('field_report_pending')
-    },
-    {
-      key: 'evidence',
-      title: t('work_order_evidence'),
-      done: evidenceRegistered,
-      date: null,
-      detail: evidenceRegistered
-        ? t('evidence_registered')
-        : t('evidence_pending')
-    },
-    {
-      key: 'complete',
-      title: t('work_order_completed'),
-      done: workOrder.status === 'COMPLETE',
-      date: null,
-      detail:
-        workOrder.status === 'COMPLETE'
-          ? t('completed_step')
-          : t('pending_completion')
-    }
-  ];
-
   return (
     <ErioneCard style={styles.card}>
       <View style={styles.headerRow}>
@@ -386,28 +518,93 @@ export default function FieldExecutionSection({
         </Chip>
       </View>
 
-      <View style={styles.nextActionBox}>
-        <Text variant="labelMedium" style={styles.nextActionLabel}>
-          {t('next_action')}
-        </Text>
-        <Text variant="titleMedium" style={styles.nextActionTitle}>
-          {t(recommendedAction.labelKey)}
-        </Text>
-        {recommendedAction.helperKey && (
-          <Text variant="bodySmall" style={styles.nextActionHelper}>
-            {t(recommendedAction.helperKey)}
+      {!completedMode && (
+        <View style={styles.nextActionBox}>
+          <Text variant="labelMedium" style={styles.nextActionLabel}>
+            {t('next_action')}
           </Text>
-        )}
-        {recommendedAction.isFieldAction && canEdit && (
-          <ErionePrimaryButton
-            loading={loadingAction === recommendedAction.type}
-            disabled={!!loadingAction}
-            onPress={() => runFieldAction(recommendedAction.type as FieldAction)}
-            style={styles.nextActionButton}
+          <Text variant="titleLarge" style={styles.nextActionTitle}>
+            {t(guidedAction.labelKey)}
+          </Text>
+          {guidedAction.helperKey && (
+            <Text variant="bodySmall" style={styles.nextActionHelper}>
+              {t(guidedAction.helperKey)}
+            </Text>
+          )}
+          {canEdit && guidedAction.type !== 'view' && (
+            <ErionePrimaryButton
+              loading={loadingAction === guidedAction.type}
+              disabled={!!loadingAction || savingReport || savingEvidence}
+              onPress={runGuidedAction}
+              style={styles.nextActionButton}
+            >
+              {t(guidedAction.labelKey)}
+            </ErionePrimaryButton>
+          )}
+        </View>
+      )}
+
+      <Text variant="titleSmall" style={styles.subsectionTitle}>
+        {t('arrival')}
+      </Text>
+      <View style={styles.arrivalSteps}>
+        {[
+          {
+            label: t('travel_started'),
+            done: !!workOrder.departureAt,
+            date: workOrder.departureAt
+          },
+          {
+            label: t('check_in_done'),
+            done: !!workOrder.checkInAt,
+            date: workOrder.checkInAt
+          }
+        ].map((step, index, steps) => (
+          <View
+            key={step.label}
+            style={[
+              styles.arrivalStep,
+              index === steps.length - 1 && styles.arrivalStepLast
+            ]}
           >
-            {t(recommendedAction.labelKey)}
-          </ErionePrimaryButton>
-        )}
+            <IconButton
+              icon={step.done ? 'check-circle' : 'circle-outline'}
+              size={20}
+              iconColor={step.done ? colors.primary : theme.colors.outline}
+              style={styles.arrivalIcon}
+            />
+            <Text variant="bodyMedium" style={styles.arrivalLabel}>
+              {step.label}
+            </Text>
+            <Text variant="bodySmall" style={styles.arrivalTime}>
+              {step.date ? getFormattedDate(step.date) : t('pending_step')}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      <Text variant="titleSmall" style={styles.subsectionTitle}>
+        {t('on_site_closing')}
+      </Text>
+      <View style={styles.arrivalSteps}>
+        <View style={[styles.arrivalStep, styles.arrivalStepLast]}>
+          <IconButton
+            icon={workOrder.checkOutAt ? 'check-circle' : 'circle-outline'}
+            size={20}
+            iconColor={
+              workOrder.checkOutAt ? colors.primary : theme.colors.outline
+            }
+            style={styles.arrivalIcon}
+          />
+          <Text variant="bodyMedium" style={styles.arrivalLabel}>
+            {t('check_out_done')}
+          </Text>
+          <Text variant="bodySmall" style={styles.arrivalTime}>
+            {workOrder.checkOutAt
+              ? getFormattedDate(workOrder.checkOutAt)
+              : t('pending_step')}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.metricsRow}>
@@ -429,112 +626,169 @@ export default function FieldExecutionSection({
         </View>
       </View>
 
-      <Divider style={{ marginVertical: 14 }} />
+      <Text variant="bodySmall" style={styles.durationHelper}>
+        {t('field_time_labor_helper')}
+      </Text>
 
-      {timelineItems.map((item) => {
-        const current = item.key === currentTimelineKey;
-
-        return (
-        <View
-          key={item.key}
-          style={[styles.timelineItem, current && styles.timelineItemCurrent]}
-        >
-          <IconButton
-            icon={item.done ? 'check-circle' : current ? 'radiobox-marked' : 'circle-outline'}
-            size={22}
-            iconColor={
-              item.done
-                ? theme.colors.primary
-                : current
-                ? colors.primary
-                : theme.colors.outline
-            }
-            style={styles.timelineIcon}
-          />
-          <View style={{ flex: 1 }}>
-            <Text
-              variant="bodyMedium"
-              style={[styles.timelineTitle, item.done && styles.timelineDone]}
-            >
-              {item.title}
-            </Text>
-            <Text variant="bodySmall" style={styles.timelineMeta}>
-              {item.done ? t('completed_step') : t('pending_step')}
-              {item.date ? ` - ${getFormattedDate(item.date)}` : ''}
-            </Text>
-            {!!item.detail && (
-              <Text variant="bodySmall" style={styles.timelineMeta}>
-                {item.detail}
+      {!!tasks.length && (
+        <View style={styles.questionnaireCard}>
+          <View style={styles.questionnaireHeader}>
+            <View style={{ flex: 1 }}>
+              <Text variant="titleSmall" style={styles.subsectionTitleInline}>
+                {t('questionnaire')}
               </Text>
-            )}
+              <Text variant="bodySmall" style={styles.questionnaireMeta}>
+                {t('questionnaire_progress', {
+                  completed: completedTasks,
+                  total: tasks.length
+                })}
+                {readiness?.requirements.CHECKLIST.required
+                  ? ` · ${t('required')}`
+                  : ''}
+              </Text>
+            </View>
+            <Text variant="titleSmall" style={styles.questionnairePercent}>
+              {Math.round(taskProgress * 100)}%
+            </Text>
           </View>
-        </View>
-        );
-      })}
-
-      <View style={styles.checklistRow}>
-        <Chip compact icon={reportRegistered ? 'check' : 'alert-circle-outline'}>
-          {reportRegistered ? t('field_report_registered') : t('field_report_pending')}
-        </Chip>
-        <Chip compact icon={evidenceRegistered ? 'check' : 'image-outline'}>
-          {evidenceRegistered ? t('evidence_registered') : t('evidence_pending')}
-        </Chip>
-      </View>
-
-      {canEdit && (
-        <View style={styles.fieldActionButtons}>
-          <Button
-            mode={reportRegistered ? 'outlined' : 'contained'}
-            icon="text-box-plus-outline"
-            style={styles.fieldActionButton}
-            buttonColor={reportRegistered ? undefined : colors.primary}
-            textColor={reportRegistered ? colors.primary : '#FFFFFF'}
-            onPress={() => setReportOpen(true)}
-          >
-            {t('add_field_report')}
-          </Button>
-          <Button
-            mode={evidenceRegistered ? 'outlined' : 'contained'}
-            icon="camera-plus-outline"
-            style={styles.fieldActionButton}
-            buttonColor={evidenceRegistered ? undefined : colors.primarySoft}
-            textColor={colors.primary}
-            onPress={() => setEvidenceOpen(true)}
-          >
-            {t('add_field_evidence')}
-          </Button>
+          <ProgressBar progress={taskProgress} color={colors.primary} />
+          {!completedMode && canEdit && (
+            <Button
+              mode="text"
+              icon="clipboard-check-outline"
+              onPress={onOpenTasks}
+              style={styles.inlineAction}
+            >
+              {t(completedTasks === tasks.length ? 'review_answers' : 'continue_questionnaire')}
+            </Button>
+          )}
         </View>
       )}
 
-      <Portal>
-        <Dialog visible={reportOpen} onDismiss={() => setReportOpen(false)}>
-          <Dialog.Title>{t('add_field_report')}</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodySmall" style={styles.dialogHelper}>
-              {t('field_report_input_helper')}
+      <Text variant="titleSmall" style={styles.subsectionTitle}>
+        {t('service_record')}
+      </Text>
+      <View style={styles.recordList}>
+        <View style={styles.recordItem}>
+          <IconButton
+            icon={reportRegistered ? 'check-circle' : 'alert-circle-outline'}
+            size={22}
+            iconColor={reportRegistered ? colors.primary : theme.colors.error}
+            style={styles.recordIcon}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.recordTitle}>{t('field_report')}</Text>
+            <Text style={styles.recordMeta}>
+              {t(reportRegistered ? 'field_report_registered' : 'field_report_pending')}
             </Text>
-            <TextInput
-              mode="outlined"
-              multiline
-              numberOfLines={4}
-              label={t('field_report')}
-              value={fieldReport}
-              onChangeText={setFieldReport}
-            />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setReportOpen(false)}>{t('cancel')}</Button>
-            <Button
-              mode="contained"
-              loading={savingReport}
-              disabled={savingReport || !fieldReport.trim()}
-              onPress={submitFieldReport}
-            >
-              {t('save')}
+          </View>
+          {(reportRegistered || (!completedMode && canEdit)) && (
+            <Button compact mode="text" onPress={openFieldReport}>
+              {t(reportRegistered ? 'view_report' : 'add')}
             </Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+          )}
+        </View>
+        <View style={styles.recordItem}>
+          <IconButton
+            icon={fieldEvidenceCount ? 'check-circle' : 'image-outline'}
+            size={22}
+            iconColor={fieldEvidenceCount ? colors.primary : theme.colors.outline}
+            style={styles.recordIcon}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.recordTitle}>{t('evidence')}</Text>
+            <Text style={styles.recordMeta}>
+              {t('evidence_photo_count', { count: fieldEvidenceCount })}
+              {readiness?.requirements.PHOTO.required ? ` · ${t('required')}` : ''}
+            </Text>
+          </View>
+          {!completedMode && canEdit && (
+            <Button compact mode="text" onPress={() => setEvidenceOpen(true)}>
+              {t('add')}
+            </Button>
+          )}
+        </View>
+      </View>
+      <Text variant="bodySmall" style={styles.evidenceDisclaimer}>
+        {t('evidence_does_not_replace_report')}
+      </Text>
+
+      {reportOpen && (
+        <Portal>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.reportKeyboardArea}
+          >
+            <Dialog
+              visible={reportOpen}
+              onDismiss={() => setReportOpen(false)}
+              style={styles.reportDialog}
+            >
+              <View style={styles.reportHeader}>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.reportTitleRow}>
+                    <Text variant="titleLarge" style={styles.reportDialogTitle}>
+                      {t('field_report_dialog_title')}
+                    </Text>
+                    <Chip compact style={styles.requiredChip}>
+                      {t('required')}
+                    </Chip>
+                  </View>
+                  <Text variant="bodySmall" style={styles.reportDialogHelper}>
+                    {t('field_report_dialog_helper')}
+                  </Text>
+                </View>
+                <IconButton
+                  icon="close"
+                  onPress={() => setReportOpen(false)}
+                  style={{ margin: 0 }}
+                />
+              </View>
+              <Dialog.Content style={styles.reportContent}>
+                {!!existingFieldReport && !canUpdateExistingReport && (
+                  <Text variant="bodySmall" style={styles.reportReadOnlyHelper}>
+                    {t('field_report_read_only_helper')}
+                  </Text>
+                )}
+                <TextInput
+                  mode="outlined"
+                  multiline
+                  numberOfLines={8}
+                  maxLength={4000}
+                  editable={!existingFieldReport || canUpdateExistingReport}
+                  placeholder={t('field_report_placeholder')}
+                  value={fieldReport}
+                  onChangeText={setFieldReport}
+                  style={styles.reportInput}
+                  contentStyle={styles.reportInputContent}
+                />
+                <Text variant="labelSmall" style={styles.reportCounter}>
+                  {fieldReport.length}/4000
+                </Text>
+                <Text variant="bodySmall" style={styles.reportDisclaimer}>
+                  {t('evidence_does_not_replace_report')}
+                </Text>
+              </Dialog.Content>
+              <View style={styles.reportActions}>
+                <Button onPress={() => setReportOpen(false)}>
+                  {t(existingFieldReport && !canUpdateExistingReport ? 'close' : 'cancel')}
+                </Button>
+                {(!existingFieldReport || canUpdateExistingReport) && (
+                  <ErionePrimaryButton
+                    icon="content-save-outline"
+                    style={styles.saveReportButton}
+                    loading={savingReport}
+                    disabled={savingReport || !fieldReport.trim()}
+                    onPress={submitFieldReport}
+                  >
+                    {t('save_field_report')}
+                  </ErionePrimaryButton>
+                )}
+              </View>
+            </Dialog>
+          </KeyboardAvoidingView>
+        </Portal>
+      )}
 
       <Portal>
         <Dialog visible={evidenceOpen} onDismiss={() => setEvidenceOpen(false)}>
@@ -634,6 +888,47 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 12
   },
+  subsectionTitle: {
+    color: colors.text,
+    fontWeight: '800',
+    marginTop: 18,
+    marginBottom: 8
+  },
+  subsectionTitleInline: {
+    color: colors.text,
+    fontWeight: '800'
+  },
+  arrivalSteps: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    overflow: 'hidden'
+  },
+  arrivalStep: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0'
+  },
+  arrivalStepLast: {
+    borderBottomWidth: 0
+  },
+  arrivalIcon: {
+    margin: 0,
+    marginHorizontal: 4
+  },
+  arrivalLabel: {
+    flex: 1,
+    color: colors.text,
+    fontWeight: '700'
+  },
+  arrivalTime: {
+    maxWidth: '42%',
+    color: colors.muted,
+    textAlign: 'right'
+  },
   metric: {
     flex: 1,
     padding: 12,
@@ -647,6 +942,86 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '700',
     marginTop: 3
+  },
+  durationHelper: {
+    color: colors.muted,
+    marginTop: 7,
+    lineHeight: 17
+  },
+  questionnaireCard: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC'
+  },
+  questionnaireHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10
+  },
+  questionnaireMeta: {
+    color: colors.muted,
+    marginTop: 2
+  },
+  questionnairePercent: {
+    color: colors.primary,
+    fontWeight: '900'
+  },
+  inlineAction: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    marginLeft: -8
+  },
+  recordList: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    overflow: 'hidden'
+  },
+  recordItem: {
+    minHeight: 62,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0'
+  },
+  recordIcon: {
+    margin: 0,
+    marginHorizontal: 4
+  },
+  recordTitle: {
+    color: colors.text,
+    fontWeight: '800'
+  },
+  recordMeta: {
+    color: colors.muted,
+    marginTop: 2
+  },
+  evidenceDisclaimer: {
+    color: colors.muted,
+    marginTop: 8,
+    lineHeight: 17
+  },
+  historyHeader: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  historyCard: {
+    marginBottom: 12
+  },
+  historyTitle: {
+    color: colors.text,
+    fontWeight: '800'
+  },
+  historyHelper: {
+    color: colors.muted,
+    marginTop: 2
   },
   timelineItem: {
     flexDirection: 'row',
@@ -686,6 +1061,89 @@ const styles = StyleSheet.create({
   },
   fieldActionButton: {
     borderRadius: 16
+  },
+  reportKeyboardArea: {
+    flex: 1,
+    justifyContent: 'flex-end'
+  },
+  reportDialog: {
+    maxHeight: '92%',
+    marginHorizontal: 10,
+    marginBottom: 0,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    backgroundColor: '#FFFFFF'
+  },
+  reportHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF'
+  },
+  reportTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    backgroundColor: '#FFFFFF'
+  },
+  reportDialogTitle: {
+    color: colors.text,
+    fontWeight: '900'
+  },
+  requiredChip: {
+    height: 28,
+    backgroundColor: colors.primarySoft
+  },
+  reportDialogHelper: {
+    color: colors.muted,
+    marginTop: 5,
+    lineHeight: 18
+  },
+  reportContent: {
+    paddingTop: 6
+  },
+  reportReadOnlyHelper: {
+    color: colors.muted,
+    marginBottom: 10,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#F6F9FA'
+  },
+  reportInput: {
+    minHeight: 210,
+    backgroundColor: '#FFFFFF'
+  },
+  reportInputContent: {
+    minHeight: 190,
+    paddingTop: 14,
+    textAlignVertical: 'top'
+  },
+  reportCounter: {
+    color: colors.muted,
+    marginTop: 6,
+    textAlign: 'right'
+  },
+  reportDisclaimer: {
+    color: colors.muted,
+    marginTop: 12,
+    lineHeight: 18
+  },
+  reportActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF'
+  },
+  saveReportButton: {
+    flex: 1
   },
   dialogHelper: {
     color: colors.muted,

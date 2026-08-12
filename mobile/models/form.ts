@@ -24,8 +24,6 @@ export interface IField {
     | 'partQuantity'
     | 'coordinates'
     | 'dateRange'
-    | 'nfc'
-    | 'barcode'
     | 'audio'
     | 'signature';
   type2?:

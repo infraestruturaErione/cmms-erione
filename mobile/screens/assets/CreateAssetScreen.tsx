@@ -79,9 +79,7 @@ export default function CreateAssetScreen({
                 label: route.params.parentAsset.name,
                 value: route.params.parentAsset.id.toString()
               }
-            : null,
-          nfcId: route.params?.nfcId ?? null,
-          barCode: route.params?.barCode ?? null
+            : null
         }}
         onChange={({ field, e }) => {}}
         onSubmit={async (values) => {

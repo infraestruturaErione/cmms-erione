@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useContext, useEffect, useState } from 'react';
 import { useDispatch } from '../../store';
 import { CustomSnackBarContext } from '../../contexts/CustomSnackBarContext';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { ProgressBar, Text, useTheme } from 'react-native-paper';
 import SingleTask from '../../components/SingleTask';
 import { RootStackScreenProps } from '../../types';
 import { addFiles } from '../../slices/file';
@@ -15,6 +16,10 @@ import ImageView from 'react-native-image-viewing';
 import { SheetManager } from 'react-native-actions-sheet';
 import { openLibraryWithPermission } from '../../utils/mediaPermissions';
 import InAppCamera from '../../components/InAppCamera';
+import { isExecutionTaskComplete } from '../../utils/workOrderCompletion';
+import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
+
+const colors = ERIONE_MOBILE_IDENTITY.colors;
 
 export default function TasksScreen({
   navigation,
@@ -35,7 +40,10 @@ export default function TasksScreen({
   const [tasks, setTasks] = useState<Task[]>(tasksProps);
   const [cameraTaskId, setCameraTaskId] = useState<number | null>(null);
   const dispatch = useDispatch();
+  const theme = useTheme();
   const { showSnackBar } = useContext(CustomSnackBarContext);
+  const completedTasks = tasks.filter(isExecutionTaskComplete).length;
+  const progress = tasks.length ? completedTasks / tasks.length : 0;
 
   useEffect(() => setTasks(tasksProps), [tasksProps]);
 
@@ -133,16 +141,45 @@ export default function TasksScreen({
     }
   };
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      keyboardShouldPersistTaps="handled"
+    >
       <InAppCamera
         visible={cameraTaskId !== null}
         onCapture={handleInAppCapture}
         onClose={() => setCameraTaskId(null)}
       />
-      {tasks.map((task) => (
+      <View style={styles.progressCard}>
+        <View style={styles.progressHeader}>
+          <View style={{ flex: 1 }}>
+            <Text variant="titleMedium" style={styles.progressTitle}>
+              {t('questionnaire')}
+            </Text>
+            <Text variant="bodySmall" style={styles.progressHelper}>
+              {t('questionnaire_progress', {
+                completed: completedTasks,
+                total: tasks.length
+              })}
+            </Text>
+          </View>
+          <Text variant="titleMedium" style={styles.progressPercent}>
+            {Math.round(progress * 100)}%
+          </Text>
+        </View>
+        <ProgressBar
+          progress={progress}
+          color={theme.colors.primary}
+          style={styles.progressBar}
+        />
+      </View>
+      {tasks.map((task, index) => (
         <SingleTask
           key={task.id}
           task={task}
+          index={index + 1}
+          completed={isExecutionTaskComplete(task)}
           handleChange={handleChange}
           handleNoteChange={handleNoteChange}
           handleSaveNotes={handleSaveNotes}
@@ -171,7 +208,41 @@ export default function TasksScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
-    backgroundColor: 'white'
+    backgroundColor: colors.background
+  },
+  contentContainer: {
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 40
+  },
+  progressCard: {
+    padding: 14,
+    marginBottom: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#CAD6FF',
+    backgroundColor: '#FFFFFF'
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  },
+  progressTitle: {
+    color: colors.text,
+    fontWeight: '800'
+  },
+  progressHelper: {
+    color: colors.muted,
+    marginTop: 2
+  },
+  progressPercent: {
+    color: colors.primary,
+    fontWeight: '900'
+  },
+  progressBar: {
+    height: 7,
+    borderRadius: 999,
+    marginTop: 12
   }
 });

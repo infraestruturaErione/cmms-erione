@@ -1,6 +1,5 @@
 import { Alert, Linking } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera } from 'expo-camera';
 import i18n from '../i18n/i18n';
 
 type PermissionResponseLike = {
@@ -8,7 +7,6 @@ type PermissionResponseLike = {
   canAskAgain: boolean;
   status?: string;
 };
-
 interface PermissionFlowOptions {
   flow: string;
   permissionNameKey: 'camera' | 'media_library';
@@ -98,7 +96,6 @@ export const openCameraWithPermission = async (
   );
   return result;
 };
-
 export const openLibraryWithPermission = async (
   flow: string,
   options: ImagePicker.ImagePickerOptions
@@ -111,7 +108,9 @@ export const openLibraryWithPermission = async (
   });
 
   if (!hasPermission) {
-    console.warn(`[${flow}] Media library permission denied, picker will not open`);
+    console.warn(
+      `[${flow}] Media library permission denied, picker will not open`
+    );
     return null;
   }
 
@@ -122,15 +121,4 @@ export const openLibraryWithPermission = async (
     JSON.stringify({ canceled: result.canceled })
   );
   return result;
-};
-
-export const ensureScannerCameraPermission = async (
-  flow: string
-): Promise<boolean> => {
-  return ensurePermission({
-    flow,
-    permissionNameKey: 'camera',
-    requestPermission: Camera.requestCameraPermissionsAsync,
-    getPermission: Camera.getCameraPermissionsAsync
-  });
 };

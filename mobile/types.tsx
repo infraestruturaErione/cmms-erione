@@ -43,8 +43,6 @@ export type RootStackParamList = {
   AddAsset: {
     location?: Location;
     parentAsset?: AssetDTO;
-    nfcId?: string;
-    barCode?: string;
   };
   AddLocation: undefined;
   AddUser: undefined;
@@ -115,8 +113,6 @@ export type RootStackParamList = {
     multiple: boolean;
     type: string;
   };
-  SelectNfc: { onChange: (value: string) => void };
-  SelectBarcode: { onChange: (value: string) => void };
   CompleteWorkOrder: {
     onComplete: (values: {
       signature?: string;
@@ -147,9 +143,6 @@ export type RootStackParamList = {
   };
   AddAdditionalCost: { workOrderId: number };
   AddAdditionalTime: { workOrderId: number };
-  ScanAsset: {
-    onChange?: (asset: AssetMiniDTO) => void;
-  };
 };
 
 export type RootStackScreenProps<Screen extends keyof RootStackParamList> =

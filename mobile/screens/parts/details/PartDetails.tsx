@@ -59,10 +59,6 @@ export default function PartDetails({ part }: { part: Part }) {
       value: getFormattedQuantityWithUnit(part.minQuantity, part.unit)
     },
     {
-      label: t('barcode'),
-      value: part.barcode
-    },
-    {
       label: t('area'),
       value: part.area
     },

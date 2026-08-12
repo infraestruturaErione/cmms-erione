@@ -52,8 +52,6 @@ export default function AssetDetails({
         : null
     },
     { label: t('area'), value: asset?.area },
-    { label: t('barcode'), value: asset?.barCode },
-    { label: t('nfc_tag'), value: asset?.nfcId },
     {
       label: t('additional_information'),
       value: asset?.additionalInfos

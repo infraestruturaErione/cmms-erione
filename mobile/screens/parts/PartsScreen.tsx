@@ -94,8 +94,7 @@ export default function PartsScreen({
       'name',
       'description',
       'additionalInfos',
-      'area',
-      'barcode'
+      'area'
     ]);
   };
   useDebouncedEffect(

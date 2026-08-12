@@ -64,8 +64,6 @@ export default function Form(props: OwnProps) {
   const theme = useTheme();
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
-  // Disable NFC-related form inputs on iOS (barcode only).
-  const isNfcEnabled = Platform.OS !== 'ios';
   props.fields.forEach((f) => {
     shape[f.name] = Yup.string();
     if (f.required) {
@@ -560,10 +558,6 @@ export default function Form(props: OwnProps) {
           {(formik) => (
             <View>
               {props.fields.map((field, index) => {
-                if (!isNfcEnabled && field.type === 'nfc') {
-                  return null;
-                }
-
                 return (
                   <View
                     key={field.name}
@@ -674,42 +668,6 @@ export default function Form(props: OwnProps) {
                             handleChange(formik, field.name, newValue);
                           }}
                         />
-                      </View>
-                    ) : field.type === 'nfc' ? (
-                      <View>
-                        <TouchableOpacity
-                          onPress={() =>
-                            props.navigation.navigate('SelectNfc', {
-                              onChange: (value) => {
-                                handleChange(formik, field.name, value);
-                                props.navigation.goBack();
-                              }
-                            })
-                          }
-                        >
-                          <Text>{field.label}</Text>
-                        </TouchableOpacity>
-                        <Text style={{ color: theme.colors.primary }}>
-                          {formik.values[field.name]}
-                        </Text>
-                      </View>
-                    ) : field.type === 'barcode' ? (
-                      <View>
-                        <TouchableOpacity
-                          onPress={() =>
-                            props.navigation.navigate('SelectBarcode', {
-                              onChange: (value) => {
-                                handleChange(formik, field.name, value);
-                                props.navigation.goBack();
-                              }
-                            })
-                          }
-                        >
-                          <Text>{field.label}</Text>
-                        </TouchableOpacity>
-                        <Text style={{ color: theme.colors.primary }}>
-                          {formik.values[field.name]}
-                        </Text>
                       </View>
                     ) : field.type === 'audio' ? (
                       <AudioRecorder

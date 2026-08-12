@@ -80,7 +80,7 @@ export default function SelectAssetsModal({
     dispatch(getAssetsMini(locationId));
   }, [locationId, dispatch]);
 
-  // Update header button for multiple selection and scan icon
+  // Update header button for multiple selection.
   useEffect(() => {
     const currentlySelectedAssets = selectedIds
       .map((id) => findAssetById(id))
@@ -89,19 +89,6 @@ export default function SelectAssetsModal({
     navigation.setOptions({
       headerRight: () => (
         <RNView style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <IconButton
-            icon="barcode-scan"
-            size={24}
-            onPress={() =>
-              navigation.navigate('ScanAsset', {
-                onChange: (asset) => {
-                  onChange([asset]);
-                  navigation.pop(3);
-                }
-              })
-            }
-            style={{ marginRight: 5 }}
-          />
           {multiple && (
             <Pressable
               disabled={!currentlySelectedAssets.length}

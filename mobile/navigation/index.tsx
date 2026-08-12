@@ -82,9 +82,6 @@ import SettingsScreen from '../screens/SettingsScreen';
 import WorkOrderFilters from '../screens/workOrders/WorkOrderFilters';
 import CreateAdditionalCost from '../screens/workOrders/CreateAdditionalCost';
 import CreateAdditionalTime from '../screens/workOrders/CreateAdditionalTime';
-import SelectNfcModal from '../screens/modals/SelectNfcModal';
-import SelectBarcodeModal from '../screens/modals/SelectBarcodeModal';
-import ScanAssetScreen from '../screens/ScanAssetScreen';
 import SelectMetersModal from '../screens/modals/SelectMetersModal';
 import {
   createEntities,
@@ -283,11 +280,6 @@ function RootNavigator() {
         component={WorkOrderFilters}
         options={{ title: t('filters') }}
       />
-      <Stack.Screen
-        name="ScanAsset"
-        component={ScanAssetScreen}
-        options={{ title: t('to_scan') }}
-      />
       <Stack.Group
         screenOptions={{
           presentation: 'modal',
@@ -309,16 +301,6 @@ function RootNavigator() {
           name="SelectMeters"
           component={SelectMetersModal}
           options={{ title: t('select_meter') }}
-        />
-        <Stack.Screen
-          name="SelectNfc"
-          component={SelectNfcModal}
-          options={{ title: t('to_scan') }}
-        />
-        <Stack.Screen
-          name="SelectBarcode"
-          component={SelectBarcodeModal}
-          options={{ title: t('to_scan') }}
         />
         <Stack.Screen
           name="SelectCustomers"
