@@ -1,109 +1,35 @@
-import {
-  alpha,
-  Box,
-  Card,
-  Chip,
-  Divider,
-  Stack,
-  Typography,
-  useTheme
-} from '@mui/material';
+import { alpha, Box, Stack, Typography, useTheme } from '@mui/material';
 import CheckCircleTwoToneIcon from '@mui/icons-material/CheckCircleTwoTone';
 import RadioButtonCheckedTwoToneIcon from '@mui/icons-material/RadioButtonCheckedTwoTone';
 import RadioButtonUncheckedTwoToneIcon from '@mui/icons-material/RadioButtonUncheckedTwoTone';
 import WorkOrder from '../../../../models/owns/workOrder';
 import { useTranslation } from 'react-i18next';
-import {
-  formatDistanceLabel,
-  getDistanceInMeters,
-  getFieldExecutionStatus,
-  isFieldExecutionFinished
-} from '../fieldExecutionRules';
+import { isFieldExecutionFinished } from '../fieldExecutionRules';
 
 type TimelineState = 'done' | 'current' | 'pending';
 
 interface FieldExecutionTimelineProps {
   workOrder: WorkOrder;
   getFormattedDate: (date: string | Date) => string;
-  hasFieldReport?: boolean;
 }
 
-const formatDuration = (
-  start: string | null | undefined,
-  end: string | null | undefined,
-  t: any
-): string => {
-  if (!start || !end) return '--';
-
-  const diffInSeconds = Math.floor(
-    (new Date(end).getTime() - new Date(start).getTime()) / 1000
-  );
-
-  if (diffInSeconds < 0) return '--';
-  if (diffInSeconds > 0 && diffInSeconds < 60) return t('less_than_1_min');
-
-  const hours = Math.floor(diffInSeconds / 3600);
-  const minutes = Math.floor((diffInSeconds % 3600) / 60);
-
-  if (hours && minutes) return `${hours}h ${minutes}min`;
-  if (hours) return `${hours}h`;
-  return `${minutes}min`;
-};
-
-const compactDetails = (details: (string | null | undefined)[]): string[] =>
-  details.filter(Boolean) as string[];
-
+// Timeline horizontal (desktop) / empilhada (mobile) com os 6 marcos
+// principais da execucao em campo - mesmos dados de workOrder que a versao
+// vertical anterior usava, so a apresentacao mudou (linha unica com icone +
+// horario, sem repetir "Pendente" por extenso em cada etapa).
 export default function FieldExecutionTimeline({
   workOrder,
-  getFormattedDate,
-  hasFieldReport = false
+  getFormattedDate
 }: FieldExecutionTimelineProps) {
   const { t }: { t: any } = useTranslation();
   const theme = useTheme();
 
   const getDate = (value?: string | null) =>
-    value ? getFormattedDate(value) : t('pending_step');
+    value ? getFormattedDate(value) : '-';
 
-  const getDistanceDetail = (
-    lat?: number | null,
-    lng?: number | null
-  ): string | null => {
-    const distance = formatDistanceLabel(
-      getDistanceInMeters(
-        lat,
-        lng,
-        workOrder.location?.latitude,
-        workOrder.location?.longitude
-      )
-    );
-    return distance ? t('distance_from_location', { distance }) : null;
-  };
-
-  const travelDuration = formatDuration(
-    workOrder.departureAt,
-    workOrder.checkInAt,
-    t
-  );
-  const siteDuration = formatDuration(
-    workOrder.checkInAt,
-    workOrder.checkOutAt,
-    t
-  );
-  const totalDuration = formatDuration(
-    workOrder.departureAt,
-    workOrder.checkOutAt,
-    t
-  );
   const isServiceInProgress = !!workOrder.checkInAt && !workOrder.checkOutAt;
-  const executionStatus = getFieldExecutionStatus(workOrder);
 
-  const steps: {
-    key: string;
-    label: string;
-    value: string;
-    state: TimelineState;
-    details?: string[];
-  }[] = [
+  const steps: { key: string; label: string; value: string; state: TimelineState }[] = [
     {
       key: 'created',
       label: t('work_order_created'),
@@ -118,172 +44,121 @@ export default function FieldExecutionTimeline({
         ? 'done'
         : workOrder.createdAt
         ? 'current'
-        : 'pending',
-      details: compactDetails([
-        getDistanceDetail(workOrder.departureLat, workOrder.departureLng)
-      ])
+        : 'pending'
     },
     {
       key: 'check-in',
-      label: t('arrived_on_site'),
+      label: t('check_in'),
       value: getDate(workOrder.checkInAt),
       state: workOrder.checkInAt
         ? 'done'
         : workOrder.departureAt
         ? 'current'
-        : 'pending',
-      details: compactDetails([
-        workOrder.checkInAddress,
-        getDistanceDetail(workOrder.checkInLat, workOrder.checkInLng),
-        travelDuration !== '--'
-          ? `${t('travel_duration')}: ${travelDuration}`
-          : null
-      ])
+        : 'pending'
     },
     {
       key: 'service',
       label: t('service_in_progress'),
-      value: isServiceInProgress
-        ? t(executionStatus)
-        : siteDuration !== '--'
-        ? siteDuration
-        : t('pending_step'),
+      value: isServiceInProgress ? t('in_progress') : isFieldExecutionFinished(workOrder) ? t('completed_step') : '-',
       state: isFieldExecutionFinished(workOrder)
         ? 'done'
         : isServiceInProgress
         ? 'current'
-        : 'pending',
-      details: compactDetails([
-        totalDuration !== '--'
-          ? `${t('total_field_duration')}: ${totalDuration}`
-          : null
-      ])
+        : 'pending'
     },
     {
       key: 'check-out',
-      label: t('service_finished'),
+      label: t('check_out'),
       value: getDate(workOrder.checkOutAt),
       state: workOrder.checkOutAt
         ? 'done'
         : workOrder.checkInAt
         ? 'current'
-        : 'pending',
-      details: compactDetails([
-        workOrder.checkOutAddress,
-        getDistanceDetail(workOrder.checkOutLat, workOrder.checkOutLng)
-      ])
-    },
-    {
-      key: 'report',
-      label: t('field_report'),
-      value: hasFieldReport ? t('field_report_registered') : t('no_field_report_registered'),
-      state: hasFieldReport ? 'done' : 'pending'
+        : 'pending'
     },
     {
       key: 'completed',
       label: t('work_order_completed'),
       value: getDate(workOrder.completedOn),
-      state: workOrder.completedOn ? 'done' : 'pending',
-      details: workOrder.completedBy
-        ? [
-            `${t('completed_by')}: ${workOrder.completedBy.firstName} ${workOrder.completedBy.lastName}`
-          ]
-        : []
+      state: workOrder.completedOn ? 'done' : 'pending'
     }
   ];
 
   const getStepIcon = (state: TimelineState) => {
-    if (state === 'done') return <CheckCircleTwoToneIcon color="success" />;
+    if (state === 'done')
+      return <CheckCircleTwoToneIcon fontSize="small" color="success" />;
     if (state === 'current')
-      return <RadioButtonCheckedTwoToneIcon color="primary" />;
-    return <RadioButtonUncheckedTwoToneIcon color="disabled" />;
+      return <RadioButtonCheckedTwoToneIcon fontSize="small" color="primary" />;
+    return <RadioButtonUncheckedTwoToneIcon fontSize="small" color="disabled" />;
   };
 
+  const getLineColor = (state: TimelineState) =>
+    state === 'done'
+      ? alpha(theme.palette.success.main, 0.4)
+      : theme.palette.divider;
+
   return (
-    <Card variant="outlined" sx={{ boxShadow: 'none', mb: 3 }}>
-      <Box sx={{ p: 2 }}>
-        <Typography variant="h4">{t('field_execution_timeline')}</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          {t('field_execution_timeline_helper')}
-        </Typography>
-      </Box>
-      <Divider />
-      <Stack spacing={0} sx={{ p: 2 }}>
-        {steps.map((step, index) => (
-          <Box key={step.key} sx={{ display: 'flex', gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 28,
-                display: 'flex',
-                alignItems: 'center',
-                flexDirection: 'column'
-              }}
-            >
-              {getStepIcon(step.state)}
-              {index < steps.length - 1 && (
-                <Box
-                  sx={{
-                    width: 2,
-                    flex: 1,
-                    my: 0.5,
-                    bgcolor:
-                      step.state === 'done'
-                        ? alpha(theme.palette.success.main, 0.35)
-                        : theme.palette.divider
-                  }}
-                />
-              )}
-            </Box>
-            <Box
-              sx={{
-                flex: 1,
-                pb: index < steps.length - 1 ? 2 : 0
-              }}
-            >
-              <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                spacing={1}
-                alignItems={{ xs: 'flex-start', sm: 'center' }}
-                justifyContent="space-between"
-              >
-                <Typography variant="subtitle2" fontWeight={700}>
-                  {step.label}
-                </Typography>
-                <Chip
-                  size="small"
-                  variant={step.state === 'pending' ? 'outlined' : 'filled'}
-                  color={
-                    step.state === 'done'
-                      ? 'success'
-                      : step.state === 'current'
-                      ? 'primary'
-                      : 'default'
-                  }
-                  label={
-                    step.state === 'done'
-                      ? t('completed_step')
-                      : step.state === 'current'
-                      ? t('current_step')
-                      : t('pending_step')
-                  }
-                />
-              </Stack>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-                {step.value}
-              </Typography>
-              {!!step.details?.length && (
-                <Stack spacing={0.25} sx={{ mt: 0.75 }}>
-                  {step.details.map((detail) => (
-                    <Typography key={detail} variant="caption" color="text.secondary">
-                      {detail}
-                    </Typography>
-                  ))}
-                </Stack>
-              )}
-            </Box>
+    <Stack
+      direction={{ xs: 'column', sm: 'row' }}
+      alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+    >
+      {steps.map((step, index) => (
+        <Box
+          key={step.key}
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'row', sm: 'column' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            flex: { sm: 1 },
+            minWidth: 0,
+            gap: { xs: 1, sm: 0.5 }
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              alignItems: 'center',
+              width: { xs: 'auto', sm: '100%' }
+            }}
+          >
+            {index > 0 && (
+              <Box
+                sx={{
+                  display: { xs: 'none', sm: 'block' },
+                  flex: 1,
+                  height: 2,
+                  bgcolor: getLineColor(steps[index - 1].state)
+                }}
+              />
+            )}
+            {getStepIcon(step.state)}
+            {index < steps.length - 1 && (
+              <Box
+                sx={{
+                  display: { xs: 'none', sm: 'block' },
+                  flex: 1,
+                  height: 2,
+                  bgcolor: getLineColor(step.state)
+                }}
+              />
+            )}
           </Box>
-        ))}
-      </Stack>
-    </Card>
+          <Box
+            sx={{
+              textAlign: { xs: 'left', sm: 'center' },
+              pb: { xs: index < steps.length - 1 ? 1 : 0, sm: 0 }
+            }}
+          >
+            <Typography variant="caption" fontWeight={700} display="block" noWrap>
+              {step.label}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" noWrap>
+              {step.value}
+            </Typography>
+          </Box>
+        </Box>
+      ))}
+    </Stack>
   );
 }

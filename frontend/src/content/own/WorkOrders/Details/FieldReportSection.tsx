@@ -1,21 +1,19 @@
 import {
-  alpha,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
   CircularProgress,
+  Divider,
   Grid,
   IconButton,
-  LinearProgress,
   Stack,
   TextField,
   Typography,
   useTheme
 } from '@mui/material';
 import AddPhotoAlternateTwoToneIcon from '@mui/icons-material/AddPhotoAlternateTwoTone';
-import AssignmentTurnedInTwoToneIcon from '@mui/icons-material/AssignmentTurnedInTwoTone';
 import CheckCircleTwoToneIcon from '@mui/icons-material/CheckCircleTwoTone';
 import DeleteTwoToneIcon from '@mui/icons-material/DeleteTwoTone';
 import EditTwoToneIcon from '@mui/icons-material/EditTwoTone';
@@ -31,12 +29,15 @@ import { createComment } from '../../../../slices/comment';
 import { useDispatch, useSelector } from '../../../../store';
 import { getErrorMessage } from '../../../../utils/api';
 import { getFieldClosureChecklist } from '../fieldExecutionRules';
-import FieldRegistroSection from './FieldRegistroSection';
+import { FieldReportHistory, FieldEvidenceGallery } from './FieldRegistroSection';
+import CompactChecklist from './CompactChecklist';
 import {
   FIELD_EVIDENCE_AUTO_TEXT,
   FIELD_REPORT_PREFIX,
   getFieldReportText,
-  hasFieldEvidence
+  hasFieldEvidence,
+  isFieldEvidenceImage,
+  isFieldReportComment
 } from './fieldReportUtils';
 
 interface FieldReportSectionProps {
@@ -86,16 +87,39 @@ export default function FieldReportSection({
     (comment) => getFieldReportText(comment.content).length > 0
   );
   const hasEvidence = hasFieldEvidence(comments);
-  const checklist = getFieldClosureChecklist(workOrder, hasReport, hasEvidence);
-  const applicableChecklist = checklist.filter((item) => item.applicable);
-  const completedItems = applicableChecklist.filter(
-    (item) => item.complete
+  const reportsCount = comments.filter(
+    (comment) => getFieldReportText(comment.content).length > 0
   ).length;
-  const completionPercentage = applicableChecklist.length
-    ? Math.round((completedItems / applicableChecklist.length) * 100)
-    : 100;
+  const evidenceCount = useMemo(() => {
+    const seen = new Set<string | number>();
+    comments.filter(isFieldReportComment).forEach((comment) => {
+      (comment.files ?? []).filter(isFieldEvidenceImage).forEach((file) => {
+        seen.add(file.id ?? file.url ?? file.name);
+      });
+    });
+    return seen.size;
+  }, [comments]);
+  const checklist = getFieldClosureChecklist(workOrder, hasReport, hasEvidence);
   const readOnly = !canEdit || workOrder.status === 'COMPLETE';
   const canSubmit = !!fieldReport.trim() || evidenceFiles.length > 0;
+
+  // getFieldClosureChecklist devolve um labelKey "afirmativo" so (ex.:
+  // signature_registered muda so conforme requiredSignature, nao conforme
+  // preenchido) - aqui escolhemos o labelKey certo pro ESTADO real
+  // (cumprido/pendente), sem alterar a logica de calculo em si.
+  const pendingLabelKeyByItemKey: Record<string, string> = {
+    'check-in': 'check_in_pending',
+    'check-out': 'check_out_pending',
+    'field-report': 'no_field_report_registered',
+    evidence: 'evidence_pending',
+    signature: 'signature_pending'
+  };
+  const getStateLabelKey = (item: (typeof checklist)[number]) => {
+    if (!item.applicable) return item.labelKey;
+    return item.complete
+      ? item.labelKey
+      : pendingLabelKeyByItemKey[item.key] ?? item.labelKey;
+  };
 
   const handleEvidenceSelection = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files ?? []).filter((file) =>
@@ -151,143 +175,78 @@ export default function FieldReportSection({
   };
 
   return (
-    <Stack spacing={2.5}>
-      <Box
-        sx={{
-          p: { xs: 2, sm: 2.5 },
-          borderRadius: theme.general.borderRadiusLg,
-          color: '#fff',
-          background: `linear-gradient(125deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
-          boxShadow: `0 12px 30px ${alpha(theme.palette.primary.main, 0.2)}`
-        }}
-      >
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          alignItems={{ xs: 'flex-start', sm: 'center' }}
-          justifyContent="space-between"
-          spacing={2}
-        >
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Box
-              sx={{
-                width: 46,
-                height: 46,
-                borderRadius: 1.5,
-                display: 'grid',
-                placeItems: 'center',
-                bgcolor: 'rgba(255,255,255,0.14)'
-              }}
-            >
-              <AssignmentTurnedInTwoToneIcon />
-            </Box>
-            <Box>
-              <Typography variant="h3" color="inherit">
-                {t('field_report_tab')}
-              </Typography>
-              <Typography variant="body2" color="inherit" sx={{ opacity: 0.78 }}>
-                {t('field_report_tab_helper')}
-              </Typography>
-            </Box>
-          </Stack>
-          <Chip
-            label={t('closure_progress', {
-              done: completedItems,
-              total: applicableChecklist.length
-            })}
-            sx={{ bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', fontWeight: 700 }}
-          />
-        </Stack>
-        <LinearProgress
-          variant="determinate"
-          value={completionPercentage}
-          sx={{
-            mt: 2,
-            height: 6,
-            borderRadius: 6,
-            bgcolor: 'rgba(255,255,255,0.15)',
-            '& .MuiLinearProgress-bar': { bgcolor: '#fff', borderRadius: 6 }
-          }}
-        />
-      </Box>
-
-      <Card variant="outlined" sx={{ boxShadow: 'none' }}>
-        <CardContent>
-          <Typography variant="overline" color="text.secondary">
-            {t('closure_readiness')}
-          </Typography>
+    <Box>
+      <CompactChecklist
+        items={checklist.map((item) => ({
+          key: item.key,
+          label: t(getStateLabelKey(item)),
+          done: item.complete,
+          applicable: item.applicable
+        }))}
+        details={
           <Grid container spacing={1} sx={{ mt: 0.25 }}>
             {checklist.map((item) => (
-              <Grid item xs={12} sm={6} md={4} key={item.key}>
-                <Stack
-                  direction="row"
-                  alignItems="center"
-                  spacing={1}
-                  sx={{
-                    minHeight: 42,
-                    px: 1.25,
-                    py: 0.75,
-                    borderRadius: 1.25,
-                    bgcolor: !item.applicable
-                      ? alpha(theme.palette.text.disabled, 0.06)
-                      : item.complete
-                      ? alpha(theme.palette.success.main, 0.08)
-                      : alpha(theme.palette.warning.main, item.required ? 0.08 : 0.03),
-                    color: !item.applicable
-                      ? 'text.disabled'
-                      : item.complete
-                      ? 'success.main'
-                      : 'text.secondary'
-                  }}
-                >
+              <Grid item xs={12} sm={6} key={item.key}>
+                <Stack direction="row" alignItems="center" spacing={1}>
                   {!item.applicable ? (
-                    <RemoveCircleOutlineTwoToneIcon fontSize="small" />
+                    <RemoveCircleOutlineTwoToneIcon fontSize="small" color="disabled" />
                   ) : item.complete ? (
-                    <CheckCircleTwoToneIcon fontSize="small" />
+                    <CheckCircleTwoToneIcon fontSize="small" color="success" />
                   ) : (
-                    <RadioButtonUncheckedTwoToneIcon fontSize="small" />
+                    <RadioButtonUncheckedTwoToneIcon fontSize="small" color="disabled" />
                   )}
-                  <Typography variant="body2" fontWeight={600}>
-                    {t(item.labelKey)}
+                  <Typography variant="body2">
+                    {t(getStateLabelKey(item))}
                     {item.required ? ` ${t('required_marker')}` : ''}
                   </Typography>
                 </Stack>
               </Grid>
             ))}
           </Grid>
-        </CardContent>
-      </Card>
+        }
+      />
 
-      <Card variant="outlined" sx={{ boxShadow: 'none', overflow: 'visible' }}>
+      <Divider sx={{ mt: 1.25, mb: 2 }} />
+
+      <Card variant="outlined" sx={{ boxShadow: 'none' }}>
         <CardContent>
-          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 0.5 }}>
-            <AssignmentTurnedInTwoToneIcon color="primary" />
-            <Typography variant="h4">{t('new_field_report')}</Typography>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+            <Typography variant="subtitle1" fontWeight={700}>
+              {t('written_reports')}
+            </Typography>
+            {reportsCount > 0 && <Chip size="small" label={reportsCount} />}
           </Stack>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {readOnly ? t('field_report_read_only_helper') : t('new_field_report_helper')}
-          </Typography>
-
+          {hasReport && (
+            <Box sx={{ mb: 2 }}>
+              <FieldReportHistory comments={comments} getFormattedDate={getFormattedDate} />
+            </Box>
+          )}
+          {readOnly && (
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+              {t('field_report_read_only_helper')}
+            </Typography>
+          )}
           <TextField
             fullWidth
             multiline
-            minRows={4}
+            minRows={3}
             placeholder={t('field_report_placeholder')}
             value={fieldReport}
             disabled={readOnly || submitting}
             onChange={(event) => setFieldReport(event.target.value)}
             inputProps={{ maxLength: 4000 }}
-            helperText={`${fieldReport.length}/4000`}
+            size="small"
           />
 
           {evidencePreviews.length > 0 && (
-            <Grid container spacing={1.25} sx={{ mt: 0.5 }}>
+            <Grid container spacing={1} sx={{ mt: 0.5 }}>
               {evidencePreviews.map(({ file, url }, index) => (
-                <Grid item xs={6} sm={4} md={2.4} key={`${file.name}-${file.lastModified}`}>
+                <Grid item xs={4} sm={3} md={2} key={`${file.name}-${file.lastModified}`}>
                   <Box
                     sx={{
                       position: 'relative',
                       paddingTop: '76%',
-                      borderRadius: 1.25,
+                      borderRadius: 1,
                       overflow: 'hidden',
                       bgcolor: 'action.hover'
                     }}
@@ -308,8 +267,8 @@ export default function FieldReportSection({
                       }
                       sx={{
                         position: 'absolute',
-                        top: 6,
-                        right: 6,
+                        top: 4,
+                        right: 4,
                         color: '#fff',
                         bgcolor: 'rgba(8,18,38,0.68)',
                         '&:hover': { bgcolor: 'rgba(8,18,38,0.88)' }
@@ -327,34 +286,27 @@ export default function FieldReportSection({
             direction={{ xs: 'column', sm: 'row' }}
             justifyContent="space-between"
             alignItems={{ xs: 'stretch', sm: 'center' }}
-            spacing={1.5}
-            sx={{ mt: 2 }}
+            spacing={1}
+            sx={{ mt: 1 }}
           >
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Button
-                component="label"
-                variant="outlined"
-                startIcon={<AddPhotoAlternateTwoToneIcon />}
-                disabled={readOnly || submitting || evidenceFiles.length >= MAX_EVIDENCE_FILES}
-              >
-                {t('add_photos')}
-                <input
-                  hidden
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleEvidenceSelection}
-                />
-              </Button>
-              <Typography variant="caption" color="text.secondary">
-                {t('selected_photos_count', {
-                  count: evidenceFiles.length,
-                  max: MAX_EVIDENCE_FILES
-                })}
-              </Typography>
-            </Stack>
+            <Button
+              component="label"
+              size="small"
+              startIcon={<AddPhotoAlternateTwoToneIcon />}
+              disabled={readOnly || submitting || evidenceFiles.length >= MAX_EVIDENCE_FILES}
+            >
+              {t('add_photos')}
+              <input
+                hidden
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleEvidenceSelection}
+              />
+            </Button>
             <Button
               variant="contained"
+              size="small"
               startIcon={
                 submitting ? <CircularProgress size="1rem" /> : <SendTwoToneIcon />
               }
@@ -367,77 +319,65 @@ export default function FieldReportSection({
         </CardContent>
       </Card>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} lg={8}>
-          <Card variant="outlined" sx={{ boxShadow: 'none', height: '100%' }}>
-            <CardContent>
-              <Typography variant="overline" color="text.secondary">
-                {t('field_report_history')}
-              </Typography>
-              <Box sx={{ mt: 1.25 }}>
-                <FieldRegistroSection
-                  comments={comments}
-                  onOpenImage={onOpenImage}
-                  getFormattedDate={getFormattedDate}
-                />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} lg={4}>
-          <Card variant="outlined" sx={{ boxShadow: 'none', height: '100%' }}>
-            <CardContent>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <EditTwoToneIcon color={workOrder.signature ? 'success' : 'disabled'} />
-                <Typography variant="h4">{t('signature')}</Typography>
-              </Stack>
-
-              {workOrder.signature ? (
-                <Box sx={{ mt: 2 }}>
-                  <Box
-                    component="img"
-                    src={workOrder.signature}
-                    alt={t('signature')}
-                    onClick={() => onOpenImage([workOrder.signature], workOrder.signature)}
-                    sx={{
-                      width: '100%',
-                      maxHeight: 150,
-                      objectFit: 'contain',
-                      borderRadius: 1.25,
-                      border: `1px solid ${theme.palette.divider}`,
-                      bgcolor: '#fff',
-                      cursor: 'pointer'
-                    }}
-                  />
-                  {(workOrder.signerName || workOrder.signerDocument) && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      {t('signed_by_line', {
-                        name: workOrder.signerName || t('unknown'),
-                        document: workOrder.signerDocument || '-'
-                      })}
-                    </Typography>
-                  )}
-                </Box>
-              ) : (
-                <Stack alignItems="center" spacing={1} sx={{ py: 4, textAlign: 'center' }}>
-                  <EditTwoToneIcon sx={{ fontSize: 42, color: 'text.disabled' }} />
-                  <Typography variant="h6">
-                    {workOrder.requiredSignature || workOrder.category?.requireSignature
-                      ? t('signature_pending')
-                      : t('signature_not_required')}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {workOrder.requiredSignature || workOrder.category?.requireSignature
-                      ? t('signature_pending_helper')
-                      : t('signature_not_required_helper')}
-                  </Typography>
-                </Stack>
+      <Card variant="outlined" sx={{ boxShadow: 'none', mt: 2 }}>
+        <CardContent>
+          <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
+            {t('signature')}
+          </Typography>
+          {workOrder.signature ? (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+              <Box
+                component="img"
+                src={workOrder.signature}
+                alt={t('signature')}
+                onClick={() => onOpenImage([workOrder.signature], workOrder.signature)}
+                sx={{
+                  width: 160,
+                  height: 90,
+                  objectFit: 'contain',
+                  borderRadius: 1,
+                  border: `1px solid ${theme.palette.divider}`,
+                  bgcolor: '#fff',
+                  cursor: 'pointer'
+                }}
+              />
+              {(workOrder.signerName || workOrder.signerDocument) && (
+                <Typography variant="body2" color="text.secondary">
+                  {t('signed_by_line', {
+                    name: workOrder.signerName || t('unknown'),
+                    document: workOrder.signerDocument || '-'
+                  })}
+                </Typography>
               )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Stack>
+            </Stack>
+          ) : (
+            <Stack direction="row" alignItems="center" spacing={1.25}>
+              <EditTwoToneIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+              <Typography variant="body2" color="text.secondary">
+                {workOrder.requiredSignature || workOrder.category?.requireSignature
+                  ? t('signature_pending')
+                  : t('signature_not_required')}
+              </Typography>
+            </Stack>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card variant="outlined" sx={{ boxShadow: 'none', mt: 2 }}>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+            <Typography variant="subtitle1" fontWeight={700}>
+              {t('field_evidence')}
+            </Typography>
+            {evidenceCount > 0 && <Chip size="small" label={evidenceCount} />}
+          </Stack>
+          <FieldEvidenceGallery
+            comments={comments}
+            onOpenImage={onOpenImage}
+            getFormattedDate={getFormattedDate}
+          />
+        </CardContent>
+      </Card>
+    </Box>
   );
 }

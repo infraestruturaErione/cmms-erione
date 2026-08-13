@@ -7,7 +7,6 @@ import {
   Divider,
   Grid,
   IconButton,
-  Link,
   List,
   ListItem,
   ListItemText,
@@ -72,17 +71,10 @@ import { Task } from '../../../../models/owns/tasks';
 import { getWorkOrderHistories } from '../../../../slices/workOrderHistory';
 import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
 import { CompanySettingsContext } from '../../../../contexts/CompanySettingsContext';
-import {
-  getAssetUrl,
-  getPreventiveMaintenanceUrl,
-  getUserUrl
-} from '../../../../utils/urlPaths';
 import CompleteWOModal, {
   CompleteWOFieldsConfig,
   CompleteWOValues
 } from './CompleteWOModal';
-import PendingRequirements from './PendingRequirements';
-import LocationMiniMap from './LocationMiniMap';
 import useAuth from '../../../../hooks/useAuth';
 import { PermissionEntity } from '../../../../models/owns/role';
 import { getSingleUserMini } from '../../../../slices/user';
@@ -93,10 +85,10 @@ import AddFileModal from './AddFileModal';
 import CommentsSection from './CommentsSection';
 import FieldExecutionSection from './FieldExecutionSection';
 import FieldReportSection from './FieldReportSection';
+import OverviewTab from './OverviewTab';
 import { ERIONE_HIDDEN_MODULES } from '../../../../config/erioneModules';
 import { useBrand } from '../../../../hooks/useBrand';
 import { useLicenseEntitlement } from '../../../../hooks/useLicenseEntitlement';
-import { getCustomFieldValuesForDetails } from '../../type';
 import { getErrorMessage } from '../../../../utils/api';
 import {
   getCommentsByWorkOrder
@@ -145,7 +137,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   const commentIdParam = searchParams.get('commentId');
   const [openAddFileModal, setOpenAddFileModal] = useState<boolean>(false);
   const [openCompleteModal, setOpenCompleteModal] = useState<boolean>(false);
-  const [currentTab, setCurrentTab] = useState<string>('details');
+  const [currentTab, setCurrentTab] = useState<string>('overview');
   const [changingStatus, setChangingStatus] = useState<boolean>(false);
   const { partQuantitiesByWorkOrder, loadingPartQuantities } = useSelector(
     (state) => state.partQuantities
@@ -236,7 +228,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
 
   useEffect(() => {
     if (commentIdParam) {
-      setCurrentTab('comments');
+      setCurrentTab('relatoEvidencias');
       setCommentId(Number(commentIdParam));
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('commentId');
@@ -409,27 +401,17 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   };
   const workOrderStatuses = ['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE'];
   const tabs = [
-    { value: 'details', label: t('details') },
+    { value: 'overview', label: t('overview_tab') },
     { value: 'questionario', label: t('questionnaire_tab') },
-    { value: 'fieldExecution', label: t('field_execution') },
-    { value: 'fieldReport', label: t('field_report_tab') },
-    { value: 'pendencias', label: t('pendencias') },
+    { value: 'execucao', label: t('execution_tab') },
     {
-      value: 'comments',
-      label: `${t('comments')}${commentsCount > 0 ? ` (${commentsCount})` : ''}`
+      value: 'relatoEvidencias',
+      label: `${t('field_report_and_evidence_tab')}${
+        commentsCount > 0 ? ` (${commentsCount})` : ''
+      }`
     }
   ];
 
-  const getPath = (resource: string, id: number) => {
-    switch (resource) {
-      case 'asset':
-        return getAssetUrl(id);
-      case 'team':
-        return `/app/people-teams/teams/${id}`;
-      default:
-        return `/app/${resource}s/${id}`;
-    }
-  };
   const onSavePrimaryTime = () => {
     setSavingPrimaryTime(true);
     const duration = primaryTimeHours * 3600 + primaryTimeMinutes * 60;
@@ -444,117 +426,16 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
       })
       .finally(() => setSavingPrimaryTime(false));
   };
-  const BasicField = ({
-    label,
-    value,
-    id,
-    type,
-    isLink
-  }: {
-    label: string | number;
-    value: string | number;
-    type?: string;
-    id?: number;
-    isLink?: boolean;
-  }) => {
-    if (value && (isLink || !type || (type && id))) {
-      const href = value.toString().startsWith('http')
-        ? value.toString()
-        : `https://${value}`;
-      return (
-        <Grid item xs={12} lg={6}>
-          <Typography variant="h6" sx={{ color: theme.colors.alpha.black[70] }}>
-            {label}
-          </Typography>
-          {type ? (
-            <Link href={getPath(type, id)} variant="h6" fontWeight="bold">
-              {value}
-            </Link>
-          ) : isLink ? (
-            <Link
-              variant="h6"
-              fontWeight="bold"
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {value}
-            </Link>
-          ) : (
-            <Typography variant="h6">{value}</Typography>
-          )}
-        </Grid>
-      );
-    } else return null;
-  };
   const handleTabsChange = (_event: ChangeEvent<{}>, value: string): void => {
     setCurrentTab(value);
   };
-  const detailsFieldsToRender = (
-    workOrder: WorkOrder
-  ): {
-    label: string;
-    value: string | number;
-    type?: 'location' | 'asset' | 'team';
-    isLink?: boolean;
-    id?: number;
-  }[] => [
-    {
-      label: t('id'),
-      value: workOrder.customId
-    },
-    {
-      label: t('due_date'),
-      value: getFormattedDate(workOrder.dueDate)
-    },
-    {
-      label: t('estimated_start_date'),
-      value: getFormattedDate(workOrder.estimatedStartDate)
-    },
-    {
-      label: t('estimated_duration'),
-      value: !!workOrder.estimatedDuration
-        ? t('estimated_hours_in_text', { hours: workOrder.estimatedDuration })
-        : null
-    },
-    {
-      label: t('category'),
-      value: workOrder.category?.name
-    },
-    {
-      label: t('location'),
-      value: workOrder.location?.name,
-      type: 'location',
-      id: workOrder.location?.id
-    },
-    {
-      label: t('asset'),
-      value: workOrder.asset?.name,
-      type: 'asset',
-      id: workOrder.asset?.id
-    },
-    {
-      label: t('team'),
-      value: workOrder.team?.name,
-      type: 'team',
-      id: workOrder.team?.id
-    },
-    {
-      label: t('created_at'),
-      value: getFormattedDate(workOrder.createdAt)
-    },
-    ...getCustomFieldValuesForDetails(
-      workOrder.customFieldValues,
-      getFormattedDate
-    )
-  ];
   return (
     <Grid
       container
       justifyContent="center"
       alignItems="stretch"
-      spacing={2}
-      padding={4}
+      spacing={1.5}
+      padding={2}
     >
       <Grid item xs={12}>
         <Box
@@ -563,52 +444,122 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
             flexDirection: { xs: 'column', md: 'row' },
             justifyContent: 'space-between',
             alignItems: { xs: 'flex-start', md: 'center' },
-            gap: 2,
-            p: 2.5,
-            borderRadius: 2,
-            border: `1px solid ${theme.palette.divider}`,
-            background: `linear-gradient(135deg, ${alpha(
-              theme.palette.primary.main,
-              0.08
-            )} 0%, ${theme.palette.background.paper} 48%, ${alpha(
-              theme.palette.success.main,
-              0.08
-            )} 100%)`,
-            boxShadow: `0 18px 45px ${alpha(
-              theme.palette.common.black,
-              0.08
-            )}`
+            gap: 1,
+            pb: 1.5
           }}
         >
           <Box sx={{ minWidth: 0 }}>
-            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
               {workOrder?.priority !== 'NONE' && (
                 <PriorityWrapper priority={workOrder?.priority} withSuffix />
               )}
               <LabelWrapper>
                 {workOrder?.customId ?? `#${workOrder?.id}`}
               </LabelWrapper>
-              <LabelWrapper>{t(workOrder?.status)}</LabelWrapper>
+              <Typography variant="h4" noWrap sx={{ ml: 0.5 }}>
+                {workOrder?.title}
+              </Typography>
             </Stack>
-            <Typography variant="h2" noWrap>
-              {workOrder?.title}
-            </Typography>
           </Box>
-          <Stack direction="row" spacing={1} flexShrink={0}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            alignItems="center"
+            flexWrap="wrap"
+            justifyContent="flex-end"
+            flexShrink={0}
+          >
+          {changingStatus ? (
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: 100,
+                height: 30
+              }}
+            >
+              <CircularProgress size={'1rem'} />
+            </Box>
+          ) : (
+            <Select
+              size="small"
+              onChange={(event) => {
+                if (event.target.value === 'COMPLETE') {
+                  if (canComplete()) {
+                    const fieldsConfig = getCompleteWOFieldsConfig();
+                    const needsAnyField = Object.values(fieldsConfig).some(
+                      Boolean
+                    );
+
+                    if (needsAnyField) {
+                      let error;
+                      if (fieldsConfig.signature) {
+                        if (!hasFeature(PlanFeature.SIGNATURE)) {
+                          error =
+                            'Signature on Work Order completion is not available in your current subscription plan.';
+                        }
+                      }
+                      if (error) {
+                        showSnackBar(t(error), 'error');
+                      } else {
+                        setOpenCompleteModal(true);
+                        return;
+                      }
+                    }
+                  } else return;
+                }
+                setChangingStatus(true);
+                dispatch(
+                  changeWorkOrderStatus(workOrder?.id, {
+                    status: event.target.value
+                  })
+                ).finally(() => setChangingStatus(false));
+              }}
+              disabled={
+                !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
+              }
+              value={workOrder.status}
+              sx={
+                workOrder.status === 'OPEN'
+                  ? {}
+                  : {
+                      backgroundColor:
+                        workOrder.status === 'IN_PROGRESS'
+                          ? theme.colors.success.main
+                          : workOrder.status === 'ON_HOLD'
+                          ? theme.colors.warning.main
+                          : theme.colors.alpha.black[30],
+                      color: 'white',
+                      fontWeight: 'bold',
+                      '.MuiSvgIcon-root ': {
+                        fill: 'white !important'
+                      }
+                    }
+              }
+            >
+              {workOrderStatuses.map((workOrderStatus, index) => (
+                <MenuItem key={index} value={workOrderStatus}>
+                  {t(workOrderStatus)}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
           {hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
-            <IconButton onClick={handleOpenMenu}>
-              <MoreVertTwoToneIcon />
+            <IconButton size="small" onClick={handleOpenMenu}>
+              <MoreVertTwoToneIcon fontSize="small" />
             </IconButton>
           )}
           {hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
-            <IconButton onClick={() => onEdit(workOrder.id)}>
-              <EditTwoToneIcon color="primary" />
+            <IconButton size="small" onClick={() => onEdit(workOrder.id)}>
+              <EditTwoToneIcon color="primary" fontSize="small" />
             </IconButton>
           )}
           {allowDelete && hasDeletePermission(PermissionEntity.WORK_ORDERS, workOrder) && (
-            <IconButton>
+            <IconButton size="small">
               <DeleteTwoToneIcon
                 color="error"
+                fontSize="small"
                 onClick={() => onDelete(workOrder.id)}
               />
             </IconButton>
@@ -647,292 +598,80 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
         </Tabs>
       </Grid>
       <Grid item xs={12}>
-        {currentTab === 'details' && (
+        {currentTab === 'overview' && (
+          <OverviewTab
+            workOrder={workOrder}
+            getFormattedDate={getFormattedDate}
+            getUserNameById={getUserNameById}
+            fieldReportText={fieldReportText}
+            tasks={tasks}
+            comments={comments}
+          />
+        )}
+        {currentTab === 'execucao' && (
           <Box>
-            <Grid container spacing={2}>
-              <Grid
-                item
-                xs={12}
-                display="flex"
-                flexDirection="row"
-                justifyContent="space-between"
-                alignItems="center"
-              >
-                <Box>
-                  {changingStatus ? (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        width: 100,
-                        height: 30
-                      }}
-                    >
-                      <CircularProgress size={'1rem'} />
-                    </Box>
-                  ) : (
-                    <Select
-                      onChange={(event) => {
-                        if (event.target.value === 'COMPLETE') {
-                          if (canComplete()) {
-                            const fieldsConfig = getCompleteWOFieldsConfig();
-                            const needsAnyField = Object.values(
-                              fieldsConfig
-                            ).some(Boolean);
+            <FieldExecutionSection
+              workOrder={workOrder}
+              canEdit={hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)}
+              getFormattedDate={getFormattedDate}
+            />
 
-                            if (needsAnyField) {
-                              let error;
-                              if (fieldsConfig.signature) {
-                                if (!hasFeature(PlanFeature.SIGNATURE)) {
-                                  error =
-                                    'Signature on Work Order completion is not available in your current subscription plan.';
-                                }
-                              }
-                              if (error) {
-                                showSnackBar(t(error), 'error');
-                              } else {
-                                setOpenCompleteModal(true);
-                                return;
-                              }
-                            }
-                          } else return;
-                        }
-                        setChangingStatus(true);
-                        dispatch(
-                          changeWorkOrderStatus(workOrder?.id, {
-                            status: event.target.value
-                          })
-                        ).finally(() => setChangingStatus(false));
-                      }}
-                      disabled={
-                        !hasEditPermission(
-                          PermissionEntity.WORK_ORDERS,
-                          workOrder
-                        )
-                      }
-                      value={workOrder.status}
-                      sx={
-                        workOrder.status === 'OPEN'
-                          ? {}
-                          : {
-                              backgroundColor:
-                                workOrder.status === 'IN_PROGRESS'
-                                  ? theme.colors.success.main
-                                  : workOrder.status === 'ON_HOLD'
-                                  ? theme.colors.warning.main
-                                  : theme.colors.alpha.black[30],
-                              color: 'white',
-                              fontWeight: 'bold',
-                              '.MuiSvgIcon-root ': {
-                                fill: 'white !important'
-                              }
-                            }
-                      }
-                    >
-                      {workOrderStatuses.map((workOrderStatus, index) => (
-                        <MenuItem key={index} value={workOrderStatus}>
-                          {t(workOrderStatus)}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  )}
-                </Box>
-                <Box>
-                  <Button
-                    startIcon={
-                      controllingTime ? (
-                        <CircularProgress size="1rem" />
-                      ) : (
-                        <TimerTwoToneIcon />
-                      )
-                    }
-                    disabled={
-                      controllingTime ||
-                      !hasEditPermission(
-                        PermissionEntity.WORK_ORDERS,
-                        workOrder
-                      )
-                    }
-                    onClick={() => {
-                      setControllingTime(true);
-                      dispatch(controlTimer(!runningTimer, workOrder.id))
-                        .catch((err) =>
-                          showSnackBar(getErrorMessage(err), 'error')
-                        )
-                        .finally(() => setControllingTime(false));
-                    }}
-                    variant={runningTimer ? 'contained' : 'outlined'}
-                  >
-                    {runningTimer
-                      ? t('timer_running')
-                      : t('run_timer') +
-                        ' - ' +
-                        durationToHours(primaryTime?.duration)}
-                  </Button>
-                </Box>
-              </Grid>
-              {workOrder.description && (
-                <Grid item xs={12}>
-                  <Box
-                    sx={{
-                      p: 2,
-                      borderRadius: 1,
-                      border: `1px solid ${theme.palette.divider}`,
-                      bgcolor: alpha(theme.palette.primary.main, 0.03)
-                    }}
-                  >
-                    <Typography
-                      variant="h6"
-                      sx={{ color: theme.colors.alpha.black[70], mb: 0.5 }}
-                    >
-                      {t('description')}
-                    </Typography>
-                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                      {workOrder.description}
-                    </Typography>
-                  </Box>
-                </Grid>
-              )}
-              {detailsFieldsToRender(workOrder).map((field, index) => (
-                <BasicField key={index} {...field} />
-              ))}
-              {!!workOrder.location?.latitude && !!workOrder.location?.longitude && (
-                <Grid item xs={12}>
-                  <LocationMiniMap
-                    latitude={workOrder.location.latitude}
-                    longitude={workOrder.location.longitude}
-                  />
-                </Grid>
-              )}
-              {workOrder.primaryUser && (
-                <Grid item xs={12} lg={6}>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: theme.colors.alpha.black[70] }}
-                  >
-                    {t('primary_worker')}
-                  </Typography>
-                  <Link
-                    variant="h6"
-                    href={getUserUrl(workOrder.primaryUser.id)}
-                  >
-                    {getUserNameById(workOrder.primaryUser.id)}
-                  </Link>
-                </Grid>
-              )}
-              {(workOrder.parentRequest || workOrder.createdBy) && (
-                <Grid item xs={12} lg={6}>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: theme.colors.alpha.black[70] }}
-                  >
-                    {workOrder.parentRequest
-                      ? t('approved_by')
-                      : t('created_by')}
-                  </Typography>
-                  <Link variant="h6" href={getUserUrl(workOrder.createdBy)}>
-                    {getUserNameById(workOrder.createdBy)}
-                  </Link>
-                </Grid>
-              )}
-              {workOrder.parentPreventiveMaintenance && (
-                <Grid item xs={12} lg={6}>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: theme.colors.alpha.black[70] }}
-                  >
-                    {t('preventive_maintenance')}
-                  </Typography>
-                  <Link
-                    variant="h6"
-                    href={getPreventiveMaintenanceUrl(
-                      workOrder.parentPreventiveMaintenance.id
-                    )}
-                  >
-                    {workOrder.parentPreventiveMaintenance.name}
-                  </Link>
-                </Grid>
-              )}
-              {workOrder.status === 'COMPLETE' && (
-                <>
-                  {workOrder.completedBy && (
-                    <Grid item xs={12} lg={6}>
-                      <Typography
-                        variant="h6"
-                        sx={{ color: theme.colors.alpha.black[70] }}
-                      >
-                        {t('completed_by')}
-                      </Typography>
-                      <Link
-                        variant="h6"
-                        href={getUserUrl(workOrder.completedBy.id)}
-                      >
-                        {`${workOrder.completedBy.firstName} ${workOrder.completedBy.lastName}`}
-                      </Link>
-                    </Grid>
-                  )}
-                  <Grid item xs={12} lg={6}>
-                    <Typography
-                      variant="h6"
-                      sx={{ color: theme.colors.alpha.black[70] }}
-                    >
-                      {t('completed_on')}
-                    </Typography>
-                    <Typography variant="h6">
-                      {getFormattedDate(workOrder.completedOn)}
-                    </Typography>
-                  </Grid>
-                  {workOrder.feedback && (
-                    <Grid item xs={12} lg={6}>
-                      <Typography
-                        variant="h6"
-                        sx={{ color: theme.colors.alpha.black[70] }}
-                      >
-                        {t('feedback')}
-                      </Typography>
-                      <Typography variant="h6">{workOrder.feedback}</Typography>
-                    </Grid>
-                  )}
-                  {/* Assinatura movida para a aba "Execucao em Campo",
-                      junto com Relato e Evidencias - ver FieldExecutionSection. */}
-                </>
-              )}
-              {workOrder.parentRequest && (
-                <Grid item xs={12} lg={6}>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: theme.colors.alpha.black[70] }}
-                  >
-                    {t('requested_by')}
-                  </Typography>
-                  <Link
-                    variant="h6"
-                    href={getUserUrl(workOrder.parentRequest.createdBy)}
-                  >
-                    {getUserNameById(workOrder.parentRequest.createdBy)}
-                  </Link>
-                </Grid>
-              )}
+            <Divider sx={{ my: 2 }} />
+
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1.5}
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+            >
+              <Button
+                size="small"
+                startIcon={
+                  controllingTime ? (
+                    <CircularProgress size="1rem" />
+                  ) : (
+                    <TimerTwoToneIcon />
+                  )
+                }
+                disabled={
+                  controllingTime ||
+                  !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
+                }
+                onClick={() => {
+                  setControllingTime(true);
+                  dispatch(controlTimer(!runningTimer, workOrder.id))
+                    .catch((err) =>
+                      showSnackBar(getErrorMessage(err), 'error')
+                    )
+                    .finally(() => setControllingTime(false));
+                }}
+                variant={runningTimer ? 'contained' : 'outlined'}
+              >
+                {runningTimer
+                  ? t('timer_running')
+                  : t('run_timer') +
+                    ' - ' +
+                    durationToHours(primaryTime?.duration)}
+              </Button>
               {primaryTime && (
-                <Grid item xs={12} lg={6}>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: theme.colors.alpha.black[70] }}
-                  >
-                    {t('time')}
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="caption" color="text.secondary">
+                    {t('time')}:
                   </Typography>
                   {openEditPrimaryTime ? (
                     <Stack direction="row" spacing={1} alignItems="center">
                       <TextField
+                        size="small"
+                        sx={{ width: 64 }}
                         value={primaryTimeHours}
                         type="number"
                         onChange={(event) =>
                           setPrimaryTimeHours(Number(event.target.value))
                         }
                       />
-                      <Typography variant="h6">h</Typography>
+                      <Typography variant="body2">h</Typography>
                       <TextField
+                        size="small"
+                        sx={{ width: 64 }}
                         value={primaryTimeMinutes}
                         type="number"
                         InputProps={{ inputProps: { min: 0, max: 59 } }}
@@ -940,8 +679,9 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                           setPrimaryTimeMinutes(Number(event.target.value))
                         }
                       />
-                      <Typography variant="h6">m</Typography>
+                      <Typography variant="body2">m</Typography>
                       <Button
+                        size="small"
                         startIcon={
                           savingPrimaryTime ? (
                             <CircularProgress size="1rem" />
@@ -956,7 +696,8 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                     </Stack>
                   ) : (
                     <Typography
-                      variant="h6"
+                      variant="body2"
+                      fontWeight={600}
                       style={{ cursor: 'pointer' }}
                       onClick={() => setOpenEditPrimaryTime(true)}
                       color="primary"
@@ -964,56 +705,14 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                       {durationToHours(primaryTime?.duration)}
                     </Typography>
                   )}
-                </Grid>
+                </Stack>
               )}
-              {!!workOrder.assignedTo.length && (
-                <Grid item xs={12} lg={6}>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: theme.colors.alpha.black[70] }}
-                  >
-                    {t('assigned_to')}
-                  </Typography>
-                  {workOrder.assignedTo.map((user, index) => (
-                    <Box key={user.id}>
-                      <Link
-                        href={getUserUrl(user.id)}
-                        variant="h6"
-                        fontWeight="bold"
-                      >{`${user.firstName} ${user.lastName}`}</Link>
-                    </Box>
-                  ))}
-                </Grid>
-              )}
-              {!!workOrder.customers.length && (
-                <Grid item xs={12} lg={6}>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: theme.colors.alpha.black[70] }}
-                  >
-                    {t('customers')}
-                  </Typography>
-                  {workOrder.customers.map((customer, index) => (
-                    <Box key={customer.id}>
-                      <Link
-                        href={`/app/vendors-customers/customers/${customer.id}`}
-                        variant="h6"
-                        fontWeight="bold"
-                      >
-                        {customer.name}
-                      </Link>
-                    </Box>
-                  ))}
-                </Grid>
-              )}
-            </Grid>
-            {/* Checklist de Execucao e obrigatoriedades moraram na aba
-                "Pendencias" - ver currentTab === 'pendencias' abaixo. */}
+            </Stack>
 
             {!ERIONE_HIDDEN_MODULES.parts && (
               <Box>
                 <Divider sx={{ mt: 2 }} />
-                <Typography sx={{ mt: 2, mb: 1 }} variant="h3">
+                <Typography sx={{ mt: 2, mb: 1 }} variant="subtitle1" fontWeight={700}>
                   {t('parts')}
                 </Typography>
                 {loadingPartQuantities[workOrder.id] ? (
@@ -1056,10 +755,20 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 )}
               </Box>
             )}
+          </Box>
+        )}
+        {currentTab === 'relatoEvidencias' && (
+          <Box>
+            <FieldReportSection
+              workOrder={workOrder}
+              canEdit={hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)}
+              getFormattedDate={getFormattedDate}
+              onOpenImage={setImageState}
+            />
 
-            <Box>
-              <Divider sx={{ mt: 2 }} />
-              <Typography sx={{ mt: 2, mb: 1 }} variant="h3">
+            <Box sx={{ mt: 2 }}>
+              <Divider sx={{ mb: 1.5 }} />
+              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
                 {t('files')}
               </Typography>
               {!!workOrder.files.length ? (
@@ -1074,12 +783,13 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                   }}
                 />
               ) : (
-                <Typography sx={{ color: theme.colors.alpha.black[70] }}>
+                <Typography variant="body2" sx={{ color: theme.colors.alpha.black[70] }}>
                   {t('no_file_linked_to_wo')}
                 </Typography>
               )}
               {hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
                 <Button
+                  size="small"
                   onClick={() => setOpenAddFileModal(true)}
                   variant="outlined"
                   sx={{ mt: 1 }}
@@ -1088,36 +798,20 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 </Button>
               )}
             </Box>
-            {/* Relato, evidencias e assinatura ficam na aba "Relato em Campo". */}
+
+            <Box sx={{ mt: 2.5 }}>
+              <Divider sx={{ mb: 1.5 }} />
+              <Typography
+                variant="body2"
+                fontWeight={700}
+                color="text.secondary"
+                sx={{ mb: 1 }}
+              >
+                {`${t('comments')}${commentsCount > 0 ? ` (${commentsCount})` : ''}`}
+              </Typography>
+              <CommentsSection workOrderId={workOrder.id} commentId={commentId} />
+            </Box>
           </Box>
-        )}
-        {currentTab == 'comments' && (
-          <CommentsSection workOrderId={workOrder.id} commentId={commentId} />
-        )}
-        {currentTab == 'fieldExecution' && (
-          <FieldExecutionSection
-            workOrder={workOrder}
-            canEdit={hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)}
-            getFormattedDate={getFormattedDate}
-          />
-        )}
-        {currentTab == 'fieldReport' && (
-          <FieldReportSection
-            workOrder={workOrder}
-            canEdit={hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)}
-            getFormattedDate={getFormattedDate}
-            onOpenImage={setImageState}
-          />
-        )}
-        {currentTab === 'pendencias' && (
-          <Stack spacing={2}>
-            <PendingRequirements
-              workOrder={workOrder}
-              fieldReportText={fieldReportText}
-              tasks={tasks}
-              comments={comments}
-            />
-          </Stack>
         )}
         {currentTab === 'questionario' && (
           <Stack spacing={2}>
@@ -1139,37 +833,27 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 readOnly={workOrder?.status === 'COMPLETE'}
               />
             ) : (
-              <Box
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1.5}
                 sx={{
                   border: `1px dashed ${theme.colors.alpha.black[30]}`,
-                  borderRadius: 2,
-                  p: 4,
-                  textAlign: 'center'
+                  borderRadius: 1.5,
+                  py: 1.5,
+                  px: 2
                 }}
               >
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: theme.colors.alpha.black[10],
-                    color: theme.colors.alpha.black[50],
-                    mx: 'auto',
-                    mb: 1.5
-                  }}
-                >
-                  <FactCheckTwoToneIcon />
+                <FactCheckTwoToneIcon sx={{ color: theme.colors.alpha.black[50] }} />
+                <Box>
+                  <Typography variant="body2" fontWeight={700}>
+                    {t('questionnaire_empty_title')}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {t('questionnaire_empty_description')}
+                  </Typography>
                 </Box>
-                <Typography variant="h4" sx={{ mb: 0.5 }}>
-                  {t('questionnaire_empty_title')}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {t('questionnaire_empty_description')}
-                </Typography>
-              </Box>
+              </Stack>
             )}
           </Stack>
         )}
