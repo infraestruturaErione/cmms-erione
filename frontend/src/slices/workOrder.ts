@@ -267,18 +267,29 @@ const slice = createSlice({
 
 export const reducer = slice.reducer;
 
+// Guards against an older getWorkOrders call (e.g. a background poll fired
+// under a previous criteria) resolving AFTER a newer one (e.g. triggered by
+// a filter/page change) and overwriting the list with stale data - whoever
+// started last wins, regardless of response arrival order. Module-level on
+// purpose: this is a plain ordering guard, not app state.
+let latestWorkOrdersRequestId = 0;
+
 export const getWorkOrders =
-  (criteria: SearchCriteria): AppThunk =>
+  (criteria: SearchCriteria, options?: { silent?: boolean }): AppThunk =>
   async (dispatch) => {
+    const silent = options?.silent ?? false;
+    const requestId = ++latestWorkOrdersRequestId;
     try {
-      dispatch(slice.actions.setLoadingGet({ loading: true }));
+      if (!silent) dispatch(slice.actions.setLoadingGet({ loading: true }));
       const workOrders = await api.post<Page<WorkOrder>>(
         `${basePath}/search`,
         criteria
       );
-      dispatch(slice.actions.getWorkOrders({ workOrders }));
+      if (requestId === latestWorkOrdersRequestId) {
+        dispatch(slice.actions.getWorkOrders({ workOrders }));
+      }
     } finally {
-      dispatch(slice.actions.setLoadingGet({ loading: false }));
+      if (!silent) dispatch(slice.actions.setLoadingGet({ loading: false }));
     }
   };
 
@@ -304,12 +315,14 @@ export const getSingleWorkOrder =
   };
 export const refreshWorkOrderById =
   (id: number): AppThunk =>
-  async (dispatch) => {
+  async (dispatch): Promise<WorkOrder | undefined> => {
     try {
       const workOrder = await api.get<WorkOrder>(`${basePath}/${id}`);
       dispatch(slice.actions.editWorkOrder({ workOrder }));
+      return workOrder;
     } catch (err) {
       // Best-effort realtime refresh: the current filtered view stays intact.
+      return undefined;
     }
   };
 export const addWorkOrder =

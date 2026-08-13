@@ -281,22 +281,32 @@ function WorkOrders() {
   const handleOpenUpdate = (id: number) => {
     // important if there were actions like edit
     if (currentWorkOrder.id !== id) {
-      setCurrentWorkOrder(
-        workOrders.content.find((workOrder) => workOrder.id === id)
-      );
+      const found = workOrders.content.find((workOrder) => workOrder.id === id);
+      // Synchronous on purpose (see handleOpenDrawer comment below) - avoids
+      // the currentWorkOrderIdRef sync effect's async window.
+      currentWorkOrderIdRef.current = found?.id;
+      setCurrentWorkOrder(found);
     }
     setOpenUpdateModal(true);
   };
   const handleOpenDelete = (id: number) => {
     if (currentWorkOrder.id !== id) {
-      setCurrentWorkOrder(
-        workOrders.content.find((workOrder) => workOrder.id === id)
-      );
+      const found = workOrders.content.find((workOrder) => workOrder.id === id);
+      currentWorkOrderIdRef.current = found?.id;
+      setCurrentWorkOrder(found);
     }
     setOpenDelete(true);
     setOpenDrawer(false);
   };
   const handleOpenDrawer = (workOrder: WorkOrder) => {
+    // Update the ref synchronously, in the same place currentWorkOrder is
+    // swapped to a different WO - setCurrentWorkOrder() only takes effect
+    // on the next render, and the useEffect that mirrors it into the ref
+    // only runs after that render commits. Without this, a background
+    // poll/focus refresh response for the PREVIOUS work order that lands
+    // in that async window would still pass the ref-based staleness check
+    // and overwrite the drawer that was just switched to a different WO.
+    currentWorkOrderIdRef.current = workOrder.id;
     setCurrentWorkOrder(workOrder);
     window.history.replaceState(
       null,
@@ -322,6 +332,9 @@ function WorkOrders() {
     window.history.replaceState(null, 'WorkOrder', `/app/work-orders`);
     setOpenDrawer(false);
     setOpenDrawerForSingleWO(false);
+    // No WO is open anymore - a refresh response that's still in flight for
+    // whatever was open should not resurrect it into currentWorkOrder.
+    currentWorkOrderIdRef.current = undefined;
   };
   const handleCloseFilterDrawer = () => setOpenFilterDrawer(false);
   useEffect(() => {
@@ -514,14 +527,64 @@ function WorkOrders() {
     dispatch(getWorkOrders(criteria));
   }, [criteria]);
 
+  // Refs (not state) on purpose: focus/visibility/poll are wired up ONCE
+  // below (empty-ish deps) so the 20s interval never gets torn down and
+  // recreated on every filter/page/search keystroke - it just reads the
+  // latest value through these refs instead.
+  const criteriaRef = useRef(criteria);
   useEffect(() => {
-    const refreshCurrentWorkOrdersView = () => {
-      dispatch(getWorkOrders(criteria));
-      if (currentWorkOrder?.id) {
-        dispatch(refreshWorkOrderById(currentWorkOrder.id));
+    criteriaRef.current = criteria;
+  }, [criteria]);
+  const currentTabRef = useRef(currentTab);
+  useEffect(() => {
+    currentTabRef.current = currentTab;
+  }, [currentTab]);
+  const currentWorkOrderIdRef = useRef(currentWorkOrder?.id);
+  useEffect(() => {
+    currentWorkOrderIdRef.current = currentWorkOrder?.id;
+  }, [currentWorkOrder?.id]);
+  // Guards against focus + visibilitychange + the 20s timer firing near
+  // each other and stacking overlapping requests.
+  const refreshInFlightRef = useRef(false);
+
+  useEffect(() => {
+    // includeCalendar=false for the 20s poll on purpose: the calendar tab's
+    // refresh fetches up to 500 work orders, which is too heavy to repeat
+    // every 20s. Focus/visibility keep the existing (heavier) behavior.
+    const refreshCurrentWorkOrdersView = (includeCalendar: boolean) => {
+      if (refreshInFlightRef.current) return;
+      refreshInFlightRef.current = true;
+      const requests: Promise<unknown>[] = [
+        dispatch(getWorkOrders(criteriaRef.current, { silent: true }))
+      ];
+      if (currentWorkOrderIdRef.current) {
+        const requestedWorkOrderId = currentWorkOrderIdRef.current;
+        requests.push(
+          dispatch(refreshWorkOrderById(requestedWorkOrderId)).then(
+            (freshWorkOrder) => {
+              // The drawer's currentWorkOrder is only kept in sync with
+              // workOrders.content when the WO stays on the current page -
+              // if a filter/sort change pushes it out, that sync effect
+              // never fires. Apply the direct fetch result here instead,
+              // but only if this is still the WO open in the drawer (it
+              // may have been closed or swapped to a different one while
+              // the request was in flight).
+              if (
+                freshWorkOrder &&
+                currentWorkOrderIdRef.current === requestedWorkOrderId
+              ) {
+                setCurrentWorkOrder(freshWorkOrder);
+              }
+            }
+          )
+        );
       }
-      if (currentTab === 'calendar') {
-        const archivedFilter = criteria.filterFields.find(
+      Promise.allSettled(requests).finally(() => {
+        refreshInFlightRef.current = false;
+      });
+
+      if (includeCalendar && currentTabRef.current === 'calendar') {
+        const archivedFilter = criteriaRef.current.filterFields.find(
           (ff) => ff.field === 'archived'
         );
         const calendarFilterFields: FilterField[] = [
@@ -556,21 +619,30 @@ function WorkOrders() {
       }
     };
 
-    const onWindowFocus = () => refreshCurrentWorkOrdersView();
+    const onWindowFocus = () => refreshCurrentWorkOrdersView(true);
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        refreshCurrentWorkOrdersView();
+        refreshCurrentWorkOrdersView(true);
+      }
+    };
+    // Polling only ever fires while the tab is visible - no periodic
+    // requests happen while hidden/backgrounded.
+    const onPollTick = () => {
+      if (document.visibilityState === 'visible') {
+        refreshCurrentWorkOrdersView(false);
       }
     };
 
     window.addEventListener('focus', onWindowFocus);
     document.addEventListener('visibilitychange', onVisibilityChange);
+    const intervalId = window.setInterval(onPollTick, 20000);
 
     return () => {
       window.removeEventListener('focus', onWindowFocus);
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.clearInterval(intervalId);
     };
-  }, [criteria, currentTab, currentWorkOrder?.id, dispatch]);
+  }, [dispatch]);
 
   useEffect(() => {
     if ((openAddModal || openUpdateModal) && !customFields.length) {
