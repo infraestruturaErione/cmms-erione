@@ -153,6 +153,8 @@ export default function WODetailsScreen({
   const [runningTimerDuration, setRunningTimerDuration] = useState<string>();
   const { workOrderConfiguration, generalPreferences } = companySettings;
   const [loading, setLoading] = useState<boolean>(false);
+  const [completionLoading, setCompletionLoading] = useState<boolean>(false);
+  const completionInFlightRef = useRef(false);
   const theme = useTheme();
   const headerHeight = useHeaderHeight();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -538,6 +540,10 @@ export default function WODetailsScreen({
     signerDocument?: string;
     mileageTraveled?: number;
   }): Promise<any> => {
+    if (completionInFlightRef.current) return Promise.resolve();
+
+    completionInFlightRef.current = true;
+    setCompletionLoading(true);
     return dispatch(
       changeWorkOrderStatus(id, {
         status: 'COMPLETE',
@@ -547,7 +553,12 @@ export default function WODetailsScreen({
         signerDocument: values.signerDocument,
         mileageTraveled: values.mileageTraveled
       })
-    ).then(() => navigation.navigate('Root'));
+    )
+      .then(() => navigation.navigate('Root'))
+      .finally(() => {
+        completionInFlightRef.current = false;
+        setCompletionLoading(false);
+      });
   };
   const fieldReportContent = getFirstFieldReportText(comments);
 
@@ -571,6 +582,8 @@ export default function WODetailsScreen({
 
   const onStatusChange = (status: string) => {
     if (status === 'COMPLETE') {
+      if (completionInFlightRef.current) return;
+
       if (canComplete()) {
         const fieldsConfig = getCompleteWOFieldsConfig();
         const needsAnyField = Object.values(fieldsConfig).some(Boolean);
@@ -595,6 +608,22 @@ export default function WODetailsScreen({
           }
         }
       } else return;
+
+      completionInFlightRef.current = true;
+      setCompletionLoading(true);
+      dispatch(
+        changeWorkOrderStatus(id, {
+          status
+        })
+      )
+        .catch((err) =>
+          showSnackBar(getWorkOrderCompletionErrorMessage(err, t), 'error')
+        )
+        .finally(() => {
+          completionInFlightRef.current = false;
+          setCompletionLoading(false);
+        });
+      return;
     }
     setLoading(true);
     dispatch(
@@ -1264,6 +1293,7 @@ export default function WODetailsScreen({
                   })
                 }
                 onReviewClosure={() => onStatusChange('COMPLETE')}
+                completionLoading={completionLoading}
                 canEdit={hasEditPermission(
                   PermissionEntity.WORK_ORDERS,
                   workOrder
@@ -1282,7 +1312,10 @@ export default function WODetailsScreen({
                     <ErionePrimaryButton
                       icon="check-circle"
                       style={styles.completeButton}
-                      disabled={loadingComments || commentsLoadError}
+                      loading={completionLoading}
+                      disabled={
+                        completionLoading || loadingComments || commentsLoadError
+                      }
                       onPress={() => onStatusChange('COMPLETE')}
                     >
                       {t(

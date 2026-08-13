@@ -78,6 +78,7 @@ interface Props {
   tasks?: Task[];
   onOpenTasks?: () => void;
   onReviewClosure?: () => void;
+  completionLoading?: boolean;
 }
 
 const formatDuration = (seconds: number | null, inProgress?: boolean) => {
@@ -277,7 +278,8 @@ export default function FieldExecutionSection({
   readiness,
   tasks = [],
   onOpenTasks,
-  onReviewClosure
+  onReviewClosure,
+  completionLoading = false
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -298,6 +300,8 @@ export default function FieldExecutionSection({
   const [savingEvidence, setSavingEvidence] = useState(false);
 
   const guidedAction = getGuidedWorkOrderAction({ workOrder, readiness });
+  const isCompletionAction =
+    guidedAction.type === 'closure-details' || guidedAction.type === 'complete';
   const status = getFieldExecutionStatus(workOrder);
   const durations = getFieldDurations(workOrder);
   const reportRegistered = hasFieldReport(comments);
@@ -533,8 +537,16 @@ export default function FieldExecutionSection({
           )}
           {canEdit && guidedAction.type !== 'view' && (
             <ErionePrimaryButton
-              loading={loadingAction === guidedAction.type}
-              disabled={!!loadingAction || savingReport || savingEvidence}
+              loading={
+                loadingAction === guidedAction.type ||
+                (isCompletionAction && completionLoading)
+              }
+              disabled={
+                !!loadingAction ||
+                savingReport ||
+                savingEvidence ||
+                (isCompletionAction && completionLoading)
+              }
               onPress={runGuidedAction}
               style={styles.nextActionButton}
             >

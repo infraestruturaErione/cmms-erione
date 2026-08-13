@@ -66,6 +66,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-font',
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/images/splash.png',
+        imageWidth: 60,
+        resizeMode: 'contain',
+        backgroundColor: '#07090e'
+      }
+    ],
     'expo-notifications',
     '@react-native-community/datetimepicker',
     ...(enableFirebase ? ['@react-native-firebase/app'] : []),

@@ -8,7 +8,7 @@ import {
   useTheme
 } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import useAuth from '../hooks/useAuth';
 import debounce from 'lodash.debounce';
 import { SheetManager } from 'react-native-actions-sheet';
@@ -51,6 +51,12 @@ export default function SingleTask({
   const [savingNotes, setSavingNotes] = useState<boolean>(false);
   const { user, hasCreatePermission, hasFeature } = useAuth();
   const [inputValue, setInputValue] = useState<string>('');
+  const handleChangeRef = useRef(handleChange);
+
+  useEffect(() => {
+    handleChangeRef.current = handleChange;
+  }, [handleChange]);
+
   const changeHandler = (newValue: string) => {
     if (!preview) {
       let formattedValue = newValue;
@@ -69,6 +75,32 @@ export default function SingleTask({
     () => debounce(changeHandler, 1000),
     []
   );
+  const debouncedNumericChangeHandler = useMemo(
+    () =>
+      debounce((value: string, taskId: number) => {
+        handleChangeRef.current?.(value, taskId);
+      }, 1000),
+    []
+  );
+
+  useEffect(
+    () => () => {
+      debouncedNumericChangeHandler.flush();
+      debouncedNumericChangeHandler.cancel();
+    },
+    [debouncedNumericChangeHandler]
+  );
+
+  const numericChangeHandler = (newValue: string) => {
+    if (preview) return;
+    const formattedValue = newValue?.replace(/[^0-9]/g, '') ?? '';
+    setInputValue(formattedValue);
+    if (formattedValue !== '') {
+      debouncedNumericChangeHandler(formattedValue, task.id);
+    } else {
+      debouncedNumericChangeHandler.cancel();
+    }
+  };
   const onDropdownValueChange = (value) => {
     !preview &&
       !(task.taskBase.user && task.taskBase.user.id !== user.id) &&
@@ -196,7 +228,8 @@ export default function SingleTask({
         task.taskBase.taskType === 'NUMBER' ? (
         <TextInput
           defaultValue={task.value?.toString()}
-          onChangeText={changeHandler}
+          onChangeText={numericChangeHandler}
+          onEndEditing={() => debouncedNumericChangeHandler.flush()}
           label={t('value')}
           value={inputValue}
           mode={'outlined'}
