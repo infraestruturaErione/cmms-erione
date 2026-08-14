@@ -105,6 +105,10 @@ const TimeCategories = Loader(
 const CostCategories = Loader(
   lazy(() => import('../content/own/Categories/Cost'))
 );
+const Checklists = Loader(lazy(() => import('../content/own/Checklists')));
+const ChecklistForm = Loader(
+  lazy(() => import('../content/own/Checklists/ChecklistForm'))
+);
 const Files = Loader(lazy(() => import('../content/own/Files')));
 
 const PurchaseOrders = Loader(
@@ -374,6 +378,14 @@ const appRoutes = [
         path: 'cost',
         element: <CostCategories />
       },
+    ]
+  },
+  {
+    path: 'checklists',
+    children: [
+      { path: '', element: <Checklists /> },
+      { path: 'new', element: <ChecklistForm /> },
+      { path: ':checklistId', element: <ChecklistForm /> }
     ]
   },
   {

@@ -10,6 +10,7 @@ import Inventory2TwoToneIcon from '@mui/icons-material/Inventory2TwoTone';
 import HandymanTwoToneIcon from '@mui/icons-material/HandymanTwoTone';
 import MoveToInboxTwoToneIcon from '@mui/icons-material/MoveToInboxTwoTone';
 import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
+import FactCheckTwoToneIcon from '@mui/icons-material/FactCheckTwoTone';
 import PendingActionsTwoToneIcon from '@mui/icons-material/PendingActionsTwoTone';
 import ReceiptTwoToneIcon from '@mui/icons-material/ReceiptTwoTone';
 import { PermissionEntity } from '../../../../models/owns/role';
@@ -251,6 +252,12 @@ const ownMenuItems: MenuItems[] = [
         name: 'categories',
         link: '/app/categories',
         icon: CategoryTwoToneIcon,
+        permission: PermissionEntity.CATEGORIES_WEB
+      },
+      {
+        name: 'nav_checklists',
+        link: '/app/checklists',
+        icon: FactCheckTwoToneIcon,
         permission: PermissionEntity.CATEGORIES_WEB
       },
       {

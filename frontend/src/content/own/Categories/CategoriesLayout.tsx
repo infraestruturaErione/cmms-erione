@@ -17,7 +17,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  Popover,
   Switch,
   styled,
   TextField,
@@ -28,6 +27,7 @@ import {
 import EditTwoToneIcon from '@mui/icons-material/EditTwoTone';
 import ClearTwoToneIcon from '@mui/icons-material/ClearTwoTone';
 import AddTwoToneIcon from '@mui/icons-material/AddTwoTone';
+import RefreshTwoToneIcon from '@mui/icons-material/RefreshTwoTone';
 import DescriptionTwoToneIcon from '@mui/icons-material/DescriptionTwoTone';
 import EventAvailableTwoToneIcon from '@mui/icons-material/EventAvailableTwoTone';
 import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
@@ -56,18 +56,8 @@ import { PermissionEntity } from '../../../models/owns/role';
 import PermissionErrorMessage from '../components/PermissionErrorMessage';
 import FeatureErrorMessage from '../components/FeatureErrorMessage';
 import { ERIONE_HIDDEN_MODULES } from '../../../config/erioneModules';
-import { addChecklist, editChecklist, getChecklists } from '../../../slices/checklist';
-import { Checklist } from '../../../models/owns/checklists';
-import { Task, TaskType } from '../../../models/owns/tasks';
-import { getTaskFromTaskBase } from '../../../utils/formatters';
-import { randomInt } from '../../../utils/generators';
-import { reorder } from '../../../utils/items';
-import DraggableTaskList, {
-  DraggableListProps
-} from '../components/form/SelectTasks/DraggableTaskList';
-import { AssetMiniDTO } from '../../../models/owns/asset';
-import { UserMiniDTO } from '../../../models/user';
-import { MeterMiniDTO } from '../../../models/owns/meter';
+import { getChecklists } from '../../../slices/checklist';
+import SelectForm from '../components/form/SelectForm';
 import { PlanFeature } from '../../../models/owns/subscriptionPlan';
 
 // "Tipo de tarefa" (categoria de OS) e o unico tipo de categoria com SLA,
@@ -81,11 +71,10 @@ interface TaskTypeFieldsValues {
   // Mesma unidade (horas) do campo estimatedDuration que ja existe na OS - so
   // preenche esse campo automaticamente na criacao, nao e um dado paralelo.
   defaultEstimatedDuration: string;
-  // Id do Checklist ja existente por baixo (null se a categoria ainda nao tem
-  // um). O usuario nunca escolhe isso num dropdown - so edita as perguntas
-  // (checklistTasks) e o id e criado/reaproveitado na hora de salvar.
+  // Id do Checklist selecionado (cadastro proprio e reutilizavel em
+  // /app/checklists - ver Checklists/index.tsx e ChecklistForm.tsx). A
+  // Category so referencia por id, nunca cria/edita perguntas por baixo.
   checklistId: number | null;
-  checklistTasks: Task[];
   requireSignature: boolean;
   requireSignerName: boolean;
   requireSignerDocument: boolean;
@@ -95,33 +84,18 @@ interface TaskTypeFieldsValues {
   requireChecklistCompletion: boolean;
 }
 
-const taskTypeInitialValues = (
-  checklists: Checklist[],
-  item?: any
-): TaskTypeFieldsValues => {
-  const existingChecklist = item?.defaultChecklist?.id
-    ? checklists.find(
-        (checklist) => checklist.id === item.defaultChecklist.id
-      )
-    : undefined;
-  return {
-    toleranceMinutes: item?.toleranceMinutes ?? '',
-    defaultEstimatedDuration: item?.defaultEstimatedDuration ?? '',
-    checklistId: item?.defaultChecklist?.id ?? null,
-    checklistTasks: existingChecklist
-      ? existingChecklist.taskBases.map((taskBase) =>
-          getTaskFromTaskBase(taskBase)
-        )
-      : [],
-    requireSignature: item?.requireSignature ?? false,
-    requireSignerName: item?.requireSignerName ?? false,
-    requireSignerDocument: item?.requireSignerDocument ?? false,
-    requirePhotos: item?.requirePhotos ?? false,
-    requireFieldReport: item?.requireFieldReport ?? false,
-    requireMileage: item?.requireMileage ?? false,
-    requireChecklistCompletion: item?.requireChecklistCompletion ?? false
-  };
-};
+const taskTypeInitialValues = (item?: any): TaskTypeFieldsValues => ({
+  toleranceMinutes: item?.toleranceMinutes ?? '',
+  defaultEstimatedDuration: item?.defaultEstimatedDuration ?? '',
+  checklistId: item?.defaultChecklist?.id ?? null,
+  requireSignature: item?.requireSignature ?? false,
+  requireSignerName: item?.requireSignerName ?? false,
+  requireSignerDocument: item?.requireSignerDocument ?? false,
+  requirePhotos: item?.requirePhotos ?? false,
+  requireFieldReport: item?.requireFieldReport ?? false,
+  requireMileage: item?.requireMileage ?? false,
+  requireChecklistCompletion: item?.requireChecklistCompletion ?? false
+});
 
 // Converte os campos do form para o formato esperado pela API: numeros vazios
 // viram null. defaultChecklist NAO entra aqui - e resolvido a parte (async)
@@ -140,12 +114,6 @@ const formatTaskTypeValues = (values: TaskTypeFieldsValues) => ({
   requireMileage: values.requireMileage,
   requireChecklistCompletion: values.requireChecklistCompletion
 });
-
-const buildTaskBases = (tasks: Task[]) =>
-  tasks.map((task) => ({
-    ...task.taskBase,
-    options: task.taskBase.options.map((option) => option.label)
-  }));
 
 const IconButtonWrapper = styled(IconButton)(
   ({ theme }) => `
@@ -235,7 +203,8 @@ const RequirementToggle = ({
   helper,
   checked,
   onChange,
-  indent
+  indent,
+  disabled
 }: {
   icon: ReactNode;
   label: string;
@@ -243,6 +212,7 @@ const RequirementToggle = ({
   checked: boolean;
   onChange: (checked: boolean) => void;
   indent?: boolean;
+  disabled?: boolean;
 }) => (
   <Box
     sx={{
@@ -250,7 +220,8 @@ const RequirementToggle = ({
       alignItems: 'flex-start',
       gap: 1.25,
       py: 1,
-      pl: indent ? 4.5 : 0
+      pl: indent ? 4.5 : 0,
+      opacity: disabled ? 0.5 : 1
     }}
   >
     <Box sx={{ mt: 0.25, color: 'text.secondary', display: 'flex' }}>
@@ -271,6 +242,7 @@ const RequirementToggle = ({
         <Switch
           size="small"
           checked={checked}
+          disabled={disabled}
           onChange={(event) => onChange(event.target.checked)}
         />
       </Box>
@@ -286,6 +258,58 @@ const RequirementToggle = ({
     </Box>
   </Box>
 );
+
+// Bloco informativo (nao toggle) pra "Relato do atendimento" - o validator
+// exige relato sempre, incondicionalmente, entao um toggle editavel aqui
+// seria enganoso (ver WorkOrderCompletionValidator.java, requireFieldReport
+// nao bloqueia nada hoje). So leitura, sem Switch.
+const AlwaysRequiredNotice = ({
+  icon,
+  label,
+  helper
+}: {
+  icon: ReactNode;
+  label: string;
+  helper?: string;
+}) => {
+  const { t }: { t: any } = useTranslation();
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25, py: 1 }}>
+      <Box sx={{ mt: 0.25, color: 'text.secondary', display: 'flex' }}>{icon}</Box>
+      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {label}
+          </Typography>
+          <Box
+            component="span"
+            sx={{
+              px: 0.75,
+              py: 0.125,
+              borderRadius: 0.75,
+              fontSize: 10.5,
+              fontWeight: 700,
+              letterSpacing: 0.3,
+              color: 'text.secondary',
+              bgcolor: (theme) => theme.colors.alpha.black[10]
+            }}
+          >
+            {t('always_required_badge')}
+          </Box>
+        </Box>
+        {helper && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ display: 'block', mt: 0.25, fontSize: 12.5, lineHeight: 1.4 }}
+          >
+            {helper}
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  );
+};
 
 interface CategoriesLayoutProps {
   children?: ReactNode;
@@ -303,15 +327,6 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
   const [openUpdateCategoryModal, setOpenUpdateCategoryModal] =
     useState<boolean>(false);
   const [openDelete, setOpenDelete] = useState<boolean>(false);
-  // Confirmacao antes de remover UM item do checklist (nao a categoria
-  // inteira). Usa Popover ancorado no botao em vez de outro Dialog: dois
-  // MUI Dialog empilhados (o de editar categoria + um ConfirmDialog por
-  // cima) renderizava o segundo fora da viewport (bug de posicionamento do
-  // Slide transition quando aninhado). Popover nao tem esse problema.
-  const [confirmRemoveItem, setConfirmRemoveItem] = useState<{
-    anchorEl: HTMLElement;
-    confirm: () => void;
-  } | null>(null);
   const handleOpenAdd = () => setOpenAddCategoryModal(true);
   const handleCloseAdd = () => setOpenAddCategoryModal(false);
   const { categories, loading } = useSelector((state) => state.categories);
@@ -360,31 +375,6 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
   };
   const onDeleteFailure = (err) =>
     showSnackBar(t('category_delete_failure'), 'error');
-
-  // Cria/atualiza o Checklist por baixo do formulario de categoria - o
-  // usuario nunca precisa visitar Configuracoes > Checklists pra isso. Esse
-  // registro de Checklist continua existindo (e' reaproveitado por Workflows),
-  // so deixou de ser um passo manual separado no fluxo normal.
-  const persistCategoryChecklist = async (
-    values: TaskTypeFieldsValues,
-    categoryName: string
-  ): Promise<{ id: number } | null> => {
-    if (!values.checklistTasks.length) return null;
-    const checklistPayload = {
-      name: categoryName,
-      description: '',
-      category: '',
-      taskBases: buildTaskBases(values.checklistTasks)
-    };
-    if (values.checklistId) {
-      await dispatch(editChecklist(values.checklistId, checklistPayload));
-      return { id: values.checklistId };
-    }
-    const created: Checklist = await dispatch(
-      addChecklist(checklistPayload, companySettingsId)
-    );
-    return created ? { id: created.id } : null;
-  };
 
   const tabs = [
     { value: '', label: t('work_orders') },
@@ -458,81 +448,9 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
   ) => {
     if (!isWorkOrderCategory(basePath)) return null;
 
-    const updateTask = (id: number, updater: (task: Task) => Task) =>
-      setFieldValue(
-        'checklistTasks',
-        values.checklistTasks.map((task) =>
-          task.id === id ? updater(task) : task
-        )
-      );
-    const addChecklistItem = () =>
-      setFieldValue('checklistTasks', [
-        ...values.checklistTasks,
-        {
-          id: randomInt(),
-          taskBase: { id: randomInt(), label: '', taskType: 'SUBTASK' },
-          notes: '',
-          images: []
-        }
-      ]);
-    const onLabelChange = (value: string, id: number) =>
-      updateTask(id, (task) => ({
-        ...task,
-        taskBase: { ...task.taskBase, label: value }
-      }));
-    const onTypeChange = (value: TaskType, id: number) =>
-      updateTask(id, (task) => ({
-        ...task,
-        taskBase: {
-          ...task.taskBase,
-          taskType: value,
-          meter: value === 'METER' ? task.taskBase.meter : null
-        }
-      }));
-    const onUserChange = (user: UserMiniDTO, id: number) =>
-      updateTask(id, (task) => ({
-        ...task,
-        taskBase: { ...task.taskBase, user }
-      }));
-    const onAssetChange = (asset: AssetMiniDTO, id: number) =>
-      updateTask(id, (task) => ({
-        ...task,
-        taskBase: { ...task.taskBase, asset }
-      }));
-    const onMeterChange = (meter: MeterMiniDTO, id: number) =>
-      updateTask(id, (task) => ({
-        ...task,
-        taskBase: { ...task.taskBase, meter }
-      }));
-    const onChoicesChange = (choices: string[], id: number) =>
-      updateTask(id, (task) => ({
-        ...task,
-        taskBase: {
-          ...task.taskBase,
-          options: choices.map((choice) => ({ id: randomInt(), label: choice }))
-        }
-      }));
-    const onDragEndChecklist: DraggableListProps['onDragEnd'] = ({
-      destination,
-      source
-    }) => {
-      if (!destination) return;
-      setFieldValue(
-        'checklistTasks',
-        reorder(values.checklistTasks, source.index, destination.index)
-      );
-    };
-    const requestRemoveItem = (id: number, anchorEl?: HTMLElement) =>
-      setConfirmRemoveItem({
-        anchorEl,
-        confirm: () => {
-          setFieldValue(
-            'checklistTasks',
-            values.checklistTasks.filter((task) => task.id !== id)
-          );
-          setConfirmRemoveItem(null);
-        }
-      });
+    const selectedChecklist = checklists.find(
+      (checklist) => checklist.id === values.checklistId
+    );
 
     return (
       <>
@@ -575,90 +493,117 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
           </SectionCard>
         </Grid>
 
-        {/* Secao 3 - Questionario padrao */}
+        {/* Secao 3 - Checklist: selecao do cadastro proprio (/app/checklists)
+            + o unico requisito de conclusao que pertence conceitualmente a
+            este grupo (Exigir checklist completo) - unificados no mesmo
+            card pra nao separar "o que e o checklist" de "o que ele exige".
+            "Criar novo"/"Editar associado" abrem o editor numa aba nova pra
+            preservar este modal aberto como esta. */}
         <Grid item xs={12}>
           <SectionCard>
             <SectionHeader
               icon={<AssignmentTwoToneIcon fontSize="small" />}
-              title={t('task_type_default_checklist')}
+              title={t('checklist_section_title')}
               description={t('task_type_checklist_section_helper')}
             />
             {!hasFeature(PlanFeature.CHECKLIST) ? (
               <FeatureErrorMessage message="upgrade_checklist" />
-            ) : values.checklistTasks.length ? (
-              <Box>
-                <DraggableTaskList
-                  tasks={values.checklistTasks}
-                  onDragEnd={onDragEndChecklist}
-                  onLabelChange={onLabelChange}
-                  onTypeChange={onTypeChange}
-                  onRemove={requestRemoveItem}
-                  onUserChange={onUserChange}
-                  onAssetChange={onAssetChange}
-                  onMeterChange={onMeterChange}
-                  onChoicesChange={onChoicesChange}
-                />
-                <Button
-                  size="small"
-                  startIcon={<AddTwoToneIcon fontSize="small" />}
-                  onClick={addChecklistItem}
-                  sx={{ mt: 0.5 }}
-                >
-                  {t('task_type_checklist_add_item')}
-                </Button>
-              </Box>
             ) : (
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  textAlign: 'center',
-                  py: 3,
-                  px: 2,
-                  borderRadius: 1.5,
-                  border: (theme) => `1px dashed ${theme.colors.alpha.black[20]}`
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    display: 'grid',
-                    placeItems: 'center',
-                    borderRadius: '50%',
-                    color: 'text.secondary',
-                    bgcolor: (theme) => theme.colors.alpha.black[10],
-                    mb: 1.5
-                  }}
-                >
-                  <PlaylistAddCheckTwoToneIcon fontSize="small" />
+              <Box>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                  <Box sx={{ flexGrow: 1 }}>
+                    <SelectForm
+                      options={checklists.map((checklist) => ({
+                        label: t('checklist_option_label', {
+                          name: checklist.name,
+                          count: checklist.taskBases?.length ?? 0
+                        }),
+                        value: checklist.id
+                      })) as any}
+                      value={
+                        (selectedChecklist
+                          ? {
+                              label: t('checklist_option_label', {
+                                name: selectedChecklist.name,
+                                count: selectedChecklist.taskBases?.length ?? 0
+                              }),
+                              value: selectedChecklist.id
+                            }
+                          : null) as any
+                      }
+                      label="checklist"
+                      placeholder={t('search_checklist_placeholder')}
+                      onChange={(event: any, option: any) =>
+                        setFieldValue(
+                          'checklistId',
+                          option ? Number(option.value) : null
+                        )
+                      }
+                      disabled={false}
+                      error={false}
+                      errorMessage={undefined}
+                      fullWidth
+                    />
+                  </Box>
+                  <IconButtonWrapper
+                    size="small"
+                    title={t('refresh_checklists')}
+                    onClick={() => dispatch(getChecklists())}
+                    sx={{ mt: 0.5 }}
+                  >
+                    <RefreshTwoToneIcon fontSize="small" />
+                  </IconButtonWrapper>
                 </Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  {t('task_type_checklist_empty')}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 0.5, maxWidth: 360 }}
-                >
-                  {t('task_type_checklist_empty_helper')}
-                </Typography>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<AddTwoToneIcon fontSize="small" />}
-                  onClick={addChecklistItem}
-                  sx={{ mt: 2 }}
-                >
-                  {t('task_type_checklist_add_item')}
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
+                  <Button
+                    size="small"
+                    startIcon={<AddTwoToneIcon fontSize="small" />}
+                    onClick={() => window.open('/app/checklists/new', '_blank')}
+                  >
+                    {t('create_new_checklist')}
+                  </Button>
+                  <Button
+                    size="small"
+                    disabled={!values.checklistId}
+                    startIcon={<EditTwoToneIcon fontSize="small" />}
+                    onClick={() =>
+                      window.open(
+                        `/app/checklists/${values.checklistId}`,
+                        '_blank'
+                      )
+                    }
+                  >
+                    {t('edit_associated_checklist')}
+                  </Button>
+                </Box>
+                <Divider sx={{ my: 2 }} />
+                <RequirementToggle
+                  icon={<PlaylistAddCheckTwoToneIcon fontSize="small" />}
+                  label={t('task_type_require_checklist_completion')}
+                  helper={
+                    values.checklistId
+                      ? t('category_require_checklist_completion_helper')
+                      : t('checklist_completion_disabled_helper')
+                  }
+                  checked={!!values.checklistId && values.requireChecklistCompletion}
+                  disabled={!values.checklistId}
+                  onChange={(checked) =>
+                    setFieldValue('requireChecklistCompletion', checked)
+                  }
+                />
               </Box>
             )}
           </SectionCard>
         </Grid>
 
-        {/* Secao 4 - Requisitos para conclusao */}
+        {/* Secao 4 - Requisitos para conclusao: 3 grupos que refletem a
+            dependencia REAL do WorkOrderCompletionValidator (ver auditoria) -
+            relato de campo NAO tem toggle porque a flag requireFieldReport
+            nao bloqueia nada hoje (relato ja e sempre obrigatorio, ver
+            WorkOrderCompletionValidator.java linhas 59-67). Nome/documento
+            do assinante ficam desabilitados quando assinatura esta OFF, sem
+            apagar o valor salvo (o backend ja ignora esses campos nesse
+            caso). */}
         <Grid item xs={12}>
           <SectionCard>
             <SectionHeader
@@ -666,13 +611,13 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
               title={t('task_type_requirements_section')}
             />
             <Grid container spacing={2}>
-              <Grid item xs={12}>
+              <Grid item xs={12} md={6}>
                 <Typography
                   variant="overline"
                   color="text.secondary"
                   sx={{ fontWeight: 700 }}
                 >
-                  {t('category_requirements_group_evidence')}
+                  {t('category_requirements_group_service')}
                 </Typography>
                 <RequirementToggle
                   icon={<PhotoCameraTwoToneIcon fontSize="small" />}
@@ -683,23 +628,10 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
                     setFieldValue('requirePhotos', checked)
                   }
                 />
-                <RequirementToggle
+                <AlwaysRequiredNotice
                   icon={<ArticleTwoToneIcon fontSize="small" />}
-                  label={t('task_type_require_field_report')}
-                  helper={t('category_require_field_report_helper')}
-                  checked={values.requireFieldReport}
-                  onChange={(checked) =>
-                    setFieldValue('requireFieldReport', checked)
-                  }
-                />
-                <RequirementToggle
-                  icon={<PlaylistAddCheckTwoToneIcon fontSize="small" />}
-                  label={t('task_type_require_checklist_completion')}
-                  helper={t('category_require_checklist_completion_helper')}
-                  checked={values.requireChecklistCompletion}
-                  onChange={(checked) =>
-                    setFieldValue('requireChecklistCompletion', checked)
-                  }
+                  label={t('field_report_always_required_label')}
+                  helper={t('field_report_always_required_helper')}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
@@ -721,7 +653,7 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
                   }
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <Divider sx={{ mb: 1 }} />
                 <Typography
                   variant="overline"
@@ -742,7 +674,8 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
                 <RequirementToggle
                   icon={<BadgeTwoToneIcon fontSize="small" />}
                   label={t('task_type_require_signer_name')}
-                  checked={values.requireSignerName}
+                  checked={values.requireSignature && values.requireSignerName}
+                  disabled={!values.requireSignature}
                   onChange={(checked) =>
                     setFieldValue('requireSignerName', checked)
                   }
@@ -751,7 +684,8 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
                 <RequirementToggle
                   icon={<FingerprintTwoToneIcon fontSize="small" />}
                   label={t('task_type_require_signer_document')}
-                  checked={values.requireSignerDocument}
+                  checked={values.requireSignature && values.requireSignerDocument}
+                  disabled={!values.requireSignature}
                   onChange={(checked) =>
                     setFieldValue('requireSignerDocument', checked)
                   }
@@ -791,19 +725,18 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
         initialValues={{
           name: '',
           description: null,
-          ...taskTypeInitialValues(checklists)
+          ...taskTypeInitialValues()
         }}
         validationSchema={Yup.object().shape({
           name: Yup.string().max(30).required(t('required_name'))
         })}
         onSubmit={async (values, { setSubmitting }) => {
           try {
-            const checklistRef = isWorkOrderCategory(basePath)
-              ? await persistCategoryChecklist(
-                  values as TaskTypeFieldsValues,
-                  values.name
-                )
-              : null;
+            const checklistRef =
+              isWorkOrderCategory(basePath) &&
+              (values as TaskTypeFieldsValues).checklistId
+                ? { id: (values as TaskTypeFieldsValues).checklistId }
+                : null;
             const formattedValues = {
               name: values.name,
               description: values.description,
@@ -907,19 +840,18 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
         initialValues={{
           name: currentCategory?.name,
           description: currentCategory?.description,
-          ...taskTypeInitialValues(checklists, currentCategory)
+          ...taskTypeInitialValues(currentCategory)
         }}
         validationSchema={Yup.object().shape({
           name: Yup.string().max(30).required(t('required_name'))
         })}
         onSubmit={async (values, { setSubmitting }) => {
           try {
-            const checklistRef = isWorkOrderCategory(basePath)
-              ? await persistCategoryChecklist(
-                  values as TaskTypeFieldsValues,
-                  values.name
-                )
-              : null;
+            const checklistRef =
+              isWorkOrderCategory(basePath) &&
+              (values as TaskTypeFieldsValues).checklistId
+                ? { id: (values as TaskTypeFieldsValues).checklistId }
+                : null;
             const formattedValues = {
               name: values.name,
               description: values.description,
@@ -1174,32 +1106,6 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
           confirmText={t('to_delete')}
           question={t('confirm_delete_category')}
         />
-        <Popover
-          open={!!confirmRemoveItem}
-          anchorEl={confirmRemoveItem?.anchorEl}
-          onClose={() => setConfirmRemoveItem(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        >
-          <Box sx={{ p: 2, maxWidth: 260 }}>
-            <Typography variant="body2" sx={{ mb: 1.5 }}>
-              {t('task_type_checklist_confirm_remove_item')}
-            </Typography>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-              <Button size="small" onClick={() => setConfirmRemoveItem(null)}>
-                {t('cancel')}
-              </Button>
-              <Button
-                size="small"
-                color="error"
-                variant="contained"
-                onClick={() => confirmRemoveItem?.confirm()}
-              >
-                {t('to_delete')}
-              </Button>
-            </Box>
-          </Box>
-        </Popover>
       </MultipleTabsLayout>
     );
   else return <PermissionErrorMessage message={'no_access_categories'} />;

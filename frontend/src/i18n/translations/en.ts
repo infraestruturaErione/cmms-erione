@@ -383,16 +383,41 @@ const locale = {
   task_type_default_duration_helper:
     'Used as a duration suggestion when creating a new work order of this category.',
   task_type_default_checklist: 'Default checklist',
+  checklist_section_title: 'Checklist',
   task_type_checklist_empty: 'No questions configured',
   task_type_checklist_empty_helper:
     'Add questions to guide the technician during the execution of the work order.',
   task_type_checklist_section_helper:
-    'The questions configured here will be automatically added to new work orders of this category.',
+    "The selected checklist's questions will be automatically added to new work orders of this category.",
+  checklist_completion_disabled_helper:
+    'Associate a checklist to enable this requirement.',
   task_type_checklist_add_item: 'Add question',
   task_type_checklist_confirm_remove_item:
     'Remove this question from the checklist?',
+  nav_checklists: 'Checklists',
+  erione_nav_desc_checklists:
+    'Reusable checklist catalog to associate with categories.',
+  checklists_page_helper: 'Questionnaire templates used across work orders.',
+  new_checklist: 'New checklist',
+  checklist_form_edit_title: 'Edit checklist',
+  checklist_name: 'Checklist name',
+  checklist_questions: 'Questions',
+  checklist_questions_count: 'Questions',
+  search_checklist_placeholder: 'Search checklist...',
+  no_checklist_found: 'No checklist found.',
+  no_checklist_message: 'No checklist created yet.',
+  checklist_list_confirm_delete:
+    'Are you sure you want to delete this checklist?',
+  checklist_list_delete_success: 'Checklist deleted successfully',
+  checklist_copy_name: 'Copy of {{name}}',
+  checklist_duplicate_success: 'Checklist duplicated successfully',
+  checklist_option_label: '{{name}} ({{count}} questions)',
+  create_new_checklist: 'Create new',
+  edit_associated_checklist: 'Edit associated',
+  refresh_checklists: 'Refresh checklist list',
   task_type_requirements_section: 'Completion requirements',
   category_requirements_group_evidence: 'Service evidence',
+  category_requirements_group_service: 'Service record',
   category_requirements_group_travel: 'Travel',
   category_requirements_group_signature: "Responsible's signature",
   task_type_require_signature: 'Signature',
@@ -402,14 +427,18 @@ const locale = {
   task_type_require_field_report: 'Field report',
   task_type_require_mileage: 'Mileage traveled',
   task_type_require_checklist_completion: 'Require complete checklist',
+  always_required_badge: 'Always required',
+  field_report_always_required_label: 'Service report',
+  field_report_always_required_helper:
+    'The technician will be required to record the service performed.',
   category_require_photos_helper:
-    'The technician will be required to record evidence of the service.',
+    'The technician will be required to attach evidence of the service.',
   category_require_field_report_helper:
     'The technician will be required to describe the service performed.',
   category_require_checklist_completion_helper:
-    'Blocks completion through the interface while there are pending items.',
+    'All checklist questions must be answered before completing the work order.',
   category_require_mileage_helper:
-    'Requests the mileage traveled to the location.',
+    'The technician will be required to inform the mileage traveled.',
   category_require_signature_helper:
     'Requests the signature of whoever accompanied the service.',
   category_inspection_hint: 'Answered as Passed, Flagged or Failed.',

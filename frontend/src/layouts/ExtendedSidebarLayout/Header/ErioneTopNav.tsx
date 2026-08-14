@@ -181,6 +181,13 @@ const curatedSections: TopNavSection[] = [
         link: '/app/categories',
         icon: <CategoryTwoToneIcon fontSize="small" />,
         sourceName: 'categories'
+      },
+      {
+        name: 'nav_checklists',
+        description: 'erione_nav_desc_checklists',
+        link: '/app/checklists',
+        icon: <AddTaskTwoToneIcon fontSize="small" />,
+        sourceName: 'checklists'
       }
     ]
   },

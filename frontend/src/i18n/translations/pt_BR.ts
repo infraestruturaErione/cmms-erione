@@ -402,16 +402,41 @@ const ptBRJSON = {
   task_type_default_duration_helper:
     'Usada como sugestão de duração ao criar uma nova OS desta categoria.',
   task_type_default_checklist: 'Questionário padrão',
+  checklist_section_title: 'Checklist',
   task_type_checklist_empty: 'Nenhuma pergunta configurada',
   task_type_checklist_empty_helper:
     'Adicione perguntas para orientar o técnico durante a execução da ordem de serviço.',
   task_type_checklist_section_helper:
-    'As perguntas configuradas aqui serão adicionadas automaticamente às novas ordens de serviço desta categoria.',
+    'As perguntas do checklist selecionado serão adicionadas automaticamente às novas ordens de serviço desta categoria.',
+  checklist_completion_disabled_helper:
+    'Associe um checklist para habilitar este requisito.',
   task_type_checklist_add_item: 'Adicionar pergunta',
   task_type_checklist_confirm_remove_item:
     'Remover esta pergunta do checklist?',
+  nav_checklists: 'Checklists',
+  erione_nav_desc_checklists:
+    'Cadastro de checklists reutilizáveis para associar às categorias.',
+  checklists_page_helper: 'Modelos de questionário utilizados nas ordens de serviço.',
+  new_checklist: 'Novo checklist',
+  checklist_form_edit_title: 'Editar checklist',
+  checklist_name: 'Nome do checklist',
+  checklist_questions: 'Perguntas',
+  checklist_questions_count: 'Perguntas',
+  search_checklist_placeholder: 'Buscar checklist...',
+  no_checklist_found: 'Nenhum checklist encontrado.',
+  no_checklist_message: 'Nenhum checklist cadastrado ainda.',
+  checklist_list_confirm_delete:
+    'Tem certeza que deseja excluir este checklist?',
+  checklist_list_delete_success: 'Checklist excluído com sucesso',
+  checklist_copy_name: 'Cópia de {{name}}',
+  checklist_duplicate_success: 'Checklist duplicado com sucesso',
+  checklist_option_label: '{{name}} ({{count}} perguntas)',
+  create_new_checklist: 'Criar novo',
+  edit_associated_checklist: 'Editar associado',
+  refresh_checklists: 'Atualizar lista de checklists',
   task_type_requirements_section: 'Requisitos para conclusão',
   category_requirements_group_evidence: 'Evidências do atendimento',
+  category_requirements_group_service: 'Registro do atendimento',
   category_requirements_group_travel: 'Deslocamento',
   category_requirements_group_signature: 'Assinatura do responsável',
   task_type_require_signature: 'Colher assinatura',
@@ -420,15 +445,19 @@ const ptBRJSON = {
   task_type_require_photos: 'Colher fotos',
   task_type_require_field_report: 'Preencher relato',
   task_type_require_mileage: 'Preencher km rodado',
-  task_type_require_checklist_completion: 'Exigir questionário completo',
+  task_type_require_checklist_completion: 'Exigir checklist completo',
+  always_required_badge: 'Sempre obrigatório',
+  field_report_always_required_label: 'Relato do atendimento',
+  field_report_always_required_helper:
+    'O técnico deverá registrar o serviço realizado.',
   category_require_photos_helper:
-    'O técnico deverá registrar evidências do atendimento.',
+    'O técnico deverá anexar evidências do atendimento.',
   category_require_field_report_helper:
     'O técnico deverá descrever o atendimento realizado.',
   category_require_checklist_completion_helper:
-    'Impede a conclusão pela interface enquanto houver itens pendentes.',
+    'Todas as perguntas do checklist deverão ser respondidas antes da conclusão da OS.',
   category_require_mileage_helper:
-    'Solicita a quilometragem percorrida até o local.',
+    'O técnico deverá informar a quilometragem percorrida.',
   category_require_signature_helper:
     'Solicita a assinatura de quem acompanhou o atendimento.',
   category_inspection_hint: 'Respondida como Aprovado, Atenção ou Falhou.',
