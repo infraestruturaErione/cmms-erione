@@ -140,9 +140,8 @@ const getInitialWorkOrderFilterFields = (
 function WorkOrders() {
   const { t }: { t: any } = useTranslation();
   const [currentTab, setCurrentTab] = useState<string>('list');
-  const { workOrders, loadingGet, singleWorkOrder } = useSelector(
-    (state) => state.workOrders
-  );
+  const { workOrders, loadingGet, singleWorkOrder, lastFetchedCriteria } =
+    useSelector((state) => state.workOrders);
   const { exportEntity, loadingExport } = useExport();
   const [searchParams, setSearchParams] = useSearchParams();
   const locationParam = searchParams.get('location');
@@ -523,8 +522,23 @@ function WorkOrders() {
     () => debounce((event) => onQueryChangeRef.current(event), 1300),
     []
   );
+  // So a PRIMEIRA execucao deste efeito apos montar a rota pode reaproveitar
+  // o cache do Redux (que sobrevive ao unmount, so o useState local morre) -
+  // qualquer mudanca de criteria feita pelo usuario depois disso (filtro,
+  // pagina, busca, ordenacao) continua sempre com loading normal, porque
+  // isFirstMountFetchRef.current ja vira false na primeira execucao.
+  const isFirstMountFetchRef = useRef(true);
   useEffect(() => {
-    dispatch(getWorkOrders(criteria));
+    const isFirstRun = isFirstMountFetchRef.current;
+    isFirstMountFetchRef.current = false;
+    // Nao usar workOrders.content.length como sinal de cache valido - uma
+    // busca anterior que retornou 0 resultados tambem e um cache valido, so
+    // lastFetchedCriteria !== null diz se ja buscamos alguma vez.
+    const canReuseCache =
+      isFirstRun &&
+      lastFetchedCriteria !== null &&
+      _.isEqual(criteria, lastFetchedCriteria);
+    dispatch(getWorkOrders(criteria, { silent: canReuseCache }));
   }, [criteria]);
 
   // Refs (not state) on purpose: focus/visibility/poll are wired up ONCE

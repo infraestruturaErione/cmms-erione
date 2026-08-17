@@ -47,6 +47,12 @@ interface WorkOrderState {
   singleWorkOrder: WorkOrder;
   urgentCount: number;
   loadingGet: boolean;
+  // Criteria exata que produziu o `workOrders` atual - permite ao caller
+  // (WorkOrders/index.tsx) decidir, no primeiro fetch apos montar a rota, se
+  // os dados em cache podem ser exibidos imediatamente + refresh silencioso
+  // em vez de loading normal. So gravado junto com `workOrders`, na mesma
+  // guarda de requestId, pra nunca ficar dessincronizado dele.
+  lastFetchedCriteria: SearchCriteria | null;
   calendar: {
     events: CalendarEvent<WorkOrder | PreventiveMaintenance>[];
   };
@@ -60,6 +66,7 @@ const initialState: WorkOrderState = {
   singleWorkOrder: null,
   urgentCount: 0,
   loadingGet: false,
+  lastFetchedCriteria: null,
   workOrdersMini: getInitialPage<WorkOrderBaseMiniDTO>(),
   calendar: {
     events: []
@@ -74,10 +81,14 @@ const slice = createSlice({
   reducers: {
     getWorkOrders(
       state: WorkOrderState,
-      action: PayloadAction<{ workOrders: Page<WorkOrder> }>
+      action: PayloadAction<{
+        workOrders: Page<WorkOrder>;
+        criteria: SearchCriteria;
+      }>
     ) {
-      const { workOrders } = action.payload;
+      const { workOrders, criteria } = action.payload;
       state.workOrders = workOrders;
+      state.lastFetchedCriteria = criteria;
     },
     getWorkOrdersMini(
       state: WorkOrderState,
@@ -286,7 +297,7 @@ export const getWorkOrders =
         criteria
       );
       if (requestId === latestWorkOrdersRequestId) {
-        dispatch(slice.actions.getWorkOrders({ workOrders }));
+        dispatch(slice.actions.getWorkOrders({ workOrders, criteria }));
       }
     } finally {
       if (!silent) dispatch(slice.actions.setLoadingGet({ loading: false }));
