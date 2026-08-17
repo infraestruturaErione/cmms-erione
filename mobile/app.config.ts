@@ -10,7 +10,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Erione CMMS',
   slug: 'erione-cmms',
-  version: '1.0.41',
+  version: '1.0.42',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'erionecmms',
@@ -31,10 +31,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     bundleIdentifier: 'com.cmms.erione',
-    buildNumber: '7',
+    buildNumber: '8',
     jsEngine: 'hermes',
     supportsTablet: false,
-    runtimeVersion: '1.0.41',
+    runtimeVersion: '1.0.42',
     ...(enableFirebase
       ? { googleServicesFile: googleServicesPlist ?? './GoogleService-Info.plist' }
       : {}),

@@ -1,6 +1,6 @@
 {
   "name": "erione-cmms",
-  "version": "1.0.41",
+  "version": "1.0.42",
   "packageManager": "npm@10.9.3",
   "scripts": {
     "start": "expo start --dev-client",
