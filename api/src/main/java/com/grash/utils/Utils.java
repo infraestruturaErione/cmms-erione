@@ -46,7 +46,7 @@ public class Utils {
 
     public String getFormattedDate(Object date, DateFormat dateFormat, String timeZone) {
         if (date == null) return null;
-        String pattern = dateFormat == DateFormat.MMDDYY ? "MM/dd/yy" : "dd/MM/yy";
+        String pattern = dateFormat == DateFormat.MMDDYY ? "MM/dd/yy HH:mm" : "dd/MM/yy HH:mm";
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern)
                 .withZone(ZoneId.of(timeZone));
         if (date instanceof Date) return formatter.format(((Date) date).toInstant());
