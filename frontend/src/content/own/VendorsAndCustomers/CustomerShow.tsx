@@ -34,18 +34,25 @@ import DevicesOtherTwoToneIcon from '@mui/icons-material/DevicesOtherTwoTone';
 import MapTwoToneIcon from '@mui/icons-material/MapTwoTone';
 
 import { TitleContext } from '../../../contexts/TitleContext';
+import { CustomSnackBarContext } from '../../../contexts/CustomSnackBarContext';
 import { Customer } from '../../../models/owns/customer';
 import WorkOrder from '../../../models/owns/workOrder';
 import { getAssetUrl } from '../../../utils/urlPaths';
 import { AssetDTO } from '../../../models/owns/asset';
 import { Page, SearchCriteria } from '../../../models/owns/page';
 import api from '../../../utils/api';
+import { getErrorMessage } from '../../../utils/api';
 import { isNumeric } from '../../../utils/validators';
 import { ERIONE_VISUAL_IDENTITY } from '../../../config/erioneVisualIdentity';
 import ErioneTableActions, {
   viewAction,
   createWorkOrderAction
 } from '../components/ErioneTableActions';
+import CustomerForm from './CustomerForm';
+import useAuth from '../../../hooks/useAuth';
+import { PermissionEntity } from '../../../models/owns/role';
+import { useDispatch, useSelector } from '../../../store';
+import { getCustomFields } from '../../../slices/customField';
 
 const CUSTOMER_PAGE_SIZE = 10;
 const CUSTOMER_ASSETS_PAGE_SIZE = 1000;
@@ -156,10 +163,15 @@ const CustomerShow = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { setTitle } = useContext(TitleContext);
+  const { showSnackBar } = useContext(CustomSnackBarContext);
+  const dispatch = useDispatch();
+  const { customFields } = useSelector((state) => state.customFields);
+  const { hasEditPermission } = useAuth();
   const { customerId } = useParams();
 
   const [tab, setTab] = useState<CustomerTab>('overview');
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [locationsPageData, setLocationsPageData] =
     useState<Page<CustomerLocationListDTO> | null>(null);
   const [mapLocations, setMapLocations] = useState<CustomerLocationMapPoint[]>(
@@ -250,6 +262,12 @@ const CustomerShow = () => {
       active = false;
     };
   }, [numericCustomerId, locationsPage]);
+
+  useEffect(() => {
+    if (isEditing && !customFields.length) {
+      dispatch(getCustomFields());
+    }
+  }, [dispatch, isEditing, customFields.length]);
 
   useEffect(() => {
     if (!numericCustomerId || assetsLoaded || tab !== 'assets') return;
@@ -375,6 +393,28 @@ const CustomerShow = () => {
 
   const createWorkOrderUrl = `/app/work-orders?customer=${numericCustomerId}&new=true`;
   const reportUrl = `/app/analytics/work-orders/operational-report?customer=${numericCustomerId}`;
+  const canEditCustomer = hasEditPermission(
+    PermissionEntity.VENDORS_AND_CUSTOMERS,
+    customer
+  );
+
+  const handleCustomerUpdate = async (values) => {
+    if (!numericCustomerId) return;
+    return api
+      .patch<Customer>(`customers/${numericCustomerId}`, values)
+      .then((response) => {
+        setCustomer(response);
+        setIsEditing(false);
+        showSnackBar(t('changes_saved_success'), 'success');
+      })
+      .catch((err) => {
+        showSnackBar(
+          getErrorMessage(err, t('customer_edit_failure')),
+          'error'
+        );
+        throw err;
+      });
+  };
 
   const renderEmpty = (message: string) => (
     <Card sx={{ p: 3, borderRadius: 1.5 }}>
@@ -896,14 +936,16 @@ const CustomerShow = () => {
               >
                 {t('view_report', 'Ver relatorio')}
               </Button>
-              <Button
-                size="small"
-                variant="text"
-                startIcon={<EditTwoToneIcon />}
-                onClick={() => navigate('/app/vendors-customers/customers')}
-              >
-                {t('edit_customer', 'Editar cliente')}
-              </Button>
+              {canEditCustomer && !isEditing && (
+                <Button
+                  size="small"
+                  variant="text"
+                  startIcon={<EditTwoToneIcon />}
+                  onClick={() => setIsEditing(true)}
+                >
+                  {t('edit_customer', 'Editar cliente')}
+                </Button>
+              )}
             </Stack>
           </Stack>
         </Card>
@@ -963,7 +1005,60 @@ const CustomerShow = () => {
             <Tab value="files" label={t('files')} />
           </Tabs>
           <Box p={2}>
-            {tab === 'overview' && renderOverview()}
+            {isEditing ? (
+              <Stack spacing={2}>
+                <CustomerForm
+                  customFields={customFields}
+                  initialValues={customer}
+                  submitText={'save'}
+                  onSubmit={handleCustomerUpdate}
+                  onCancel={() => setIsEditing(false)}
+                  hideBottomActions
+                  renderTopActions={(formik) => (
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      justifyContent="space-between"
+                      alignItems={{ xs: 'flex-start', sm: 'center' }}
+                      spacing={1.5}
+                      sx={{ mb: 0.5 }}
+                    >
+                      <Box>
+                        <Typography variant="h3">
+                          {t('edit_customer', 'Editar cliente')}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {t(
+                            'customer_edit_inline_helper',
+                            'Atualize os dados principais do cliente nesta própria página.'
+                          )}
+                        </Typography>
+                      </Box>
+                      <Stack direction="row" spacing={1.5}>
+                        <Button
+                          variant="outlined"
+                          onClick={() => setIsEditing(false)}
+                          disabled={formik.isSubmitting}
+                        >
+                          {t('cancel', 'Cancelar')}
+                        </Button>
+                        <Button
+                          type="submit"
+                          variant="contained"
+                          onClick={() => formik.handleSubmit()}
+                          disabled={
+                            Boolean(formik.errors.submit) || formik.isSubmitting
+                          }
+                        >
+                          {t('save_changes', 'Salvar alteracoes')}
+                        </Button>
+                      </Stack>
+                    </Stack>
+                  )}
+                />
+              </Stack>
+            ) : (
+              <>
+                {tab === 'overview' && renderOverview()}
             {tab === 'locations' && renderLocations()}
             {tab === 'assets' && renderAssets()}
             {tab === 'workOrders' && renderWorkOrders()}
@@ -999,6 +1094,8 @@ const CustomerShow = () => {
                   'Anexos diretos do cliente ficam como pendencia futura sem backend novo.'
                 )
               )}
+              </>
+            )}
           </Box>
         </Card>
       </Box>

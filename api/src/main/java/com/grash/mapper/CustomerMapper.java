@@ -5,6 +5,7 @@ import com.grash.dto.CustomerPatchDTO;
 import com.grash.dto.CustomerPostDTO;
 import com.grash.dto.CustomerShowDTO;
 import com.grash.model.Customer;
+import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -18,7 +19,22 @@ public interface CustomerMapper {
     // flush ("identifier ... altered from null to X"). Toda edicao de
     // cliente quebrava com HTTP 500, nao so quando city foi adicionado.
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "rate", ignore = true)
+    @Mapping(target = "billingCurrency", ignore = true)
     Customer updateCustomer(@MappingTarget Customer entity, CustomerPatchDTO dto);
+
+    @AfterMapping
+    default void preserveNullablePatchSemantics(
+            @MappingTarget Customer entity,
+            CustomerPatchDTO dto
+    ) {
+        if (dto.getRate() != null) {
+            entity.setRate(dto.getRate());
+        }
+        if (dto.getBillingCurrency() != null) {
+            entity.setBillingCurrency(dto.getBillingCurrency());
+        }
+    }
 
     @Mappings({})
     CustomerPatchDTO toPatchDto(Customer model);

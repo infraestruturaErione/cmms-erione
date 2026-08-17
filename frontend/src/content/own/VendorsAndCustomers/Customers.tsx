@@ -9,24 +9,13 @@ import {
   Typography
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import Form from '../components/form';
-import * as Yup from 'yup';
-import {
-  getCustomFieldsValues,
-  getCustomFieldValuesForDetails,
-  IField
-} from '../type';
+import { getCustomFieldValuesForDetails } from '../type';
 import * as React from 'react';
 import { useContext, useEffect, useMemo, useState } from 'react';
 import CustomDatagrid2, {
   CustomDatagridColumn2
 } from '../components/CustomDatagrid2';
-import {
-  emailRegExp,
-  isNumeric,
-  phoneRegExp,
-  websiteRegExp
-} from '../../../utils/validators';
+import { isNumeric } from '../../../utils/validators';
 import { Close } from '@mui/icons-material';
 import { Customer } from '../../../models/owns/customer';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -43,20 +32,15 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { CustomSnackBarContext } from '../../../contexts/CustomSnackBarContext';
 import useAuth from '../../../hooks/useAuth';
 import { PermissionEntity } from '../../../models/owns/role';
-import NoRowsMessageWrapper from '../components/NoRowsMessageWrapper';
-import { formatSelect } from '../../../utils/formatters';
-import Currency from '../../../models/owns/currency';
-import { SearchCriteria, SortDirection } from '../../../models/owns/page';
+import { SearchCriteria } from '../../../models/owns/page';
 import { onSearchQueryChange } from '../../../utils/overall';
 import SearchInput from '../components/SearchInput';
 import { createColumnHelper } from '@tanstack/react-table';
 import useTableState from '../../../hooks/useTableState';
 import { getErrorMessage } from '../../../utils/api';
 import { getCustomFields } from '../../../slices/customField';
-import { CustomFieldEntityType } from '../../../models/owns/customField';
-import { getCustomFieldsIFields, getCustomFieldsRequiredShape } from '../type';
-import { formatCustomFields } from '../../../utils/formatters';
 import { CompanySettingsContext } from '../../../contexts/CompanySettingsContext';
+import CustomerForm from './CustomerForm';
 
 interface PropsType {
   values?: any;
@@ -173,7 +157,10 @@ const Customers = ({ openModal, handleCloseModal }: PropsType) => {
     showSnackBar(t('changes_saved_success'), 'success');
   };
   const onEditFailure = (err) =>
-    showSnackBar(t('customer_edit_failure'), 'error');
+    showSnackBar(
+      getErrorMessage(err, t('customer_edit_failure')),
+      'error'
+    );
   const onDeleteSuccess = () => {
     showSnackBar(t('customer_delete_success'), 'success');
   };
@@ -222,134 +209,6 @@ const Customers = ({ openModal, handleCloseModal }: PropsType) => {
   };
   const onPageChange = (number: number) => {
     setCriteria({ ...criteria, pageNum: number });
-  };
-
-  const formatValues = (values) => {
-    const newValues = { ...values };
-    newValues.billingCurrency = formatSelect(newValues.billingCurrency);
-    newValues.rate = newValues.rate ? Number(newValues.rate) : null;
-    return formatCustomFields(newValues);
-  };
-  let fields: Array<IField> = [
-    {
-      name: 'details',
-      type: 'titleGroupField',
-      label: t('details')
-    },
-    {
-      name: 'name',
-      type: 'text',
-      label: t('customer_name'),
-      placeholder: 'John Doe',
-      required: true
-    },
-    {
-      name: 'address',
-      type: 'text',
-      label: t('address'),
-      placeholder: t('address')
-    },
-    {
-      name: 'city',
-      type: 'text',
-      label: t('city'),
-      placeholder: t('city'),
-      helperText: t('customer_city_helper')
-    },
-    {
-      name: 'cnpj',
-      type: 'text',
-      label: t('cnpj'),
-      placeholder: t('cnpj_placeholder'),
-      helperText: t('cnpj_optional_helper')
-    },
-    {
-      name: 'phone',
-      type: 'text',
-      label: t('phone'),
-      placeholder: '+212611223344',
-      required: true
-    },
-    {
-      name: 'website',
-      type: 'text',
-      label: t('website'),
-      placeholder: 'https://web-site.com'
-    },
-    {
-      name: 'email',
-      type: 'text',
-      label: t('email'),
-      placeholder: 'john.doe@gmail.com'
-    },
-    {
-      name: 'customerType',
-      type: 'text',
-      label: t('customer_type'),
-      placeholder: t('customer_type_description')
-    },
-    {
-      name: 'description',
-      type: 'text',
-      label: t('description'),
-      multiple: true,
-      placeholder: t('customer_description_description')
-    },
-    {
-      name: 'rate',
-      type: 'number',
-      label: t('hourly_rate'),
-      placeholder: t('hourly_rate'),
-      icon: '$'
-      // helperText: 'Changes will only apply to Work Orders created in the future'
-    },
-    {
-      name: 'details',
-      type: 'titleGroupField',
-      label: t('billing_information')
-    },
-    {
-      name: 'billingAddress',
-      type: 'text',
-      label: t('address'),
-      placeholder: t('address')
-    },
-    {
-      name: 'billingAddress2',
-      type: 'text',
-      label: t('address_line_2'),
-      placeholder: t('address_line_2')
-    },
-    {
-      name: 'billingName',
-      type: 'text',
-      label: t('billing_name'),
-      placeholder: t('billing_name')
-    },
-    // {
-    //   name: 'billingCurrency',
-    //   type: 'select',
-    //   type2: 'currency',
-    //   label: t('currency'),
-    //   placeholder: t('select_currency')
-    // }
-    ...getCustomFieldsIFields(customFields, CustomFieldEntityType.CUSTOMER)
-  ];
-
-  const shape = {
-    name: Yup.string().required('required_customer_name'),
-    ...getCustomFieldsRequiredShape(
-      customFields,
-      CustomFieldEntityType.CUSTOMER,
-      t
-    ),
-    phone: Yup.string()
-      .matches(phoneRegExp, t('invalid_phone'))
-      .required(t('required_phone')),
-    website: Yup.string()
-      .matches(websiteRegExp, t('invalid_website'))
-      .nullable(),
-    email: Yup.string().matches(emailRegExp, t('invalid_email')).nullable()
   };
 
   const columnHelper = createColumnHelper<Customer>();
@@ -449,18 +308,15 @@ const Customers = ({ openModal, handleCloseModal }: PropsType) => {
         }}
       >
         <Box>
-          <Form
-            fields={fields}
-            validation={Yup.object().shape(shape)}
-            submitText={t('add')}
-            values={{}}
-            onChange={({ field, e }) => {}}
-            onSubmit={async (values) => {
-              const formattedValues = formatValues(values);
-              return dispatch(addCustomer(formattedValues))
+          <CustomerForm
+            customFields={customFields}
+            submitText={'add'}
+            initialValues={{}}
+            onSubmit={async (values) =>
+              dispatch(addCustomer(values))
                 .then(onCreationSuccess)
-                .catch(onCreationFailure);
-            }}
+                .catch(onCreationFailure)
+            }
           />
         </Box>
       </DialogContent>
@@ -649,29 +505,15 @@ const Customers = ({ openModal, handleCloseModal }: PropsType) => {
           </Box>
         ) : (
           <Box>
-            <Form
-              fields={fields}
-              validation={Yup.object().shape(shape)}
-              submitText={t('save')}
-              values={{
-                ...currentCustomer,
-                billingCurrency: currentCustomer?.billingCurrency
-                  ? {
-                      label: currentCustomer.billingCurrency.name,
-                      value: currentCustomer.billingCurrency.id
-                    }
-                  : null,
-                ...getCustomFieldsValues(currentCustomer)
-              }}
-              onChange={({ field, e }) => {}}
-              onSubmit={async (values) => {
-                const formattedValues = formatValues(values);
-                return dispatch(
-                  editCustomer(currentCustomer.id, formattedValues)
-                )
+            <CustomerForm
+              customFields={customFields}
+              submitText={'save'}
+              initialValues={currentCustomer}
+              onSubmit={async (values) =>
+                dispatch(editCustomer(currentCustomer.id, values))
                   .then(onEditSuccess)
-                  .catch(onEditFailure);
-              }}
+                  .catch(onEditFailure)
+              }
             />
           </Box>
         )}

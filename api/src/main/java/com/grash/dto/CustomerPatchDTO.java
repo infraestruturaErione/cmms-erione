@@ -15,8 +15,8 @@ import java.util.List;
 @NoArgsConstructor
 @Schema(description = "DTO for patching an existing customer")
 public class CustomerPatchDTO extends BasicInfos {
-    @Schema(description = "Type of vendor/customer")
-    private String vendorType;
+    @Schema(description = "Type of customer")
+    private String customerType;
 
     @Schema(description = "City where the customer is located, used to group/filter work orders in the bulk report")
     private String city;
@@ -29,7 +29,7 @@ public class CustomerPatchDTO extends BasicInfos {
     private String description;
 
     @Schema(description = "Hourly rate")
-    private long rate;
+    private Long rate;
 
 
     @Schema(description = "Billing name")

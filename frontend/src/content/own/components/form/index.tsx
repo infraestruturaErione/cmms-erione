@@ -37,11 +37,15 @@ interface PropsType {
   isLoading?: boolean;
   isButtonEnabled?: (values: IHash<any>, ...props: any[]) => boolean;
   renderActions?: (formik: FormikProps<IHash<any>>) => ReactNode;
+  renderTopActions?: (formik: FormikProps<IHash<any>>) => ReactNode;
+  hideBottomActions?: boolean;
+  midWidthBreakpoint?: 'md' | 'lg';
 }
 
 export default (props: PropsType) => {
   const { t }: { t: any } = useTranslation();
   const theme = useTheme();
+  const midWidthBreakpoint = props.midWidthBreakpoint ?? 'lg';
 
   const validationSchema = useMemo(() => {
     if (props.validation) return props.validation;
@@ -133,12 +137,22 @@ export default (props: PropsType) => {
       >
         {(formik) => (
           <Grid container spacing={2}>
+            {props.renderTopActions && (
+              <Grid item xs={12}>
+                {props.renderTopActions(formik)}
+              </Grid>
+            )}
             {filterRelatedFields(props.fields, formik).map((field, index) => {
+              const gridWidthProps = field.midWidth
+                ? midWidthBreakpoint === 'md'
+                  ? { md: 6 }
+                  : { lg: 6 }
+                : {};
               return (
                 <Grid
                   item
                   xs={12}
-                  lg={field.midWidth ? 6 : 12}
+                  {...gridWidthProps}
                   key={field.name}
                 >
                   {field.type === 'select' ? (
@@ -330,45 +344,47 @@ export default (props: PropsType) => {
               );
             })}
 
-            <Grid item xs={12}>
-              {props.renderActions ? (
-                props.renderActions(formik)
-              ) : (
-                <>
-                  <Button
-                    type="submit"
-                    sx={{
-                      mt: { xs: 2, sm: 0 }
-                    }}
-                    onClick={() => formik.handleSubmit()}
-                    variant="contained"
-                    startIcon={
-                      formik.isSubmitting ? (
-                        <CircularProgress size="1rem" />
-                      ) : null
-                    }
-                    disabled={
-                      Boolean(formik.errors.submit) || formik.isSubmitting
-                    }
-                  >
-                    {t(props.submitText)}
-                  </Button>
-
-                  {props.onCanceled && (
+            {!props.hideBottomActions && (
+              <Grid item xs={12}>
+                {props.renderActions ? (
+                  props.renderActions(formik)
+                ) : (
+                  <>
                     <Button
+                      type="submit"
                       sx={{
                         mt: { xs: 2, sm: 0 }
                       }}
-                      onClick={() => props.onCanceled}
-                      variant="outlined"
-                      disabled
+                      onClick={() => formik.handleSubmit()}
+                      variant="contained"
+                      startIcon={
+                        formik.isSubmitting ? (
+                          <CircularProgress size="1rem" />
+                        ) : null
+                      }
+                      disabled={
+                        Boolean(formik.errors.submit) || formik.isSubmitting
+                      }
                     >
                       {t(props.submitText)}
                     </Button>
-                  )}
-                </>
-              )}
-            </Grid>
+
+                    {props.onCanceled && (
+                      <Button
+                        sx={{
+                          mt: { xs: 2, sm: 0 }
+                        }}
+                        onClick={() => props.onCanceled}
+                        variant="outlined"
+                        disabled
+                      >
+                        {t(props.submitText)}
+                      </Button>
+                    )}
+                  </>
+                )}
+              </Grid>
+            )}
             <FormikErrorFocus
               // See scroll-to-element for configuration options: https://www.npmjs.com/package/scroll-to-element
               offset={0}
