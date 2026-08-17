@@ -56,9 +56,7 @@ export default function ChecklistForm() {
   const { checklists } = useSelector((state) => state.checklists);
   const { user, hasViewPermission, hasCreatePermission } = useAuth();
   const { companySettingsId } = user;
-  const canManage =
-    hasCreatePermission(PermissionEntity.CATEGORIES) ||
-    hasViewPermission(PermissionEntity.SETTINGS);
+  const canManage = hasCreatePermission(PermissionEntity.CATEGORIES);
 
   const existingChecklist = !isNew
     ? checklists.find((checklist) => checklist.id === Number(checklistId))

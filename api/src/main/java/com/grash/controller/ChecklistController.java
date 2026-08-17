@@ -116,8 +116,7 @@ public class ChecklistController {
     // gravar o checklist por baixo mesmo sem ter SETTINGS - sem isso a criacao
     // da categoria falhava silenciosamente com 403 pra esses usuarios.
     private boolean canManageChecklists(User user) {
-        return user.getRole().getViewPermissions().contains(PermissionEntity.SETTINGS)
-                || user.getRole().getCreatePermissions().contains(PermissionEntity.CATEGORIES);
+        return user.getRole().getCreatePermissions().contains(PermissionEntity.CATEGORIES);
     }
 }
 

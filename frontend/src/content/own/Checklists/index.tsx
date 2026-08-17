@@ -56,9 +56,7 @@ export default function Checklists() {
   const { checklists, loadingGet } = useSelector((state) => state.checklists);
   const { user, hasViewPermission, hasCreatePermission } = useAuth();
   const { companySettingsId } = user;
-  const canManage =
-    hasCreatePermission(PermissionEntity.CATEGORIES) ||
-    hasViewPermission(PermissionEntity.SETTINGS);
+  const canManage = hasCreatePermission(PermissionEntity.CATEGORIES);
 
   const [search, setSearch] = useState('');
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);

@@ -21,6 +21,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Optional;
 
 @RestController
@@ -76,13 +77,12 @@ public class WorkOrderCategoryController {
                                    HttpServletRequest req) {
         User user = userService.whoami(req);
         Optional<WorkOrderCategory> optionalWorkOrderCategory = workOrderCategoryService.findById(id);
-        if (user.getRole().getCreatePermissions().contains(PermissionEntity.CATEGORIES)) {
-
-            if (optionalWorkOrderCategory.isPresent()) {
-                WorkOrderCategory savedWorkOrderCategory = optionalWorkOrderCategory.get();
+        if (optionalWorkOrderCategory.isPresent()) {
+            WorkOrderCategory savedWorkOrderCategory = optionalWorkOrderCategory.get();
+            if (canEditCategory(savedWorkOrderCategory, user)) {
                 return workOrderCategoryService.update(id, categoryPatchDTO);
-            } else throw new CustomException("WorkOrderCategory not found", HttpStatus.NOT_FOUND);
-        } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
+            } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
+        } else throw new CustomException("WorkOrderCategory not found", HttpStatus.NOT_FOUND);
 
     }
 
@@ -101,6 +101,11 @@ public class WorkOrderCategoryController {
                         HttpStatus.OK);
             } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
         } else throw new CustomException("WorkOrderCategory not found", HttpStatus.NOT_FOUND);
+    }
+
+    private boolean canEditCategory(WorkOrderCategory category, User user) {
+        return Objects.equals(category.getCreatedBy(), user.getId())
+                || user.getRole().getEditOtherPermissions().contains(PermissionEntity.CATEGORIES);
     }
 
 }
