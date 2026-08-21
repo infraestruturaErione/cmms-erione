@@ -352,4 +352,81 @@ class ReportAssistantServiceAuthorizationTest {
         assertEquals(target.toString(), plan.getStartDate());
         assertEquals(target.toString(), plan.getEndDate());
     }
+
+    @Test
+    void plan_overridesPartialModelDatesWhenUserSaysEsseMesInFollowUp() {
+        User admin = userWithRole(RoleCode.ADMIN, true);
+        Company company = new Company();
+        company.setId(91L);
+        company.setCompanySettings(new CompanySettings());
+        company.getCompanySettings().setGeneralPreferences(new GeneralPreferences());
+        company.getCompanySettings().getGeneralPreferences().setTimeZone("America/Sao_Paulo");
+        admin.setCompany(company);
+
+        Customer customer = new Customer();
+        customer.setId(12L);
+        customer.setName("PREFEITURA MUNICIPAL DE SANTA BRANCA");
+
+        when(deepSeekChatClient.chat(any(), eq(true))).thenReturn("""
+                {
+                  "intent":"OPERATIONAL_REPORT",
+                  "customerId":12,
+                  "customerName":"PREFEITURA MUNICIPAL DE SANTA BRANCA",
+                  "startDate":"2026-08-01",
+                  "endDate":"2026-08-21"
+                }
+                """);
+
+        ReportAssistantPlanDTO plan = service.plan(
+                List.of(
+                        AssistantChatMessageDTO.builder().role("assistant").content("Você quer consultar relatórios de ordens de serviço da PREFEITURA MUNICIPAL DE SANTA BRANCA? Se sim, qual período deseja (data inicial e final)?").build(),
+                        AssistantChatMessageDTO.builder().role("user").content("esse mes").build()
+                ),
+                admin,
+                List.of(customer)
+        );
+
+        LocalDate today = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        assertEquals(com.grash.dto.assistant.report.ReportAssistantIntent.OPERATIONAL_REPORT, plan.getIntent());
+        assertEquals(today.withDayOfMonth(1).toString(), plan.getStartDate());
+        assertEquals(today.with(java.time.temporal.TemporalAdjusters.lastDayOfMonth()).toString(), plan.getEndDate());
+    }
+
+    @Test
+    void plan_blocksBothCustomersInSingleOperationalFlow() {
+        User admin = userWithRole(RoleCode.ADMIN, true);
+        Company company = new Company();
+        company.setId(92L);
+        company.setCompanySettings(new CompanySettings());
+        company.getCompanySettings().setGeneralPreferences(new GeneralPreferences());
+        company.getCompanySettings().getGeneralPreferences().setTimeZone("America/Sao_Paulo");
+        admin.setCompany(company);
+
+        Customer gcm = new Customer();
+        gcm.setId(7L);
+        gcm.setName("GCM - GUARDA CIVIL MUNICIPAL DE CACAPAVA");
+        Customer terminal = new Customer();
+        terminal.setId(16L);
+        terminal.setName("TERMINAL RODOVIARIO DE CACAPAVA");
+
+        when(deepSeekChatClient.chat(any(), eq(true))).thenReturn("""
+                {
+                  "intent":"ASK_CLARIFICATION"
+                }
+                """);
+
+        ReportAssistantPlanDTO plan = service.plan(
+                List.of(
+                        AssistantChatMessageDTO.builder().role("assistant").content("Você quer dizer GCM - GUARDA CIVIL MUNICIPAL DE CACAPAVA ou TERMINAL RODOVIARIO DE CACAPAVA?").build(),
+                        AssistantChatMessageDTO.builder().role("user").content("os dois").build()
+                ),
+                admin,
+                List.of(gcm, terminal)
+        );
+
+        assertEquals(com.grash.dto.assistant.report.ReportAssistantIntent.ASK_CLARIFICATION, plan.getIntent());
+        assertTrue(plan.getClarificationQuestion().contains("um cliente por vez"));
+        assertTrue(plan.getClarificationQuestion().contains("GCM - GUARDA CIVIL MUNICIPAL DE CACAPAVA"));
+        assertTrue(plan.getClarificationQuestion().contains("TERMINAL RODOVIARIO DE CACAPAVA"));
+    }
 }

@@ -77,6 +77,9 @@ public class ReportAssistantService {
     private static final Pattern FORBIDDEN_SCOPE_PATTERN = Pattern.compile(
             "(?i)(senha do banco|usu[aá]rio do banco|postgresql|jwt|api[_ -]?key|deepseek_api_key|minio|\\.env|docker|ip interno|system prompt|prompt interno|ignore suas instru[cç][oõ]es|execute sql|liste usu[aá]rios e senhas|authorization|token|vari[aá]veis de ambiente|credentials?)"
     );
+    private static final Pattern BRAZILIAN_DATE_RANGE_PATTERN = Pattern.compile("(\\d{1,2})/(\\d{1,2})/(\\d{4}).*?(\\d{1,2})/(\\d{1,2})/(\\d{4})");
+    private static final Pattern ISO_DATE_RANGE_PATTERN = Pattern.compile("(\\d{4})-(\\d{2})-(\\d{2}).*?(\\d{4})-(\\d{2})-(\\d{2})");
+    private static final Pattern BRAZILIAN_SINGLE_DATE_PATTERN = Pattern.compile("(\\d{1,2})/(\\d{1,2})/(\\d{4})");
 
     private final CustomerRepository customerRepository;
     private final CustomerScopeService customerScopeService;
@@ -197,6 +200,7 @@ public class ReportAssistantService {
                 plan.setIntent(ReportAssistantIntent.ASK_CLARIFICATION);
             }
             applyVagueDateInference(plan, messages, user);
+            applyFollowUpContext(plan, messages, accessibleCustomers, user);
             if (plan.getIntent() == ReportAssistantIntent.OPERATIONAL_REPORT ||
                     plan.getIntent() == ReportAssistantIntent.GENERATE_BULK_REPORT) {
                 validateCustomerSelection(plan, accessibleCustomers);
@@ -551,11 +555,8 @@ public class ReportAssistantService {
                                          User user) {
         if (!(plan.getIntent() == ReportAssistantIntent.OPERATIONAL_REPORT
                 || plan.getIntent() == ReportAssistantIntent.GENERATE_BULK_REPORT
-                || plan.getIntent() == ReportAssistantIntent.INDIVIDUAL_REPORT)) {
-            return;
-        }
-        if (plan.getStartDate() != null && !plan.getStartDate().isBlank()
-                && plan.getEndDate() != null && !plan.getEndDate().isBlank()) {
+                || plan.getIntent() == ReportAssistantIntent.INDIVIDUAL_REPORT
+                || plan.getIntent() == ReportAssistantIntent.ASK_CLARIFICATION)) {
             return;
         }
         String latest = latestUserMessage(messages);
@@ -574,7 +575,56 @@ public class ReportAssistantService {
         }
     }
 
+    private void applyFollowUpContext(ReportAssistantPlanDTO plan,
+                                      List<AssistantChatMessageDTO> messages,
+                                      List<Customer> accessibleCustomers,
+                                      User user) {
+        String latestUser = latestUserMessage(messages);
+        String latestAssistant = latestAssistantMessage(messages);
+        if (latestUser == null || latestUser.isBlank() || latestAssistant == null || latestAssistant.isBlank()) {
+            return;
+        }
+        List<Customer> referencedCustomers = extractMentionedCustomers(latestAssistant, accessibleCustomers);
+        DateRange inferred = inferDateRangeFromText(latestUser, LocalDate.now(getCompanyZone(user)));
+        boolean affirmative = isAffirmative(latestUser);
+        boolean asksForBoth = asksForBoth(latestUser);
+
+        if (referencedCustomers.size() > 1 && (affirmative || asksForBoth || inferred != null)) {
+            plan.setIntent(ReportAssistantIntent.ASK_CLARIFICATION);
+            plan.setCustomerId(null);
+            plan.setCustomerName(null);
+            plan.setClarificationQuestion(buildSingleCustomerOnlyReply(referencedCustomers));
+            return;
+        }
+
+        if (referencedCustomers.size() == 1 && inferred != null && plan.getCustomerId() == null) {
+            Customer customer = referencedCustomers.get(0);
+            plan.setCustomerId(customer.getId());
+            plan.setCustomerName(customer.getName());
+            if (plan.getIntent() == ReportAssistantIntent.ASK_CLARIFICATION || plan.getIntent() == null) {
+                plan.setIntent(ReportAssistantIntent.OPERATIONAL_REPORT);
+            }
+        }
+    }
+
     private DateRange inferDateRangeFromText(String text, LocalDate today) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        var brRangeMatcher = BRAZILIAN_DATE_RANGE_PATTERN.matcher(text);
+        if (brRangeMatcher.find()) {
+            return new DateRange(
+                    LocalDate.of(Integer.parseInt(brRangeMatcher.group(3)), Integer.parseInt(brRangeMatcher.group(2)), Integer.parseInt(brRangeMatcher.group(1))),
+                    LocalDate.of(Integer.parseInt(brRangeMatcher.group(6)), Integer.parseInt(brRangeMatcher.group(5)), Integer.parseInt(brRangeMatcher.group(4)))
+            );
+        }
+        var isoRangeMatcher = ISO_DATE_RANGE_PATTERN.matcher(text);
+        if (isoRangeMatcher.find()) {
+            return new DateRange(
+                    LocalDate.of(Integer.parseInt(isoRangeMatcher.group(1)), Integer.parseInt(isoRangeMatcher.group(2)), Integer.parseInt(isoRangeMatcher.group(3))),
+                    LocalDate.of(Integer.parseInt(isoRangeMatcher.group(4)), Integer.parseInt(isoRangeMatcher.group(5)), Integer.parseInt(isoRangeMatcher.group(6)))
+            );
+        }
         String normalized = normalizeFreeText(text);
         if (normalized.isBlank()) {
             return null;
@@ -605,7 +655,44 @@ public class ReportAssistantService {
                 return new DateRange(target, target);
             }
         }
+        var brSingleDateMatcher = BRAZILIAN_SINGLE_DATE_PATTERN.matcher(text);
+        if (brSingleDateMatcher.find()) {
+            LocalDate target = LocalDate.of(
+                    Integer.parseInt(brSingleDateMatcher.group(3)),
+                    Integer.parseInt(brSingleDateMatcher.group(2)),
+                    Integer.parseInt(brSingleDateMatcher.group(1))
+            );
+            return new DateRange(target, target);
+        }
         return null;
+    }
+
+    private boolean isAffirmative(String value) {
+        String normalized = normalizeFreeText(value);
+        return normalized.equals("s")
+                || normalized.equals("sim")
+                || normalized.equals("isso")
+                || normalized.equals("ok")
+                || normalized.equals("pode ser")
+                || normalized.equals("confirmo");
+    }
+
+    private boolean asksForBoth(String value) {
+        String normalized = normalizeFreeText(value);
+        return normalized.equals("os dois") || normalized.equals("ambos");
+    }
+
+    private String buildSingleCustomerOnlyReply(List<Customer> referencedCustomers) {
+        List<String> distinctNames = referencedCustomers.stream()
+                .map(Customer::getName)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (distinctNames.size() == 2) {
+            return "Hoje eu consulto um cliente por vez no relatório operacional. Escolha um destes clientes: " +
+                    distinctNames.get(0) + " ou " + distinctNames.get(1) + ".";
+        }
+        return "Hoje eu consulto um cliente por vez no relatório operacional. Me diga o nome exato de um único cliente.";
     }
 
     private record DateRange(LocalDate start, LocalDate end) {}
@@ -706,6 +793,29 @@ public class ReportAssistantService {
             }
         }
         return null;
+    }
+
+    private String latestAssistantMessage(List<AssistantChatMessageDTO> messages) {
+        if (messages == null) {
+            return null;
+        }
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            AssistantChatMessageDTO message = messages.get(i);
+            if (message != null && "assistant".equalsIgnoreCase(message.getRole()) && message.getContent() != null && !message.getContent().isBlank()) {
+                return message.getContent();
+            }
+        }
+        return null;
+    }
+
+    private List<Customer> extractMentionedCustomers(String text, List<Customer> accessibleCustomers) {
+        String normalized = normalizeFreeText(text);
+        return accessibleCustomers.stream()
+                .filter(Objects::nonNull)
+                .filter(customer -> customer.getName() != null && !customer.getName().isBlank())
+                .filter(customer -> normalized.contains(normalizeFreeText(customer.getName())))
+                .limit(5)
+                .collect(Collectors.toList());
     }
 
     private String normalizeWorkOrderCode(String value) {
