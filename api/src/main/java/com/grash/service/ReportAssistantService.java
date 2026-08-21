@@ -679,7 +679,13 @@ public class ReportAssistantService {
 
     private boolean asksForBoth(String value) {
         String normalized = normalizeFreeText(value);
-        return normalized.equals("os dois") || normalized.equals("ambos");
+        return normalized.equals("os dois")
+                || normalized.equals("as duas")
+                || normalized.equals("ambos")
+                || normalized.equals("ambas")
+                || normalized.equals("os 2")
+                || normalized.equals("as 2")
+                || normalized.equals("2");
     }
 
     private String buildSingleCustomerOnlyReply(List<Customer> referencedCustomers) {

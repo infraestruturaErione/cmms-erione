@@ -429,4 +429,42 @@ class ReportAssistantServiceAuthorizationTest {
         assertTrue(plan.getClarificationQuestion().contains("GCM - GUARDA CIVIL MUNICIPAL DE CACAPAVA"));
         assertTrue(plan.getClarificationQuestion().contains("TERMINAL RODOVIARIO DE CACAPAVA"));
     }
+
+    @Test
+    void plan_blocksAsDuasQuestionVariantInSingleOperationalFlow() {
+        User admin = userWithRole(RoleCode.ADMIN, true);
+        Company company = new Company();
+        company.setId(93L);
+        company.setCompanySettings(new CompanySettings());
+        company.getCompanySettings().setGeneralPreferences(new GeneralPreferences());
+        company.getCompanySettings().getGeneralPreferences().setTimeZone("America/Sao_Paulo");
+        admin.setCompany(company);
+
+        Customer gcm = new Customer();
+        gcm.setId(14L);
+        gcm.setName("GCM - GUARDA CIVIL MUNICIPAL DE CACAPAVA");
+        Customer terminal = new Customer();
+        terminal.setId(15L);
+        terminal.setName("TERMINAL RODOVIARIO DE CACAPAVA");
+
+        when(deepSeekChatClient.chat(any(), eq(true))).thenReturn("""
+                {
+                  "intent":"ASK_CLARIFICATION"
+                }
+                """);
+
+        ReportAssistantPlanDTO plan = service.plan(
+                List.of(
+                        AssistantChatMessageDTO.builder().role("assistant").content("Você quer dizer GCM - GUARDA CIVIL MUNICIPAL DE CACAPAVA ou TERMINAL RODOVIARIO DE CACAPAVA? E qual período deseja consultar?").build(),
+                        AssistantChatMessageDTO.builder().role("user").content("as duas?").build()
+                ),
+                admin,
+                List.of(gcm, terminal)
+        );
+
+        assertEquals(com.grash.dto.assistant.report.ReportAssistantIntent.ASK_CLARIFICATION, plan.getIntent());
+        assertTrue(plan.getClarificationQuestion().contains("um cliente por vez"));
+        assertTrue(plan.getClarificationQuestion().contains("GCM - GUARDA CIVIL MUNICIPAL DE CACAPAVA"));
+        assertTrue(plan.getClarificationQuestion().contains("TERMINAL RODOVIARIO DE CACAPAVA"));
+    }
 }
