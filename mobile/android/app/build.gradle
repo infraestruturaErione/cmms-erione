@@ -67,6 +67,17 @@ react {
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
 def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInReleaseBuilds') ?: false).toBoolean()
+def releaseStoreFile = System.getenv('ERIONE_UPLOAD_STORE_FILE')
+def releaseStorePassword = System.getenv('ERIONE_UPLOAD_STORE_PASSWORD')
+def releaseKeyAlias = System.getenv('ERIONE_UPLOAD_KEY_ALIAS')
+def releaseKeyPassword = System.getenv('ERIONE_UPLOAD_KEY_PASSWORD')
+def hasReleaseSigning = [releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword]
+        .every { it != null && !it.trim().isEmpty() }
+def isReleaseTask = gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
+
+if (isReleaseTask && !hasReleaseSigning) {
+    throw new GradleException('Release signing environment variables are required for release builds.')
+}
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -92,8 +103,8 @@ android {
         applicationId 'com.cmms.erione'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 34
-        versionName "1.0.41"
+        versionCode 36
+        versionName "1.0.43"
     }
     signingConfigs {
         debug {
@@ -102,15 +113,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
@@ -176,4 +195,7 @@ dependencies {
     }
 }
 
-apply plugin: 'com.google.gms.google-services'
+def enableFirebase = (System.getenv('ENABLE_FIREBASE') ?: 'false').toBoolean()
+if (enableFirebase && file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
