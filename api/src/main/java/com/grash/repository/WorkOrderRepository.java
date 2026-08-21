@@ -63,6 +63,8 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long>, Jpa
 
     Optional<WorkOrder> findByIdAndCompany_Id(Long id, Long companyId);
 
+    Optional<WorkOrder> findByCustomIdIgnoreCaseAndCompany_Id(String customId, Long companyId);
+
     Collection<WorkOrder> findByCreatedByAndCreatedAtBetween(Long id, Date date1, Date date2);
 
     Collection<WorkOrder> findByCompletedBy_IdAndCreatedAtBetween(Long id, Date date1, Date date2);

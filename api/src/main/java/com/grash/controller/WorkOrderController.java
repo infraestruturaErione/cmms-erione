@@ -565,11 +565,8 @@ public class WorkOrderController {
                                     HttpServletResponse response) throws IOException {
         User user = userService.whoami(req);
         StorageService storageService = storageServiceFactory.getStorageService();
-        Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
-        if (optionalWorkOrder.isPresent()) {
-            WorkOrder savedWorkOrder = optionalWorkOrder.get();
-            if (user.getRole().getViewPermissions().contains(PermissionEntity.WORK_ORDERS) &&
-                    (user.getRole().getViewOtherPermissions().contains(PermissionEntity.WORK_ORDERS) || user.getId().equals(savedWorkOrder.getCreatedBy()) || savedWorkOrder.isAssignedTo(user))) {
+        WorkOrder savedWorkOrder = workOrderService.checkAccessToWorkOrderId(id, user);
+        if (user.getRole().getViewPermissions().contains(PermissionEntity.WORK_ORDERS)) {
                 Context thymeleafContext = new Context();
                 thymeleafContext.setLocale(Helper.getLocale(user));
                 Map<String, Object> variables = new HashMap<>(buildCompanyReportVariables(user, storageService));
@@ -588,8 +585,7 @@ public class WorkOrderController {
                 return ResponseEntity.ok()
                         .body(new SuccessResponse(true, storageServiceFactory.getStorageService().uploadAndSign(file,
                                 "reports/" + user.getCompany().getId())));
-            } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
-        } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
+        } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
 
     }
 
@@ -678,6 +674,10 @@ public class WorkOrderController {
         Long companyId = user.getCompany().getId();
         Customer selectedCustomer = customerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new CustomException("Cliente nao encontrado", HttpStatus.NOT_FOUND));
+        if (selectedCustomer.getCompany() == null || !companyId.equals(selectedCustomer.getCompany().getId())) {
+            throw new CustomException("Cliente nao encontrado", HttpStatus.NOT_FOUND);
+        }
+        customerScopeService.assertCanAccessCustomer(user, selectedCustomer);
         // O cliente ja passa por CompanyAudit.afterLoad() (lanca 403 sozinho se
         // for de outra empresa) - nao precisa checar de novo aqui.
 
@@ -783,6 +783,9 @@ public class WorkOrderController {
             throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         }
         Long companyId = user.getCompany().getId();
+        if (customerScopeService.hasRestrictedCustomerScope(user)) {
+            throw new CustomException("Historico bulk indisponivel para perfis com escopo restrito nesta versao", HttpStatus.FORBIDDEN);
+        }
         Date now = new Date();
         return generatedReportRepository
                 .findByCompanyIdAndTypeOrderByCreatedAtDesc(companyId, GeneratedReportType.WORK_ORDER_BULK)
@@ -809,6 +812,9 @@ public class WorkOrderController {
         User user = userService.whoami(req);
         if (!user.getRole().getViewPermissions().contains(PermissionEntity.WORK_ORDERS)) {
             throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        if (customerScopeService.hasRestrictedCustomerScope(user)) {
+            throw new CustomException("Historico bulk indisponivel para perfis com escopo restrito nesta versao", HttpStatus.FORBIDDEN);
         }
         GeneratedReport report = generatedReportRepository.findById(id)
                 .orElseThrow(() -> new CustomException("Relatorio nao encontrado", HttpStatus.NOT_FOUND));

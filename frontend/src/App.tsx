@@ -32,6 +32,7 @@ import { initializePaddle } from '@paddle/paddle-js';
 import { loadLanguage, supportedLanguages } from './i18n/i18n';
 import MobileAppDownloadDialog from './components/MobileAppDownloadDialog';
 import { useMobileAppPrompt } from './hooks/useMobileAppPrompt';
+import ErioneAssistant from './components/ErioneAssistant';
 
 if (!IS_LOCALHOST && googleTrackingId) ReactGA.initialize(googleTrackingId);
 
@@ -163,6 +164,7 @@ function App() {
                 {isInitialized ? content : <AppInit />}
                 {user && company?.demo && <DemoAlert />}
                 <DemoCleaningAlert />
+                <ErioneAssistant />
                 <MobileAppDownloadDialog
                   open={shouldShowPrompt}
                   onClose={dismissPrompt}

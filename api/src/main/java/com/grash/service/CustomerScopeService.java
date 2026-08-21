@@ -41,8 +41,16 @@ public class CustomerScopeService {
         return user != null && user.getRole() != null && RoleCode.REQUESTER.equals(user.getRole().getCode());
     }
 
+    public boolean hasRestrictedCustomerScope(User user) {
+        if (user == null || user.getRole() == null || user.getAllowedCustomers() == null || user.getAllowedCustomers().isEmpty()) {
+            return false;
+        }
+        return RoleCode.REQUESTER.equals(user.getRole().getCode())
+                || RoleCode.LIMITED_ADMIN.equals(user.getRole().getCode());
+    }
+
     public List<Long> getAllowedCustomerIds(User user) {
-        if (!isRequester(user) || user.getAllowedCustomers() == null) {
+        if (!hasRestrictedCustomerScope(user) || user.getAllowedCustomers() == null) {
             return Collections.emptyList();
         }
         return user.getAllowedCustomers().stream()
@@ -54,14 +62,14 @@ public class CustomerScopeService {
     }
 
     public boolean canAccessCustomer(User user, Long customerId) {
-        if (!isRequester(user)) {
+        if (!hasRestrictedCustomerScope(user)) {
             return true;
         }
         return customerId != null && getAllowedCustomerIds(user).contains(customerId);
     }
 
     public Collection<Customer> filterCustomers(User user, Collection<Customer> customers) {
-        if (!isRequester(user)) {
+        if (!hasRestrictedCustomerScope(user)) {
             return customers;
         }
         List<Long> allowedCustomerIds = getAllowedCustomerIds(user);
@@ -78,7 +86,7 @@ public class CustomerScopeService {
     }
 
     public List<Location> findAllowedLocations(User user, Long customerId) {
-        if (!isRequester(user)) {
+        if (!hasRestrictedCustomerScope(user)) {
             if (customerId == null) {
                 return new ArrayList<>(locationRepository.findByCompany_Id(user.getCompany().getId()));
             }
@@ -105,7 +113,7 @@ public class CustomerScopeService {
 
     public List<Asset> findAllowedAssets(User user, Long locationId, Long customerId) {
         List<Asset> assets;
-        if (!isRequester(user)) {
+        if (!hasRestrictedCustomerScope(user)) {
             if (customerId == null) {
                 assets = locationId == null
                         ? assetRepository.findByCompany_Id(user.getCompany().getId())
@@ -143,7 +151,7 @@ public class CustomerScopeService {
     }
 
     public void addCustomerScopeFilter(SearchCriteria searchCriteria, User user, String field) {
-        if (!isRequester(user)) {
+        if (!hasRestrictedCustomerScope(user)) {
             return;
         }
         List<Long> allowedCustomerIds = getAllowedCustomerIds(user);
@@ -193,7 +201,7 @@ public class CustomerScopeService {
     // Retorna null pra usuario nao-Requester (nada a restringir - o chamador
     // so aplica via builder.with(...) quando != null).
     public <T> Specification<T> customerScopeSpecification(User user, String field) {
-        if (!isRequester(user)) {
+        if (!hasRestrictedCustomerScope(user)) {
             return null;
         }
         List<Long> allowedCustomerIds = getAllowedCustomerIds(user);
@@ -221,7 +229,7 @@ public class CustomerScopeService {
     }
 
     public void assertCanAccessLocation(User user, Long locationId) {
-        if (!isRequester(user) || locationId == null) {
+        if (!hasRestrictedCustomerScope(user) || locationId == null) {
             return;
         }
         Location location = locationRepository.findByIdAndCompany_Id(locationId, user.getCompany().getId())
@@ -234,7 +242,7 @@ public class CustomerScopeService {
     }
 
     public void assertCanAccessAsset(User user, Long assetId) {
-        if (!isRequester(user) || assetId == null) {
+        if (!hasRestrictedCustomerScope(user) || assetId == null) {
             return;
         }
         Asset asset = assetRepository.findByIdAndCompany_Id(assetId, user.getCompany().getId())
@@ -430,7 +438,7 @@ public class CustomerScopeService {
     }
 
     public boolean canAccessWorkOrderBase(User user, WorkOrderBase workOrderBase) {
-        if (!isRequester(user)) {
+        if (!hasRestrictedCustomerScope(user)) {
             return true;
         }
         if (getAllowedCustomerIds(user).isEmpty()) {
@@ -438,13 +446,7 @@ public class CustomerScopeService {
         }
         boolean hasCustomers = workOrderBase.getCustomers() != null && !workOrderBase.getCustomers().isEmpty();
         if (!hasCustomers) {
-            // Ownership so cobre a janela ANTES de um customer ser atribuido
-            // (ex.: Request recem-criada pelo portal, ainda nao triada por um
-            // admin). Uma vez que um customer explicito e' atribuido, essa
-            // atribuicao manda - ownership nao pode mais atravessar customer
-            // scope (ex.: admin reassocia a Request/WO do Requester pro
-            // Cliente B depois de criada).
-            return workOrderBase instanceof Request && workOrderBase.getCreatedBy() != null
+            return isRequester(user) && workOrderBase instanceof Request && workOrderBase.getCreatedBy() != null
                     && workOrderBase.getCreatedBy().equals(user.getId());
         }
         return workOrderBase.getCustomers().stream()
@@ -458,7 +460,7 @@ public class CustomerScopeService {
     // pode e' a resposta revelar a existencia/nome do Cliente B pra esse
     // usuario. Nao remove nada do banco, so filtra a REPRESENTACAO.
     public <T> List<T> filterCustomerMiniDTOs(User user, List<T> customerDtos, java.util.function.Function<T, Long> idExtractor) {
-        if (!isRequester(user) || customerDtos == null) {
+        if (!hasRestrictedCustomerScope(user) || customerDtos == null) {
             return customerDtos;
         }
         List<Long> allowedCustomerIds = getAllowedCustomerIds(user);

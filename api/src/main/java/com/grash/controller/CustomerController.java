@@ -55,7 +55,7 @@ public class CustomerController {
     public ResponseEntity<Page<Customer>> search(@Parameter(description = "Customer search criteria") @RequestBody SearchCriteria searchCriteria, HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
-            if (customerScopeService.isRequester(user)) {
+            if (customerScopeService.hasRestrictedCustomerScope(user)) {
                 searchCriteria.filterCompany(user);
                 customerScopeService.addCustomerScopeFilter(searchCriteria, user, "id");
             } else if (user.getRole().getViewPermissions().contains(PermissionEntity.VENDORS_AND_CUSTOMERS)) {
@@ -82,7 +82,7 @@ public class CustomerController {
         Optional<Customer> optionalCustomer = customerService.findById(id);
         if (optionalCustomer.isPresent()) {
             Customer savedCustomer = optionalCustomer.get();
-            if (customerScopeService.isRequester(user)) {
+            if (customerScopeService.hasRestrictedCustomerScope(user)) {
                 customerScopeService.assertCanAccessCustomer(user, savedCustomer);
                 return customerMapper.toShowDto(savedCustomer);
             }
@@ -178,7 +178,7 @@ public class CustomerController {
             throw new CustomException("Not found", HttpStatus.NOT_FOUND);
         }
         Customer savedCustomer = optionalCustomer.get();
-        if (customerScopeService.isRequester(user)) {
+        if (customerScopeService.hasRestrictedCustomerScope(user)) {
             customerScopeService.assertCanAccessCustomer(user, savedCustomer);
             return savedCustomer;
         }
