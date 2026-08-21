@@ -103,18 +103,33 @@ public class ReportAssistantController {
 
         if (plan.getIntent() == ReportAssistantIntent.GENERATE_BULK_REPORT) {
             Customer customer = reportAssistantService.requireCustomer(plan.getCustomerId(), user);
-            ResponseEntity<?> response = workOrderController.getBulkPDF(reportAssistantService.toBulkRequest(plan), rawRequest);
-            SuccessResponse success = (SuccessResponse) response.getBody();
-            var generatedReport = reportAssistantService.getLatestBulkReport(user);
+            var generatedReport = reportAssistantService.findReusableBulkReport(plan, customer, user);
             Date linkExpiresAt = reportAssistantService.computeLinkExpiresAt(user);
-            String reply = reportAssistantService.composeBulkGeneratedReply(
-                    request.getMessages(),
-                    plan,
-                    customer,
-                    generatedReport,
-                    linkExpiresAt
-            );
-            List<ReportAssistantLinkDTO> links = reportAssistantService.buildLinks("Baixar PDF", success.getMessage(), linkExpiresAt);
+            String downloadUrl;
+            String reply;
+            if (generatedReport != null) {
+                downloadUrl = reportAssistantService.generateBulkDownloadLink(generatedReport);
+                reply = reportAssistantService.composeBulkReusedReply(
+                        request.getMessages(),
+                        plan,
+                        customer,
+                        generatedReport,
+                        linkExpiresAt
+                );
+            } else {
+                ResponseEntity<?> response = workOrderController.getBulkPDF(reportAssistantService.toBulkRequest(plan), rawRequest);
+                SuccessResponse success = (SuccessResponse) response.getBody();
+                generatedReport = reportAssistantService.getLatestBulkReport(user);
+                downloadUrl = success.getMessage();
+                reply = reportAssistantService.composeBulkGeneratedReply(
+                        request.getMessages(),
+                        plan,
+                        customer,
+                        generatedReport,
+                        linkExpiresAt
+                );
+            }
+            List<ReportAssistantLinkDTO> links = reportAssistantService.buildLinks("Baixar PDF", downloadUrl, linkExpiresAt);
             return ReportAssistantChatResponseDTO.builder()
                     .success(true)
                     .agentName(reportAssistantService.getAgentName())
@@ -129,7 +144,16 @@ public class ReportAssistantController {
         }
 
         if (plan.getIntent() == ReportAssistantIntent.INDIVIDUAL_REPORT) {
-            WorkOrder workOrder = reportAssistantService.findScopedWorkOrderByCode(plan.getWorkOrderCode(), user);
+            ReportAssistantService.IndividualReportResolution resolution = reportAssistantService.resolveIndividualReportTarget(plan, user);
+            if (resolution.getWorkOrder() == null) {
+                return ReportAssistantChatResponseDTO.builder()
+                        .success(true)
+                        .agentName(reportAssistantService.getAgentName())
+                        .intent(ReportAssistantIntent.ASK_CLARIFICATION)
+                        .reply(resolution.getClarificationQuestion())
+                        .build();
+            }
+            WorkOrder workOrder = resolution.getWorkOrder();
             SuccessResponse success;
             try {
                 success = (SuccessResponse) workOrderController.getPDF(workOrder.getId(), rawRequest, null).getBody();

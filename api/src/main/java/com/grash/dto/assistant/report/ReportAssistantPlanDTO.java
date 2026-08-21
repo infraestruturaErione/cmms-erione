@@ -20,5 +20,6 @@ public class ReportAssistantPlanDTO {
     private String status;
     private String cnpj;
     private String workOrderCode;
+    private String technicianName;
     private String notes;
 }
