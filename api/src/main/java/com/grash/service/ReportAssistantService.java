@@ -695,10 +695,11 @@ public class ReportAssistantService {
                 .distinct()
                 .collect(Collectors.toList());
         if (distinctNames.size() == 2) {
-            return "Hoje eu consulto um cliente por vez no relatório operacional. Escolha um destes clientes: " +
-                    distinctNames.get(0) + " ou " + distinctNames.get(1) + ".";
+            return "Eu não posso fazer esse comando com dois clientes ao mesmo tempo no relatório operacional. " +
+                    "Por favor, escolha apenas um destes clientes: " + distinctNames.get(0) + " ou " + distinctNames.get(1) +
+                    ". Se quiser, peça ajuda para ver exemplos do formato certo.";
         }
-        return "Hoje eu consulto um cliente por vez no relatório operacional. Me diga o nome exato de um único cliente.";
+        return "Eu não posso fazer esse comando desse jeito no relatório operacional. Por favor, me diga o nome exato de um único cliente ou peça ajuda para ver exemplos.";
     }
 
     private record DateRange(LocalDate start, LocalDate end) {}

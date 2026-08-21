@@ -425,7 +425,8 @@ class ReportAssistantServiceAuthorizationTest {
         );
 
         assertEquals(com.grash.dto.assistant.report.ReportAssistantIntent.ASK_CLARIFICATION, plan.getIntent());
-        assertTrue(plan.getClarificationQuestion().contains("um cliente por vez"));
+        assertTrue(plan.getClarificationQuestion().contains("não posso fazer esse comando") || plan.getClarificationQuestion().contains("nao posso fazer esse comando"));
+        assertTrue(plan.getClarificationQuestion().contains("peça ajuda") || plan.getClarificationQuestion().contains("peca ajuda"));
         assertTrue(plan.getClarificationQuestion().contains("GCM - GUARDA CIVIL MUNICIPAL DE CACAPAVA"));
         assertTrue(plan.getClarificationQuestion().contains("TERMINAL RODOVIARIO DE CACAPAVA"));
     }
@@ -463,7 +464,8 @@ class ReportAssistantServiceAuthorizationTest {
         );
 
         assertEquals(com.grash.dto.assistant.report.ReportAssistantIntent.ASK_CLARIFICATION, plan.getIntent());
-        assertTrue(plan.getClarificationQuestion().contains("um cliente por vez"));
+        assertTrue(plan.getClarificationQuestion().contains("não posso fazer esse comando") || plan.getClarificationQuestion().contains("nao posso fazer esse comando"));
+        assertTrue(plan.getClarificationQuestion().contains("peça ajuda") || plan.getClarificationQuestion().contains("peca ajuda"));
         assertTrue(plan.getClarificationQuestion().contains("GCM - GUARDA CIVIL MUNICIPAL DE CACAPAVA"));
         assertTrue(plan.getClarificationQuestion().contains("TERMINAL RODOVIARIO DE CACAPAVA"));
     }
