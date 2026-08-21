@@ -251,4 +251,36 @@ class ReportAssistantServiceAuthorizationTest {
         assertEquals(101L, resolution.getWorkOrder().getId());
         assertNull(resolution.getClarificationQuestion());
     }
+
+    @Test
+    void plan_withoutDateRangeForOperationalTurnsIntoClarification() {
+        User admin = userWithRole(RoleCode.ADMIN, true);
+        Company company = new Company();
+        company.setId(88L);
+        company.setCompanySettings(new CompanySettings());
+        company.getCompanySettings().setGeneralPreferences(new GeneralPreferences());
+        company.getCompanySettings().getGeneralPreferences().setTimeZone("America/Sao_Paulo");
+        admin.setCompany(company);
+
+        Customer customer = new Customer();
+        customer.setId(10L);
+        customer.setName("PREFEITURA MUNICIPAL DE SANTA BRANCA");
+
+        when(deepSeekChatClient.chat(any(), eq(true))).thenReturn("""
+                {
+                  "intent":"OPERATIONAL_REPORT",
+                  "customerId":10,
+                  "customerName":"PREFEITURA MUNICIPAL DE SANTA BRANCA"
+                }
+                """);
+
+        ReportAssistantPlanDTO plan = service.plan(
+                List.of(AssistantChatMessageDTO.builder().role("user").content("queria saber se tem OS do local cliente santa branca").build()),
+                admin,
+                List.of(customer)
+        );
+
+        assertEquals(com.grash.dto.assistant.report.ReportAssistantIntent.ASK_CLARIFICATION, plan.getIntent());
+        assertTrue(plan.getClarificationQuestion().contains("período") || plan.getClarificationQuestion().contains("periodo"));
+    }
 }

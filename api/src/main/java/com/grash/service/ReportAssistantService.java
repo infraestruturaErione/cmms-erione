@@ -198,6 +198,7 @@ public class ReportAssistantService {
             if (plan.getIntent() == ReportAssistantIntent.OPERATIONAL_REPORT ||
                     plan.getIntent() == ReportAssistantIntent.GENERATE_BULK_REPORT) {
                 validateCustomerSelection(plan, accessibleCustomers);
+                validateDateRange(plan);
             }
             if (plan.getIntent() == ReportAssistantIntent.INDIVIDUAL_REPORT &&
                     (plan.getWorkOrderCode() == null || plan.getWorkOrderCode().isBlank()) &&
@@ -529,6 +530,17 @@ public class ReportAssistantService {
         if (!exists) {
             plan.setIntent(ReportAssistantIntent.ASK_CLARIFICATION);
             plan.setClarificationQuestion("Nao encontrei esse cliente no seu escopo autorizado.");
+        }
+    }
+
+    private void validateDateRange(ReportAssistantPlanDTO plan) {
+        if (plan.getStartDate() != null && !plan.getStartDate().isBlank()
+                && plan.getEndDate() != null && !plan.getEndDate().isBlank()) {
+            return;
+        }
+        plan.setIntent(ReportAssistantIntent.ASK_CLARIFICATION);
+        if (plan.getClarificationQuestion() == null || plan.getClarificationQuestion().isBlank()) {
+            plan.setClarificationQuestion("Me diga o período que você quer consultar, por exemplo 2026-08-01 a 2026-08-31.");
         }
     }
 
