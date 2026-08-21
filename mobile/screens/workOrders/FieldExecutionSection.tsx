@@ -27,6 +27,7 @@ import InAppCamera from '../../components/InAppCamera';
 import Comment from '../../models/comment';
 import WorkOrder from '../../models/workOrder';
 import { createComment, updateComment } from '../../slices/comment';
+import { cleanupUnusedFiles } from '../../slices/file';
 import {
   checkInWorkOrder,
   checkOutWorkOrder,
@@ -62,6 +63,7 @@ import {
 } from '../../components/erione/ErioneUI';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
 import useAuth from '../../hooks/useAuth';
+import { submitFieldEvidenceWithCleanup } from '../../utils/fieldEvidenceSubmission';
 
 const colors = ERIONE_MOBILE_IDENTITY.colors;
 
@@ -489,15 +491,19 @@ export default function FieldExecutionSection({
       // uploadFiles(files, images, hidden) - fotos de evidencia tem que ir no
       // 2o parametro (images -> type=IMAGE), senao sobem como type=OTHER e o
       // relatorio PDF nao renderiza a miniatura (so exibe quando type=IMAGE).
-      const uploadedFiles = await uploadFiles([], evidenceFiles, false);
-      const fileIds = uploadedFiles.map((file) => ({ id: file.id }));
-      await dispatch(
-        createComment({
-          workOrder: { id: workOrder.id },
-          content: `${FIELD_REPORT_PREFIX} ${FIELD_EVIDENCE_AUTO_TEXT}`,
-          files: fileIds
-        })
-      );
+      await submitFieldEvidenceWithCleanup({
+        evidenceFiles,
+        uploadFiles,
+        createComment: (files) =>
+          dispatch(
+            createComment({
+              workOrder: { id: workOrder.id },
+              content: `${FIELD_REPORT_PREFIX} ${FIELD_EVIDENCE_AUTO_TEXT}`,
+              files
+            })
+          ),
+        cleanupUnusedFiles
+      });
       setEvidenceFiles([]);
       setEvidenceOpen(false);
       showSnackBar(t('field_evidence_save_success'), 'success');
@@ -767,6 +773,7 @@ export default function FieldExecutionSection({
                   multiline
                   numberOfLines={8}
                   maxLength={4000}
+                  scrollEnabled
                   editable={!existingFieldReport || canUpdateExistingReport}
                   placeholder={t('field_report_placeholder')}
                   value={fieldReport}
@@ -818,20 +825,20 @@ export default function FieldExecutionSection({
               </Button>
             </View>
             {evidenceFiles.map((file, index) => (
-              <TouchableOpacity
-                key={`${file.uri}-${index}`}
-                style={styles.evidenceFile}
-                onPress={() =>
-                  setEvidenceFiles((current) =>
-                    current.filter((_, currentIndex) => currentIndex !== index)
-                  )
-                }
-              >
+              <View key={`${file.uri}-${index}`} style={styles.evidenceFile}>
                 <Text numberOfLines={1} style={{ flex: 1 }}>
                   {file.name}
                 </Text>
-                <IconButton icon="close-circle" size={16} />
-              </TouchableOpacity>
+                <IconButton
+                  icon="close-circle"
+                  size={16}
+                  onPress={() =>
+                    setEvidenceFiles((current) =>
+                      current.filter((_, currentIndex) => currentIndex !== index)
+                    )
+                  }
+                />
+              </View>
             ))}
           </Dialog.Content>
           <Dialog.Actions>
@@ -1127,12 +1134,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6F9FA'
   },
   reportInput: {
-    minHeight: 210,
+    minHeight: 160,
+    maxHeight: 210,
     backgroundColor: '#FFFFFF'
   },
   reportInputContent: {
-    minHeight: 190,
+    minHeight: 140,
+    maxHeight: 190,
     paddingTop: 14,
+    paddingBottom: 14,
     textAlignVertical: 'top'
   },
   reportCounter: {

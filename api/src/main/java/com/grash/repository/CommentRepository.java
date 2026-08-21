@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 
 public interface CommentRepository extends JpaRepository<Comment, Long>,
         JpaSpecificationExecutor<Comment> {
@@ -19,6 +18,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long>,
 
     // Usado para detectar reenvio duplicado (retry de rede/duplo clique) do
     // mesmo relato de campo em uma janela curta de tempo.
-    Optional<Comment> findFirstByWorkOrder_IdAndUser_IdAndContentAndCreatedAtAfterOrderByCreatedAtDesc(
+    List<Comment> findByWorkOrder_IdAndUser_IdAndContentAndCreatedAtAfterOrderByCreatedAtDesc(
             Long workOrderId, Long userId, String content, Date after);
 }

@@ -16,6 +16,11 @@ interface FileState {
   loadingGet: boolean;
 }
 
+export interface FileCleanupResponse {
+  removed: number[];
+  skipped: { fileId: number; reason: 'IN_USE' | 'NOT_FOUND' }[];
+}
+
 const initialState: FileState = {
   files: getInitialPage<File>(),
   singleFile: null,
@@ -146,6 +151,15 @@ export const addFiles =
     dispatch(slice.actions.addFiles({ files: filesResponse }));
     return filesResponse.map((file) => file.id);
   };
+
+export const cleanupUnusedFiles = (fileIds: number[]) =>
+  api.post<FileCleanupResponse>(
+    `${basePath}/cleanup-unused`,
+    { fileIds },
+    undefined,
+    true
+  );
+
 export const deleteFile =
   (id: number): AppThunk =>
   async (dispatch) => {

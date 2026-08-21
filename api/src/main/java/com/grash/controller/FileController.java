@@ -4,6 +4,8 @@ package com.grash.controller;
 import com.grash.advancedsearch.FilterField;
 import com.grash.advancedsearch.SearchCriteria;
 import com.grash.dto.FilePatchDTO;
+import com.grash.dto.FileCleanupRequestDTO;
+import com.grash.dto.FileCleanupResponseDTO;
 import com.grash.dto.FileShowDTO;
 import com.grash.dto.SuccessResponse;
 import com.grash.dto.license.LicenseEntitlement;
@@ -20,6 +22,7 @@ import com.grash.service.FileService;
 import com.grash.service.LicenseService;
 import com.grash.service.RateLimiterService;
 import com.grash.service.RequestPortalService;
+import com.grash.service.StorageService;
 import com.grash.service.TaskService;
 import com.grash.service.UserService;
 import com.grash.service.WorkOrderService;
@@ -28,6 +31,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -46,6 +50,7 @@ import java.util.stream.Collectors;
 @Tag(name = "Files", description = "Operations on files")
 @RequestMapping("/files")
 @RequiredArgsConstructor
+@Slf4j
 public class FileController {
     private final StorageServiceFactory storageServiceFactory;
     private final FileService fileService;
@@ -81,17 +86,87 @@ public class FileController {
                 validateTaskAccess(associatedTask, user);
             }
 
-            Collection<File> result = new ArrayList<>();
+            List<File> result = new ArrayList<>();
+            List<String> uploadedPaths = new ArrayList<>();
             Task finalAssociatedTask = associatedTask;
             String safeFolder = "company " + user.getCompany().getId();
-            Arrays.asList(filesReq).forEach(fileReq -> {
-                String filePath = storageServiceFactory.getStorageService().upload(fileReq, safeFolder);
-                result.add(fileService.create(new File(fileReq.getOriginalFilename(), filePath, fileType,
-                        finalAssociatedTask,
-                        hidden.equals("true"))));
-            });
-            return result.stream().map(fileMapper::toShowDto).collect(Collectors.toList());
+            StorageService storageService = storageServiceFactory.getStorageService();
+            try {
+                for (MultipartFile fileReq : filesReq) {
+                    String filePath = storageService.upload(fileReq, safeFolder);
+                    uploadedPaths.add(filePath);
+                    result.add(fileService.create(new File(fileReq.getOriginalFilename(), filePath, fileType,
+                            finalAssociatedTask, hidden.equals("true"))));
+                }
+                return result.stream().map(fileMapper::toShowDto).collect(Collectors.toList());
+            } catch (RuntimeException uploadFailure) {
+                rollbackCreatedUploads(result, uploadedPaths, storageService, uploadFailure);
+                throw uploadFailure;
+            }
         } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
+    }
+
+    private void rollbackCreatedUploads(List<File> createdFiles, List<String> uploadedPaths,
+                                        StorageService storageService, RuntimeException uploadFailure) {
+        Set<String> pathsSafeToDelete = new LinkedHashSet<>(uploadedPaths);
+
+        for (File createdFile : createdFiles) {
+            if (createdFile.getId() == null) {
+                pathsSafeToDelete.remove(createdFile.getPath());
+                continue;
+            }
+            try {
+                fileService.delete(createdFile.getId());
+            } catch (RuntimeException cleanupFailure) {
+                // Preserve the object if its DB row could not be removed, avoiding a
+                // persisted File that points to content already deleted from storage.
+                pathsSafeToDelete.remove(createdFile.getPath());
+                uploadFailure.addSuppressed(cleanupFailure);
+                log.warn("Failed to roll back File {} after upload failure", createdFile.getId(), cleanupFailure);
+            }
+        }
+
+        for (String uploadedPath : pathsSafeToDelete) {
+            try {
+                storageService.delete(uploadedPath);
+            } catch (RuntimeException cleanupFailure) {
+                uploadFailure.addSuppressed(cleanupFailure);
+                log.warn("Failed to roll back storage object after upload failure: {}", uploadedPath,
+                        cleanupFailure);
+            }
+        }
+    }
+
+    @PostMapping(value = "/cleanup-unused", produces = "application/json")
+    @PreAuthorize("isAuthenticated()")
+    public FileCleanupResponseDTO cleanupUnused(@Valid @RequestBody FileCleanupRequestDTO cleanupRequest,
+                                                HttpServletRequest req) {
+        User user = userService.whoami(req);
+        List<Long> removed = new ArrayList<>();
+        List<FileCleanupResponseDTO.SkippedFile> skipped = new ArrayList<>();
+        StorageService storageService = storageServiceFactory.getStorageService();
+
+        for (Long fileId : new LinkedHashSet<>(cleanupRequest.getFileIds())) {
+            FileService.CleanupOutcome outcome = fileService.cleanupUnused(
+                    fileId, user.getCompany().getId(), user.getId());
+            if (!outcome.removed()) {
+                skipped.add(new FileCleanupResponseDTO.SkippedFile(fileId, outcome.skipReason()));
+                continue;
+            }
+
+            removed.add(fileId);
+            try {
+                // cleanupUnused committed the DB deletion before this storage
+                // operation. If storage fails, keep the safer storage orphan
+                // and never recreate a File row that could become referenced.
+                storageService.delete(outcome.path());
+            } catch (RuntimeException storageFailure) {
+                log.warn("File {} was removed from the database, but its storage object could not be removed",
+                        fileId, storageFailure);
+            }
+        }
+
+        return new FileCleanupResponseDTO(removed, skipped);
     }
 
     private void validateTaskAccess(Task task, User user) {

@@ -56,16 +56,12 @@ public class CommentService {
         if (commentReq.getContent() != null) {
             Date recentCutoff = new Date(System.currentTimeMillis() - DUPLICATE_COMMENT_WINDOW_MS);
             Optional<Comment> recentDuplicate = commentRepository
-                    .findFirstByWorkOrder_IdAndUser_IdAndContentAndCreatedAtAfterOrderByCreatedAtDesc(
-                            workOrder.getId(), user.getId(), commentReq.getContent(), recentCutoff);
-            if (recentDuplicate.isPresent()) {
-                int existingFilesCount = recentDuplicate.get().getFiles() == null ? 0 :
-                        recentDuplicate.get().getFiles().size();
-                int incomingFilesCount = commentReq.getFiles() == null ? 0 : commentReq.getFiles().size();
-                if (existingFilesCount == incomingFilesCount) {
-                    return recentDuplicate.get();
-                }
-            }
+                    .findByWorkOrder_IdAndUser_IdAndContentAndCreatedAtAfterOrderByCreatedAtDesc(
+                            workOrder.getId(), user.getId(), commentReq.getContent(), recentCutoff)
+                    .stream()
+                    .filter(candidate -> haveSameFileIds(candidate.getFiles(), commentReq.getFiles()))
+                    .findFirst();
+            if (recentDuplicate.isPresent()) return recentDuplicate.get();
         }
 
         Comment comment = commentMapper.fromPostDto(commentReq);
@@ -77,6 +73,18 @@ public class CommentService {
         sendCommentNotifications(savedComment, workOrder, notifiedUsers, user, false);
 
         return savedComment;
+    }
+
+    private boolean haveSameFileIds(Collection<File> existingFiles, Collection<File> incomingFiles) {
+        Collection<File> safeExistingFiles = existingFiles == null ? Collections.emptyList() : existingFiles;
+        Collection<File> safeIncomingFiles = incomingFiles == null ? Collections.emptyList() : incomingFiles;
+        if (safeExistingFiles.isEmpty() || safeIncomingFiles.isEmpty()) {
+            return safeExistingFiles.isEmpty() && safeIncomingFiles.isEmpty();
+        }
+
+        Set<Long> existingIds = safeExistingFiles.stream().map(File::getId).collect(Collectors.toSet());
+        Set<Long> incomingIds = safeIncomingFiles.stream().map(File::getId).collect(Collectors.toSet());
+        return !existingIds.contains(null) && !incomingIds.contains(null) && existingIds.equals(incomingIds);
     }
 
 
