@@ -283,4 +283,73 @@ class ReportAssistantServiceAuthorizationTest {
         assertEquals(com.grash.dto.assistant.report.ReportAssistantIntent.ASK_CLARIFICATION, plan.getIntent());
         assertTrue(plan.getClarificationQuestion().contains("período") || plan.getClarificationQuestion().contains("periodo"));
     }
+
+    @Test
+    void plan_infersEsseMesWhenModelOmitsDates() {
+        User admin = userWithRole(RoleCode.ADMIN, true);
+        Company company = new Company();
+        company.setId(89L);
+        company.setCompanySettings(new CompanySettings());
+        company.getCompanySettings().setGeneralPreferences(new GeneralPreferences());
+        company.getCompanySettings().getGeneralPreferences().setTimeZone("America/Sao_Paulo");
+        admin.setCompany(company);
+
+        Customer customer = new Customer();
+        customer.setId(10L);
+        customer.setName("PREFEITURA MUNICIPAL DE SANTA BRANCA");
+
+        when(deepSeekChatClient.chat(any(), eq(true))).thenReturn("""
+                {
+                  "intent":"OPERATIONAL_REPORT",
+                  "customerId":10,
+                  "customerName":"PREFEITURA MUNICIPAL DE SANTA BRANCA"
+                }
+                """);
+
+        ReportAssistantPlanDTO plan = service.plan(
+                List.of(AssistantChatMessageDTO.builder().role("user").content("me mostre as OS da santa branca esse mês").build()),
+                admin,
+                List.of(customer)
+        );
+
+        LocalDate today = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        assertEquals(com.grash.dto.assistant.report.ReportAssistantIntent.OPERATIONAL_REPORT, plan.getIntent());
+        assertEquals(today.withDayOfMonth(1).toString(), plan.getStartDate());
+        assertEquals(today.with(java.time.temporal.TemporalAdjusters.lastDayOfMonth()).toString(), plan.getEndDate());
+    }
+
+    @Test
+    void plan_infersDia21WhenModelOmitsDates() {
+        User admin = userWithRole(RoleCode.ADMIN, true);
+        Company company = new Company();
+        company.setId(90L);
+        company.setCompanySettings(new CompanySettings());
+        company.getCompanySettings().setGeneralPreferences(new GeneralPreferences());
+        company.getCompanySettings().getGeneralPreferences().setTimeZone("America/Sao_Paulo");
+        admin.setCompany(company);
+
+        Customer customer = new Customer();
+        customer.setId(10L);
+        customer.setName("PREFEITURA MUNICIPAL DE SANTA BRANCA");
+
+        when(deepSeekChatClient.chat(any(), eq(true))).thenReturn("""
+                {
+                  "intent":"OPERATIONAL_REPORT",
+                  "customerId":10,
+                  "customerName":"PREFEITURA MUNICIPAL DE SANTA BRANCA"
+                }
+                """);
+
+        ReportAssistantPlanDTO plan = service.plan(
+                List.of(AssistantChatMessageDTO.builder().role("user").content("quero ver as OS da santa branca do dia 21").build()),
+                admin,
+                List.of(customer)
+        );
+
+        LocalDate today = LocalDate.now(ZoneId.of("America/Sao_Paulo"));
+        LocalDate target = today.withDayOfMonth(21);
+        assertEquals(com.grash.dto.assistant.report.ReportAssistantIntent.OPERATIONAL_REPORT, plan.getIntent());
+        assertEquals(target.toString(), plan.getStartDate());
+        assertEquals(target.toString(), plan.getEndDate());
+    }
 }

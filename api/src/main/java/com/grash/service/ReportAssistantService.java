@@ -40,6 +40,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -195,6 +196,7 @@ public class ReportAssistantService {
             if (plan.getIntent() == null) {
                 plan.setIntent(ReportAssistantIntent.ASK_CLARIFICATION);
             }
+            applyVagueDateInference(plan, messages, user);
             if (plan.getIntent() == ReportAssistantIntent.OPERATIONAL_REPORT ||
                     plan.getIntent() == ReportAssistantIntent.GENERATE_BULK_REPORT) {
                 validateCustomerSelection(plan, accessibleCustomers);
@@ -543,6 +545,70 @@ public class ReportAssistantService {
             plan.setClarificationQuestion("Me diga o período que você quer consultar, por exemplo 2026-08-01 a 2026-08-31.");
         }
     }
+
+    private void applyVagueDateInference(ReportAssistantPlanDTO plan,
+                                         List<AssistantChatMessageDTO> messages,
+                                         User user) {
+        if (!(plan.getIntent() == ReportAssistantIntent.OPERATIONAL_REPORT
+                || plan.getIntent() == ReportAssistantIntent.GENERATE_BULK_REPORT
+                || plan.getIntent() == ReportAssistantIntent.INDIVIDUAL_REPORT)) {
+            return;
+        }
+        if (plan.getStartDate() != null && !plan.getStartDate().isBlank()
+                && plan.getEndDate() != null && !plan.getEndDate().isBlank()) {
+            return;
+        }
+        String latest = latestUserMessage(messages);
+        if (latest == null || latest.isBlank()) {
+            return;
+        }
+        LocalDate today = LocalDate.now(getCompanyZone(user));
+        DateRange inferred = inferDateRangeFromText(latest, today);
+        if (inferred == null) {
+            return;
+        }
+        plan.setStartDate(inferred.start().format(ISO_DATE));
+        plan.setEndDate(inferred.end().format(ISO_DATE));
+        if (plan.getPeriodField() == null || plan.getPeriodField().isBlank()) {
+            plan.setPeriodField(WorkOrderOperationalReportPeriodField.CREATED_AT.name());
+        }
+    }
+
+    private DateRange inferDateRangeFromText(String text, LocalDate today) {
+        String normalized = normalizeFreeText(text);
+        if (normalized.isBlank()) {
+            return null;
+        }
+        if (normalized.contains("hoje")) {
+            return new DateRange(today, today);
+        }
+        if (normalized.contains("ontem")) {
+            LocalDate yesterday = today.minusDays(1);
+            return new DateRange(yesterday, yesterday);
+        }
+        if (normalized.contains("esse mes") || normalized.contains("este mes")) {
+            return new DateRange(today.withDayOfMonth(1), today.with(TemporalAdjusters.lastDayOfMonth()));
+        }
+        if (normalized.contains("mes passado")) {
+            LocalDate lastMonth = today.minusMonths(1);
+            return new DateRange(lastMonth.withDayOfMonth(1), lastMonth.with(TemporalAdjusters.lastDayOfMonth()));
+        }
+        if (normalized.contains("semana passada")) {
+            LocalDate start = today.minusWeeks(1).with(java.time.DayOfWeek.MONDAY);
+            return new DateRange(start, start.plusDays(6));
+        }
+        java.util.regex.Matcher dayMatcher = Pattern.compile("\\bdia\\s+(\\d{1,2})\\b").matcher(normalized);
+        if (dayMatcher.find()) {
+            int day = Integer.parseInt(dayMatcher.group(1));
+            if (day >= 1 && day <= today.lengthOfMonth()) {
+                LocalDate target = today.withDayOfMonth(day);
+                return new DateRange(target, target);
+            }
+        }
+        return null;
+    }
+
+    private record DateRange(LocalDate start, LocalDate end) {}
 
     private WorkOrderOperationalReportPeriodField parsePeriodField(String value) {
         try {
