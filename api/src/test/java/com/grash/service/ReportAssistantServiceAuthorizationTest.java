@@ -19,6 +19,7 @@ import com.grash.model.enums.GeneratedReportStatus;
 import com.grash.model.enums.GeneratedReportType;
 import com.grash.model.enums.PermissionEntity;
 import com.grash.model.enums.RoleCode;
+import com.grash.dto.workOrder.report.WorkOrderOperationalReportPeriodField;
 import com.grash.repository.CustomerRepository;
 import com.grash.repository.GeneratedReportRepository;
 import com.grash.repository.WorkOrderRepository;
@@ -64,6 +65,8 @@ class ReportAssistantServiceAuthorizationTest {
     private CustomerScopeService customerScopeService;
     @Mock
     private StorageServiceFactory storageServiceFactory;
+    @Mock
+    private StorageService storageService;
 
     private ReportAssistantService service;
 
@@ -80,6 +83,7 @@ class ReportAssistantServiceAuthorizationTest {
                 new ObjectMapper(),
                 storageServiceFactory
         );
+        when(storageServiceFactory.getStorageService()).thenReturn(storageService);
     }
 
     private User userWithRole(RoleCode roleCode, boolean withWorkOrderView) {
@@ -92,6 +96,45 @@ class ReportAssistantServiceAuthorizationTest {
         }
         user.setRole(Role.builder().code(roleCode).viewPermissions(viewPermissions).build());
         return user;
+    }
+
+    private User adminWithCompany(long companyId) {
+        User admin = userWithRole(RoleCode.ADMIN, true);
+        Company company = new Company();
+        company.setId(companyId);
+        company.setCompanySettings(new CompanySettings());
+        company.getCompanySettings().setGeneralPreferences(new GeneralPreferences());
+        company.getCompanySettings().getGeneralPreferences().setTimeZone("America/Sao_Paulo");
+        admin.setCompany(company);
+        return admin;
+    }
+
+    private ReportAssistantPlanDTO bulkPlan(long customerId, String start, String end, WorkOrderOperationalReportPeriodField periodField) {
+        return ReportAssistantPlanDTO.builder()
+                .customerId(customerId)
+                .startDate(start)
+                .endDate(end)
+                .periodField(periodField.name())
+                .build();
+    }
+
+    private GeneratedReport bulkReport(long id, String description, Date expiresAt) {
+        return GeneratedReport.builder()
+                .id(id)
+                .type(GeneratedReportType.WORK_ORDER_BULK)
+                .status(GeneratedReportStatus.DONE)
+                .description(description)
+                .filePath("reports/55/report-" + id + ".pdf")
+                .expiresAt(expiresAt)
+                .build();
+    }
+
+    private String bulkKey(long customerId, WorkOrderOperationalReportPeriodField periodField, String start, String end, String customerName) {
+        return "BulkKeyV1 · CustomerId: " + customerId +
+                " · PeriodField: " + periodField.name() +
+                " · Periodo: " + LocalDate.parse(start).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) +
+                " a " + LocalDate.parse(end).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) +
+                " · Cliente: " + customerName;
     }
 
     @Test
@@ -164,13 +207,15 @@ class ReportAssistantServiceAuthorizationTest {
                 .customerId(10L)
                 .startDate("2026-08-01")
                 .endDate("2026-08-31")
+                .periodField(WorkOrderOperationalReportPeriodField.COMPLETED_ON.name())
                 .build();
 
         GeneratedReport expired = GeneratedReport.builder()
                 .id(1L)
                 .type(GeneratedReportType.WORK_ORDER_BULK)
                 .status(GeneratedReportStatus.DONE)
-                .description("Cliente: PREFEITURA DE PIQUETE · Periodo: 01/08/2026 a 31/08/2026")
+                .description(bulkKey(10L, WorkOrderOperationalReportPeriodField.COMPLETED_ON, "2026-08-01", "2026-08-31", customer.getName()))
+                .filePath("reports/55/report-1.pdf")
                 .expiresAt(Date.from(LocalDate.of(2026, 8, 20).atStartOfDay(ZoneId.of("UTC")).toInstant()))
                 .build();
 
@@ -178,7 +223,8 @@ class ReportAssistantServiceAuthorizationTest {
                 .id(2L)
                 .type(GeneratedReportType.WORK_ORDER_BULK)
                 .status(GeneratedReportStatus.DONE)
-                .description("Cliente: PREFEITURA DE PIQUETE · CNPJ: 12.345.678/0001-90 · Periodo: 01/08/2026 a 31/08/2026")
+                .description(bulkKey(10L, WorkOrderOperationalReportPeriodField.COMPLETED_ON, "2026-08-01", "2026-08-31", customer.getName()))
+                .filePath("reports/55/report-2.pdf")
                 .expiresAt(Date.from(LocalDate.of(2099, 8, 28).atStartOfDay(ZoneId.of("UTC")).toInstant()))
                 .build();
 
@@ -186,17 +232,152 @@ class ReportAssistantServiceAuthorizationTest {
                 .id(3L)
                 .type(GeneratedReportType.WORK_ORDER_BULK)
                 .status(GeneratedReportStatus.DONE)
-                .description("Cliente: PREFEITURA DE PIQUETE · Periodo: 01/07/2026 a 31/07/2026")
+                .description(bulkKey(10L, WorkOrderOperationalReportPeriodField.COMPLETED_ON, "2026-07-01", "2026-07-31", customer.getName()))
+                .filePath("reports/55/report-3.pdf")
                 .expiresAt(Date.from(LocalDate.of(2099, 7, 31).atStartOfDay(ZoneId.of("UTC")).toInstant()))
                 .build();
 
         when(generatedReportRepository.findByCompanyIdAndTypeOrderByCreatedAtDesc(55L, GeneratedReportType.WORK_ORDER_BULK))
                 .thenReturn(List.of(latestValid, otherPeriod, expired));
+        when(storageService.exists("reports/55/report-2.pdf")).thenReturn(true);
+        when(storageService.exists("reports/55/report-3.pdf")).thenReturn(true);
 
         GeneratedReport reused = service.findReusableBulkReport(plan, customer, admin);
 
         assertNotNull(reused);
         assertEquals(2L, reused.getId());
+    }
+
+    @Test
+    void findReusableBulkReport_reusesSameCustomerPeriodAndCompletedOnWhenObjectExists() {
+        User admin = adminWithCompany(55L);
+        Customer customer = new Customer();
+        customer.setId(10L);
+        customer.setName("PREFEITURA DE PIQUETE");
+        ReportAssistantPlanDTO plan = bulkPlan(10L, "2026-08-01", "2026-08-31", WorkOrderOperationalReportPeriodField.COMPLETED_ON);
+        GeneratedReport report = bulkReport(2L, bulkKey(10L, WorkOrderOperationalReportPeriodField.COMPLETED_ON, "2026-08-01", "2026-08-31", customer.getName()), Date.from(LocalDate.of(2099, 8, 31).atStartOfDay(ZoneId.of("UTC")).toInstant()));
+
+        when(generatedReportRepository.findByCompanyIdAndTypeOrderByCreatedAtDesc(55L, GeneratedReportType.WORK_ORDER_BULK)).thenReturn(List.of(report));
+        when(storageService.exists(report.getFilePath())).thenReturn(true);
+
+        GeneratedReport reused = service.findReusableBulkReport(plan, customer, admin);
+
+        assertNotNull(reused);
+        assertEquals(report.getId(), reused.getId());
+    }
+
+    @Test
+    void findReusableBulkReport_doesNotReuseWhenPeriodFieldDiffers() {
+        User admin = adminWithCompany(55L);
+        Customer customer = new Customer();
+        customer.setId(10L);
+        customer.setName("PREFEITURA DE PIQUETE");
+        ReportAssistantPlanDTO plan = bulkPlan(10L, "2026-08-01", "2026-08-31", WorkOrderOperationalReportPeriodField.CHECK_IN_AT);
+        GeneratedReport report = bulkReport(2L, bulkKey(10L, WorkOrderOperationalReportPeriodField.COMPLETED_ON, "2026-08-01", "2026-08-31", customer.getName()), Date.from(LocalDate.of(2099, 8, 31).atStartOfDay(ZoneId.of("UTC")).toInstant()));
+
+        when(generatedReportRepository.findByCompanyIdAndTypeOrderByCreatedAtDesc(55L, GeneratedReportType.WORK_ORDER_BULK)).thenReturn(List.of(report));
+        when(storageService.exists(report.getFilePath())).thenReturn(true);
+
+        GeneratedReport reused = service.findReusableBulkReport(plan, customer, admin);
+
+        assertNull(reused);
+    }
+
+    @Test
+    void findReusableBulkReport_doesNotReuseWhenCustomerIdDiffersEvenIfNameMatches() {
+        User admin = adminWithCompany(55L);
+        Customer requestedCustomer = new Customer();
+        requestedCustomer.setId(10L);
+        requestedCustomer.setName("PREFEITURA DE PIQUETE");
+        ReportAssistantPlanDTO plan = bulkPlan(10L, "2026-08-01", "2026-08-31", WorkOrderOperationalReportPeriodField.COMPLETED_ON);
+        GeneratedReport report = bulkReport(2L, bulkKey(999L, WorkOrderOperationalReportPeriodField.COMPLETED_ON, "2026-08-01", "2026-08-31", requestedCustomer.getName()), Date.from(LocalDate.of(2099, 8, 31).atStartOfDay(ZoneId.of("UTC")).toInstant()));
+
+        when(generatedReportRepository.findByCompanyIdAndTypeOrderByCreatedAtDesc(55L, GeneratedReportType.WORK_ORDER_BULK)).thenReturn(List.of(report));
+        when(storageService.exists(report.getFilePath())).thenReturn(true);
+
+        GeneratedReport reused = service.findReusableBulkReport(plan, requestedCustomer, admin);
+
+        assertNull(reused);
+    }
+
+    @Test
+    void findReusableBulkReport_doesNotReuseLegacyDescriptionWithoutBulkKeyV1() {
+        User admin = adminWithCompany(55L);
+        Customer customer = new Customer();
+        customer.setId(10L);
+        customer.setName("PREFEITURA DE PIQUETE");
+        ReportAssistantPlanDTO plan = bulkPlan(10L, "2026-08-01", "2026-08-31", WorkOrderOperationalReportPeriodField.COMPLETED_ON);
+        GeneratedReport report = bulkReport(2L, "Cliente: PREFEITURA DE PIQUETE · Periodo: 01/08/2026 a 31/08/2026", Date.from(LocalDate.of(2099, 8, 31).atStartOfDay(ZoneId.of("UTC")).toInstant()));
+
+        when(generatedReportRepository.findByCompanyIdAndTypeOrderByCreatedAtDesc(55L, GeneratedReportType.WORK_ORDER_BULK)).thenReturn(List.of(report));
+
+        GeneratedReport reused = service.findReusableBulkReport(plan, customer, admin);
+
+        assertNull(reused);
+    }
+
+    @Test
+    void findReusableBulkReport_doesNotReuseWhenPeriodDiffers() {
+        User admin = adminWithCompany(55L);
+        Customer customer = new Customer();
+        customer.setId(10L);
+        customer.setName("PREFEITURA DE PIQUETE");
+        ReportAssistantPlanDTO plan = bulkPlan(10L, "2026-08-02", "2026-08-31", WorkOrderOperationalReportPeriodField.COMPLETED_ON);
+        GeneratedReport report = bulkReport(2L, bulkKey(10L, WorkOrderOperationalReportPeriodField.COMPLETED_ON, "2026-08-01", "2026-08-31", customer.getName()), Date.from(LocalDate.of(2099, 8, 31).atStartOfDay(ZoneId.of("UTC")).toInstant()));
+
+        when(generatedReportRepository.findByCompanyIdAndTypeOrderByCreatedAtDesc(55L, GeneratedReportType.WORK_ORDER_BULK)).thenReturn(List.of(report));
+        when(storageService.exists(report.getFilePath())).thenReturn(true);
+
+        GeneratedReport reused = service.findReusableBulkReport(plan, customer, admin);
+
+        assertNull(reused);
+    }
+
+    @Test
+    void findReusableBulkReport_doesNotReuseExpiredReport() {
+        User admin = adminWithCompany(55L);
+        Customer customer = new Customer();
+        customer.setId(10L);
+        customer.setName("PREFEITURA DE PIQUETE");
+        ReportAssistantPlanDTO plan = bulkPlan(10L, "2026-08-01", "2026-08-31", WorkOrderOperationalReportPeriodField.COMPLETED_ON);
+        GeneratedReport report = bulkReport(2L, bulkKey(10L, WorkOrderOperationalReportPeriodField.COMPLETED_ON, "2026-08-01", "2026-08-31", customer.getName()), Date.from(LocalDate.of(2020, 8, 31).atStartOfDay(ZoneId.of("UTC")).toInstant()));
+
+        when(generatedReportRepository.findByCompanyIdAndTypeOrderByCreatedAtDesc(55L, GeneratedReportType.WORK_ORDER_BULK)).thenReturn(List.of(report));
+
+        GeneratedReport reused = service.findReusableBulkReport(plan, customer, admin);
+
+        assertNull(reused);
+    }
+
+    @Test
+    void findReusableBulkReport_doesNotReuseWhenObjectMissingInStorage() {
+        User admin = adminWithCompany(55L);
+        Customer customer = new Customer();
+        customer.setId(10L);
+        customer.setName("PREFEITURA DE PIQUETE");
+        ReportAssistantPlanDTO plan = bulkPlan(10L, "2026-08-01", "2026-08-31", WorkOrderOperationalReportPeriodField.COMPLETED_ON);
+        GeneratedReport report = bulkReport(2L, bulkKey(10L, WorkOrderOperationalReportPeriodField.COMPLETED_ON, "2026-08-01", "2026-08-31", customer.getName()), Date.from(LocalDate.of(2099, 8, 31).atStartOfDay(ZoneId.of("UTC")).toInstant()));
+
+        when(generatedReportRepository.findByCompanyIdAndTypeOrderByCreatedAtDesc(55L, GeneratedReportType.WORK_ORDER_BULK)).thenReturn(List.of(report));
+        when(storageService.exists(report.getFilePath())).thenReturn(false);
+
+        GeneratedReport reused = service.findReusableBulkReport(plan, customer, admin);
+
+        assertNull(reused);
+    }
+
+    @Test
+    void generateBulkDownloadLink_returnsFreshSignedUrlForReusableReport() {
+        GeneratedReport report = bulkReport(
+                2L,
+                bulkKey(10L, WorkOrderOperationalReportPeriodField.COMPLETED_ON, "2026-08-01", "2026-08-31", "PREFEITURA DE PIQUETE"),
+                Date.from(LocalDate.of(2099, 8, 31).atStartOfDay(ZoneId.of("UTC")).toInstant())
+        );
+        when(storageService.generateSignedUrl(report.getFilePath(), 10)).thenReturn("https://signed.example/reused.pdf");
+
+        String url = service.generateBulkDownloadLink(report);
+
+        assertEquals("https://signed.example/reused.pdf", url);
     }
 
     @Test

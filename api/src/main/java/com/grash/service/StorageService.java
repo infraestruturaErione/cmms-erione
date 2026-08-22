@@ -33,6 +33,8 @@ public interface StorageService {
 
     String generateSignedUrl(String filePath, long expirationMinutes);
 
+    boolean exists(String filePath);
+
     /**
      * Permanently deletes a file from storage. Used by the generated-report
      * cleanup job once a report passes its expiration date.

@@ -115,6 +115,18 @@ public class GCPService implements StorageService {
         return generateSignedUrl(blobInfo, expirationMinutes);
     }
 
+    @Override
+    public boolean exists(String filePath) {
+        checkIfConfigured();
+        try {
+            Blob blob = storage.get(BlobId.of(gcpBucketName, filePath));
+            return blob != null && blob.exists();
+        } catch (StorageException e) {
+            throw new CustomException("Error checking file existence: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public String generateSignedUrl(BlobInfo blobInfo, long expirationMinutes) {
         try {
             return storage.signUrl(blobInfo, expirationMinutes, java.util.concurrent.TimeUnit.MINUTES,

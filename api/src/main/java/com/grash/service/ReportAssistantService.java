@@ -68,8 +68,9 @@ public class ReportAssistantService {
             WorkOrderOperationalReportPeriodField.CHECK_IN_AT,
             WorkOrderOperationalReportPeriodField.CREATED_AT
     );
-    private static final Pattern BULK_DESCRIPTION_PATTERN = Pattern.compile(
-            "^Cliente: (.+?)(?: · CNPJ: .+?)? · Periodo: (\\d{2}/\\d{2}/\\d{4}) a (\\d{2}/\\d{2}/\\d{4})$"
+    private static final String BULK_KEY_VERSION = "BulkKeyV1";
+    private static final Pattern BULK_KEY_V1_PATTERN = Pattern.compile(
+            "^BulkKeyV1 · CustomerId: (\\d+) · PeriodField: ([A-Z_]+) · Periodo: (\\d{2}/\\d{2}/\\d{4}) a (\\d{2}/\\d{2}/\\d{4}) · Cliente: (.+)$"
     );
     private static final Pattern HELP_PATTERN = Pattern.compile(
             "(?i)^(ajuda|help|comandos|o que voce pode fazer|o que você pode fazer|como funciona|o que da para fazer|o que dá para fazer)\\??$"
@@ -262,9 +263,7 @@ public class ReportAssistantService {
         WorkOrderBulkReportRequestDTO request = new WorkOrderBulkReportRequestDTO();
         request.setCustomerId(plan.getCustomerId());
         request.setCnpj(blankToNull(plan.getCnpj()));
-        request.setPeriodField(parsePeriodField(plan.getPeriodField()) == WorkOrderOperationalReportPeriodField.CREATED_AT
-                ? WorkOrderOperationalReportPeriodField.COMPLETED_ON
-                : parsePeriodField(plan.getPeriodField()));
+        request.setPeriodField(resolveBulkPeriodField(plan));
         request.setStart(LocalDate.parse(plan.getStartDate(), ISO_DATE));
         request.setEnd(LocalDate.parse(plan.getEndDate(), ISO_DATE));
         return request;
@@ -702,6 +701,11 @@ public class ReportAssistantService {
         return "Eu não posso fazer esse comando desse jeito no relatório operacional. Por favor, me diga o nome exato de um único cliente ou peça ajuda para ver exemplos.";
     }
 
+    private record BulkReportIdentity(Long customerId,
+                                      WorkOrderOperationalReportPeriodField periodField,
+                                      String startLabel,
+                                      String endLabel) {}
+
     private record DateRange(LocalDate start, LocalDate end) {}
 
     private WorkOrderOperationalReportPeriodField parsePeriodField(String value) {
@@ -751,20 +755,65 @@ public class ReportAssistantService {
     }
 
     private boolean matchesBulkRequest(GeneratedReport report, Customer customer, ReportAssistantPlanDTO plan) {
-        if (report.getDescription() == null || report.getDescription().isBlank()) {
+        BulkReportIdentity identity = parseBulkReportIdentity(report.getDescription());
+        if (identity == null) {
             return false;
         }
-        var matcher = BULK_DESCRIPTION_PATTERN.matcher(report.getDescription().trim());
+        WorkOrderOperationalReportPeriodField requestedPeriodField = resolveBulkPeriodField(plan);
+        return identity.customerId().equals(customer.getId())
+                && identity.periodField() == requestedPeriodField
+                && formatBulkPeriodLabel(plan.getStartDate()).equals(identity.startLabel())
+                && formatBulkPeriodLabel(plan.getEndDate()).equals(identity.endLabel())
+                && bulkObjectExists(report);
+    }
+
+    public String buildBulkReportDescription(Long customerId,
+                                             String customerName,
+                                             WorkOrderOperationalReportPeriodField periodField,
+                                             LocalDate startDate,
+                                             LocalDate endDate) {
+        return BULK_KEY_VERSION + " · CustomerId: " + customerId +
+                " · PeriodField: " + periodField.name() +
+                " · Periodo: " + startDate.format(BULK_PERIOD_LABEL) + " a " + endDate.format(BULK_PERIOD_LABEL) +
+                " · Cliente: " + customerName;
+    }
+
+    private BulkReportIdentity parseBulkReportIdentity(String description) {
+        if (description == null || description.isBlank()) {
+            return null;
+        }
+        var matcher = BULK_KEY_V1_PATTERN.matcher(description.trim());
         if (!matcher.matches()) {
+            return null;
+        }
+        try {
+            return new BulkReportIdentity(
+                    Long.parseLong(matcher.group(1)),
+                    WorkOrderOperationalReportPeriodField.valueOf(matcher.group(2)),
+                    matcher.group(3),
+                    matcher.group(4)
+            );
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private WorkOrderOperationalReportPeriodField resolveBulkPeriodField(ReportAssistantPlanDTO plan) {
+        WorkOrderOperationalReportPeriodField parsed = parsePeriodField(plan.getPeriodField());
+        return parsed == WorkOrderOperationalReportPeriodField.CREATED_AT
+                ? WorkOrderOperationalReportPeriodField.COMPLETED_ON
+                : parsed;
+    }
+
+    private boolean bulkObjectExists(GeneratedReport report) {
+        if (report.getFilePath() == null || report.getFilePath().isBlank()) {
             return false;
         }
-        String reportCustomer = matcher.group(1);
-        String reportStart = matcher.group(2);
-        String reportEnd = matcher.group(3);
-        return customer.getName() != null
-                && customer.getName().trim().equalsIgnoreCase(reportCustomer.trim())
-                && formatBulkPeriodLabel(plan.getStartDate()).equals(reportStart)
-                && formatBulkPeriodLabel(plan.getEndDate()).equals(reportEnd);
+        try {
+            return storageServiceFactory.getStorageService().exists(report.getFilePath());
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     private String formatBulkPeriodLabel(String isoDate) {

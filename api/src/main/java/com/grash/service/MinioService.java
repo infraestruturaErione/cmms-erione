@@ -117,6 +117,28 @@ public class MinioService implements StorageService {
         }
     }
 
+    @Override
+    public boolean exists(String filePath) {
+        checkIfConfigured();
+        try {
+            minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(minioBucket)
+                            .object(filePath)
+                            .build()
+            );
+            return true;
+        } catch (ErrorResponseException ex) {
+            String code = ex.errorResponse() == null ? null : ex.errorResponse().code();
+            if ("NoSuchKey".equals(code) || "NoSuchObject".equals(code)) {
+                return false;
+            }
+            throw new CustomException("Error checking file existence", HttpStatus.INTERNAL_SERVER_ERROR);
+        } catch (MinioException | IOException | InvalidKeyException | NoSuchAlgorithmException ex) {
+            throw new CustomException("Error checking file existence", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public byte[] download(String filePath) {
         checkIfConfigured();
         InputStream inputStream = null;

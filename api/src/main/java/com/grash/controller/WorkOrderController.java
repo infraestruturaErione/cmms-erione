@@ -752,9 +752,13 @@ public class WorkOrderController {
         MultipartFile file = new MultipartFileImpl(bytes, "Relatorio em Massa - " + customerLabel + ".pdf");
         String filePath = storageService.upload(file, "reports/" + companyId);
 
-        String description = "Cliente: " + customerLabel +
-                (requestedCnpjDigits.isEmpty() ? "" : " · CNPJ: " + request.getCnpj()) +
-                " · Periodo: " + periodStartLabel + " a " + periodEndLabel;
+        String description = buildBulkReportDescription(
+                selectedCustomer.getId(),
+                customerLabel,
+                request.getPeriodField(),
+                request.getStart(),
+                request.getEnd()
+        );
         Date expiresAt = new Date(System.currentTimeMillis() + GENERATED_REPORT_TTL_MS);
         generatedReportRepository.save(GeneratedReport.builder()
                 .companyId(companyId)
@@ -770,6 +774,18 @@ public class WorkOrderController {
     }
 
     private static final long GENERATED_REPORT_TTL_MS = 7L * 24 * 60 * 60 * 1000;
+
+    private static String buildBulkReportDescription(Long customerId,
+                                                     String customerName,
+                                                     com.grash.dto.workOrder.report.WorkOrderOperationalReportPeriodField periodField,
+                                                     java.time.LocalDate startDate,
+                                                     java.time.LocalDate endDate) {
+        DateTimeFormatter periodDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        return "BulkKeyV1 · CustomerId: " + customerId +
+                " · PeriodField: " + periodField.name() +
+                " · Periodo: " + startDate.format(periodDateFormatter) + " a " + endDate.format(periodDateFormatter) +
+                " · Cliente: " + customerName;
+    }
 
     private static String onlyDigits(String value) {
         return value == null ? "" : value.replaceAll("\\D", "");
