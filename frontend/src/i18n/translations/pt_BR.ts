@@ -54,7 +54,8 @@ const ptBRJSON = {
   erione_nav_desc_operational_report: 'Cliente, local, equipamento e período',
   erione_nav_desc_wo_reports: 'Status e acompanhamento das OS',
   erione_nav_desc_wo_analytics: 'Análise operacional das ordens',
-  erione_nav_desc_bulk_report_history: 'Relatórios em massa por cidade e histórico de downloads',
+  erione_nav_desc_bulk_report_history:
+    'Relatórios em massa por cidade e histórico de downloads',
   erione_nav_desc_settings: 'Preferências gerais da operação',
   erione_nav_desc_custom_fields_categories:
     'Categorias e campos usados nos cadastros',
@@ -380,7 +381,8 @@ const ptBRJSON = {
   km: 'km',
   photos: 'Fotos',
   service_checklist: 'Checklist',
-  no_checklist_linked_to_wo: 'Nenhum checklist vinculado a esta ordem de serviço.',
+  no_checklist_linked_to_wo:
+    'Nenhum checklist vinculado a esta ordem de serviço.',
   travel_and_location: 'Deslocamento e localização',
   distance_from_location: '{{distance}} de distância do local esperado',
   signed_by_line: 'Assinado por {{name}}, Documento: {{document}}',
@@ -412,16 +414,79 @@ const ptBRJSON = {
   task_type_checklist_empty_helper:
     'Adicione perguntas para orientar o técnico durante a execução da ordem de serviço.',
   task_type_checklist_section_helper:
-    'As perguntas do checklist selecionado serão adicionadas automaticamente às novas ordens de serviço desta categoria.',
+    'As perguntas deste questionário serão adicionadas automaticamente às novas OS deste tipo.',
   checklist_completion_disabled_helper:
-    'Associe um checklist para habilitar este requisito.',
+    'Associe um questionário para habilitar este requisito.',
   task_type_checklist_add_item: 'Adicionar pergunta',
   task_type_checklist_confirm_remove_item:
     'Remover esta pergunta do checklist?',
   nav_checklists: 'Checklists',
   erione_nav_desc_checklists:
     'Cadastro de checklists reutilizáveis para associar às categorias.',
-  checklists_page_helper: 'Modelos de questionário utilizados nas ordens de serviço.',
+  checklists_page_helper:
+    'Modelos de questionário utilizados nas ordens de serviço.',
+  wo_types_configuration: 'Configuração das OS',
+  wo_types_configuration_helper:
+    'Organize os tipos de OS, questionários e requisitos da execução em campo.',
+  work_order_types: 'Tipos de OS',
+  other_categories: 'Outras categorias',
+  questionnaires: 'Questionários',
+  new_work_order_type: 'Novo tipo de OS',
+  edit_work_order_type: 'Editar tipo de OS',
+  new_questionnaire: 'Novo questionário',
+  edit_questionnaire: 'Editar questionário',
+  work_order_type_form_helper:
+    'Defina as informações e o que será exigido do técnico.',
+  work_order_type_name: 'Nome do tipo de OS',
+  work_order_type_planning_helper:
+    'Valores sugeridos automaticamente ao criar uma nova ordem deste tipo.',
+  work_order_type_requirements_helper:
+    'Requisitos aplicados às novas ordens de serviço deste tipo.',
+  field_execution_impact: 'Impacto na execução em campo',
+  field_execution_impact_helper: 'O técnico precisará realizar:',
+  linked_questionnaire: 'Questionário vinculado',
+  questionnaire: 'Questionário',
+  linked_questionnaire_empty_title: 'Nenhum questionário vinculado',
+  linked_questionnaire_empty_helper:
+    'Associe um questionário para orientar a execução deste tipo de OS.',
+  select_questionnaire: 'Selecionar questionário',
+  open_questionnaire: 'Abrir questionário',
+  change_questionnaire: 'Trocar',
+  without_questionnaire: 'Sem questionário',
+  without_description: 'Sem descrição',
+  clear_link: 'Limpar vínculo',
+  search_work_order_type: 'Buscar por tipo de OS, descrição ou questionário...',
+  no_work_order_type_found: 'Nenhum tipo de OS encontrado.',
+  no_work_order_type_message: 'Nenhum tipo de OS cadastrado ainda.',
+  work_order_type_copy_name: 'Cópia de {{name}}',
+  work_order_type_duplicate_success: 'Tipo de OS duplicado com sucesso',
+  field_report_short: 'Relato',
+  questionnaire_required_short: 'Questionário obrigatório',
+  mileage_short: 'KM rodado',
+  questions_count_value: '{{count}} perguntas',
+  questionnaires_count_value: '{{count}} questionários',
+  questionnaire_question_number: 'Pergunta {{number}}',
+  search_questionnaire_placeholder:
+    'Buscar por nome ou descrição do questionário...',
+  work_order_types_count: '{{count}} tipo(s) de OS',
+  used_in: 'Usado em',
+  not_linked: 'Não vinculado',
+  questionnaire_delete_blocked:
+    'Desvincule este questionário dos tipos de OS antes de excluir.',
+  questionnaire_form_helper:
+    'Organize as perguntas que orientarão a execução do atendimento.',
+  questionnaire_information: 'Informações do questionário',
+  questionnaire_name: 'Nome do questionário',
+  questionnaire_questions_helper:
+    'Arraste para ordenar e escolha o tipo de resposta de cada pergunta.',
+  questionnaire_summary: 'Resumo do questionário',
+  questionnaire_summary_helper:
+    'Visão rápida da estrutura e dos tipos de OS que usam este modelo.',
+  questionnaire_requirements_note:
+    'A obrigatoriedade de responder o questionário é definida no tipo de OS.',
+  duplicate_question: 'Duplicar pergunta',
+  duplicate: 'Duplicar',
+  questions: 'Perguntas',
   new_checklist: 'Novo checklist',
   checklist_form_edit_title: 'Editar checklist',
   checklist_name: 'Nome do checklist',
@@ -447,20 +512,24 @@ const ptBRJSON = {
   task_type_require_signature: 'Colher assinatura',
   task_type_require_signer_name: 'Exigir nome do assinante',
   task_type_require_signer_document: 'Exigir CPF/CNPJ do assinante',
-  task_type_require_photos: 'Colher fotos',
+  task_type_require_photos: 'Exigir evidência fotográfica',
+  photographic_evidence: 'Evidência fotográfica',
   task_type_require_field_report: 'Preencher relato',
   task_type_require_mileage: 'Preencher km rodado',
-  task_type_require_checklist_completion: 'Exigir checklist completo',
+  task_type_require_checklist_completion: 'Exigir questionário completo',
   always_required_badge: 'Sempre obrigatório',
   field_report_always_required_label: 'Relato do atendimento',
   field_report_always_required_helper:
     'O técnico deverá registrar o serviço realizado.',
   category_require_photos_helper:
-    'O técnico deverá anexar evidências do atendimento.',
+    'O técnico deverá anexar pelo menos uma foto para concluir a OS.',
+  photo_required_by_global_configuration:
+    'Obrigatória pela configuração geral da execução.',
+  global_configuration_badge: 'Configuração geral',
   category_require_field_report_helper:
     'O técnico deverá descrever o atendimento realizado.',
   category_require_checklist_completion_helper:
-    'Todas as perguntas do checklist deverão ser respondidas antes da conclusão da OS.',
+    'Todas as perguntas do questionário deverão ser respondidas antes da conclusão da OS.',
   category_require_mileage_helper:
     'O técnico deverá informar a quilometragem percorrida.',
   category_require_signature_helper:
@@ -580,19 +649,24 @@ const ptBRJSON = {
     'Relatórios para gestão por cliente, local e equipamento.',
   field_operations: 'Operação em Campo',
   preparing_operation: 'Preparando ambiente operacional...',
-  quick_request_subtitle: 'Informe o local, equipamento e descreva o problema para que a equipe técnica possa atender.',
+  quick_request_subtitle:
+    'Informe o local, equipamento e descreva o problema para que a equipe técnica possa atender.',
   quick_request_where: 'Onde está o problema?',
-  quick_request_where_helper: 'Selecione o local e o equipamento relacionado ao chamado.',
+  quick_request_where_helper:
+    'Selecione o local e o equipamento relacionado ao chamado.',
   quick_request_what: 'O que aconteceu?',
   quick_request_evidence: 'Evidências',
-  quick_request_evidence_helper: 'Adicione fotos ou arquivos que ajudem a equipe técnica.',
+  quick_request_evidence_helper:
+    'Adicione fotos ou arquivos que ajudem a equipe técnica.',
   quick_request_contact: 'Contato e observações',
-  quick_request_contact_helper: 'Informe um contato para retorno, se necessário.',
+  quick_request_contact_helper:
+    'Informe um contato para retorno, se necessário.',
   quick_request_submit: 'Enviar solicitação',
   quick_request_success: 'Solicitação enviada com sucesso.',
   quick_request_error: 'Erro ao enviar solicitação. Tente novamente.',
   quick_request_description_required: 'Descreva o problema antes de enviar.',
-  quick_request_description_placeholder: 'Ex: equipamento sem sinal, dispositivo desligado, falha de conexão...',
+  quick_request_description_placeholder:
+    'Ex: equipamento sem sinal, dispositivo desligado, falha de conexão...',
   quick_request_add_image: 'Adicionar foto',
   quick_request_add_files: 'Adicionar arquivos',
   quick_request_no_customer: 'Sem cliente',
@@ -687,7 +761,8 @@ const ptBRJSON = {
   bulk_report_status_expired: 'Expirado',
   cnpj: 'CNPJ',
   cnpj_placeholder: '00.000.000/0000-00',
-  cnpj_optional_helper: 'Opcional por enquanto — vai virar obrigatório no futuro',
+  cnpj_optional_helper:
+    'Opcional por enquanto — vai virar obrigatório no futuro',
   period_field: 'Campo de periodo',
   CREATED_AT: 'Criado em',
   COMPLETED_ON: 'Concluido em',
@@ -718,7 +793,8 @@ const ptBRJSON = {
   field_execution_timeline_helper:
     'Visualize as etapas principais da OS em campo.',
   field_execution_updated: 'Execução em campo atualizada',
-  geolocation_not_supported: 'Localização indisponível: navegador não suporta geolocalização',
+  geolocation_not_supported:
+    'Localização indisponível: navegador não suporta geolocalização',
   geolocation_permission_denied: 'Localização indisponível: permissão negada',
   geolocation_unavailable: 'Localização indisponível: posição não obtida',
   geolocation_timeout: 'Localização indisponível: tempo excedido',
@@ -1167,13 +1243,13 @@ const ptBRJSON = {
   add_customer: 'Adicionar cliente',
   add_customer_description:
     'Preencha os campos abaixo para criar e adicionar um novo cliente',
-  'noRows.customer.message': 'Clientes são contratantes atendidos pela operação',
+  'noRows.customer.message':
+    'Clientes são contratantes atendidos pela operação',
   'noRows.customer.action': "Pressione o botão '+' para criar um cliente",
   type: 'Tipo',
   billing_currency: 'Moeda de Cobrança',
   go_back: 'Voltar',
-  confirm_delete_customer:
-    'Tem certeza de que deseja excluir este cliente?',
+  confirm_delete_customer: 'Tem certeza de que deseja excluir este cliente?',
   //vendor
   vendor_create_success: 'O Fornecedor foi criado com sucesso',
   vendor_create_failure: 'O Fornecedor não pôde ser criado',
@@ -1357,8 +1433,7 @@ const ptBRJSON = {
   //checklist
   checklist_delete_success:
     'O Checklist de Atendimento foi excluído com sucesso',
-  checklist_delete_failure:
-    'O Checklist de Atendimento não pôde ser excluído',
+  checklist_delete_failure: 'O Checklist de Atendimento não pôde ser excluído',
   create_checklist: 'Criar Checklist de Atendimento',
   confirm_delete_checklist:
     'Tem certeza de que deseja excluir este Checklist de Atendimento?',
@@ -2318,10 +2393,12 @@ const ptBRJSON = {
     'Crie, gerencie e edite locais dentro da sua organização.',
   parts_inventory_settings_description:
     'Personalize o formulário e preferências do inventário de peças',
-  meters_settings_description: 'Personalize o formulário e preferências de medidores',
+  meters_settings_description:
+    'Personalize o formulário e preferências de medidores',
   vendors_contractors_settings_description:
     'Gerencie clientes atendidos pela operação',
-  workflows_settings_description: 'Crie e gerencie fluxos de trabalho automatizados',
+  workflows_settings_description:
+    'Crie e gerencie fluxos de trabalho automatizados',
   request_portals_settings_description:
     'Crie, gerencie e edite todos os portais de solicitação da sua organização.',
   set_preferences: 'Definir preferências',
@@ -2336,7 +2413,8 @@ const ptBRJSON = {
   edit_custom_field: 'Editar campo personalizado',
   confirm_delete_custom_field:
     'Tem certeza de que deseja excluir este campo personalizado?',
-  copy_on_repeat_wo: 'Copiar os valores deste campo em ordens de trabalho repetidas',
+  copy_on_repeat_wo:
+    'Copiar os valores deste campo em ordens de trabalho repetidas',
   do_not_copy: 'Não copiar',
   enter_options_comma_separated: 'Digite as opções separadas por vírgulas',
   field_type: 'Tipo de campo',
@@ -2349,9 +2427,9 @@ const ptBRJSON = {
   label: 'Rótulo',
   customize_form: 'Personalizar o formulário',
   type_enter_to_add_option: 'Digite e pressione enter para adicionar uma opção',
-  customers_settings_description:
-    'Gerencie clientes atendidos pela operação.',
-  vendors_settings_description: 'Personalize configurações relacionadas a fornecedores',
+  customers_settings_description: 'Gerencie clientes atendidos pela operação.',
+  vendors_settings_description:
+    'Personalize configurações relacionadas a fornecedores',
   allowed_customers: 'Clientes permitidos',
   requester_without_allowed_customers:
     'Nenhum cliente permitido vinculado ao seu usuário. Contate o administrador.',
@@ -2359,7 +2437,8 @@ const ptBRJSON = {
     'Seu usuário ainda não possui clientes permitidos. Um administrador precisa definir seu escopo antes de você abrir solicitações.',
   'workOrders.customer_single_mvp_helper':
     'No MVP, a OS usa um cliente principal para filtrar local e equipamento.',
-  mobile_app_unavailable_description: 'O aplicativo móvel Erione estará disponível em breve nas lojas oficiais.'
+  mobile_app_unavailable_description:
+    'O aplicativo móvel Erione estará disponível em breve nas lojas oficiais.'
 };
 
 export default ptBRJSON;

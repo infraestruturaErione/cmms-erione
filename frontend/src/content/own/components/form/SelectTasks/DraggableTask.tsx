@@ -26,6 +26,7 @@ import DeleteTwoToneIcon from '@mui/icons-material/DeleteTwoTone';
 import MoreVertTwoToneIcon from '@mui/icons-material/MoreVertTwoTone';
 import CheckTwoToneIcon from '@mui/icons-material/CheckTwoTone';
 import AddTwoToneIcon from '@mui/icons-material/AddTwoTone';
+import ContentCopyTwoToneIcon from '@mui/icons-material/ContentCopyTwoTone';
 import { randomInt } from '../../../../../utils/generators';
 import { AssetMiniDTO } from '../../../../../models/owns/asset';
 import { UserMiniDTO } from '../../../../../models/user';
@@ -47,25 +48,27 @@ export type DraggableListItemProps = {
   onMeterChange: (meter: MeterMiniDTO, id: number) => void;
   onChoicesChange: (choices: string[], id: number) => void;
   onRemove: (id: number, anchorEl?: HTMLElement) => void;
+  onDuplicate?: (id: number) => void;
   assetsMini: AssetMiniDTO[];
   usersMini: UserMiniDTO[];
   metersMini: MeterMiniDTO[];
 };
 
 const DraggableListItem = ({
-                             task,
-                             index,
-                             onLabelChange,
-                             onTypeChange,
-                             onRemove,
-                             onUserChange,
-                             onAssetChange,
-                             onMeterChange,
-                             onChoicesChange,
-                             assetsMini,
-                             usersMini,
-                             metersMini
-                           }: DraggableListItemProps) => {
+  task,
+  index,
+  onLabelChange,
+  onTypeChange,
+  onRemove,
+  onUserChange,
+  onAssetChange,
+  onMeterChange,
+  onChoicesChange,
+  assetsMini,
+  usersMini,
+  metersMini,
+  onDuplicate
+}: DraggableListItemProps) => {
   const classes = useStyles();
   const theme = useTheme();
   const { t }: { t: any } = useTranslation();
@@ -155,236 +158,270 @@ const DraggableListItem = ({
           className={snapshot.isDragging ? classes.draggingListItem : ''}
           sx={{
             width: '100%',
-            mb: 1,
-            p: 1.5,
-            borderRadius: 1.5,
+            mb: 1.5,
+            p: { xs: 1.5, sm: 2 },
+            borderRadius: 2,
             border: `1px solid ${theme.colors.alpha.black[10]}`,
-            backgroundColor: theme.colors.alpha.black[5]
+            backgroundColor: theme.palette.background.paper,
+            boxShadow: snapshot.isDragging
+              ? `0 12px 28px ${theme.colors.alpha.black[20]}`
+              : `0 4px 14px ${theme.colors.alpha.black[5]}`
           }}
         >
           {renderMenu()}
-          <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
             <Box
-              {...provided.dragHandleProps}
               sx={{
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
-                cursor: 'grab',
-                pr: 1,
-                color: theme.colors.alpha.black[50]
+                justifyContent: 'space-between',
+                gap: 1.5,
+                mb: 1.5
               }}
             >
-              <DragIndicatorTwoToneIcon fontSize="small" />
-              <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                {String(index + 1).padStart(2, '0')}
-              </Typography>
+              <Box
+                {...provided.dragHandleProps}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  cursor: 'grab',
+                  color: theme.colors.alpha.black[50]
+                }}
+              >
+                <DragIndicatorTwoToneIcon fontSize="small" />
+                <Typography
+                  variant="subtitle2"
+                  sx={{ color: 'text.primary', fontWeight: 700 }}
+                >
+                  {t('questionnaire_question_number', {
+                    number: String(index + 1).padStart(2, '0')
+                  })}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                {onDuplicate && (
+                  <Tooltip arrow title={t('duplicate_question')}>
+                    <IconButton
+                      aria-label={t('duplicate_question')}
+                      onClick={() => onDuplicate(task.id)}
+                      sx={{
+                        width: 38,
+                        height: 38,
+                        border: `1px solid ${theme.colors.alpha.black[10]}`
+                      }}
+                    >
+                      <ContentCopyTwoToneIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Tooltip arrow title={t('remove_item')}>
+                  <IconButton
+                    aria-label={t('remove_item')}
+                    color="error"
+                    onClick={(event) => onRemove(task.id, event.currentTarget)}
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      border: `1px solid ${theme.colors.alpha.black[10]}`
+                    }}
+                  >
+                    <DeleteTwoToneIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip arrow title={t('assign_item_to')}>
+                  <IconButton
+                    aria-label={t('assign_item_to')}
+                    onClick={handleOpenMenu}
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      border: `1px solid ${theme.colors.alpha.black[10]}`
+                    }}
+                  >
+                    <MoreVertTwoToneIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Box>
             <Box
-              sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  md: 'minmax(0, 1fr) 220px'
+                },
+                gap: 1.5,
+                alignItems: 'start'
+              }}
+            >
+              <TextField
+                fullWidth
+                label={t('checklist_item_label')}
+                placeholder={t('checklist_item_label_placeholder')}
+                onChange={(event) => onLabelChange(event.target.value, task.id)}
+                value={task.taskBase.label}
+              />
+              <FormControl fullWidth>
+                <InputLabel id={`task-type-label-${task.id}`}>
+                  {t('checklist_item_type')}
+                </InputLabel>
+                <Select
+                  labelId={`task-type-label-${task.id}`}
+                  label={t('checklist_item_type')}
+                  value={task.taskBase.taskType}
+                  onChange={(event) => {
+                    if (event.target.value === 'METER') {
+                      setOpenAssignMeter(true);
+                    }
+                    onTypeChange(event.target.value as TaskType, task.id);
+                  }}
+                >
+                  {taskTypes.map((taskType) => (
+                    <MenuItem key={taskType.value} value={taskType.value}>
+                      {taskType.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Collapse
+              in={
+                openAssignUser ||
+                openAssignAsset ||
+                openAssignMeter ||
+                task.taskBase.taskType === 'MULTIPLE' ||
+                task.taskBase.taskType === 'INSPECTION'
+              }
             >
               <Box
                 sx={{
                   display: 'flex',
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start'
+                  flexDirection: 'column',
+                  mt: 0.5
                 }}
               >
-                <Box sx={{ alignItems: 'center', flexGrow: 1 }}>
-                  <TextField
-                    fullWidth
-                    label={t('checklist_item_label')}
-                    placeholder={t('checklist_item_label_placeholder')}
-                    onChange={(event) =>
-                      onLabelChange(event.target.value, task.id)
-                    }
-                    value={task.taskBase.label}
-                  />
-                </Box>
-                <FormControl sx={{ ml: 1, minWidth: 190 }}>
-                  <InputLabel id={`task-type-label-${task.id}`}>
-                    {t('checklist_item_type')}
-                  </InputLabel>
+                {openAssignUser && (
                   <Select
-                    labelId={`task-type-label-${task.id}`}
-                    label={t('checklist_item_type')}
-                    value={task.taskBase.taskType}
-                    onChange={(event) => {
-                      if (event.target.value === 'METER') {
-                        setOpenAssignMeter(true);
-                      }
-                      onTypeChange(event.target.value as TaskType, task.id);
-                    }}
+                    sx={{ mt: 1 }}
+                    onChange={(event) =>
+                      onUserChange(
+                        usersMini.find(
+                          (user) => user.id === Number(event.target.value)
+                        ),
+                        task.id
+                      )
+                    }
+                    displayEmpty
+                    defaultValue=""
+                    value={task.taskBase.user?.id ?? ''}
                   >
-                    {taskTypes.map((taskType) => (
-                      <MenuItem key={taskType.value} value={taskType.value}>
-                        {taskType.label}
+                    <MenuItem value="">{t('select_user')}</MenuItem>
+                    {usersMini.map((user) => (
+                      <MenuItem
+                        key={user.id}
+                        value={user.id}
+                      >{`${user.firstName} ${user.lastName}`}</MenuItem>
+                    ))}
+                  </Select>
+                )}
+                {openAssignAsset && (
+                  <Select
+                    sx={{ mt: 1 }}
+                    onChange={(event) =>
+                      onAssetChange(
+                        assetsMini.find(
+                          (asset) => asset.id === Number(event.target.value)
+                        ),
+                        task.id
+                      )
+                    }
+                    displayEmpty
+                    defaultValue=""
+                    value={task.taskBase.asset?.id ?? ''}
+                  >
+                    <MenuItem value="">{t('select_asset')}</MenuItem>
+                    {assetsMini.map((asset) => (
+                      <MenuItem key={asset.id} value={asset.id}>
+                        {asset.name}
                       </MenuItem>
                     ))}
                   </Select>
-                </FormControl>
-                <Box>
-                  <Tooltip arrow title={t('remove_item')}>
-                    <IconButton
-                      aria-label={t('remove_item')}
-                      size="small"
-                      onClick={(event) =>
-                        onRemove(task.id, event.currentTarget)
-                      }
-                    >
-                      <DeleteTwoToneIcon color="error" fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip arrow title={t('assign_item_to')}>
-                    <IconButton
-                      aria-label={t('assign_item_to')}
-                      size="small"
-                      onClick={handleOpenMenu}
-                    >
-                      <MoreVertTwoToneIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </Box>
-              <Collapse
-                in={
-                  openAssignUser ||
-                  openAssignAsset ||
-                  openAssignMeter ||
-                  task.taskBase.taskType === 'MULTIPLE' ||
-                  task.taskBase.taskType === 'INSPECTION'
-                }
-              >
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    ml: 2
-                  }}
-                >
-                  {openAssignUser && (
-                    <Select
-                      sx={{ mt: 1 }}
-                      onChange={(event) =>
-                        onUserChange(
-                          usersMini.find(
-                            (user) => user.id === Number(event.target.value)
-                          ),
-                          task.id
-                        )
-                      }
-                      displayEmpty
-                      defaultValue=""
-                      value={task.taskBase.user?.id ?? ''}
-                    >
-                      <MenuItem value="">{t('select_user')}</MenuItem>
-                      {usersMini.map((user) => (
-                        <MenuItem
-                          key={user.id}
-                          value={user.id}
-                        >{`${user.firstName} ${user.lastName}`}</MenuItem>
-                      ))}
-                    </Select>
-                  )}
-                  {openAssignAsset && (
-                    <Select
-                      sx={{ mt: 1 }}
-                      onChange={(event) =>
-                        onAssetChange(
-                          assetsMini.find(
-                            (asset) => asset.id === Number(event.target.value)
-                          ),
-                          task.id
-                        )
-                      }
-                      displayEmpty
-                      defaultValue=""
-                      value={task.taskBase.asset?.id ?? ''}
-                    >
-                      <MenuItem value="">{t('select_asset')}</MenuItem>
-                      {assetsMini.map((asset) => (
-                        <MenuItem key={asset.id} value={asset.id}>
-                          {asset.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  )}
-                  {openAssignMeter && task.taskBase.taskType === 'METER' && (
-                    <Select
-                      sx={{ mt: 1 }}
-                      onChange={(event) =>
-                        onMeterChange(
-                          metersMini.find(
-                            (meter) => meter.id === Number(event.target.value)
-                          ),
-                          task.id
-                        )
-                      }
-                      displayEmpty
-                      defaultValue=""
-                      value={task.taskBase.meter?.id ?? ''}
-                    >
-                      <MenuItem value="">{t('select_meter')}</MenuItem>
-                      {metersMini.map((meter) => (
-                        <MenuItem key={meter.id} value={meter.id}>
-                          {meter.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  )}
-                  {task.taskBase.taskType === 'INSPECTION' && (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mt: 1, display: 'block', fontSize: 12.5 }}
-                    >
-                      {t('category_inspection_hint')}
-                    </Typography>
-                  )}
-                  {task.taskBase.taskType === 'MULTIPLE' && (
-                    <Box>
-                      {choices.map((choice, index) => (
-                        <Box
-                          key={index}
-                          sx={{
-                            display: 'flex',
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            width: '100%',
-                            mt: 1
-                          }}
-                        >
-                          <TextField
-                            value={choice.label}
-                            onChange={(event) =>
-                              handleChoiceChange(event.target.value, index)
-                            }
-                          />
-                          {choices.length > 2 && (
-                            <IconButton
-                              aria-label={t('remove_item')}
-                              size="small"
-                              sx={{ ml: 2 }}
-                              onClick={() => handleRemoveOption(index)}
-                            >
-                              <DeleteTwoToneIcon color="error" fontSize="small" />
-                            </IconButton>
-                          )}
-                        </Box>
-                      ))}
-                      <Button
-                        onClick={handleAddOption}
-                        startIcon={<AddTwoToneIcon />}
-                        sx={{ mt: 1 }}
+                )}
+                {openAssignMeter && task.taskBase.taskType === 'METER' && (
+                  <Select
+                    sx={{ mt: 1 }}
+                    onChange={(event) =>
+                      onMeterChange(
+                        metersMini.find(
+                          (meter) => meter.id === Number(event.target.value)
+                        ),
+                        task.id
+                      )
+                    }
+                    displayEmpty
+                    defaultValue=""
+                    value={task.taskBase.meter?.id ?? ''}
+                  >
+                    <MenuItem value="">{t('select_meter')}</MenuItem>
+                    {metersMini.map((meter) => (
+                      <MenuItem key={meter.id} value={meter.id}>
+                        {meter.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                )}
+                {task.taskBase.taskType === 'INSPECTION' && (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mt: 1, display: 'block', fontSize: 12.5 }}
+                  >
+                    {t('category_inspection_hint')}
+                  </Typography>
+                )}
+                {task.taskBase.taskType === 'MULTIPLE' && (
+                  <Box>
+                    {choices.map((choice, index) => (
+                      <Box
+                        key={index}
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          width: '100%',
+                          mt: 1
+                        }}
                       >
-                        {t('add_new_option')}
-                      </Button>
-                    </Box>
-                  )}
-                </Box>
-              </Collapse>
-            </Box>
+                        <TextField
+                          value={choice.label}
+                          onChange={(event) =>
+                            handleChoiceChange(event.target.value, index)
+                          }
+                        />
+                        {choices.length > 2 && (
+                          <IconButton
+                            aria-label={t('remove_item')}
+                            size="small"
+                            sx={{ ml: 2 }}
+                            onClick={() => handleRemoveOption(index)}
+                          >
+                            <DeleteTwoToneIcon color="error" fontSize="small" />
+                          </IconButton>
+                        )}
+                      </Box>
+                    ))}
+                    <Button
+                      onClick={handleAddOption}
+                      startIcon={<AddTwoToneIcon />}
+                      sx={{ mt: 1 }}
+                    >
+                      {t('add_new_option')}
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+            </Collapse>
           </Box>
         </ListItem>
       )}

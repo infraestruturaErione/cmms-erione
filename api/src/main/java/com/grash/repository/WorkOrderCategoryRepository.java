@@ -11,5 +11,7 @@ public interface WorkOrderCategoryRepository extends JpaRepository<WorkOrderCate
 
     Optional<WorkOrderCategory> findByNameIgnoreCaseAndCompanySettings_Id(String name, Long id);
 
+    boolean existsByDefaultChecklist_Id(Long checklistId);
+
     void deleteByCompanySettings_Company_IdAndIsDemoTrue(Long companyId);
 }

@@ -173,6 +173,11 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   const openMenu = Boolean(anchorEl);
   const { companySettings, hasFeature } = useAuth();
   const { workOrderConfiguration, generalPreferences } = companySettings;
+  const photosRequiredGlobally =
+    workOrderConfiguration.workOrderFieldConfigurations.some(
+      (field) =>
+        field.fieldName === 'completeFiles' && field.fieldType === 'REQUIRED'
+    );
   const [generatingReport, setGeneratingReport] = useState<boolean>(false);
   const [openEditPrimaryTime, setOpenEditPrimaryTime] =
     useState<boolean>(false);
@@ -762,6 +767,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
             <FieldReportSection
               workOrder={workOrder}
               canEdit={hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)}
+              photosRequiredGlobally={photosRequiredGlobally}
               getFormattedDate={getFormattedDate}
               onOpenImage={setImageState}
             />

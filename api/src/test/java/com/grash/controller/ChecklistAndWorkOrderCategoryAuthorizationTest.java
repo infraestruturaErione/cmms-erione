@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class ChecklistAndWorkOrderCategoryAuthorizationTest {
@@ -133,6 +135,22 @@ class ChecklistAndWorkOrderCategoryAuthorizationTest {
 
         assertDoesNotThrow(() -> checklistController.create(new ChecklistPostDTO(), req));
         assertDoesNotThrow(() -> checklistController.patch(new ChecklistPatchDTO(), 5L, req));
+    }
+
+    @Test
+    void checklist_deleteOutsideCompanyIsForbiddenBeforeDelete() {
+        User creator = user(2L,
+                permissions(PermissionEntity.CATEGORIES),
+                new HashSet<>(),
+                new HashSet<>());
+        when(userService.whoami(req)).thenReturn(creator);
+        when(checklistService.findById(6L)).thenReturn(Optional.of(checklist(99L)));
+
+        CustomException ex = assertThrows(CustomException.class,
+                () -> checklistController.delete(6L, req));
+
+        assertEquals(org.springframework.http.HttpStatus.FORBIDDEN, ex.getHttpStatus());
+        verify(checklistService, never()).delete(6L);
     }
 
     @Test

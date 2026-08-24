@@ -8,6 +8,7 @@ import com.grash.model.Company;
 import com.grash.model.TaskBase;
 import com.grash.dto.license.LicenseEntitlement;
 import com.grash.repository.CheckListRepository;
+import com.grash.repository.WorkOrderCategoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ import static com.grash.utils.Consts.usageBasedLicenseLimits;
 @RequiredArgsConstructor
 public class ChecklistService {
     private final CheckListRepository checklistRepository;
+    private final WorkOrderCategoryRepository workOrderCategoryRepository;
     private final CompanySettingsService companySettingsService;
     private final TaskBaseService taskBaseService;
     private final EntityManager em;
@@ -75,7 +77,13 @@ public class ChecklistService {
         return checklistRepository.findAll();
     }
 
+    @Transactional
     public void delete(Long id) {
+        if (workOrderCategoryRepository.existsByDefaultChecklist_Id(id)) {
+            throw new CustomException(
+                    "Checklist is linked to a work order category and cannot be deleted",
+                    HttpStatus.CONFLICT);
+        }
         checklistRepository.deleteById(id);
     }
 

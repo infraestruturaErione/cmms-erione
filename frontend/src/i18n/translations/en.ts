@@ -55,7 +55,8 @@ const locale = {
   erione_nav_desc_operational_report: 'Customer, site, equipment and period',
   erione_nav_desc_wo_reports: 'Status and service order follow-up',
   erione_nav_desc_wo_analytics: 'Operational analysis of service orders',
-  erione_nav_desc_bulk_report_history: 'Bulk reports by city and download history',
+  erione_nav_desc_bulk_report_history:
+    'Bulk reports by city and download history',
   erione_nav_desc_settings: 'General operation preferences',
   erione_nav_desc_custom_fields_categories:
     'Categories and fields used in records',
@@ -393,9 +394,9 @@ const locale = {
   task_type_checklist_empty_helper:
     'Add questions to guide the technician during the execution of the work order.',
   task_type_checklist_section_helper:
-    "The selected checklist's questions will be automatically added to new work orders of this category.",
+    "This questionnaire's questions will be automatically added to new work orders of this type.",
   checklist_completion_disabled_helper:
-    'Associate a checklist to enable this requirement.',
+    'Associate a questionnaire to enable this requirement.',
   task_type_checklist_add_item: 'Add question',
   task_type_checklist_confirm_remove_item:
     'Remove this question from the checklist?',
@@ -403,6 +404,69 @@ const locale = {
   erione_nav_desc_checklists:
     'Reusable checklist catalog to associate with categories.',
   checklists_page_helper: 'Questionnaire templates used across work orders.',
+  wo_types_configuration: 'Work order configuration',
+  wo_types_configuration_helper:
+    'Organize work order types, questionnaires, and field execution requirements.',
+  work_order_types: 'Work order types',
+  other_categories: 'Other categories',
+  questionnaires: 'Questionnaires',
+  new_work_order_type: 'New work order type',
+  edit_work_order_type: 'Edit work order type',
+  new_questionnaire: 'New questionnaire',
+  edit_questionnaire: 'Edit questionnaire',
+  work_order_type_form_helper:
+    'Define the information and what will be required from the technician.',
+  work_order_type_name: 'Work order type name',
+  work_order_type_planning_helper:
+    'Values automatically suggested when creating a new work order of this type.',
+  work_order_type_requirements_helper:
+    'Requirements applied to new work orders of this type.',
+  field_execution_impact: 'Field execution impact',
+  field_execution_impact_helper: 'The technician will need to:',
+  linked_questionnaire: 'Linked questionnaire',
+  questionnaire: 'Questionnaire',
+  linked_questionnaire_empty_title: 'No questionnaire linked',
+  linked_questionnaire_empty_helper:
+    'Link a questionnaire to guide the execution of this work order type.',
+  select_questionnaire: 'Select questionnaire',
+  open_questionnaire: 'Open questionnaire',
+  change_questionnaire: 'Change',
+  without_questionnaire: 'No questionnaire',
+  without_description: 'No description',
+  clear_link: 'Clear link',
+  search_work_order_type:
+    'Search by work order type, description, or questionnaire...',
+  no_work_order_type_found: 'No work order type found.',
+  no_work_order_type_message: 'No work order type created yet.',
+  work_order_type_copy_name: 'Copy of {{name}}',
+  work_order_type_duplicate_success: 'Work order type duplicated successfully',
+  field_report_short: 'Report',
+  questionnaire_required_short: 'Required questionnaire',
+  mileage_short: 'Mileage',
+  questions_count_value: '{{count}} questions',
+  questionnaires_count_value: '{{count}} questionnaires',
+  questionnaire_question_number: 'Question {{number}}',
+  search_questionnaire_placeholder:
+    'Search by questionnaire name or description...',
+  work_order_types_count: '{{count}} work order type(s)',
+  used_in: 'Used in',
+  not_linked: 'Not linked',
+  questionnaire_delete_blocked:
+    'Unlink this questionnaire from work order types before deleting it.',
+  questionnaire_form_helper:
+    'Organize the questions that will guide service execution.',
+  questionnaire_information: 'Questionnaire information',
+  questionnaire_name: 'Questionnaire name',
+  questionnaire_questions_helper:
+    'Drag to reorder and choose the answer type for each question.',
+  questionnaire_summary: 'Questionnaire summary',
+  questionnaire_summary_helper:
+    'A quick view of the structure and work order types using this template.',
+  questionnaire_requirements_note:
+    'The requirement to answer the questionnaire is defined on the work order type.',
+  duplicate_question: 'Duplicate question',
+  duplicate: 'Duplicate',
+  questions: 'Questions',
   new_checklist: 'New checklist',
   checklist_form_edit_title: 'Edit checklist',
   checklist_name: 'Checklist name',
@@ -428,20 +492,24 @@ const locale = {
   task_type_require_signature: 'Signature',
   task_type_require_signer_name: "Signer's name",
   task_type_require_signer_document: "Signer's CPF/CNPJ",
-  task_type_require_photos: 'Photos',
+  task_type_require_photos: 'Require photographic evidence',
+  photographic_evidence: 'Photographic evidence',
   task_type_require_field_report: 'Field report',
   task_type_require_mileage: 'Mileage traveled',
-  task_type_require_checklist_completion: 'Require complete checklist',
+  task_type_require_checklist_completion: 'Require complete questionnaire',
   always_required_badge: 'Always required',
   field_report_always_required_label: 'Service report',
   field_report_always_required_helper:
     'The technician will be required to record the service performed.',
   category_require_photos_helper:
-    'The technician will be required to attach evidence of the service.',
+    'The technician must attach at least one photo to complete the work order.',
+  photo_required_by_global_configuration:
+    'Required by the general execution configuration.',
+  global_configuration_badge: 'General configuration',
   category_require_field_report_helper:
     'The technician will be required to describe the service performed.',
   category_require_checklist_completion_helper:
-    'All checklist questions must be answered before completing the work order.',
+    'All questionnaire questions must be answered before completing the work order.',
   category_require_mileage_helper:
     'The technician will be required to inform the mileage traveled.',
   category_require_signature_helper:
@@ -554,19 +622,24 @@ const locale = {
     'Reports for management by customer, location and equipment.',
   field_operations: 'Field Operations',
   preparing_operation: 'Preparing operational workspace...',
-  quick_request_subtitle: 'Tell us where the problem is and describe it so our team can help.',
+  quick_request_subtitle:
+    'Tell us where the problem is and describe it so our team can help.',
   quick_request_where: 'Where is the problem?',
-  quick_request_where_helper: 'Select the location and equipment related to the request.',
+  quick_request_where_helper:
+    'Select the location and equipment related to the request.',
   quick_request_what: 'What happened?',
   quick_request_evidence: 'Evidence',
-  quick_request_evidence_helper: 'Add photos or files to help the team understand the issue.',
+  quick_request_evidence_helper:
+    'Add photos or files to help the team understand the issue.',
   quick_request_contact: 'Contact & Notes',
   quick_request_contact_helper: 'Provide a contact for follow-up, if needed.',
   quick_request_submit: 'Submit Request',
   quick_request_success: 'Request submitted successfully.',
   quick_request_error: 'Error submitting request. Please try again.',
-  quick_request_description_required: 'Please describe the problem before submitting.',
-  quick_request_description_placeholder: 'E.g.: device has no signal, equipment is offline, connection failure...',
+  quick_request_description_required:
+    'Please describe the problem before submitting.',
+  quick_request_description_placeholder:
+    'E.g.: device has no signal, equipment is offline, connection failure...',
   quick_request_add_image: 'Add Photo',
   quick_request_add_files: 'Add Files',
   quick_request_no_customer: 'No customer',
@@ -687,11 +760,13 @@ const locale = {
   field_execution_timeline_helper:
     'View the main field stages for this work order.',
   field_execution_updated: 'Field execution updated',
-  geolocation_not_supported: 'Location not available: browser does not support geolocation',
+  geolocation_not_supported:
+    'Location not available: browser does not support geolocation',
   geolocation_permission_denied: 'Location not available: permission denied',
   geolocation_unavailable: 'Location not available: position unavailable',
   geolocation_timeout: 'Location not available: request timed out',
-  geolocation_unknown_error: 'Location not available: an unknown error occurred',
+  geolocation_unknown_error:
+    'Location not available: an unknown error occurred',
   current_field_status: 'Current field status',
   closure_readiness: 'Closure readiness',
   closure_progress: '{{done}} of {{total}} steps ready',
@@ -1106,7 +1181,7 @@ const locale = {
   customer_type: 'Customer type',
   customer_type_description: 'ex. Plumbing, Electrical',
   customer_city_helper:
-    'Used to group this customer\'s completed work orders in the bulk report',
+    "Used to group this customer's completed work orders in the bulk report",
   customer_description_description:
     'Describe the purpose of this customer in a few lines...',
   billing_information: 'Billing Information',
@@ -1222,8 +1297,7 @@ const locale = {
   add_category_description:
     'Configure how work orders of this category should be prepared and executed.',
   edit_category: 'Edit category',
-  edit_category_description:
-    'Update this category’s operational settings.',
+  edit_category_description: 'Update this category’s operational settings.',
   save_category: 'Save category',
   no_category_action: "Press the '+' button to add your first category.",
   confirm_delete_category: 'Are you sure you want to delete this Category?',
@@ -2106,8 +2180,7 @@ const locale = {
   request_title: 'Request title',
   configure_form_fields: 'Configure form fields',
   allow_selection_from_all_locations: 'Allow selection from all locations',
-  allow_selection_from_all_assets:
-    'Allow selection from all equipment/devices',
+  allow_selection_from_all_assets: 'Allow selection from all equipment/devices',
   restrict_to_a_specific_location: 'Restrict to a specific location',
   restrict_to_a_specific_asset: 'Restrict to a specific asset',
   portal_public_asset_warning:
@@ -2274,8 +2347,7 @@ const locale = {
   label: 'Label',
   customize_form: 'Customize the form',
   type_enter_to_add_option: 'Type and press enter to add an option',
-  customers_settings_description:
-    'Manage customers served by your operation.',
+  customers_settings_description: 'Manage customers served by your operation.',
   vendors_settings_description: 'Customize vendor-related settings',
   allowed_customers: 'Allowed customers',
   requester_without_allowed_customers:
@@ -2284,7 +2356,8 @@ const locale = {
     'Your user does not have allowed customers yet. An administrator must define your scope before you can open requests.',
   'workOrders.customer_single_mvp_helper':
     'For the MVP, a Work Order uses one primary customer to filter locations and assets.',
-  mobile_app_unavailable_description: 'The Erione mobile app will be available soon on official stores.'
+  mobile_app_unavailable_description:
+    'The Erione mobile app will be available soon on official stores.'
 };
 
 export default locale;

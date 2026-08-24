@@ -213,7 +213,8 @@ export const getFieldExecutionSummary = (workOrder: WorkOrder) => ({
 export const getFieldClosureChecklist = (
   workOrder: WorkOrder,
   hasFieldReport: boolean,
-  hasFieldEvidence = false
+  hasFieldEvidence = false,
+  photosRequiredGlobally = false
 ): FieldClosureChecklistItem[] => [
   {
     key: 'check-in',
@@ -240,7 +241,7 @@ export const getFieldClosureChecklist = (
     key: 'evidence',
     labelKey: 'evidence_registered',
     complete: hasFieldEvidence || !!workOrder.image || !!workOrder.files?.length,
-    required: false,
+    required: !!workOrder.requirePhotos || photosRequiredGlobally,
     applicable: true
   },
   {

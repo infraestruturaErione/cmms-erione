@@ -27,6 +27,7 @@ import {
   getFieldExecutionSummary,
   RecommendedFieldActionType
 } from '../fieldExecutionRules';
+import useAuth from '../../../../hooks/useAuth';
 
 type FieldAction = 'depart' | 'check-in' | 'check-out';
 
@@ -104,6 +105,7 @@ export default function WorkOrderCard({
   canRunActions = false
 }: WorkOrderCardProps) {
   const { t } = useTranslation();
+  const { companySettings } = useAuth();
   const actionLoadingPrefix = `${workOrder.id}-`;
   const isLoadingThisCard = loadingAction?.startsWith(actionLoadingPrefix);
 
@@ -114,7 +116,17 @@ export default function WorkOrderCard({
     workOrder.status !== 'ON_HOLD';
 
   const summary = getFieldExecutionSummary(workOrder);
-  const checklist = getFieldClosureChecklist(workOrder, false);
+  const photosRequiredGlobally =
+    companySettings?.workOrderConfiguration.workOrderFieldConfigurations.some(
+      (field) =>
+        field.fieldName === 'completeFiles' && field.fieldType === 'REQUIRED'
+    ) ?? false;
+  const checklist = getFieldClosureChecklist(
+    workOrder,
+    false,
+    false,
+    photosRequiredGlobally
+  );
   const pendingRequiredCount = checklist.filter(
     (item) => item.required && !item.complete
   ).length;

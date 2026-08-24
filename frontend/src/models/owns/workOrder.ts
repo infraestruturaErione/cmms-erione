@@ -27,6 +27,7 @@ export default interface WorkOrder extends WorkOrderBase {
   mileageTraveled?: number;
   feedback: string;
   requiredSignature: boolean;
+  requirePhotos?: boolean;
   status: string;
   audioDescription: File;
   customId: string;

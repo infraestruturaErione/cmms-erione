@@ -43,6 +43,7 @@ import {
 interface FieldReportSectionProps {
   workOrder: WorkOrder;
   canEdit: boolean;
+  photosRequiredGlobally: boolean;
   getFormattedDate: (date: string | Date) => string;
   onOpenImage: (images: string[], image: string) => void;
 }
@@ -52,6 +53,7 @@ const MAX_EVIDENCE_FILES = 10;
 export default function FieldReportSection({
   workOrder,
   canEdit,
+  photosRequiredGlobally,
   getFormattedDate,
   onOpenImage
 }: FieldReportSectionProps) {
@@ -99,7 +101,12 @@ export default function FieldReportSection({
     });
     return seen.size;
   }, [comments]);
-  const checklist = getFieldClosureChecklist(workOrder, hasReport, hasEvidence);
+  const checklist = getFieldClosureChecklist(
+    workOrder,
+    hasReport,
+    hasEvidence,
+    photosRequiredGlobally
+  );
   const readOnly = !canEdit || workOrder.status === 'COMPLETE';
   const canSubmit = !!fieldReport.trim() || evidenceFiles.length > 0;
 
