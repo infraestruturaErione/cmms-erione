@@ -8,7 +8,7 @@ type Props = {
 // Chip suave (fundo claro + texto na mesma cor) em vez de bolinha + texto solto:
 // le mais rapido numa lista densa e mantem o mesmo vocabulario visual dos chips
 // de prioridade. Usado tambem no preview do calendario.
-const getStatusColor = (status: string, theme: any): string => {
+export const getStatusColor = (status: string, theme: any): string => {
   switch (status) {
     case 'IN_PROGRESS':
     case 'EN_ROUTE':

@@ -1,13 +1,14 @@
 import type { ElementType, FC, ReactNode } from 'react';
-import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Locale as DateLocale } from 'date-fns';
 import PropTypes from 'prop-types';
 import {
   alpha,
   Box,
-  Grid,
+  Button,
   IconButton,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography
 } from '@mui/material';
@@ -18,10 +19,8 @@ import CalendarViewMonthTwoToneIcon from '@mui/icons-material/CalendarViewMonthT
 import ViewWeekTwoToneIcon from '@mui/icons-material/ViewWeekTwoTone';
 import type { View } from 'src/models/calendar';
 import { useTranslation } from 'react-i18next';
-import TodayTwoToneIcon from '@mui/icons-material/TodayTwoTone';
 import ArrowForwardTwoToneIcon from '@mui/icons-material/ArrowForwardTwoTone';
 import ArrowBackTwoToneIcon from '@mui/icons-material/ArrowBackTwoTone';
-import i18n from 'i18next';
 import useDateLocale from '../../../../hooks/useDateLocale';
 
 interface ActionsProps {
@@ -77,87 +76,137 @@ const Actions: FC<ActionsProps> = ({
   const dateLocale = useDateLocale();
 
   return (
-    <Grid
-      container
-      spacing={3}
-      alignItems="center"
+    <Stack
+      direction={{ xs: 'column', md: 'row' }}
+      alignItems={{ xs: 'stretch', md: 'center' }}
       justifyContent="space-between"
+      spacing={2}
     >
-      <Grid item>
+      <Stack
+        direction="row"
+        alignItems="center"
+        flexWrap="wrap"
+        gap={1.25}
+        minWidth={0}
+      >
         <Box
           sx={(theme) => ({
             display: 'inline-flex',
-            gap: 0.5,
-            p: 0.5,
-            borderRadius: 1.25,
             border: `1px solid ${theme.palette.divider}`,
-            bgcolor: theme.palette.background.paper
+            borderRadius: 1.25,
+            overflow: 'hidden',
+            bgcolor: theme.palette.background.paper,
+            '& .MuiIconButton-root': {
+              borderRadius: 0,
+              width: 36,
+              height: 34
+            },
+            '& .MuiIconButton-root + .MuiIconButton-root': {
+              borderLeft: `1px solid ${theme.palette.divider}`
+            }
           })}
         >
           <Tooltip arrow placement="top" title={t('previous')}>
-            <IconButton color="primary" onClick={onPrevious} size="small">
-              <ArrowBackTwoToneIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip arrow placement="top" title={t('today')}>
-            <IconButton color="primary" onClick={onToday} size="small">
-              <TodayTwoToneIcon />
+            <IconButton color="inherit" onClick={onPrevious} size="small">
+              <ArrowBackTwoToneIcon fontSize="small" />
             </IconButton>
           </Tooltip>
           <Tooltip arrow placement="top" title={t('next')}>
-            <IconButton color="primary" onClick={onNext} size="small">
-              <ArrowForwardTwoToneIcon />
+            <IconButton color="inherit" onClick={onNext} size="small">
+              <ArrowForwardTwoToneIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         </Box>
-      </Grid>
-      <Grid item sx={{ display: { xs: 'none', sm: 'inline-block' } }}>
-        <Typography variant="h3" color="text.primary">
+
+        <Typography
+          variant="h3"
+          color="text.primary"
+          sx={{
+            minWidth: { xs: 'calc(100% - 92px)', sm: 180 },
+            fontSize: { xs: '1.08rem', sm: '1.25rem' },
+            fontWeight: 700,
+            textTransform: 'capitalize',
+            letterSpacing: '-0.02em'
+          }}
+        >
           {format(date, 'MMMM yyyy', { locale: dateLocale })}
         </Typography>
-      </Grid>
-      <Grid item sx={{ display: { xs: 'none', sm: 'inline-block' } }}>
-        <Box
+
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={onToday}
           sx={(theme) => ({
-            display: 'inline-flex',
-            gap: 0.5,
-            p: 0.5,
-            borderRadius: 1.25,
-            border: `1px solid ${theme.palette.divider}`,
-            bgcolor: theme.palette.background.paper
+            minHeight: 34,
+            px: 1.75,
+            borderColor: theme.palette.divider,
+            color: theme.palette.text.primary,
+            textTransform: 'none',
+            fontWeight: 650,
+            '&:hover': {
+              borderColor: alpha(theme.palette.primary.main, 0.45),
+              bgcolor: alpha(theme.palette.primary.main, 0.04)
+            }
           })}
         >
-          {viewOptions.map((viewOption) => {
-            const Icon = viewOption.icon;
-            const selected = viewOption.value === view;
-            return (
-              <Tooltip
-                key={viewOption.value}
-                arrow
-                placement="top"
-                title={t(viewOption.label)}
-              >
-                <IconButton
-                  color={selected ? 'primary' : 'default'}
-                  onClick={() => changeView(viewOption.value)}
-                  size="small"
-                  sx={(theme) => ({
-                    bgcolor: selected
-                      ? alpha(theme.palette.primary.main, 0.11)
-                      : 'transparent',
-                    '&:hover': {
-                      bgcolor: alpha(theme.palette.primary.main, 0.08)
-                    }
-                  })}
-                >
-                  <Icon />
-                </IconButton>
-              </Tooltip>
-            );
-          })}
-        </Box>
-      </Grid>
-    </Grid>
+          {t('today')}
+        </Button>
+      </Stack>
+
+      <ToggleButtonGroup
+        exclusive
+        value={view}
+        size="small"
+        onChange={(_event, nextView: View | null) => {
+          if (nextView) changeView?.(nextView);
+        }}
+        aria-label={t('calendar_view')}
+        sx={(theme) => ({
+          alignSelf: { xs: 'stretch', md: 'center' },
+          width: { xs: '100%', md: 'auto' },
+          p: 0.375,
+          gap: 0.25,
+          border: `1px solid ${theme.palette.divider}`,
+          borderRadius: 1.5,
+          bgcolor: alpha(theme.palette.text.primary, 0.025),
+          '& .MuiToggleButtonGroup-grouped': {
+            flex: { xs: 1, md: '0 0 auto' },
+            gap: 0.75,
+            minHeight: 34,
+            px: { xs: 1, sm: 1.5 },
+            border: 0,
+            borderRadius: '8px !important',
+            color: theme.palette.text.secondary,
+            fontWeight: 650,
+            fontSize: '0.78rem',
+            textTransform: 'none',
+            whiteSpace: 'nowrap',
+            '&.Mui-selected': {
+              bgcolor: theme.palette.background.paper,
+              color: theme.palette.primary.main,
+              boxShadow: `0 1px 3px ${alpha(theme.palette.common.black, 0.12)}`,
+              '&:hover': {
+                bgcolor: theme.palette.background.paper
+              }
+            }
+          }
+        })}
+      >
+        {viewOptions.map((viewOption) => {
+          const Icon = viewOption.icon;
+          return (
+            <ToggleButton
+              key={viewOption.value}
+              value={viewOption.value}
+              aria-label={t(viewOption.label)}
+            >
+              <Icon sx={{ fontSize: 17, display: { xs: 'none', sm: 'block' } }} />
+              {t(viewOption.label)}
+            </ToggleButton>
+          );
+        })}
+      </ToggleButtonGroup>
+    </Stack>
   );
 };
 

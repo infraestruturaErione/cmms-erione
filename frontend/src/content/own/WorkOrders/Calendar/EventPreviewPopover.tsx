@@ -5,10 +5,19 @@ import LocationOnTwoToneIcon from '@mui/icons-material/LocationOnTwoTone';
 import PersonTwoToneIcon from '@mui/icons-material/PersonTwoTone';
 import TaskAltTwoToneIcon from '@mui/icons-material/TaskAltTwoTone';
 import TimerTwoToneIcon from '@mui/icons-material/TimerTwoTone';
+import TitleTwoToneIcon from '@mui/icons-material/TitleTwoTone';
+import EventTwoToneIcon from '@mui/icons-material/EventTwoTone';
 import { useTranslation } from 'react-i18next';
+import { format } from 'date-fns';
+import { utcToZonedTime } from 'date-fns-tz';
 import WorkOrder from 'src/models/owns/workOrder';
 import WorkOrderStatusCell from '../components/WorkOrderStatusCell';
 import { formatDurationSeconds, getFieldDurations } from '../fieldExecutionRules';
+import useDateLocale from '../../../../hooks/useDateLocale';
+import {
+  ERIONE_TIME_ZONE,
+  parseApiDate
+} from '../../../../utils/dateTime';
 
 interface EventPreviewPopoverProps {
   workOrder: WorkOrder | null;
@@ -54,6 +63,7 @@ export default function EventPreviewPopover({
   anchorEl
 }: EventPreviewPopoverProps) {
   const { t } = useTranslation();
+  const dateLocale = useDateLocale();
 
   if (!workOrder) return null;
 
@@ -61,10 +71,42 @@ export default function EventPreviewPopover({
   // "Duração real" prioriza o tempo total em campo (saída até check-out); sem
   // deslocamento registrado, cai para o tempo no local (check-in até check-out).
   const actualDuration = workOrder.departureAt ? durations.total : durations.site;
-  const customerName = workOrder.customers?.[0]?.name;
+  const customerName = workOrder.customers?.[0]?.name?.trim();
+  const categoryName = workOrder.category?.name?.trim();
+  const workOrderTitle = workOrder.title?.trim();
   const responsibleName = workOrder.primaryUser
-    ? `${workOrder.primaryUser.firstName} ${workOrder.primaryUser.lastName}`.trim()
+    ? [workOrder.primaryUser.firstName, workOrder.primaryUser.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim()
     : null;
+  const locationLabel = [
+    workOrder.location?.name?.trim(),
+    workOrder.location?.address?.trim()
+  ]
+    .filter((value, index, values) => value && values.indexOf(value) === index)
+    .join(' · ');
+  const calendarDateValue =
+    workOrder.estimatedStartDate || workOrder.dueDate || workOrder.createdAt;
+  const parsedCalendarDate = parseApiDate(calendarDateValue);
+  const hasExplicitTime =
+    typeof calendarDateValue === 'string' &&
+    /[T ]\d{2}:\d{2}/.test(calendarDateValue);
+  const scheduledDate = parsedCalendarDate
+    ? format(
+        utcToZonedTime(parsedCalendarDate, ERIONE_TIME_ZONE),
+        hasExplicitTime ? 'dd/MM/yyyy HH:mm' : 'dd/MM/yyyy',
+        { locale: dateLocale }
+      )
+    : null;
+  const actualDurationLabel =
+    actualDuration.seconds == null
+      ? null
+      : formatDurationSeconds(
+          actualDuration.seconds,
+          actualDuration.inProgress,
+          t
+        );
 
   return (
     <Popper
@@ -90,14 +132,16 @@ export default function EventPreviewPopover({
               <WorkOrderStatusCell status={workOrder.status} t={t} />
               <InfoRow
                 icon={<ArticleTwoToneIcon fontSize="small" />}
-                label={t('task_code')}
+                label={t('code')}
                 value={workOrder.customId ?? `#${workOrder.id}`}
               />
-              <InfoRow
-                icon={<TaskAltTwoToneIcon fontSize="small" />}
-                label={t('category')}
-                value={workOrder.category?.name ?? '-'}
-              />
+              {workOrderTitle && (
+                <InfoRow
+                  icon={<TitleTwoToneIcon fontSize="small" />}
+                  label={t('wo_title')}
+                  value={workOrderTitle}
+                />
+              )}
               {customerName && (
                 <InfoRow
                   icon={<BusinessTwoToneIcon fontSize="small" />}
@@ -105,27 +149,39 @@ export default function EventPreviewPopover({
                   value={customerName}
                 />
               )}
-              {workOrder.location?.address && (
+              {categoryName && (
                 <InfoRow
-                  icon={<LocationOnTwoToneIcon fontSize="small" />}
-                  label={t('address')}
-                  value={workOrder.location.address}
+                  icon={<TaskAltTwoToneIcon fontSize="small" />}
+                  label={t('category')}
+                  value={categoryName}
                 />
               )}
-              <InfoRow
-                icon={<TimerTwoToneIcon fontSize="small" />}
-                label={t('actual_duration')}
-                value={formatDurationSeconds(
-                  actualDuration.seconds,
-                  actualDuration.inProgress,
-                  t
-                )}
-              />
               {responsibleName && (
                 <InfoRow
                   icon={<PersonTwoToneIcon fontSize="small" />}
                   label={t('responsible')}
                   value={responsibleName}
+                />
+              )}
+              {scheduledDate && (
+                <InfoRow
+                  icon={<EventTwoToneIcon fontSize="small" />}
+                  label={t('scheduled_date')}
+                  value={scheduledDate}
+                />
+              )}
+              {actualDurationLabel && (
+                <InfoRow
+                  icon={<TimerTwoToneIcon fontSize="small" />}
+                  label={t('actual_duration')}
+                  value={actualDurationLabel}
+                />
+              )}
+              {locationLabel && (
+                <InfoRow
+                  icon={<LocationOnTwoToneIcon fontSize="small" />}
+                  label={t('location_address')}
+                  value={locationLabel}
                 />
               )}
             </Stack>
