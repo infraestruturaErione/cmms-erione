@@ -22,8 +22,9 @@ import { getErrorMessage } from '../../../../utils/api';
 import useAuth from '../../../../hooks/useAuth';
 import { PermissionEntity } from '../../../../models/owns/role';
 import WorkOrder from '../../../../models/owns/workOrder';
+import { ACTIVE_WORK_ORDER_STATUSES } from '../workOrderView';
 
-const statusOrder = ['OPEN', 'EN_ROUTE', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE'];
+const statusOrder = ACTIVE_WORK_ORDER_STATUSES;
 
 function getStatusColors(status: string, theme: any) {
   switch (status) {
@@ -50,12 +51,6 @@ function getStatusColors(status: string, theme: any) {
         headerBg: theme.colors.warning.lighter,
         headerText: theme.colors.warning.dark,
         border: theme.colors.warning.dark
-      };
-    case 'COMPLETE':
-      return {
-        headerBg: theme.colors.success.lighter,
-        headerText: theme.colors.success.main,
-        border: theme.colors.success.main
       };
     default:
       return {

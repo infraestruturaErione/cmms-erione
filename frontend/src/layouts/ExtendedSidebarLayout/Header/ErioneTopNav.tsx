@@ -23,7 +23,6 @@ import {
 import KeyboardArrowDownTwoToneIcon from '@mui/icons-material/KeyboardArrowDownTwoTone';
 import ArrowForwardTwoToneIcon from '@mui/icons-material/ArrowForwardTwoTone';
 import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
-import CalendarMonthTwoToneIcon from '@mui/icons-material/CalendarMonthTwoTone';
 import MoveToInboxTwoToneIcon from '@mui/icons-material/MoveToInboxTwoTone';
 import AddTaskTwoToneIcon from '@mui/icons-material/AddTaskTwoTone';
 import GroupsTwoToneIcon from '@mui/icons-material/GroupsTwoTone';
@@ -71,13 +70,6 @@ const curatedSections: TopNavSection[] = [
         description: 'erione_nav_desc_work_orders',
         link: '/app/work-orders',
         icon: <AssignmentTwoToneIcon fontSize="small" />,
-        sourceName: 'work_orders'
-      },
-      {
-        name: 'erione_nav_calendar',
-        description: 'erione_nav_desc_calendar',
-        link: '/app/work-orders?view=calendar',
-        icon: <CalendarMonthTwoToneIcon fontSize="small" />,
         sourceName: 'work_orders'
       },
       {

@@ -233,4 +233,6 @@
              relativeToChangelogFile="true"/>
     <include file="changelog/2026_08_07_00000000002_backfill_workorder_completion_requirements_snapshot.xml"
              relativeToChangelogFile="true"/>
+    <include file="changelog/2026_08_24_00000000001_add_default_work_order_view.xml"
+             relativeToChangelogFile="true"/>
 </databaseChangeLog>

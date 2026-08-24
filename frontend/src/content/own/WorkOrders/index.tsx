@@ -96,6 +96,13 @@ import { useExport } from '../../../hooks/useExport';
 import { getCustomFields } from '../../../slices/customField';
 import { CustomFieldEntityType } from '../../../models/owns/customField';
 import WorkOrderStatusCell from './components/WorkOrderStatusCell';
+import BookmarkAddedTwoToneIcon from '@mui/icons-material/BookmarkAddedTwoTone';
+import {
+  getWorkOrderCriteriaForView,
+  isWorkOrderView,
+  resolveWorkOrderView,
+  WorkOrderView
+} from './workOrderView';
 
 const AddWorkOrderTabbedModal = React.lazy(
   () => import('./components/AddWorkOrderTabbedModal')
@@ -139,7 +146,6 @@ const getInitialWorkOrderFilterFields = (
 
 function WorkOrders() {
   const { t }: { t: any } = useTranslation();
-  const [currentTab, setCurrentTab] = useState<string>('list');
   const { workOrders, loadingGet, singleWorkOrder, lastFetchedCriteria } =
     useSelector((state) => state.workOrders);
   const { exportEntity, loadingExport } = useExport();
@@ -154,8 +160,19 @@ function WorkOrders() {
     hasViewOtherPermission,
     hasCreatePermission,
     hasFeature,
-    user
+    user,
+    userSettings,
+    patchUserSettings,
+    fetchUserSettings
   } = useAuth();
+  const canViewCalendar = hasViewPermission(PermissionEntity.WORK_ORDERS);
+  const [currentTab, setCurrentTab] = useState<WorkOrderView>(() =>
+    resolveWorkOrderView(
+      viewParam,
+      userSettings?.defaultWorkOrderView,
+      canViewCalendar
+    )
+  );
   const uiConfiguration = user.uiConfiguration;
   const { uploadFiles, getWOFieldsAndShapes } = useContext(
     CompanySettingsContext
@@ -168,12 +185,12 @@ function WorkOrders() {
     {
       value: 'calendar',
       label: t('calendar_view'),
-      disabled: !hasViewPermission(PermissionEntity.WORK_ORDERS)
+      disabled: !canViewCalendar
     },
     { value: 'column', label: t('column_view'), disabled: false }
   ];
   const handleTabsChange = (_event: ChangeEvent<{}>, value: string): void => {
-    setCurrentTab(value);
+    if (isWorkOrderView(value)) setCurrentTab(value);
   };
   const [openAddModal, setOpenAddModal] = useState<boolean>(false);
   const [openUpdateModal, setOpenUpdateModal] = useState<boolean>(false);
@@ -182,6 +199,23 @@ function WorkOrders() {
   const { setTitle } = useContext(TitleContext);
   const { workOrderId } = useParams();
   const { showSnackBar } = useContext(CustomSnackBarContext);
+  const isDefaultView = userSettings?.defaultWorkOrderView === currentTab;
+  const handleSetDefaultView = async () => {
+    if (!userSettings || isDefaultView) return;
+
+    try {
+      await patchUserSettings({
+        ...userSettings,
+        defaultWorkOrderView: currentTab
+      });
+      showSnackBar(t('default_work_order_view_saved'), 'success');
+    } catch (error) {
+      showSnackBar(
+        getErrorMessage(error, t('default_work_order_view_save_failure')),
+        'error'
+      );
+    }
+  };
   const [currentWorkOrder, setCurrentWorkOrder] = useState<WorkOrder>();
   const [openDelete, setOpenDelete] = useState<boolean>(false);
   const { tasksByWorkOrder, loadingTasks } = useSelector(
@@ -240,6 +274,10 @@ function WorkOrders() {
     sortField: 'updatedAt',
     direction: 'DESC'
   }));
+  const workOrdersCriteria = useMemo(
+    () => getWorkOrderCriteriaForView(criteria, currentTab),
+    [criteria, currentTab]
+  );
   const {
     sorting,
     setSorting,
@@ -404,6 +442,11 @@ function WorkOrders() {
   }, [singleWorkOrder, workOrders.content]);
 
   useEffect(() => {
+    if (!userSettings) {
+      fetchUserSettings().catch(() =>
+        showSnackBar(t('load_failure'), 'error')
+      );
+    }
     if (locationParam || assetParam || customerParam) {
       if (locationParam && isNumeric(locationParam)) {
         dispatch(getSingleLocation(Number(locationParam)));
@@ -415,10 +458,18 @@ function WorkOrders() {
         dispatch(getSingleCustomer(Number(customerParam)));
       }
     }
-    if (viewParam === 'calendar' || viewParam === 'column') {
-      setCurrentTab(viewParam);
-    }
   }, []);
+
+  useEffect(() => {
+    const resolvedView = resolveWorkOrderView(
+      viewParam,
+      userSettings?.defaultWorkOrderView,
+      canViewCalendar
+    );
+    setCurrentTab((previousView) =>
+      previousView === resolvedView ? previousView : resolvedView
+    );
+  }, [canViewCalendar, userSettings?.defaultWorkOrderView, viewParam]);
 
   useEffect(() => {
     const newParam = searchParams.get('new');
@@ -501,7 +552,7 @@ function WorkOrders() {
   const onEditFailure = (err) => showSnackBar(t('wo_update_failure'), 'error');
   const onDeleteSuccess = () => {
     showSnackBar(t('wo_delete_success'), 'success');
-    dispatch(getWorkOrders(criteria));
+    dispatch(getWorkOrders(workOrdersCriteria));
   };
   const onDeleteFailure = (err) =>
     showSnackBar(t('wo_delete_failure'), 'error');
@@ -537,18 +588,18 @@ function WorkOrders() {
     const canReuseCache =
       isFirstRun &&
       lastFetchedCriteria !== null &&
-      _.isEqual(criteria, lastFetchedCriteria);
-    dispatch(getWorkOrders(criteria, { silent: canReuseCache }));
-  }, [criteria]);
+      _.isEqual(workOrdersCriteria, lastFetchedCriteria);
+    dispatch(getWorkOrders(workOrdersCriteria, { silent: canReuseCache }));
+  }, [workOrdersCriteria]);
 
   // Refs (not state) on purpose: focus/visibility/poll are wired up ONCE
   // below (empty-ish deps) so the 20s interval never gets torn down and
   // recreated on every filter/page/search keystroke - it just reads the
   // latest value through these refs instead.
-  const criteriaRef = useRef(criteria);
+  const criteriaRef = useRef(workOrdersCriteria);
   useEffect(() => {
-    criteriaRef.current = criteria;
-  }, [criteria]);
+    criteriaRef.current = workOrdersCriteria;
+  }, [workOrdersCriteria]);
   const currentTabRef = useRef(currentTab);
   useEffect(() => {
     currentTabRef.current = currentTab;
@@ -1046,7 +1097,7 @@ function WorkOrders() {
         };
 
         await dispatch(addWorkOrder(formattedValues));
-        dispatch(getWorkOrders(criteria));
+        dispatch(getWorkOrders(workOrdersCriteria));
         if (currentTab === 'calendar') {
           refreshCalendarWorkOrders();
         }
@@ -1059,7 +1110,7 @@ function WorkOrders() {
     [
       dispatch,
       formatValues,
-      criteria,
+      workOrdersCriteria,
       currentTab,
       onCreationFailure,
       onCreationSuccess,
@@ -1328,6 +1379,22 @@ function WorkOrders() {
                 )
               )}
             </Tabs>
+            <Button
+              size="small"
+              variant={isDefaultView ? 'text' : 'outlined'}
+              startIcon={<BookmarkAddedTwoToneIcon />}
+              disabled={!userSettings || isDefaultView}
+              onClick={handleSetDefaultView}
+              sx={{
+                alignSelf: { xs: 'flex-start', md: 'center' },
+                flexShrink: 0,
+                textTransform: 'none'
+              }}
+            >
+              {isDefaultView
+                ? t('default_work_order_view')
+                : t('set_work_order_view_as_default')}
+            </Button>
           </Box>
           {currentTab !== 'calendar' && (
             <Stack

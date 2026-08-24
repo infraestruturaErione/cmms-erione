@@ -15,6 +15,7 @@ import {
 import MenuTwoToneIcon from '@mui/icons-material/MenuTwoTone';
 import { SidebarContext } from 'src/contexts/SidebarContext';
 import ArrowBackTwoToneIcon from '@mui/icons-material/ArrowBackTwoTone';
+import HomeTwoToneIcon from '@mui/icons-material/HomeTwoTone';
 import CloseTwoToneIcon from '@mui/icons-material/CloseTwoTone';
 
 import HeaderButtons from './Buttons';
@@ -51,6 +52,8 @@ function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const { logo, name: brandName } = useBrand();
+  const isHome = location.pathname.replace(/\/+$/, '') === '/app/work-orders';
+  const goHome = () => navigate('/app/work-orders');
 
   return (
     <HeaderWrapper
@@ -73,14 +76,24 @@ function Header() {
       }}
     >
       <Stack direction="row" alignItems="center" spacing={1.5} minWidth={0}>
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1}
+        <Box
+          component="button"
+          type="button"
+          onClick={goHome}
+          aria-label={t('home')}
           sx={{
             display: { xs: 'none', lg: 'flex' },
+            alignItems: 'center',
+            gap: 1,
             pr: 1,
-            minWidth: 180
+            minWidth: 180,
+            p: 0,
+            border: 0,
+            background: 'transparent',
+            color: 'inherit',
+            font: 'inherit',
+            textAlign: 'left',
+            cursor: 'pointer'
           }}
         >
           <Box
@@ -113,7 +126,7 @@ function Header() {
               {t('field_operations')}
             </Typography>
           </Box>
-        </Stack>
+        </Box>
         <Divider
           orientation="vertical"
           flexItem
@@ -124,8 +137,9 @@ function Header() {
         />
         <IconButton
           color="primary"
-          onClick={() => navigate(-1)}
-          disabled={location.key === 'default'}
+          onClick={isHome ? goHome : () => navigate(-1)}
+          disabled={!isHome && location.key === 'default'}
+          aria-label={isHome ? t('home') : t('back')}
           sx={{
             border: `1px solid ${alpha(
               theme.colors.alpha.trueWhite[100],
@@ -140,7 +154,11 @@ function Header() {
             }
           }}
         >
-          <ArrowBackTwoToneIcon fontSize="small" />
+          {isHome ? (
+            <HomeTwoToneIcon fontSize="small" />
+          ) : (
+            <ArrowBackTwoToneIcon fontSize="small" />
+          )}
         </IconButton>
         <Typography
           variant="h3"

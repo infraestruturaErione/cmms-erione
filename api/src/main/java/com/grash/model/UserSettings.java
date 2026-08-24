@@ -9,6 +9,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.validation.constraints.Pattern;
 
 @Entity
 @NoArgsConstructor
@@ -30,6 +31,9 @@ public class UserSettings {
     private boolean emailUpdatesForPurchaseOrders = true;
     @Schema(description = "Whether stats for assigned work orders are shown")
     private boolean statsForAssignedWorkOrders = true;
+    @Pattern(regexp = "list|calendar|column")
+    @Schema(description = "Default Work Orders view: list, calendar or column")
+    private String defaultWorkOrderView = "list";
 
     public boolean shouldEmailUpdatesForWorkOrders() {
         return emailNotified && emailUpdatesForWorkOrders;
