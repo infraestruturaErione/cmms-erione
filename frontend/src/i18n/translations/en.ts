@@ -531,6 +531,22 @@ const locale = {
   add_wo: 'Add Work Order',
   add_wo_description:
     'Fill in the fields below to create and add a new Work Order',
+  wo_add_subtitle: 'Open a new work order',
+  wo_add_tabs_label: 'Work order creation sections',
+  wo_add_tab_general: 'General',
+  wo_add_tab_attachments: 'Attachments',
+  wo_add_asset_equipment: 'Asset / Equipment',
+  wo_add_equipment_label: 'Equipment',
+  wo_add_equipment_placeholder: 'Select equipment',
+  wo_add_no_default_questionnaire: 'No default questionnaire',
+  wo_add_assignment_title: 'Execution assignees',
+  wo_add_collaborator_mode: 'Collaborator(s)',
+  wo_add_collaborators: 'Collaborators',
+  wo_add_select_collaborators: 'Select collaborators',
+  wo_add_attachments_helper:
+    'Add photos and files that can help the team during the service.',
+  wo_add_required_configuration_conflict:
+    'The general configuration requires fields unavailable in this creation flow: {{fields}}.',
   wo_add_image_title: 'Main photo',
   wo_add_files_title: 'Supporting files',
   wo_add_destination_empty_state:
@@ -2355,7 +2371,7 @@ const locale = {
   requester_without_allowed_customers_details:
     'Your user does not have allowed customers yet. An administrator must define your scope before you can open requests.',
   'workOrders.customer_single_mvp_helper':
-    'For the MVP, a Work Order uses one primary customer to filter locations and assets.',
+    'The selected customer filters the available locations and assets.',
   mobile_app_unavailable_description:
     'The Erione mobile app will be available soon on official stores.'
 };

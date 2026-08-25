@@ -38,6 +38,14 @@ interface PropsType {
   isButtonEnabled?: (values: IHash<any>, ...props: any[]) => boolean;
   renderActions?: (formik: FormikProps<IHash<any>>) => ReactNode;
   renderTopActions?: (formik: FormikProps<IHash<any>>) => ReactNode;
+  renderContent?: (
+    formik: FormikProps<IHash<any>>,
+    handleChange: (
+      formik: FormikProps<IHash<any>>,
+      field: string,
+      value: any
+    ) => any
+  ) => ReactNode;
   hideBottomActions?: boolean;
   midWidthBreakpoint?: 'md' | 'lg';
 }
@@ -142,7 +150,9 @@ export default (props: PropsType) => {
                 {props.renderTopActions(formik)}
               </Grid>
             )}
-            {filterRelatedFields(props.fields, formik).map((field, index) => {
+            {props.renderContent ? (
+              props.renderContent(formik, handleChange)
+            ) : filterRelatedFields(props.fields, formik).map((field, index) => {
               const gridWidthProps = field.midWidth
                 ? midWidthBreakpoint === 'md'
                   ? { md: 6 }

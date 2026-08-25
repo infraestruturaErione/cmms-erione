@@ -73,6 +73,13 @@ export interface IField {
   // AddWorkOrderTabbedModal opta por essa apresentacao mais compacta pro
   // campo "Requer assinatura".
   compact?: boolean;
+  // Presentation-only opt-out used by the Work Order creation modal, which
+  // renders the category's default checklist as a read-only field beside the
+  // category selector instead of the generic informational alert.
+  hideCategoryChecklistAlert?: boolean;
+  // Presentation-only opt-out for flows that replace the isolated details
+  // link with an inline location/address preview.
+  hideLocationDetailsLink?: boolean;
   onPress?: () => void;
   required?: boolean;
   error?: any;

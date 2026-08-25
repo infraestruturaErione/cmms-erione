@@ -230,7 +230,8 @@ function WorkOrders() {
     customerParam && singleCustomer?.id === Number(customerParam)
       ? singleCustomer
       : null;
-  const [initialDueDate, setInitialDueDate] = useState<Date>(null);
+  const [initialEstimatedStartDate, setInitialEstimatedStartDate] =
+    useState<Date>(null);
   const locationParamObject = locations.find(
     (location) => location.id === Number(locationParam)
   );
@@ -1023,7 +1024,7 @@ function WorkOrders() {
   const addWorkOrderInitialValues = useMemo(
     () => ({
       requiredSignature: false,
-      dueDate: initialDueDate,
+      estimatedStartDate: initialEstimatedStartDate,
       asset: assetParamObject
         ? { label: assetParamObject.name, value: assetParamObject.id }
         : null,
@@ -1045,7 +1046,7 @@ function WorkOrders() {
       assetParamObject,
       customerParam,
       customerParamObject,
-      initialDueDate,
+      initialEstimatedStartDate,
       locationParamObject
     ]
   );
@@ -1521,7 +1522,7 @@ function WorkOrders() {
             {currentTab === 'calendar' && (
               <WorkOrderCalendar
                 handleAddWorkOrder={(date: Date) => {
-                  setInitialDueDate(date);
+                  setInitialEstimatedStartDate(date);
                   setOpenAddModal(true);
                 }}
                 handleOpenDetails={(id, type) => {

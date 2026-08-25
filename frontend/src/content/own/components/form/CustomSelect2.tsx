@@ -586,7 +586,9 @@ export const CustomSelect = ({
               ).some((a) => Number(a.value) === location.id)
             )}
           />
-          {field.name === 'location' && selectedLocationId ? (
+          {field.name === 'location' &&
+          selectedLocationId &&
+          !field.hideLocationDetailsLink ? (
             <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
               <Link
                 href={getLocationUrl(selectedLocationId)}
@@ -952,6 +954,7 @@ export const CustomSelect = ({
             }}
           />
           {field.category === 'work-order-categories' &&
+            !field.hideCategoryChecklistAlert &&
             selectedCategoryDefaultChecklist && (
               <Alert severity="info" sx={{ mt: 1.5, alignItems: 'center' }}>
                 <Typography variant="subtitle2" fontWeight={700}>

@@ -552,6 +552,22 @@ const ptBRJSON = {
   add_wo_description:
     'Preencha os campos abaixo para criar e adicionar uma nova Ordem de Serviço',
   create_work_order: 'Criar OS',
+  wo_add_subtitle: 'Abra uma nova ordem de serviço',
+  wo_add_tabs_label: 'Seções da criação da ordem de serviço',
+  wo_add_tab_general: 'Geral',
+  wo_add_tab_attachments: 'Anexos',
+  wo_add_asset_equipment: 'Ativo / Equipamento',
+  wo_add_equipment_label: 'Equipamento',
+  wo_add_equipment_placeholder: 'Selecionar equipamento',
+  wo_add_no_default_questionnaire: 'Sem questionário padrão',
+  wo_add_assignment_title: 'Responsáveis pela execução',
+  wo_add_collaborator_mode: 'Colaborador(es)',
+  wo_add_collaborators: 'Colaboradores',
+  wo_add_select_collaborators: 'Selecionar colaboradores',
+  wo_add_attachments_helper:
+    'Inclua fotos e arquivos que ajudem a equipe durante o atendimento.',
+  wo_add_required_configuration_conflict:
+    'A configuração geral exige campos indisponíveis nesta criação: {{fields}}.',
   wo_add_image_title: 'Imagem principal',
   wo_add_files_title: 'Arquivos de apoio',
   wo_add_destination_empty_state:
@@ -2436,7 +2452,7 @@ const ptBRJSON = {
   requester_without_allowed_customers_details:
     'Seu usuário ainda não possui clientes permitidos. Um administrador precisa definir seu escopo antes de você abrir solicitações.',
   'workOrders.customer_single_mvp_helper':
-    'No MVP, a OS usa um cliente principal para filtrar local e equipamento.',
+    'O cliente selecionado filtra as localizações e os ativos disponíveis.',
   mobile_app_unavailable_description:
     'O aplicativo móvel Erione estará disponível em breve nas lojas oficiais.'
 };
