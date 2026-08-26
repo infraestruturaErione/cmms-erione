@@ -23,7 +23,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { getCustomFieldsValues, IField } from '../type';
 import ReplayTwoToneIcon from '@mui/icons-material/ReplayTwoTone';
-import Location, { LocationRow } from '../../../models/owns/location';
+import Location from '../../../models/owns/location';
 import * as React from 'react';
 import {
   ChangeEvent,
@@ -34,14 +34,7 @@ import {
   useState
 } from 'react';
 import { TitleContext } from '../../../contexts/TitleContext';
-import {
-  addLocation,
-  deleteLocation,
-  editLocation,
-  getLocationChildren,
-  getLocations,
-  resetLocationsHierarchy
-} from '../../../slices/location';
+import { addLocation, deleteLocation, editLocation } from '../../../slices/location';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useDispatch, useSelector } from '../../../store';
 import DeleteTwoToneIcon from '@mui/icons-material/DeleteTwoTone';
@@ -82,8 +75,6 @@ import {
   Updater
 } from '@tanstack/react-table';
 import useTableState from '../../../hooks/useTableState';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SearchTwoToneIcon from '@mui/icons-material/SearchTwoTone';
 import InputAdornment from '@mui/material/InputAdornment';
 import SearchInput from '../components/SearchInput';
@@ -117,8 +108,6 @@ function Locations() {
   const [openDelete, setOpenDelete] = useState<boolean>(false);
   const { apiKey } = googleMapsConfig;
 
-  const { locationsHierarchy, locationsHierarchyRootTotal, loadingGet } =
-    useSelector((state) => state.locations);
   const [searchResults, setSearchResults] = useState<Location[]>([]);
   const [searchTotal, setSearchTotal] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -131,14 +120,6 @@ function Locations() {
   const [customerFilter, setCustomerFilter] = useState<CustomerMiniDTO | null>(
     null
   );
-  const [deployedLocations, setDeployedLocations] = useState<
-    { id: number; hierarchy: number[] }[]
-  >([
-    {
-      id: 0,
-      hierarchy: []
-    }
-  ]);
 
   const { exportEntity, loadingExport } = useExport();
   const tabs = [
@@ -171,17 +152,16 @@ function Locations() {
     size: HIERARCHY_ZERO_PAGE_SIZE
   });
   const [searchQuery, setSearchQuery] = useState<string>('');
-  // Sem busca E sem filtro de Cliente = modo hierarquico (expand/collapse
-  // atual). Qualquer um dos dois presentes = lista flat paginada pelo
-  // backend - nunca filtro no browser (ver LocationController.search).
-  const isFlatMode = Boolean(searchQuery.trim()) || Boolean(customerFilter);
 
-  // View type state
-  const [hierarchySorting, setHierarchySorting] = useState<SortingState>([]);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [subRowsMap, setSubRowsMap] = useState<Record<number, LocationRow[]>>(
-    {}
-  );
+  // Sorting da lista - sempre a mesma lista flat paginada pelo backend
+  // (POST locations/search), com ou sem busca/filtro de Cliente. A tela
+  // "hierarquica" (GET locations/children/0, so' locais raiz) foi retirada:
+  // ela tratava "Cliente: Todos" como "so' locais sem parentLocation", o
+  // que em producao (onde a maioria/todos os locais tem parentLocation)
+  // fazia a tela mostrar "0 locais encontrados" mesmo com centenas de
+  // locais reais cadastrados. "Cliente: Todos" agora significa
+  // literalmente todos os locais acessiveis, paginados de verdade.
+  const [sorting, setSortingState] = useState<SortingState>([]);
   // State for pre-filling location name from query params
   const [initialLocationName, setInitialLocationName] = useState<string>('');
   const [returnPath, setReturnPath] = useState<string>('');
@@ -228,8 +208,7 @@ function Locations() {
 
   const changeCurrentLocation = (id: number) => {
     setCurrentLocation(
-      locationsHierarchy.find((location) => location.id === id) ||
-        searchResults.find((location) => location.id === id) ||
+      searchResults.find((location) => location.id === id) ||
         mapLocations.find((location) => location.id === id)
     );
   };
@@ -267,7 +246,6 @@ function Locations() {
 
   const handleOpenDetails = (id: number) => {
     const foundLocation =
-      locationsHierarchy.find((location) => location.id === id) ||
       searchResults.find((location) => location.id === id) ||
       mapLocations.find((location) => location.id === id);
     if (foundLocation) {
@@ -338,26 +316,12 @@ function Locations() {
     }
   }, []);
 
-  // Carrega a hierarquia (nivel raiz) ao montar E sempre que pageable mudar
-  // (pagina, tamanho de pagina ou ordenacao) - antes so rodava uma vez no
-  // mount ([] como deps), entao trocar de pagina/tamanho de pagina no modo
-  // hierarquico nao tinha efeito nenhum (o GET locations/children/0 tambem
-  // nao paginava de verdade no backend - ver LocationController). Ambos os
-  // problemas juntos faziam a tela sempre trazer TODOS os locais raiz da
-  // empresa de uma vez, ignorando qualquer "linhas por pagina" selecionado.
+  // Busca/lista sempre via POST locations/search (server-side, real
+  // paginacao) - "Cliente: Todos" + busca vazia significa literalmente
+  // todos os locais acessiveis (filterFields=[], search=undefined), nao
+  // "so' locais raiz" como a antiga tela hierarquica assumia.
   useEffect(() => {
     if (!hasViewPermission(PermissionEntity.LOCATIONS)) return;
-    if (isFlatMode) return; // modo flat (busca/filtro) tem seu proprio efeito
-    dispatch(resetLocationsHierarchy(pageable, true));
-  }, [pageable, isFlatMode]);
-
-  useEffect(() => {
-    if (!hasViewPermission(PermissionEntity.LOCATIONS)) return;
-    if (!isFlatMode) {
-      // Sem busca/filtro - modo hierarquico usa locationsHierarchy (Redux),
-      // nao a busca flat. Nao chama o endpoint de search.
-      return;
-    }
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);
     }
@@ -374,14 +338,7 @@ function Locations() {
         clearTimeout(searchDebounceRef.current);
       }
     };
-  }, [
-    fetchSearchResults,
-    hasViewPermission,
-    isFlatMode,
-    pageable,
-    searchQuery,
-    customerFilter
-  ]);
+  }, [fetchSearchResults, hasViewPermission, pageable, searchQuery, customerFilter]);
 
   useEffect(() => {
     if (!hasViewPermission(PermissionEntity.LOCATIONS) || !apiKey) return;
@@ -390,55 +347,16 @@ function Locations() {
     }
   }, [currentTab, apiKey]);
 
-  const handleToggleExpand = async (row: LocationRow) => {
-    const isExpanded = expanded[row.id];
-
-    if (!isExpanded) {
-      // Check if we already have children for this row in the Redux store
-      const hasChildrenLoaded = locationsHierarchy.some(
-        (l) => l.parentLocation?.id === row.id
-      );
-
-      if (!hasChildrenLoaded && row.hasChildren) {
-        // Set temporary loading row
-        const loadingRow: LocationRow = {
-          id: `loading-${row.id}`,
-          name: t('loading_locations', { name: row.name, id: row.id }),
-          hierarchy: [...(row.hierarchy || []), row.id]
-        } as unknown as LocationRow;
-
-        setSubRowsMap((prev) => ({ ...prev, [row.id]: [loadingRow] }));
-
-        // Fetch the children
-        await dispatch(
-          getLocationChildren(row.id, row.hierarchy || [], pageable)
-        );
-        setDeployedLocations((prevState) => [...prevState, row]);
-
-        // Clean up the loading row once the fetch is complete
-        setSubRowsMap((prev) => {
-          const newMap = { ...prev };
-          delete newMap[row.id];
-          return newMap;
-        });
-      }
-    }
-
-    // Toggle expand/collapse state
-    setExpanded((prev) => ({ ...prev, [row.id]: !isExpanded }));
-  };
-
   useEffect(() => {
     if (locationId && isNumeric(locationId)) {
       const found =
-        locationsHierarchy.find((l) => l.id === Number(locationId)) ||
         searchResults.find((l) => l.id === Number(locationId)) ||
         mapLocations.find((l) => l.id === Number(locationId));
       if (found) {
         handleOpenDetails(Number(locationId));
       }
     }
-  }, [locationId, locationsHierarchy, searchResults, mapLocations]);
+  }, [locationId, searchResults, mapLocations]);
 
   // Handle query params for inline creation (new=true&name=${name})
   useEffect(() => {
@@ -500,10 +418,10 @@ function Locations() {
   const [rowMenuAnchor, setRowMenuAnchor] = useState<{
     top: number;
     left: number;
-    location: Location | LocationRow;
+    location: Location;
   } | null>(null);
 
-  const columnHelper = createColumnHelper<Location | LocationRow>();
+  const columnHelper = createColumnHelper<Location>();
 
   // "Prefeitura de Santa Branca +1" com tooltip listando todos - nunca
   // esconder silenciosamente Customers alem do primeiro (cenario real: 1
@@ -539,40 +457,7 @@ function Locations() {
     );
   };
 
-  const columns: CustomDatagridColumn2<Location | LocationRow>[] = [
-    columnHelper.display({
-      id: 'expander',
-      header: '',
-      meta: { enableReordering: false },
-      cell: ({ row }) => {
-        const isExpanded = expanded[row.original.id];
-        const hasSubRows =
-          (row.original as LocationRow).hasChildren ||
-          subRowsMap[row.original.id]?.length > 0;
-
-        if (!hasSubRows) {
-          return <Box sx={{ width: 24 }} />;
-        }
-
-        return (
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleExpand(row.original as LocationRow);
-            }}
-            sx={{ padding: 0.5 }}
-          >
-            {isExpanded ? (
-              <ExpandMoreIcon fontSize="small" />
-            ) : (
-              <ChevronRightIcon fontSize="small" />
-            )}
-          </IconButton>
-        );
-      },
-      size: 50
-    }),
+  const columns: CustomDatagridColumn2<Location>[] = [
     columnHelper.accessor('name', {
       id: 'name',
       header: () => t('locations_table_local', 'Local'),
@@ -583,7 +468,6 @@ function Locations() {
               py: 1,
               fontWeight: 700,
               fontSize: '0.95rem',
-              ml: (info.row.depth || 0) * 24,
               cursor: 'pointer',
               width: 'fit-content',
               transition: 'color 120ms ease, text-decoration-color 120ms ease',
@@ -807,8 +691,8 @@ function Locations() {
     const fieldsClone = [...fields];
     return fieldsClone;
   };
-  const handleReset = (callApi: boolean) => {
-    dispatch(resetLocationsHierarchy(pageable, callApi));
+  const handleReset = () => {
+    fetchSearchResults(searchQuery, customerFilter?.id, pageable.page, pageable.size);
   };
   const shape = {
     name: Yup.string().required(t('required_location_name')),
@@ -887,14 +771,14 @@ function Locations() {
                   addLocation(formattedValues)
                 );
                 onCreationSuccess(createdLocation);
-                deployedLocations.forEach((deployedLocation) =>
-                  dispatch(
-                    getLocationChildren(
-                      deployedLocation.id,
-                      deployedLocation.hierarchy,
-                      pageable
-                    )
-                  )
+                // Recarrega a lista atual (mesma busca/filtro/pagina) pra
+                // refletir o novo local - nao ha mais arvore de hierarquia
+                // pra atualizar incrementalmente.
+                fetchSearchResults(
+                  searchQuery,
+                  customerFilter?.id,
+                  pageable.page,
+                  pageable.size
                 );
                 return createdLocation;
               } catch (err) {
@@ -1088,73 +972,18 @@ function Locations() {
       </DialogContent>
     </Dialog>
   );
-  // Flatten hierarchy based on expanded state
-  const getHierarchicalData = (
-    flatList: LocationRow[],
-    expanded: Record<string, boolean>,
-    subRowsMap: Record<number, LocationRow[]>,
-    parentId: number | null = null,
-    depth: number = 0
-  ): (LocationRow & { depth: number })[] => {
-    let result: (LocationRow & { depth: number })[] = [];
-
-    // 1. Find the children of the current parent
-    const nodes = flatList.filter((item) => {
-      if (parentId === null) {
-        return !item.parentLocation; // Root nodes have no parent
-      }
-      return item.parentLocation?.id === parentId; // Child nodes
-    });
-
-    for (const node of nodes) {
-      // 2. Add the current node
-      result.push({ ...node, depth });
-
-      // 3. If expanded, add its children right below it
-      if (expanded[node.id]) {
-        const children = getHierarchicalData(
-          flatList,
-          expanded,
-          subRowsMap,
-          node.id,
-          depth + 1
-        );
-
-        if (children.length > 0) {
-          result = [...result, ...children];
-        } else if (subRowsMap[node.id]) {
-          // Render the temporary loading row if fetching is in progress
-          result.push({ ...subRowsMap[node.id][0], depth: depth + 1 });
-        }
-      }
-    }
-
-    return result;
-  };
-
-  // Prepare data for the table based on expanded state
-  const tableData = getHierarchicalData(
-    locationsHierarchy,
-    expanded,
-    subRowsMap
-  );
-
-  // Sem busca/filtro: hierarquia (expand/collapse). Com busca OU filtro de
-  // Cliente: lista flat paginada pelo backend - nunca filtro no browser.
-  const filteredTableData = isFlatMode ? searchResults : tableData;
-  // No modo hierarquico o total real vem do backend
-  // (locationsHierarchyRootTotal, ver GET locations/children/0) - nao de
-  // tableData.length, que so reflete o que ja foi carregado/expandido no
-  // Redux ate agora (poderia incluir filhos de nos expandidos, inflando o
-  // contador, ou mostrar so a pagina atual, subestimando o total).
-  const resultsCount = isFlatMode ? searchTotal : locationsHierarchyRootTotal;
+  // Lista sempre a flat paginada pelo backend (POST locations/search) -
+  // totalElements sempre vem de response.totalElements (searchTotal),
+  // nunca de content.length. "Cliente: Todos" + busca vazia = todos os
+  // locais acessiveis, nao apenas locais raiz.
+  const filteredTableData = searchResults;
+  const resultsCount = searchTotal;
   const hasActiveFilters = Boolean(searchQuery.trim()) || Boolean(customerFilter);
   const handleClearFilters = () => {
     setSearchQuery('');
     setCustomerFilter(null);
     setPageable((prev) => ({ ...prev, page: 0 }));
   };
-  // Handle pagination change for hierarchy view
   const handlePaginationChange = (newPagination: {
     pageIndex: number;
     pageSize: number;
@@ -1166,13 +995,10 @@ function Locations() {
     }));
   };
 
-  // Handle sorting change for hierarchy view
   const handleSortingChange = (newSorting: Updater<SortingState>) => {
     const resolvedSorting: SortingState =
-      typeof newSorting === 'function'
-        ? newSorting(hierarchySorting)
-        : newSorting;
-    setHierarchySorting(resolvedSorting);
+      typeof newSorting === 'function' ? newSorting(sorting) : newSorting;
+    setSortingState(resolvedSorting);
     const sortParams =
       resolvedSorting.length > 0
         ? resolvedSorting.map(
@@ -1230,7 +1056,7 @@ function Locations() {
               <Box />
             )}
             <Stack direction={'row'} alignItems="center" spacing={1}>
-              <IconButton onClick={() => handleReset(true)} color="primary">
+              <IconButton onClick={handleReset} color="primary">
                 <ReplayTwoToneIcon />
               </IconButton>
               <IconButton onClick={handleOpenMenu} color="primary">
@@ -1335,7 +1161,7 @@ function Locations() {
                 }}
               >
                 <CustomDatagrid2
-                  columns={isFlatMode ? columns.slice(1) : columns}
+                  columns={columns}
                   data={filteredTableData}
                   loading={searchLoading}
                   pagination={{
@@ -1345,7 +1171,7 @@ function Locations() {
                   onPaginationChange={handlePaginationChange}
                   totalRows={resultsCount}
                   pageSizeOptions={[10, 25, 50, 100]}
-                  sorting={hierarchySorting}
+                  sorting={sorting}
                   onSortingChange={handleSortingChange}
                   columnOrder={tableState.columnOrder}
                   onColumnOrderChange={tableState.setColumnOrder}

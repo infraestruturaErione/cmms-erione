@@ -245,4 +245,68 @@ class LocationTextSearchSpecificationIntegrationTest {
         assertEquals(1, page.getTotalElements());
         assertEquals(ubsCentro.getId(), page.getContent().get(0).getId());
     }
+
+    // BUG CRITICO DE PRODUCAO (833 Locations reais): a tela global
+    // "/app/locations" com "Cliente: Todos" + busca vazia usava
+    // GET locations/children/0 (parentLocation IS NULL), que em producao
+    // retornava 0 porque a maioria/todos os Locations reais tem
+    // parentLocation preenchido. A correcao faz a tela SEMPRE usar
+    // POST locations/search (builder vazio = todas as Locations da
+    // company, com ou sem parentLocation) - este teste reproduz a escala
+    // real (833) pra confirmar que nenhum Location e' excluido por ter
+    // parentLocation, que o total NUNCA e' inflado/mascarado, e que uma
+    // pagina nunca carrega mais que o pageSize pedido.
+    @Test
+    void emptySearchAndNoFilters_returnsAllCompanyLocations_regardlessOfParentLocation() {
+        final int totalToCreate = 833;
+        Location previous = null;
+        int withParentCount = 0;
+        for (int i = 0; i < totalToCreate; i++) {
+            Location location = new Location();
+            location.setName("Location " + i);
+            location.setCustomId("L" + String.format("%06d", i + 100));
+            location.setCompany(company);
+            // Metade das Locations tem parentLocation preenchido (cenario
+            // real de producao) - a outra metade e' raiz (parentLocation
+            // null). Ambas precisam contar igualmente pro total global.
+            if (previous != null && i % 2 == 0) {
+                location.setParentLocation(previous);
+                withParentCount++;
+            }
+            stampAudit(location);
+            em.persist(location);
+            previous = location;
+            if (i % 100 == 0) {
+                em.flush();
+            }
+        }
+        em.flush();
+        em.clear();
+
+        // +2 das Locations criadas no setUp (multiCustomerLocation, ubsCentro).
+        long expectedTotal = totalToCreate + 2;
+        assertTrue(withParentCount > 0, "sanity check: o cenario precisa incluir Locations com parentLocation");
+
+        SpecificationBuilder<Location> builder = new SpecificationBuilder<>();
+        // Sem FilterField nenhum e sem texto de busca - exatamente o que o
+        // frontend agora sempre envia pra "Cliente: Todos" + busca vazia.
+        Page<Location> firstPage = locationRepository.findAll(builder.build(), PageRequest.of(0, 10, Sort.by("id")));
+
+        assertEquals(expectedTotal, firstPage.getTotalElements(),
+                "totalElements precisa ser o total REAL de Locations da company, com ou sem parentLocation");
+        assertEquals(10, firstPage.getContent().size(),
+                "a primeira pagina nunca pode trazer mais que o pageSize pedido, mesmo com centenas de registros");
+
+        // Nenhuma pagina, ao longo de toda a paginacao, pode extrapolar o
+        // pageSize - e a soma de todo mundo precisa bater com o total.
+        long totalPages = (expectedTotal + 9) / 10;
+        long accumulated = 0;
+        for (int page = 0; page < totalPages; page++) {
+            Page<Location> p = locationRepository.findAll(builder.build(), PageRequest.of(page, 10, Sort.by("id")));
+            assertTrue(p.getContent().size() <= 10, "nenhuma pagina pode carregar mais que o pageSize pedido");
+            accumulated += p.getContent().size();
+        }
+        assertEquals(expectedTotal, accumulated,
+                "a soma de todas as paginas precisa bater com totalElements - nada pode ser perdido nem duplicado");
+    }
 }
