@@ -19,6 +19,8 @@ import { createColumnHelper } from '@tanstack/react-table';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CustomDatagrid2, { CustomDatagridColumn2 } from '../CustomDatagrid2';
+import SearchInput from '../SearchInput';
+import { normalizeSearchText } from '../../../../utils/formatters';
 
 interface SelectLocationModalProps {
   open: boolean;
@@ -59,6 +61,10 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
 
   // State for tracking expanded rows
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Busca por name/address/customId (case/acento-insensitive). Locations com
+  // o mesmo name (ex.: varias unidades "Aeroporto") so' se distinguem pelo
+  // endereco, entao a busca precisa achar por ele tambem.
+  const [searchQuery, setSearchQuery] = useState('');
 
   // State for tracking selected locations
   const [selectedLocations, setSelectedLocations] = useState<LocationMiniDTO[]>(
@@ -112,12 +118,27 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
     return result;
   };
 
+  const normalizedSearch = normalizeSearchText(searchQuery.trim());
+  const matchesSearch = (location: LocationMiniDTO) =>
+    normalizeSearchText(location.name || '').includes(normalizedSearch) ||
+    normalizeSearchText(location.address || '').includes(normalizedSearch) ||
+    normalizeSearchText(location.customId || '').includes(normalizedSearch);
+
   // locationsMini e estado global do Redux e pode estar preenchido por outra tela.
   // Sem escopo definido a lupa nao pode reaproveitar essa lista.
-  const tableData = useMemo(
-    () => (scopeMissing ? [] : getHierarchicalData(locationsMini, expanded)),
-    [locationsMini, expanded, scopeMissing]
-  );
+  // Sem busca: arvore hierarquica de sempre (comportamento preservado, nao
+  // alterado nesta tarefa). Com busca: lista flat dos que batem no termo -
+  // Locations que compartilham o mesmo name podem estar em ramos diferentes
+  // da arvore, entao a busca nao tenta respeitar expand/collapse.
+  const tableData = useMemo(() => {
+    if (scopeMissing) return [];
+    if (normalizedSearch) {
+      return locationsMini
+        .filter(matchesSearch)
+        .map((location) => ({ ...location, depth: 0 }));
+    }
+    return getHierarchicalData(locationsMini, expanded);
+  }, [locationsMini, expanded, scopeMissing, normalizedSearch]);
 
   const filteredTableData = tableData.filter(
     (location) => !excludedLocationIds.includes(location.id)
@@ -130,6 +151,7 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
 
     handleReset(true);
     setExpanded({});
+    setSearchQuery('');
 
     if (initialSelectedLocations.length) {
       setSelectedLocations(initialSelectedLocations);
@@ -157,9 +179,12 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
       header: '',
       cell: ({ row }) => {
         const isExpanded = expanded[row.original.id];
-        const hasChildren = locationsMini.some(
-          (loc) => loc.parentId === row.original.id
-        );
+        // Com busca ativa a lista e' flat (ver tableData) - expand/collapse
+        // nao se aplica, ja que os resultados podem vir de ramos diferentes
+        // da hierarquia.
+        const hasChildren =
+          !normalizedSearch &&
+          locationsMini.some((loc) => loc.parentId === row.original.id);
 
         if (!hasChildren) {
           return <Box sx={{ width: 24 }} />;
@@ -204,6 +229,15 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
           {info.getValue()}
         </Box>
       ),
+      size: 260
+    }),
+    // Locations com o mesmo name (ex.: varias unidades "Aeroporto") so' se
+    // distinguem pelo endereco - precisa ficar bem visivel na tabela, nao
+    // so' no seletor.
+    columnHelper.accessor('address', {
+      id: 'address',
+      header: () => t('address'),
+      cell: (info) => info.getValue() || '--',
       size: Number.MAX_SAFE_INTEGER
     })
   ];
@@ -280,6 +314,19 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
           <ReplayTwoToneIcon />
         </IconButton>
       </DialogTitle>
+
+      <Box sx={{ px: 2, pb: 1 }}>
+        <SearchInput
+          fullWidth
+          size="small"
+          value={searchQuery}
+          placeholder={t(
+            'select_location_search_placeholder',
+            'Buscar por local, endereço ou código...'
+          )}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </Box>
 
       {selectedLocations.length > 0 && (
         <Box sx={{ px: 2, py: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>

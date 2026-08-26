@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import Location from '../../../models/owns/location';
 import { ChangeEvent, useContext, useEffect, useState } from 'react';
+import { ERIONE_HIDDEN_MODULES } from '../../../config/erioneModules';
 import { useTranslation } from 'react-i18next';
 import EditTwoToneIcon from '@mui/icons-material/EditTwoTone';
 import DeleteTwoToneIcon from '@mui/icons-material/DeleteTwoTone';
@@ -644,7 +645,10 @@ export default function LocationDetails(props: LocationDetailsProps) {
                 ))}
               </Grid>
             )}
-            {!!location.vendors.length && (
+            {/* Erione nao usa Fornecedores/Vendors na operacao atual - ver
+                ERIONE_HIDDEN_MODULES.vendors (padrao ja usado em toda a app
+                pra ocultar o modulo sem tocar backend/entidade). */}
+            {!ERIONE_HIDDEN_MODULES.vendors && !!location.vendors.length && (
               <Grid item xs={12} lg={6}>
                 <Typography
                   variant="h6"

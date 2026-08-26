@@ -1,6 +1,16 @@
 import { randomInt } from './generators';
 import { Task, TaskBase } from '../models/owns/tasks';
 
+// Case/acento-insensitive - "Joao" precisa achar "João". Usado pela busca
+// do seletor de Location (nome/endereco/customId) em CustomSelect2 e
+// SelectLocationModal.
+export const normalizeSearchText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
+    .trim()
+    .toLowerCase();
+
 export const formatSelectMultiple = (
   array: { label: string; value: string }[] | undefined
 ) => {

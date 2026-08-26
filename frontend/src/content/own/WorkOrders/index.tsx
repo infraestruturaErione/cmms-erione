@@ -897,7 +897,7 @@ function WorkOrders() {
     {
       name: 'localGroup',
       type: 'titleGroupField',
-      label: t('location')
+      label: t('wo_add_location_group_label', 'Endereço')
     },
     {
       name: 'customers',
@@ -911,8 +911,13 @@ function WorkOrders() {
       name: 'location',
       type: 'select',
       type2: 'location',
-      label: t('location'),
-      placeholder: t('select_location'),
+      // Somente label/UX - o campo interno continua "location", o payload
+      // continua enviando location.id e a entidade continua sendo Location.
+      // Trocamos so' o texto pro usuario, pra deixar claro que aqui se
+      // escolhe o endereco fisico do atendimento (Cliente / Endereço /
+      // Equipamento).
+      label: t('wo_add_location_label', 'Endereço'),
+      placeholder: t('wo_add_location_placeholder', 'Selecionar endereço'),
       relatedFields: [{ field: 'customers' }],
       scopedByCustomer: true,
       clearsOnChange: ['asset']

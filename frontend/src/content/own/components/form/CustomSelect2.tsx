@@ -30,7 +30,7 @@ import { getAssetsMini } from '../../../../slices/asset';
 import { getTeamsMini } from '../../../../slices/team';
 import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
 import EditTwoToneIcon from '@mui/icons-material/EditTwoTone';
-import { getPriorityLabel } from '../../../../utils/formatters';
+import { getPriorityLabel, normalizeSearchText } from '../../../../utils/formatters';
 import { addCategory, getCategories } from '../../../../slices/category';
 import { getRoles } from '../../../../slices/role';
 import { getCurrencies } from '../../../../slices/currency';
@@ -53,6 +53,15 @@ interface OptionType {
 interface CreateOptionType extends OptionType {
   __entityType__?: 'location' | 'asset';
   __returnField__?: string;
+}
+
+// Locations com o mesmo name (ex.: varias unidades "Aeroporto") so' se
+// distinguem pelo endereco - guardamos address/customId na propria option
+// pra poder buscar e exibir por eles, sem trocar o que vai no value/payload
+// (continua sendo location.id).
+interface LocationOptionType extends OptionType {
+  address?: string;
+  customId?: string;
 }
 
 interface InviteUserOptionType extends OptionType {
@@ -407,14 +416,16 @@ export const CustomSelect = ({
         'value' in fieldValue
           ? Number(fieldValue.value)
           : null;
-      const locationOptions = locationScopeMissing
+      const locationOptions: LocationOptionType[] = locationScopeMissing
         ? []
         : locationsMini
             .filter((location) => location.id !== excluded)
             .map((location) => {
               return {
                 label: location.name,
-                value: location.id
+                value: location.id,
+                address: location.address,
+                customId: location.customId
               };
             });
       onOpen = locationScopeMissing ? () => {} : fetchLocations;
@@ -463,15 +474,29 @@ export const CustomSelect = ({
             key={field.name}
             freeSolo
             filterOptions={(options, params) => {
-              const filtered = options.filter((option) => {
-                const inputValue = params.inputValue.toLowerCase();
-                const optionLabel = option.label.toLowerCase();
-                return optionLabel.includes(inputValue);
-              });
+              // Endereco e' o que realmente distingue Locations com o mesmo
+              // name (ex.: varias unidades "Aeroporto") - busca tambem por
+              // address/customId, case/acento-insensitive ("Joao" acha
+              // "João"). Ver LocationOptionType.
+              const normalizedInput = normalizeSearchText(params.inputValue);
+              const matchesLocation = (option: LocationOptionType) =>
+                normalizeSearchText(option.label).includes(normalizedInput) ||
+                (!!option.address &&
+                  normalizeSearchText(option.address).includes(
+                    normalizedInput
+                  )) ||
+                (!!option.customId &&
+                  normalizeSearchText(option.customId).includes(
+                    normalizedInput
+                  ));
+
+              const filtered = options.filter((option) =>
+                matchesLocation(option as LocationOptionType)
+              );
 
               const { inputValue } = params;
               const isExisting = options.some((option) =>
-                option.label.toLowerCase().includes(inputValue.toLowerCase())
+                matchesLocation(option as LocationOptionType)
               );
 
               if (
@@ -504,6 +529,7 @@ export const CustomSelect = ({
             renderOption={(props, option) => {
               const isCreateOption = (option as CreateOptionType)
                 .__createOption__;
+              const locationOption = option as LocationOptionType;
               // @ts-ignore
               const { key, ...restProps } = props;
               return (
@@ -512,8 +538,9 @@ export const CustomSelect = ({
                   component="li"
                   {...restProps}
                   sx={{
-                    color: isCreateOption ? 'primary.main' : 'inherit',
-                    fontWeight: isCreateOption ? 600 : 400
+                    display: 'flex',
+                    alignItems: 'center',
+                    color: isCreateOption ? 'primary.main' : 'inherit'
                   }}
                 >
                   {isCreateOption && (
@@ -521,12 +548,39 @@ export const CustomSelect = ({
                       <AddCircleTwoToneIcon fontSize="small" />
                     </ListItemIcon>
                   )}
-                  <Typography
-                    variant="body2"
-                    sx={{ color: isCreateOption ? 'primary.main' : 'inherit' }}
-                  >
-                    {(option as OptionType).label}
-                  </Typography>
+                  {isCreateOption || !locationOption.address ? (
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: isCreateOption ? 'primary.main' : 'inherit',
+                        fontWeight: isCreateOption ? 600 : 400
+                      }}
+                    >
+                      {locationOption.label}
+                    </Typography>
+                  ) : (
+                    // Locations com o mesmo name (ex.: varias unidades
+                    // "Aeroporto") so' se distinguem pelo endereco - name
+                    // continua em cima (como referencia), mas o endereco
+                    // ganha destaque visual logo abaixo em vez de ficar
+                    // apagado/secundario, ja que e' ele quem desambigua.
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight={600} noWrap>
+                        {locationOption.label}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.primary"
+                        noWrap
+                        title={locationOption.address}
+                      >
+                        {locationOption.address}
+                        {locationOption.customId
+                          ? ` · ${locationOption.customId}`
+                          : ''}
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
               );
             }}

@@ -64,6 +64,7 @@ import MoreVertTwoToneIcon from '@mui/icons-material/MoreVertTwoTone';
 import { PlanFeature } from '../../../models/owns/subscriptionPlan';
 import { Page, Pageable, SearchCriteria, Sort } from '../../../models/owns/page';
 import { googleMapsConfig } from '../../../config';
+import { ERIONE_HIDDEN_MODULES } from '../../../config/erioneModules';
 import { getErrorMessage } from '../../../utils/api';
 import SplitButton from '../components/SplitButton';
 import CustomDatagrid2, {
@@ -609,14 +610,21 @@ function Locations() {
       label: t('teams'),
       placeholder: 'Select teams'
     },
-    {
-      name: 'vendors',
-      multiple: true,
-      type: 'select',
-      type2: 'vendor',
-      label: t('vendors'),
-      placeholder: 'Select vendors'
-    },
+    // Erione nao usa Fornecedores/Vendors na operacao atual -
+    // ERIONE_HIDDEN_MODULES.vendors ja e' o padrao usado em toda a app pra
+    // ocultar o modulo sem tocar backend/entidade/relacionamentos.
+    ...(!ERIONE_HIDDEN_MODULES.vendors
+      ? ([
+          {
+            name: 'vendors',
+            multiple: true,
+            type: 'select',
+            type2: 'vendor',
+            label: t('vendors'),
+            placeholder: 'Select vendors'
+          }
+        ] as IField[])
+      : []),
     {
       name: 'customers',
       multiple: true,
