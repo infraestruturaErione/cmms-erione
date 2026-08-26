@@ -6,21 +6,46 @@ import com.grash.dto.CustomerPostDTO;
 import com.grash.dto.CustomerShowDTO;
 import com.grash.model.Customer;
 import org.mapstruct.AfterMapping;
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.Mappings;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 
 @Mapper(componentModel = "spring", uses = {CustomFieldValueMapper.class})
 public interface CustomerMapper {
-    // CustomerPatchDTO herda "id" de CompanyAudit (via BasicInfos) mas o
-    // corpo do PATCH nunca manda id (fica null) - sem ignorar, o MapStruct
-    // sobrescrevia o id real da entidade com null e o Hibernate rejeitava o
-    // flush ("identifier ... altered from null to X"). Toda edicao de
-    // cliente quebrava com HTTP 500, nao so quando city foi adicionado.
+    // Semantica de PATCH parcial real: um campo OMITIDO no corpo do PATCH
+    // fica null em CustomerPatchDTO, e nullValuePropertyMappingStrategy =
+    // IGNORE faz o MapStruct simplesmente NAO chamar o setter da entidade
+    // nesse caso (em vez do padrao, que sobrescreveria o valor existente
+    // com null). Um campo ENVIADO (nao-null) continua sendo copiado
+    // normalmente - so muda o que acontece quando o campo nao vem.
+    //
+    // id/company/createdAt/createdBy/updatedAt/updatedBy sao ignorados
+    // explicitamente por defesa - CustomerPatchDTO nao tem mais essas
+    // propriedades (parou de estender BasicInfos/CompanyAudit/Audit, ver
+    // comentario no DTO), mas ficam listados aqui pra deixar a intencao
+    // clara e blindar contra qualquer reintroducao futura acidental dessas
+    // propriedades no DTO. O bug original de "id" (PATCH sem id vindo do
+    // cliente sobrescrevia o id real da entidade com null, e o Hibernate
+    // rejeitava o flush com "identifier ... altered from null to X") so'
+    // nao existe mais porque a propriedade nem existe no DTO agora.
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "company", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
+    // rate e' "long" primitivo na entidade (nao "Long") - despachar um
+    // Long nulo direto pro setter causaria NullPointerException no
+    // unboxing. billingCurrency e rate continuam com o tratamento manual
+    // ja existente (ignorados aqui, reaplicados so' se nao-nulos em
+    // preserveNullablePatchSemantics) em vez de depender da strategy
+    // global, pra nao mudar um comportamento ja testado.
     @Mapping(target = "rate", ignore = true)
     @Mapping(target = "billingCurrency", ignore = true)
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     Customer updateCustomer(@MappingTarget Customer entity, CustomerPatchDTO dto);
 
     @AfterMapping

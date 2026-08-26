@@ -73,8 +73,17 @@ class CustomerMapperPatchBehaviorTest {
         assertEquals(99L, mappedNull.getBillingCurrency().getId());
     }
 
+    // Comportamento intencionalmente mudado por este fix: o endpoint PATCH
+    // nao tem como distinguir "campo omitido no JSON" de "campo enviado
+    // como null" usando um DTO comum (ambos resultam no mesmo valor null no
+    // Java) - sem introduzir Optional<T>/JSON Merge Patch (fora do escopo
+    // pedido), a unica semantica de PATCH segura e' tratar os dois casos
+    // igual: preservar o valor existente. Antes deste fix, "phone": null
+    // apagava o telefone existente (mesmo bug de nulls indevidos que afetava
+    // TODOS os campos omitidos, so' que aqui explicito via JSON) - esse era
+    // o comportamento incorreto que este teste validava de proposito.
     @Test
-    void patchStillAllowsOtherNullableFieldsToBeCleared() throws Exception {
+    void patchWithExplicitNull_preservesExistingValue_sameAsOmittedField() throws Exception {
         Customer entity = new Customer();
         entity.setName("Acme");
         entity.setPhone("+5511999999999");
@@ -86,6 +95,6 @@ class CustomerMapperPatchBehaviorTest {
 
         Customer mapped = mapper.updateCustomer(entity, dto);
 
-        assertNull(mapped.getPhone());
+        assertEquals("+5511999999999", mapped.getPhone());
     }
 }
