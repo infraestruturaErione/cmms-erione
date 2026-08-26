@@ -77,11 +77,19 @@ const useTableState = ({
       if (state.sorting && state.sorting.length > 0) {
         setSortingState(state.sorting);
       }
+      // "Linhas por pagina" NUNCA persiste de uma sessao pra outra - toda
+      // tela sempre abre com o pageSize padrao (initialPagination.pageSize,
+      // hoje 10 em todas as telas que usam este hook), independente do que
+      // o usuario tinha selecionado da ultima vez. O usuario troca na hora
+      // se quiser, mas o proximo load volta pro padrao. Sem isso, uma
+      // empresa com centenas de registros (ex.: "833 locais encontrados")
+      // podia herdar um pageSize antigo/gigante persistido e pedir tudo de
+      // uma vez no primeiro load, travando a tela.
       setPaginationState({
         pageIndex: persistPageIndex
           ? state.pageSize
           : initialPagination.pageIndex,
-        pageSize: state.pageSize ?? initialPagination.pageSize
+        pageSize: initialPagination.pageSize
       });
       if (state.columnOrder && state.columnOrder.length > 0) {
         setColumnOrderState(state.columnOrder);
