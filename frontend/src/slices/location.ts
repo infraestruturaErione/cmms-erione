@@ -7,7 +7,7 @@ import Location, {
 } from '../models/owns/location';
 import api, { authHeader } from '../utils/api';
 import { revertAll } from 'src/utils/redux';
-import { Pageable, pageableToQueryParams } from '../models/owns/page';
+import { Page, Pageable, pageableToQueryParams } from '../models/owns/page';
 import {
   createCancellableRequest,
   isAbortError
@@ -16,6 +16,12 @@ import {
 interface LocationState {
   locations: Location[];
   locationsHierarchy: LocationRow[];
+  // Total real de locais raiz da empresa (nivel 0 da hierarquia) - vem do
+  // backend agora que GET locations/children/0 pagina de verdade (antes
+  // trazia tudo de uma vez, sem total separado - ver LocationController).
+  // Usado pelo contador e pela paginacao de /app/locations quando nao ha
+  // busca/filtro ativo (modo hierarquico).
+  locationsHierarchyRootTotal: number;
   locationsMini: LocationMiniDTO[];
   loadingGet: boolean;
 }
@@ -23,6 +29,7 @@ interface LocationState {
 const initialState: LocationState = {
   locations: [],
   locationsHierarchy: [],
+  locationsHierarchyRootTotal: 0,
   locationsMini: [],
   loadingGet: false
 };
@@ -79,9 +86,16 @@ const slice = createSlice({
     },
     getLocationChildren(
       state: LocationState,
-      action: PayloadAction<{ locations: LocationRow[]; id: number }>
+      action: PayloadAction<{
+        locations: LocationRow[];
+        id: number;
+        rootTotal?: number;
+      }>
     ) {
-      const { locations, id } = action.payload;
+      const { locations, id, rootTotal } = action.payload;
+      if (id === 0 && rootTotal !== undefined) {
+        state.locationsHierarchyRootTotal = rootTotal;
+      }
       const parent = state.locationsHierarchy.findIndex(
         (location) => location.id === id
       );
@@ -204,15 +218,21 @@ export const getLocationChildren =
   (id: number, parents: number[], pageable: Pageable): AppThunk =>
   async (dispatch) => {
     dispatch(slice.actions.setLoadingGet({ loading: true }));
-    const locations = await api.get<Location[]>(
+    // GET locations/children/{id} agora retorna Page<Location> (antes era
+    // um array simples sem paginacao real - ver LocationController), pra
+    // que o nivel raiz (id=0) possa paginar de verdade no banco em vez de
+    // trazer todos os locais raiz da empresa numa unica resposta.
+    const response = await api.get<Page<Location>>(
       `locations/children/${id}?${pageableToQueryParams(pageable)}`
     );
+    const locations = response.content ?? [];
     dispatch(
       slice.actions.getLocationChildren({
         id,
         locations: locations.map((location) => {
           return { ...location, hierarchy: [...parents, location.id] };
-        })
+        }),
+        rootTotal: id === 0 ? response.totalElements : undefined
       })
     );
     dispatch(slice.actions.setLoadingGet({ loading: false }));

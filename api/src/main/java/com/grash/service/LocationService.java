@@ -143,6 +143,13 @@ public class LocationService {
         return locationRepository.findByParentLocation_Id(id, sort);
     }
 
+    // Nivel raiz da hierarquia paginado de verdade (ver comentario em
+    // LocationRepository.findByCompany_IdAndParentLocationIsNull) - so pro
+    // caso id=0 em LocationController.getChildrenById.
+    public Page<Location> findRootByCompany(Long companyId, Pageable pageable) {
+        return locationRepository.findByCompany_IdAndParentLocationIsNull(companyId, pageable);
+    }
+
     private String getLocationNumber(Company company) {
         Long nextSequence = customSequenceService.getNextLocationSequence(company);
         return "L" + String.format("%06d", nextSequence);

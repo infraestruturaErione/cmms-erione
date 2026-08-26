@@ -35,6 +35,12 @@ public interface LocationRepository extends JpaRepository<Location, Long>, JpaSp
 
     List<Location> findByParentLocation_Id(Long id, Sort sort);
 
+    // Nivel raiz da hierarquia (id=0 em LocationController.getChildrenById) -
+    // antes retornava TODOS os locais raiz da empresa de uma vez so
+    // ("//only sort is used"), o que travava a tela pra empresas com
+    // centenas de locais. Esta query pagina de verdade no banco.
+    Page<Location> findByCompany_IdAndParentLocationIsNull(Long companyId, Pageable pageable);
+
     @Query("SELECT DISTINCT new com.grash.dto.customer.CustomerLocationMapDTO(l.id, l.name, l.address, l.latitude, " +
             "l.longitude, l.customId) FROM Location l JOIN l.customers c " +
             "WHERE c.id = :customerId AND l.company.id = :companyId AND l.latitude IS NOT NULL AND l.longitude IS NOT " +

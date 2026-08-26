@@ -117,9 +117,8 @@ function Locations() {
   const [openDelete, setOpenDelete] = useState<boolean>(false);
   const { apiKey } = googleMapsConfig;
 
-  const { locationsHierarchy, loadingGet } = useSelector(
-    (state) => state.locations
-  );
+  const { locationsHierarchy, locationsHierarchyRootTotal, loadingGet } =
+    useSelector((state) => state.locations);
   const [searchResults, setSearchResults] = useState<Location[]>([]);
   const [searchTotal, setSearchTotal] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -339,13 +338,18 @@ function Locations() {
     }
   }, []);
 
-  // Carrega a hierarquia (nivel raiz) uma vez ao montar - sem isso, a tela
-  // abriria vazia no modo hierarquico (sem busca/filtro) ate o usuario
-  // clicar manualmente em recarregar.
+  // Carrega a hierarquia (nivel raiz) ao montar E sempre que pageable mudar
+  // (pagina, tamanho de pagina ou ordenacao) - antes so rodava uma vez no
+  // mount ([] como deps), entao trocar de pagina/tamanho de pagina no modo
+  // hierarquico nao tinha efeito nenhum (o GET locations/children/0 tambem
+  // nao paginava de verdade no backend - ver LocationController). Ambos os
+  // problemas juntos faziam a tela sempre trazer TODOS os locais raiz da
+  // empresa de uma vez, ignorando qualquer "linhas por pagina" selecionado.
   useEffect(() => {
     if (!hasViewPermission(PermissionEntity.LOCATIONS)) return;
+    if (isFlatMode) return; // modo flat (busca/filtro) tem seu proprio efeito
     dispatch(resetLocationsHierarchy(pageable, true));
-  }, []);
+  }, [pageable, isFlatMode]);
 
   useEffect(() => {
     if (!hasViewPermission(PermissionEntity.LOCATIONS)) return;
@@ -1138,7 +1142,12 @@ function Locations() {
   // Sem busca/filtro: hierarquia (expand/collapse). Com busca OU filtro de
   // Cliente: lista flat paginada pelo backend - nunca filtro no browser.
   const filteredTableData = isFlatMode ? searchResults : tableData;
-  const resultsCount = isFlatMode ? searchTotal : tableData.length;
+  // No modo hierarquico o total real vem do backend
+  // (locationsHierarchyRootTotal, ver GET locations/children/0) - nao de
+  // tableData.length, que so reflete o que ja foi carregado/expandido no
+  // Redux ate agora (poderia incluir filhos de nos expandidos, inflando o
+  // contador, ou mostrar so a pagina atual, subestimando o total).
+  const resultsCount = isFlatMode ? searchTotal : locationsHierarchyRootTotal;
   const hasActiveFilters = Boolean(searchQuery.trim()) || Boolean(customerFilter);
   const handleClearFilters = () => {
     setSearchQuery('');

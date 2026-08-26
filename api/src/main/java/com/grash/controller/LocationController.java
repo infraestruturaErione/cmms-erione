@@ -25,6 +25,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -172,31 +173,50 @@ public class LocationController {
     @GetMapping("/children/{id}")
     @PreAuthorize("permitAll()")
 
-    public Collection<LocationShowDTO> getChildrenById(@Parameter(description = "Location ID") @PathVariable("id") Long id,
+    public Page<LocationShowDTO> getChildrenById(@Parameter(description = "Location ID") @PathVariable("id") Long id,
                                                        Pageable pageable,
                                                        HttpServletRequest req) {
-        //only sort is used
+        // Nivel raiz (id=0) agora pagina de verdade no banco (antes trazia
+        // TODOS os locais raiz da empresa numa unica resposta, travando a
+        // tela pra empresas com centenas de locais - ver comentario em
+        // LocationRepository.findByCompany_IdAndParentLocationIsNull).
+        // Filhos de um no especifico (id!=0) continuam sem paginacao real
+        // (listas tipicamente pequenas em qualquer hierarquia real) - so
+        // embrulhadas em PageImpl pra manter o mesmo formato de resposta.
         User user = userService.whoami(req);
         if (id.equals(0L) && user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
             if (customerScopeService.isRequester(user)) {
-                return customerScopeService.findAllowedLocations(user).stream().filter(location -> location.getParentLocation() == null).map(location -> toScopedShowDto(location, user)).collect(Collectors.toList());
+                List<LocationShowDTO> allowedRoots = customerScopeService.findAllowedLocations(user).stream()
+                        .filter(location -> location.getParentLocation() == null)
+                        .map(location -> toScopedShowDto(location, user)).collect(Collectors.toList());
+                return paginateInMemory(allowedRoots, pageable);
             }
-            return locationService.findByCompany(user.getCompany().getId(), pageable.getSort()).stream().filter(location -> location.getParentLocation() == null).map(location -> toScopedShowDto(location, user)).collect(Collectors.toList());
+            return locationService.findRootByCompany(user.getCompany().getId(), pageable)
+                    .map(location -> toScopedShowDto(location, user));
         }
         Optional<Location> optionalLocation = locationService.findById(id);
         if (optionalLocation.isPresent()) {
             Location savedLocation = optionalLocation.get();
             if (customerScopeService.isRequester(user)) {
                 customerScopeService.assertCanAccessLocation(user, savedLocation.getId());
-                return locationService.findLocationChildren(id, pageable.getSort()).stream()
+                List<LocationShowDTO> children = locationService.findLocationChildren(id, pageable.getSort()).stream()
                         .filter(location -> customerScopeService.findAllowedLocations(user).stream().anyMatch(allowed -> allowed.getId().equals(location.getId())))
                         .map(location -> toScopedShowDto(location, user)).collect(Collectors.toList());
+                return new PageImpl<>(children, pageable, children.size());
             }
             if (user.getRole().getViewPermissions().contains(PermissionEntity.LOCATIONS)) {
-                return locationService.findLocationChildren(id, pageable.getSort()).stream().map(location -> toScopedShowDto(location, user)).collect(Collectors.toList());
+                List<LocationShowDTO> children = locationService.findLocationChildren(id, pageable.getSort()).stream()
+                        .map(location -> toScopedShowDto(location, user)).collect(Collectors.toList());
+                return new PageImpl<>(children, pageable, children.size());
             } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
 
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
+    }
+
+    private Page<LocationShowDTO> paginateInMemory(List<LocationShowDTO> items, Pageable pageable) {
+        int start = Math.min((int) pageable.getOffset(), items.size());
+        int end = Math.min(start + pageable.getPageSize(), items.size());
+        return new PageImpl<>(items.subList(start, end), pageable, items.size());
     }
 
     @GetMapping("/mini")
