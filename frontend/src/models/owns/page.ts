@@ -45,6 +45,11 @@ export interface SearchCriteria {
   pageNum?: number;
   pageSize?: number;
   sortField?: string;
+  // Busca livre generica interpretada por entidade no backend (ver
+  // com.grash.advancedsearch.SearchCriteria.search) - hoje so Location a
+  // consome (name/address/customId/customer.name via EXISTS), outras
+  // entidades ignoram este campo sem efeito.
+  search?: string;
 }
 export const getInitialPage = <T>(): Page<T> => {
   return {

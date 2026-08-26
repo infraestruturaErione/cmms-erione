@@ -22,6 +22,15 @@ public interface LocationMapper {
 
     LocationShowDTO toShowDto(Location model, @Context LocationService locationService);
 
+    // Usado pela busca em lista (LocationService.findBySearchCriteria) - SEM
+    // o @Context LocationService, entao o @AfterMapping abaixo (que exige
+    // esse Context) nunca e' selecionado pro MapStruct gerar pra este
+    // overload. Isso evita 1 query de hasChildren POR LINHA (N+1) numa
+    // pagina de resultados; o valor e' preenchido depois, em lote, pelo
+    // proprio LocationService (findParentIdsWithChildren, 1 query pra
+    // pagina inteira).
+    LocationShowDTO toFlatShowDto(Location model);
+
     @Mapping(source = "parentLocation.id", target = "parentId")
     LocationMiniDTO toMiniDto(Location model);
 

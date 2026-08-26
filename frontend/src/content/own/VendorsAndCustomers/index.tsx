@@ -9,6 +9,7 @@ import CustomerShow from './CustomerShow';
 import useAuth from '../../../hooks/useAuth';
 import { PermissionEntity } from '../../../models/owns/role';
 import PermissionErrorMessage from '../components/PermissionErrorMessage';
+import { ERIONE_HIDDEN_MODULES } from '../../../config/erioneModules';
 
 interface PropsType {}
 
@@ -24,9 +25,20 @@ const VendorsAndCustomers = ({}: PropsType) => {
   const handleCloseAddModal = () => setOpenAddModal(false);
   const { customerId, vendorId } = useParams();
 
+  // Vendors esta desabilitado no escopo atual da Erione
+  // (ERIONE_HIDDEN_MODULES.vendors, ja usado pra ocultar o modulo em toda a
+  // app sem tocar backend/rotas/permissoes). Nesse caso a experiencia de
+  // Clientes fica sozinha, sem a barra de abas Fornecedores/Clientes nem o
+  // titulo "Fornecedores e Clientes" - so "Clientes".
+  const vendorsEnabled = !ERIONE_HIDDEN_MODULES.vendors;
+
   useEffect(() => {
-    setTitle(t('Vendors_Customers'));
-  }, []);
+    setTitle(
+      vendorsEnabled
+        ? t('Vendors_Customers')
+        : t('customers_page_title', 'Clientes')
+    );
+  }, [vendorsEnabled]);
 
   const tabs = [
     { value: 'vendors', label: t('vendors') },
@@ -41,6 +53,10 @@ const VendorsAndCustomers = ({}: PropsType) => {
   if (hasViewPermission(PermissionEntity.VENDORS_AND_CUSTOMERS)) {
     if (customerId && location.pathname.includes('/customers/')) {
       return <CustomerShow />;
+    }
+
+    if (!vendorsEnabled) {
+      return <Customers />;
     }
 
     return (
@@ -62,10 +78,7 @@ const VendorsAndCustomers = ({}: PropsType) => {
             handleCloseModal={handleCloseAddModal}
           />
         ) : (
-          <Customers
-            openModal={openAddModal}
-            handleCloseModal={handleCloseAddModal}
-          />
+          <Customers />
         )}
       </MultipleTabsLayout>
     );

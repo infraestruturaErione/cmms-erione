@@ -117,6 +117,18 @@ interface CustomDatagrid2Props<TData extends RowData> {
   onPinnedColumnsChange?: (pinnedColumns: string[]) => void;
   hidePagination?: boolean;
   getRowId?: (row: TData) => string;
+  // Todos opcionais, retrocompativel - omitidos, o comportamento e' EXATAMENTE
+  // o de antes (header cinza #E8EAEE, altura preenchendo o viewport) em
+  // qualquer outra tela que ja use este componente.
+  //
+  // headerBackgroundColor: pra telas que precisam de um cabecalho mais leve
+  // (ex.: /app/locations) sem mudar o padrao de todas as outras.
+  headerBackgroundColor?: string;
+  // autoHeight: com poucos resultados (ex.: 4 linhas), a altura calculada
+  // pelo viewport deixava um painel gigante vazio embaixo da tabela. Com
+  // autoHeight=true, a altura encolhe pro conteudo (ate maxHeight).
+  autoHeight?: boolean;
+  maxHeight?: number;
 }
 
 const PINNED_BG = '#F2F5F9';
@@ -151,13 +163,24 @@ function CustomDatagrid2<TData extends RowData>({
   onPinnedColumnsChange,
   noRowsAction,
   hidePagination,
-  getRowId
+  getRowId,
+  headerBackgroundColor = '#E8EAEE',
+  autoHeight = false,
+  maxHeight
 }: CustomDatagrid2Props<TData>) {
   const { t }: { t: any } = useTranslation();
   const theme = useTheme();
   const { height } = useWindowDimensions();
   const tableRef = useRef<HTMLDivElement>(null);
   const [tableHeight, setTableHeight] = useState<number>(500);
+  // Defesa contra estado persistido/inicial invalido: se o pageSize atual
+  // nao esta entre as opcoes do seletor, o MUI Select nao acha nenhum
+  // MenuItem correspondente e renderiza o campo "Linhas por pagina" vazio
+  // (bug relatado). So afeta a EXIBICAO do seletor - quem decide o pageSize
+  // real continua sendo o chamador (onPaginationChange).
+  const safeRowsPerPage = pageSizeOptions.includes(pagination.pageSize)
+    ? pagination.pageSize
+    : pageSizeOptions[0];
   const { user } = useAuth();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -480,7 +503,8 @@ function CustomDatagrid2<TData extends RowData>({
     <Paper
       ref={tableRef}
       sx={{
-        height: tableHeight,
+        height: autoHeight ? 'auto' : tableHeight,
+        maxHeight: autoHeight ? maxHeight ?? 480 : undefined,
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
@@ -523,7 +547,7 @@ function CustomDatagrid2<TData extends RowData>({
                 fontWeight: 'bold',
                 textTransform: 'uppercase',
                 borderBottom: `1px solid ${theme.palette.divider}`,
-                backgroundColor: '#E8EAEE',
+                backgroundColor: headerBackgroundColor,
                 position: 'sticky',
                 top: 0,
                 zIndex: 3
@@ -917,7 +941,7 @@ function CustomDatagrid2<TData extends RowData>({
           onPageChange={(_, newPage) =>
             onPaginationChange({ ...pagination, pageIndex: newPage })
           }
-          rowsPerPage={pagination.pageSize}
+          rowsPerPage={safeRowsPerPage}
           onRowsPerPageChange={(event) =>
             onPaginationChange({
               ...pagination,
@@ -926,7 +950,7 @@ function CustomDatagrid2<TData extends RowData>({
             })
           }
           rowsPerPageOptions={pageSizeOptions}
-          // labelRowsPerPage={t('rows_per_page')}
+          labelRowsPerPage={t('rows_per_page', 'Linhas por página')}
           ActionsComponent={TablePaginationActions}
           sx={{
             borderTop: `1px solid ${theme.palette.divider}`,

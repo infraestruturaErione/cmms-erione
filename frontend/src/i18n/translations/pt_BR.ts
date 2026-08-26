@@ -1017,6 +1017,25 @@ const ptBRJSON = {
   no_equipment_in_location:
     'Nenhum equipamento/dispositivo vinculado a este local.',
   create_wo_for_location: 'Criar OS neste local',
+  locations_page_subtitle: 'Pontos de atendimento vinculados aos clientes.',
+  locations_search_placeholder: 'Buscar por local, endereço ou cliente...',
+  locations_all_customers: 'Cliente: Todos',
+  clear_filters: 'Limpar filtros',
+  rows_per_page: 'Linhas por página',
+  locations_results_count: '{{count}} locais encontrados',
+  select_customer_for_wo: 'Qual cliente para esta OS?',
+  select_customer_for_wo_helper:
+    '{{name}} está vinculado a mais de um cliente - escolha qual usar.',
+  select_customer: 'Selecionar cliente',
+  continue: 'Continuar',
+  locations_table_local: 'Local',
+  locations_table_code: 'Código',
+  view_location: 'Ver local',
+  open_location: 'Abrir local',
+  locations_addresses: 'Locais / Endereços',
+  open_in_google_maps: 'Abrir no Google Maps',
+  loading: 'Carregando...',
+  technician: 'Técnico',
   location_map_future_description:
     'Este bloco prepara a futura visualização em mapa dos pontos atendidos, sem integrar mapa real nesta fase.',
   location_map_pending:
@@ -1024,6 +1043,7 @@ const ptBRJSON = {
   location_history_pending:
     'Histórico consolidado do local fica como melhoria futura. Use a aba Ordens de Serviço para ver atendimentos vinculados.',
   customer_city: 'Cliente/Cidade',
+  locations_and_assets: 'Locais & Equipamentos',
   equipment_devices: 'Equipamentos/Dispositivos',
   equipment_device_information: 'Dados do equipamento/dispositivo',
   equipment_device: 'Equipamento/Dispositivo',
@@ -1240,6 +1260,11 @@ const ptBRJSON = {
   customer_delete_success: 'O cliente foi excluído com sucesso',
   customer_delete_failure: 'O cliente não pôde ser excluído',
   customer_name: 'Nome do cliente',
+  customer_data: 'Dados do cliente',
+  observations: 'Observações',
+  locations_with_assets_ratio: '{{withAssets}} de {{total}} locais com equipamentos',
+  customer_locations_search_placeholder: 'Buscar local ou endereço...',
+  customer_locations_count: '{{count}} locais vinculados',
   website: 'Website',
   customer_type: 'Tipo de cliente',
   customer_type_description: 'ex. Encanamento, Elétrica',
@@ -1259,6 +1284,12 @@ const ptBRJSON = {
   add_customer: 'Adicionar cliente',
   add_customer_description:
     'Preencha os campos abaixo para criar e adicionar um novo cliente',
+  customers_page_title: 'Clientes',
+  customers_page_subtitle: 'Clientes e contratantes atendidos pela operação.',
+  customers_search_placeholder: 'Buscar cliente...',
+  customers_results_count: '{{count}} clientes encontrados',
+  new_customer: 'Novo cliente',
+  open_customer: 'Abrir cliente',
   'noRows.customer.message':
     'Clientes são contratantes atendidos pela operação',
   'noRows.customer.action': "Pressione o botão '+' para criar um cliente",

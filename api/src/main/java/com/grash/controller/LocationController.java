@@ -2,6 +2,7 @@ package com.grash.controller;
 
 import com.grash.advancedsearch.SearchCriteria;
 import com.grash.dto.LocationMiniDTO;
+import com.grash.dto.LocationOperationalSummaryDTO;
 import com.grash.dto.LocationPatchDTO;
 import com.grash.dto.LocationPostDTO;
 import com.grash.dto.LocationShowDTO;
@@ -12,6 +13,7 @@ import com.grash.model.Location;
 import com.grash.model.User;
 import com.grash.model.enums.PermissionEntity;
 import com.grash.model.enums.RoleType;
+import com.grash.service.LocationOperationalService;
 import com.grash.service.LocationService;
 import com.grash.service.CustomerScopeService;
 import com.grash.service.RateLimiterService;
@@ -52,6 +54,7 @@ public class LocationController {
     private final RateLimiterService rateLimiterService;
     private final RequestPortalService requestPortalService;
     private final CustomerScopeService customerScopeService;
+    private final LocationOperationalService locationOperationalService;
 
     // Location pode ser legitimamente compartilhada entre Clientes A e B; um
     // Requester escopado so ao A pode acessar a Location (assertCanAccessLocation
@@ -94,30 +97,76 @@ public class LocationController {
                                                         HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
-            if (customerScopeService.isRequester(user)) {
-                searchCriteria.filterCompany(user);
-                // Customer Scope da QUERY agora e' aplicado dentro de
-                // locationService.findBySearchCriteria (Specification
-                // dedicada, ANDada por fora da arvore de FilterField do
-                // request - ver CustomerScopeService.customerScopeSpecification).
-                // A sanitizacao do DTO (uma Location compartilhada A+B
-                // continua aparecendo pra quem tem A, mas o campo customers
-                // so pode mostrar A) continua necessaria aqui.
-                Page<LocationShowDTO> rawPage = locationService.findBySearchCriteria(searchCriteria, user);
-                return ResponseEntity.ok(rawPage.map(dto -> {
+            if (!customerScopeService.isRequester(user)
+                    && !user.getRole().getViewPermissions().contains(PermissionEntity.LOCATIONS)) {
+                throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
+            }
+            searchCriteria.filterCompany(user);
+            if (!customerScopeService.isRequester(user)
+                    && !user.getRole().getViewOtherPermissions().contains(PermissionEntity.LOCATIONS)) {
+                // Mesma restricao de antes (so ve o que criou) - agora
+                // expressa como FilterField DB-side em vez de Stream.filter
+                // em memoria (era o caminho quebrado findByCompanySearch).
+                searchCriteria.filterCreatedBy(user);
+            }
+            // Customer Scope da QUERY e' aplicado dentro de
+            // locationService.findBySearchCriteria (Specification dedicada,
+            // ANDada por fora da arvore de FilterField do request - ver
+            // CustomerScopeService.customerScopeSpecification). Cobre tanto
+            // Requester quanto LIMITED_ADMIN - antes desta unificacao,
+            // LIMITED_ADMIN caia no ramo findByCompanySearch, que nao
+            // aplicava NENHUM scope de customer.
+            Page<LocationShowDTO> rawPage = locationService.findBySearchCriteria(searchCriteria, user);
+            if (customerScopeService.hasRestrictedCustomerScope(user)) {
+                // Uma Location compartilhada A+B continua aparecendo pra
+                // quem tem A, mas o campo customers do DTO so pode mostrar A
+                // - nunca revelar a existencia do Customer B fora do escopo.
+                rawPage = rawPage.map(dto -> {
                     dto.setCustomers(customerScopeService.filterCustomerMiniDTOs(user, dto.getCustomers(),
                             com.grash.dto.CustomerMiniDTO::getId));
                     return dto;
-                }));
+                });
             }
-            if (user.getRole().getViewPermissions().contains(PermissionEntity.LOCATIONS)) {
-                boolean canViewOthers = user.getRole().getViewOtherPermissions().contains(PermissionEntity.LOCATIONS);
-                Long createdBy = canViewOthers ? null : user.getId();
-                return ResponseEntity.ok(locationService.findByCompanySearch(user.getCompany().getId(), createdBy,
-                        searchCriteria));
-            } else throw new CustomException("Access Denied", HttpStatus.FORBIDDEN);
+            return ResponseEntity.ok(rawPage);
         }
         return ResponseEntity.ok(locationService.findBySearchCriteria(searchCriteria, user));
+    }
+
+    @GetMapping("/{id}/summary")
+    @PreAuthorize("hasRole('ROLE_CLIENT')")
+    public ResponseEntity<LocationOperationalSummaryDTO> getOperationalSummary(
+            @Parameter(description = "Location ID") @PathVariable("id") Long id, HttpServletRequest req) {
+        User user = userService.whoami(req);
+        ensureLocationInCompanyAndReadable(id, user);
+        return ResponseEntity.ok(locationOperationalService.getSummary(user, id));
+    }
+
+    // Mesma regra de acesso ja usada em getById (leitura) - extraida aqui
+    // pra ser reaproveitada pelo novo endpoint de summary sem duplicar a
+    // logica de novo.
+    private Location ensureLocationInCompanyAndReadable(Long id, User user) {
+        Optional<Location> optionalLocation = locationService.findById(id);
+        if (optionalLocation.isEmpty()) {
+            throw new CustomException("Not found", HttpStatus.NOT_FOUND);
+        }
+        Location savedLocation = optionalLocation.get();
+        if (customerScopeService.isRequester(user)) {
+            customerScopeService.assertCanAccessLocation(user, savedLocation.getId());
+            return savedLocation;
+        }
+        if (!user.getRole().getViewPermissions().contains(PermissionEntity.LOCATIONS)) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)) {
+            if (!savedLocation.getCompany().getId().equals(user.getCompany().getId())) {
+                throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+            }
+            boolean canViewOthers = user.getRole().getViewOtherPermissions().contains(PermissionEntity.LOCATIONS);
+            if (!canViewOthers && !savedLocation.getCreatedBy().equals(user.getId())) {
+                throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+            }
+        }
+        return savedLocation;
     }
 
     @GetMapping("/children/{id}")

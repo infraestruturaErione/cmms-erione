@@ -15,6 +15,7 @@ import com.grash.repository.AssetRepository;
 import com.grash.repository.CustomerRepository;
 import com.grash.repository.LocationRepository;
 import com.grash.service.CustomerScopeService;
+import com.grash.service.LocationOperationalService;
 import com.grash.service.LocationService;
 import com.grash.service.RateLimiterService;
 import com.grash.service.RequestPortalService;
@@ -69,6 +70,8 @@ class LocationCustomerScopeFilterTest {
     private AssetRepository assetRepository;
     @Mock
     private HttpServletRequest req;
+    @Mock
+    private LocationOperationalService locationOperationalService;
 
     private CustomerScopeService customerScopeService;
     private LocationController controller;
@@ -81,7 +84,7 @@ class LocationCustomerScopeFilterTest {
     void setUp() {
         customerScopeService = new CustomerScopeService(customerRepository, locationRepository, assetRepository);
         controller = new LocationController(locationService, locationMapper, userService, em, rateLimiterService,
-                requestPortalService, customerScopeService);
+                requestPortalService, customerScopeService, locationOperationalService);
 
         company = new Company();
         company.setId(1L);

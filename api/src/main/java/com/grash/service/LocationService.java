@@ -19,7 +19,6 @@ import com.grash.service.CustomFieldValueService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -237,9 +236,22 @@ public class LocationService {
         return locationRepository.findByIdInAndCompany_Id(ids, companyId);
     }
 
+    // Caminho UNICO de busca de Location, agora usado pelos 3 tipos de
+    // usuario (Requester, ROLE_CLIENT comum, super) - ver LocationController.
+    // Antes disso, ROLE_CLIENT comum passava por findByCompanySearch (removido),
+    // que carregava TODAS as Locations da company em memoria Java e paginava
+    // com subList - o "N+1 de rede" que a reforma de Locations veio corrigir.
+    // Toda paginacao/ordenacao/filtragem agora acontece no banco.
     public Page<LocationShowDTO> findBySearchCriteria(SearchCriteria searchCriteria, User user) {
         SpecificationBuilder<Location> builder = new SpecificationBuilder<>();
         searchCriteria.getFilterFields().forEach(builder::with);
+
+        org.springframework.data.jpa.domain.Specification<Location> textSearchSpec =
+                textSearchSpecification(searchCriteria.getSearch());
+        if (textSearchSpec != null) {
+            builder.with(textSearchSpec);
+        }
+
         // Customer Scope como Specification dedicada, ANDada no nivel raiz
         // por fora da arvore de FilterField/alternatives controlada pelo
         // request - nunca representada como mais um FilterField (ver
@@ -251,34 +263,60 @@ public class LocationService {
         }
         Pageable page = PageRequest.of(searchCriteria.getPageNum(), searchCriteria.getPageSize(),
                 searchCriteria.getDirection(), searchCriteria.getSortField());
-        return locationRepository.findAll(builder.build(), page).map(location -> locationMapper.toShowDto(location,
-                this));
+        Page<Location> locations = locationRepository.findAll(builder.build(), page);
+
+        // Batch de hasChildren pra pagina inteira - 1 query, nao 1 por linha
+        // (ver LocationMapper.toFlatShowDto / LocationRepository.findParentIdsWithChildren).
+        List<Long> pageIds = locations.getContent().stream().map(Location::getId).collect(Collectors.toList());
+        Set<Long> idsWithChildren = pageIds.isEmpty()
+                ? Collections.emptySet()
+                : new HashSet<>(locationRepository.findParentIdsWithChildren(pageIds));
+
+        return locations.map(location -> {
+            LocationShowDTO dto = locationMapper.toFlatShowDto(location);
+            dto.setHasChildren(idsWithChildren.contains(location.getId()));
+            return dto;
+        });
     }
 
-    public Page<LocationShowDTO> findByCompanySearch(Long companyId, Long createdBy, SearchCriteria searchCriteria) {
-        Pageable page = PageRequest.of(searchCriteria.getPageNum(), searchCriteria.getPageSize(),
-                searchCriteria.getDirection(), searchCriteria.getSortField());
-        List<Location> locations = locationRepository.findByCompany_Id(companyId, page.getSort());
-        String nameQuery = searchCriteria.getFilterFields().stream()
-                .filter(filter -> "name".equals(filter.getField()) && filter.getValue() != null)
-                .map(filter -> filter.getValue().toString().trim().toLowerCase(Locale.ROOT))
-                .filter(value -> !value.isEmpty())
-                .findFirst()
-                .orElse(null);
+    // Busca textual livre atravessando 4 campos: 3 diretos em Location (LIKE
+    // simples) + 1 via relacao ManyToMany Location.customers (nome do
+    // Customer vinculado). O ultimo usa EXISTS (subquery correlacionada),
+    // NAO Root.join - um join de raiz sobre uma relacao many-valued
+    // multiplicaria a linha da Location quando ela tem 2+ Customers cujo
+    // nome bate com a busca (nao e' o caso comum aqui, mas o cenario real do
+    // DEV2 - uma Location com 2 Customers - EXISTE, ver testes), o que
+    // inflaria totalElements e exigiria DISTINCT (que quebra sort por coluna
+    // de outro join no Postgres sob Hibernate 6 - mesmo motivo documentado
+    // em CustomerScopeService.customerScopeSpecification). EXISTS nunca
+    // multiplica linha do root, entao nunca precisa de DISTINCT aqui.
+    // Visibilidade de pacote (nao private) de proposito: permite teste de
+    // integracao direto contra H2 real (SpecificationBuilder + repository),
+    // sem precisar montar toda a cadeia de dependencias de LocationService
+    // so pra exercitar esta logica pura de Specification.
+    static org.springframework.data.jpa.domain.Specification<Location> textSearchSpecification(String search) {
+        if (search == null || search.isBlank()) {
+            return null;
+        }
+        String likePattern = "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
+        return (root, query, cb) -> {
+            jakarta.persistence.criteria.Predicate nameMatch =
+                    cb.like(cb.lower(root.get("name")), likePattern);
+            jakarta.persistence.criteria.Predicate addressMatch =
+                    cb.like(cb.lower(root.get("address")), likePattern);
+            jakarta.persistence.criteria.Predicate customIdMatch =
+                    cb.like(cb.lower(root.get("customId")), likePattern);
 
-        List<Location> filteredLocations = locations.stream()
-                .filter(location -> createdBy == null || Objects.equals(location.getCreatedBy(), createdBy))
-                .filter(location -> nameQuery == null || location.getName() != null &&
-                        location.getName().toLowerCase(Locale.ROOT).contains(nameQuery))
-                .toList();
+            jakarta.persistence.criteria.Subquery<Long> customerSubquery = query.subquery(Long.class);
+            jakarta.persistence.criteria.Root<Location> correlatedRoot = customerSubquery.correlate(root);
+            jakarta.persistence.criteria.Join<Object, Object> customerJoin =
+                    correlatedRoot.join("customers", jakarta.persistence.criteria.JoinType.INNER);
+            customerSubquery.select(customerJoin.get("id"));
+            customerSubquery.where(cb.like(cb.lower(customerJoin.get("name")), likePattern));
+            jakarta.persistence.criteria.Predicate customerNameMatch = cb.exists(customerSubquery);
 
-        int fromIndex = Math.min((int) page.getOffset(), filteredLocations.size());
-        int toIndex = Math.min(fromIndex + page.getPageSize(), filteredLocations.size());
-        List<LocationShowDTO> pageContent = filteredLocations.subList(fromIndex, toIndex).stream()
-                .map(location -> locationMapper.toShowDto(location, this))
-                .collect(Collectors.toList());
-
-        return new PageImpl<>(pageContent, page, filteredLocations.size());
+            return cb.or(nameMatch, addressMatch, customIdMatch, customerNameMatch);
+        };
     }
 
     public static List<LocationImportDTO> orderLocations(List<LocationImportDTO> locations) {

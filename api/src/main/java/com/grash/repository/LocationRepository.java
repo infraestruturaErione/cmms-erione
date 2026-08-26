@@ -75,6 +75,13 @@ public interface LocationRepository extends JpaRepository<Location, Long>, JpaSp
 
     int countByParentLocation_Id(Long locationId);
 
+    // Batch pra pagina inteira de resultados de busca (evita N+1 do
+    // LocationMapper.hasChildren, que faz 1 COUNT por linha quando usa
+    // toShowDto(model, locationService) - ver LocationService.findBySearchCriteria,
+    // que usa toFlatShowDto (sem esse @AfterMapping) + este batch).
+    @Query("SELECT DISTINCT l.parentLocation.id FROM Location l WHERE l.parentLocation.id IN :ids")
+    List<Long> findParentIdsWithChildren(@Param("ids") Collection<Long> ids);
+
     void deleteByCompany_IdAndIsDemoTrue(Long companyId);
 
     @Query("SELECT CASE WHEN COUNT(l) > :threshold THEN true ELSE false END " +

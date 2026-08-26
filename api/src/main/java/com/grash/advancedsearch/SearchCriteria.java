@@ -29,6 +29,15 @@ public class SearchCriteria implements Cloneable {
     private int pageSize = 10;
     @Schema(description = "Field name to sort the results by")
     private String sortField = "id";
+    // Busca livre generica, interpretada por entidade (ver
+    // LocationService.textSearchSpecification) - nao e' mais um FilterField
+    // porque pode precisar atravessar uma relacao ManyToMany (ex.:
+    // Location.customers) com LIKE, algo que WrapperSpecification.getFieldPath
+    // (Path.get) nao suporta pra atributos plurais. Null/vazio = sem busca,
+    // outras entidades continuam ignorando este campo sem qualquer efeito.
+    @Schema(description = "Free-text search across resource-specific fields (interpreted per entity, e.g. Location " +
+            "name/address/customId/linked customer name)")
+    private String search;
 
     public void filterCompany(User user) {
         this.filterFields.add(FilterField.builder()

@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Card,
+  Chip,
   CircularProgress,
   Dialog,
   DialogContent,
@@ -11,6 +12,7 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Select,
   Stack,
   Tab,
   Tabs,
@@ -92,8 +94,18 @@ import { formatCustomFields } from '../../../utils/formatters';
 import api from '../../../utils/api';
 import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
 import OpenInNewTwoToneIcon from '@mui/icons-material/OpenInNewTwoTone';
+import ClearTwoToneIcon from '@mui/icons-material/ClearTwoTone';
+import { getCustomersMini } from '../../../slices/customer';
+import { CustomerMiniDTO } from '../../../models/owns/customer';
+import {
+  CreateWorkOrderCustomerDialog,
+  useLocationWorkOrderCreation
+} from './locationWorkOrderCreation';
 
-const HIERARCHY_ZERO_PAGE_SIZE = 40;
+// Precisa ser uma das opcoes de CustomDatagrid2 pageSizeOptions ([10,25,50,100])
+// - um valor fora dessa lista (era 40) faz o MUI Select "Linhas por pagina"
+// nao achar nenhum item correspondente e renderizar vazio (bug reportado).
+const HIERARCHY_ZERO_PAGE_SIZE = 10;
 
 function Locations() {
   const { t }: { t: any } = useTranslation();
@@ -102,7 +114,6 @@ function Locations() {
   const [currentTab, setCurrentTab] = useState<string>('list');
   const dispatch = useDispatch();
   const { showSnackBar } = useContext(CustomSnackBarContext);
-  const { getFormattedDate } = useContext(CompanySettingsContext);
   const [openDelete, setOpenDelete] = useState<boolean>(false);
   const { apiKey } = googleMapsConfig;
 
@@ -115,6 +126,12 @@ function Locations() {
   const [mapLocations, setMapLocations] = useState<Location[]>([]);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>();
   const { customFields } = useSelector((state) => state.customFields);
+  const { customersMini } = useSelector((state) => state.customers);
+  // Filtro explicito de Cliente (Location.customers, AND com a busca
+  // textual) - null = "Todos os clientes".
+  const [customerFilter, setCustomerFilter] = useState<CustomerMiniDTO | null>(
+    null
+  );
   const [deployedLocations, setDeployedLocations] = useState<
     { id: number; hierarchy: number[] }[]
   >([
@@ -155,6 +172,10 @@ function Locations() {
     size: HIERARCHY_ZERO_PAGE_SIZE
   });
   const [searchQuery, setSearchQuery] = useState<string>('');
+  // Sem busca E sem filtro de Cliente = modo hierarquico (expand/collapse
+  // atual). Qualquer um dos dois presentes = lista flat paginada pelo
+  // backend - nunca filtro no browser (ver LocationController.search).
+  const isFlatMode = Boolean(searchQuery.trim()) || Boolean(customerFilter);
 
   // View type state
   const [hierarchySorting, setHierarchySorting] = useState<SortingState>([]);
@@ -175,15 +196,16 @@ function Locations() {
     createdAt: 'createdAt'
   };
 
-  const getPrimaryCustomerId = (location: Location | LocationRow) =>
-    location.customers?.[0]?.id;
-
-  const getLocationWorkOrderUrl = (location: Location | LocationRow) => {
-    const customerId = getPrimaryCustomerId(location);
-    return customerId
-      ? `/app/work-orders?customer=${customerId}&location=${location.id}&new=true`
-      : `/app/work-orders?location=${location.id}&new=true`;
-  };
+  // Regra multi-Customer (nunca customers[0] silencioso) extraida em hook
+  // compartilhado - reutilizada tambem em Locations/Show/index.tsx (Stage 3).
+  const {
+    dialogLocation: createWoDialogLocation,
+    selectedCustomerId: createWoSelectedCustomerId,
+    setSelectedCustomerId: setCreateWoSelectedCustomerId,
+    createWorkOrder: handleCreateWorkOrder,
+    confirm: confirmCreateWorkOrderWithCustomer,
+    cancel: cancelCreateWorkOrder
+  } = useLocationWorkOrderCreation();
 
   // Table state for column state persistence
   const tableState = useTableState({
@@ -259,22 +281,34 @@ function Locations() {
     window.history.replaceState(null, 'Location', `/app/locations`);
     setOpenDrawer(false);
   };
+  // Busca DB-side (SearchCriteria.search - name/address/customId/customer.name
+  // via EXISTS, ver LocationService.textSearchSpecification) + filtro
+  // explicito de Cliente (customers/inm, AND com a busca) - nunca filtro no
+  // browser. totalElements sempre vem de response.totalElements, nunca de
+  // content.length.
   const fetchSearchResults = useCallback(
-    async (query: string, pageIdx: number, pageSz: number) => {
+    async (
+      query: string,
+      customerId: number | undefined,
+      pageIdx: number,
+      pageSz: number
+    ) => {
       if (!hasViewPermission(PermissionEntity.LOCATIONS)) return;
       setSearchLoading(true);
       try {
         const criteria: SearchCriteria = {
-          filterFields: query
+          filterFields: customerId
             ? [
                 {
-                  field: 'name',
-                  operation: 'cn',
-                  value: query,
-                  values: []
+                  field: 'customers',
+                  operation: 'inm',
+                  joinType: 'LEFT',
+                  value: '',
+                  values: [customerId]
                 }
               ]
             : [],
+          search: query || undefined,
           pageNum: pageIdx,
           pageSize: pageSz,
           sortField: 'name',
@@ -300,19 +334,50 @@ function Locations() {
   }, []);
 
   useEffect(() => {
+    if (!customersMini.length) {
+      dispatch(getCustomersMini());
+    }
+  }, []);
+
+  // Carrega a hierarquia (nivel raiz) uma vez ao montar - sem isso, a tela
+  // abriria vazia no modo hierarquico (sem busca/filtro) ate o usuario
+  // clicar manualmente em recarregar.
+  useEffect(() => {
     if (!hasViewPermission(PermissionEntity.LOCATIONS)) return;
+    dispatch(resetLocationsHierarchy(pageable, true));
+  }, []);
+
+  useEffect(() => {
+    if (!hasViewPermission(PermissionEntity.LOCATIONS)) return;
+    if (!isFlatMode) {
+      // Sem busca/filtro - modo hierarquico usa locationsHierarchy (Redux),
+      // nao a busca flat. Nao chama o endpoint de search.
+      return;
+    }
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);
     }
     searchDebounceRef.current = setTimeout(() => {
-      fetchSearchResults(searchQuery, pageable.page, pageable.size);
+      fetchSearchResults(
+        searchQuery,
+        customerFilter?.id,
+        pageable.page,
+        pageable.size
+      );
     }, 250);
     return () => {
       if (searchDebounceRef.current) {
         clearTimeout(searchDebounceRef.current);
       }
     };
-  }, [fetchSearchResults, hasViewPermission, pageable, searchQuery]);
+  }, [
+    fetchSearchResults,
+    hasViewPermission,
+    isFlatMode,
+    pageable,
+    searchQuery,
+    customerFilter
+  ]);
 
   useEffect(() => {
     if (!hasViewPermission(PermissionEntity.LOCATIONS) || !apiKey) return;
@@ -416,7 +481,59 @@ function Locations() {
     return formatCustomFields(newValues);
   };
 
+  // Menu "..." por linha (kebab). Usa anchorPosition (coordenadas de tela
+  // capturadas no clique) em vez de anchorEl (referencia ao no do DOM) -
+  // anchorEl abria o menu em (0,0)/canto superior esquerdo, pois qualquer
+  // re-render do Locations entre o clique e o efeito de posicionamento do
+  // Popover (ex.: o proprio setState do clique, que recria "columns" e
+  // reconstroi as celulas da tabela) trocava o IconButton clicado por uma
+  // nova instancia do DOM, deixando a referencia antiga desconectada
+  // (getBoundingClientRect() de um no desconectado retorna tudo zero, que e'
+  // exatamente o fallback top:16/left:16 do MUI Popover). Coordenadas de
+  // tela nao dependem do no do DOM continuar montado, entao o problema nao
+  // se repete. Um state por clique (nao um Map por linha) e' suficiente pois
+  // so um menu de linha pode estar aberto por vez.
+  const [rowMenuAnchor, setRowMenuAnchor] = useState<{
+    top: number;
+    left: number;
+    location: Location | LocationRow;
+  } | null>(null);
+
   const columnHelper = createColumnHelper<Location | LocationRow>();
+
+  // "Prefeitura de Santa Branca +1" com tooltip listando todos - nunca
+  // esconder silenciosamente Customers alem do primeiro (cenario real: 1
+  // Location no DEV2 tem 2 Customers).
+  const renderCustomersCell = (customers: CustomerMiniDTO[] | undefined) => {
+    if (!customers || customers.length === 0) {
+      return (
+        <Typography variant="body2" color="text.secondary">
+          --
+        </Typography>
+      );
+    }
+    const [first, ...rest] = customers;
+    if (rest.length === 0) {
+      return <Typography variant="body2">{first.name}</Typography>;
+    }
+    return (
+      <Tooltip
+        title={customers.map((customer) => customer.name).join(', ')}
+        arrow
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Typography variant="body2" noWrap>
+            {first.name}
+          </Typography>
+          <Chip
+            label={`+${rest.length}`}
+            size="small"
+            sx={{ height: 20, fontSize: 11, fontWeight: 700 }}
+          />
+        </Box>
+      </Tooltip>
+    );
+  };
 
   const columns: CustomDatagridColumn2<Location | LocationRow>[] = [
     columnHelper.display({
@@ -452,135 +569,119 @@ function Locations() {
       },
       size: 50
     }),
-    columnHelper.accessor('customId', {
-      id: 'customId',
-      header: () => t('id'),
-      cell: (info) => info.getValue(),
-      size: 100
-    }),
     columnHelper.accessor('name', {
       id: 'name',
-      header: () => t('name'),
+      header: () => t('locations_table_local', 'Local'),
       cell: (info) => (
-        <Box
-          sx={{
-            py: 1,
-            fontWeight: 'bold',
-            ml: (info.row.depth || 0) * 24
-          }}
-        >
-          {info.getValue()}
-        </Box>
+        <Tooltip title={t('open_location', 'Abrir local')}>
+          <Box
+            sx={{
+              py: 1,
+              fontWeight: 700,
+              fontSize: '0.95rem',
+              ml: (info.row.depth || 0) * 24,
+              cursor: 'pointer',
+              width: 'fit-content',
+              transition: 'color 120ms ease, text-decoration-color 120ms ease',
+              '&:hover': {
+                color: 'primary.main',
+                textDecoration: 'underline',
+                textUnderlineOffset: '3px'
+              }
+            }}
+          >
+            {info.getValue()}
+          </Box>
+        </Tooltip>
       ),
+      size: 240
+    }),
+    columnHelper.accessor((row) => row.customers, {
+      id: 'customers',
+      header: () => t('customer'),
+      cell: (info) => renderCustomersCell(info.getValue() as CustomerMiniDTO[]),
       size: 200
     }),
     columnHelper.accessor('address', {
       id: 'address',
       header: () => t('address'),
-      cell: (info) => info.getValue() || '',
-      size: 200
+      cell: (info) => (
+        <Typography variant="body2" color="text.secondary" noWrap>
+          {info.getValue() || '--'}
+        </Typography>
+      ),
+      size: 300
     }),
-    columnHelper.accessor(
-      (row) => row.customers?.map((customer) => customer.name).join(', '),
-      {
-        id: 'customers',
-        header: () => t('customer_city', 'Cliente/Cidade'),
-        cell: (info) => info.getValue() || '--',
-        size: 180
-      }
-    ),
-    columnHelper.accessor(
-      (row) =>
-        Number.isFinite(row.latitude) && Number.isFinite(row.longitude)
-          ? `${row.latitude.toFixed(6)}, ${row.longitude.toFixed(6)}`
-          : '',
-      {
-        id: 'coordinates',
-        header: () => t('coordinates', 'Coordenadas'),
-        cell: (info) => info.getValue() || '--',
-        size: 170
-      }
-    ),
-    columnHelper.accessor('createdAt', {
-      id: 'createdAt',
-      header: () => t('created_at'),
-      cell: (info) => getFormattedDate(info.getValue()),
-      size: 140
+    columnHelper.accessor('customId', {
+      id: 'customId',
+      header: () => t('locations_table_code', 'Código'),
+      cell: (info) => info.getValue() || '--',
+      size: 100
     }),
     columnHelper.display({
       id: 'actions',
       header: () => t('actions'),
       cell: ({ row }) => {
         const location = row.original;
-        let actions = [];
-        if (hasEditPermission(PermissionEntity.LOCATIONS, location)) {
-          actions.push(
-            <IconButton
-              key="edit"
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                changeCurrentLocation(Number(location.id));
-                handleOpenUpdate();
-              }}
-            >
-              <EditTwoToneIcon fontSize="small" color="primary" />
-            </IconButton>
-          );
-        }
-        actions.push(
-          <Tooltip key="open" title={t('view_location', 'Ver local')}>
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(getLocationUrl(Number(location.id)));
-              }}
-            >
-              <OpenInNewTwoToneIcon fontSize="small" color="primary" />
-            </IconButton>
-          </Tooltip>
+        // No maximo 2 acoes principais visiveis (Abrir + Criar OS) - Editar
+        // e Excluir vao para o menu "..." (kebab), e Excluir nunca aparece
+        // como icone vermelho direto na linha.
+        const canEdit = hasEditPermission(PermissionEntity.LOCATIONS, location);
+        const canDelete = hasDeletePermission(
+          PermissionEntity.LOCATIONS,
+          location
         );
-        if (hasCreatePermission(PermissionEntity.WORK_ORDERS)) {
-          actions.push(
-            <Tooltip
-              key="create-wo"
-              title={t('create_wo_for_location', 'Criar OS neste local')}
-            >
+        return (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Tooltip title={t('view_location', 'Ver local')}>
               <IconButton
                 size="small"
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(getLocationWorkOrderUrl(location));
+                  navigate(getLocationUrl(Number(location.id)));
                 }}
               >
-                <AssignmentTwoToneIcon fontSize="small" color="primary" />
+                <OpenInNewTwoToneIcon fontSize="small" color="primary" />
               </IconButton>
             </Tooltip>
-          );
-        }
-        if (hasDeletePermission(PermissionEntity.LOCATIONS, location)) {
-          actions.push(
-            <IconButton
-              key="delete"
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                changeCurrentLocation(Number(location.id));
-                setOpenDelete(true);
-              }}
-            >
-              <DeleteTwoToneIcon fontSize="small" color="error" />
-            </IconButton>
-          );
-        }
-        return (
-          <Stack direction="row" spacing={1}>
-            {actions}
+            {hasCreatePermission(PermissionEntity.WORK_ORDERS) && (
+              <Tooltip
+                title={t('create_wo_for_location', 'Criar OS neste local')}
+              >
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCreateWorkOrder(location);
+                  }}
+                >
+                  <AssignmentTwoToneIcon fontSize="small" color="primary" />
+                </IconButton>
+              </Tooltip>
+            )}
+            {(canEdit || canDelete) && (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Captura a posicao de tela do botao AGORA (sincrono, antes
+                  // de qualquer re-render) - ver comentario acima de
+                  // rowMenuAnchor sobre por que anchorEl nao e' confiavel aqui.
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setRowMenuAnchor({
+                    top: rect.bottom,
+                    left: rect.right,
+                    location
+                  });
+                }}
+              >
+                <MoreVertTwoToneIcon fontSize="small" />
+              </IconButton>
+            )}
           </Stack>
         );
       },
-      size: 120
+      size: 110
     })
   ];
   const fields: Array<IField> = [
@@ -831,6 +932,53 @@ function Locations() {
       )}
     </Menu>
   );
+  const renderRowMenu = () => {
+    const rowLocation = rowMenuAnchor?.location;
+    const canEdit =
+      rowLocation && hasEditPermission(PermissionEntity.LOCATIONS, rowLocation);
+    const canDelete =
+      rowLocation &&
+      hasDeletePermission(PermissionEntity.LOCATIONS, rowLocation);
+    return (
+      <Menu
+        open={Boolean(rowMenuAnchor)}
+        onClose={() => setRowMenuAnchor(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          rowMenuAnchor
+            ? { top: rowMenuAnchor.top, left: rowMenuAnchor.left }
+            : undefined
+        }
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        {canEdit && (
+          <MenuItem
+            onClick={() => {
+              changeCurrentLocation(Number(rowLocation.id));
+              handleOpenUpdate();
+              setRowMenuAnchor(null);
+            }}
+          >
+            <EditTwoToneIcon fontSize="small" sx={{ mr: 1 }} color="primary" />
+            {t('edit')}
+          </MenuItem>
+        )}
+        {canDelete && (
+          <MenuItem
+            onClick={() => {
+              changeCurrentLocation(Number(rowLocation.id));
+              setOpenDelete(true);
+              setRowMenuAnchor(null);
+            }}
+          >
+            <DeleteTwoToneIcon fontSize="small" sx={{ mr: 1 }} color="error" />
+            {t('to_delete')}
+          </MenuItem>
+        )}
+      </Menu>
+    );
+  };
   const renderLocationUpdateModal = () => (
     <Dialog
       fullWidth
@@ -987,7 +1135,16 @@ function Locations() {
     subRowsMap
   );
 
-  const filteredTableData = searchResults;
+  // Sem busca/filtro: hierarquia (expand/collapse). Com busca OU filtro de
+  // Cliente: lista flat paginada pelo backend - nunca filtro no browser.
+  const filteredTableData = isFlatMode ? searchResults : tableData;
+  const resultsCount = isFlatMode ? searchTotal : tableData.length;
+  const hasActiveFilters = Boolean(searchQuery.trim()) || Boolean(customerFilter);
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setCustomerFilter(null);
+    setPageable((prev) => ({ ...prev, page: 0 }));
+  };
   // Handle pagination change for hierarchy view
   const handlePaginationChange = (newPagination: {
     pageIndex: number;
@@ -1029,8 +1186,19 @@ function Locations() {
           <title>{t('locations_addresses', 'Locais/Enderecos')}</title>
         </Helmet>
         <Box justifyContent="center" alignItems="stretch" paddingX={4}>
+          <Box sx={{ mt: 0.5, mb: 0.5 }}>
+            <Typography variant="h4" fontWeight={800}>
+              {t('locations_addresses', 'Locais / Endereços')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t(
+                'locations_page_subtitle',
+                'Pontos de atendimento vinculados aos clientes.'
+              )}
+            </Typography>
+          </Box>
           <Box
-            my={1}
+            my={0.5}
             display="flex"
             flexDirection="row"
             justifyContent="space-between"
@@ -1053,12 +1221,6 @@ function Locations() {
               <Box />
             )}
             <Stack direction={'row'} alignItems="center" spacing={1}>
-              <SearchInput
-                onChange={(e) => {
-                  setPageable((prev) => ({ ...prev, page: 0 }));
-                  setSearchQuery(e.target.value);
-                }}
-              />
               <IconButton onClick={() => handleReset(true)} color="primary">
                 <ReplayTwoToneIcon />
               </IconButton>
@@ -1087,18 +1249,84 @@ function Locations() {
             </Stack>
           </Box>
           {currentTab === 'list' && (
-            <Card
-              sx={{
-                py: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}
-            >
-              <Box sx={{ width: '95%' }}>
+            <>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: 1,
+                  mb: 1
+                }}
+              >
+                <Box sx={{ minWidth: 260, flexGrow: 1, maxWidth: 380 }}>
+                  <SearchInput
+                    fullWidth
+                    size="small"
+                    value={searchQuery}
+                    placeholder={t(
+                      'locations_search_placeholder',
+                      'Buscar por local, endereço ou cliente...'
+                    )}
+                    onChange={(e) => {
+                      setPageable((prev) => ({ ...prev, page: 0 }));
+                      setSearchQuery(e.target.value);
+                    }}
+                  />
+                </Box>
+                <Select
+                  size="small"
+                  displayEmpty
+                  value={customerFilter?.id ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setPageable((prev) => ({ ...prev, page: 0 }));
+                    setCustomerFilter(
+                      value === ''
+                        ? null
+                        : customersMini.find((c) => c.id === Number(value)) ||
+                            null
+                    );
+                  }}
+                  sx={{ minWidth: 200 }}
+                >
+                  <MenuItem value="">
+                    {t('locations_all_customers', 'Cliente: Todos')}
+                  </MenuItem>
+                  {customersMini.map((customer) => (
+                    <MenuItem key={customer.id} value={customer.id}>
+                      {customer.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {hasActiveFilters && (
+                  <Button
+                    size="small"
+                    color="inherit"
+                    sx={{ color: 'text.secondary' }}
+                    startIcon={<ClearTwoToneIcon fontSize="small" />}
+                    onClick={handleClearFilters}
+                  >
+                    {t('clear_filters', 'Limpar filtros')}
+                  </Button>
+                )}
+                <Typography variant="body2" color="text.secondary">
+                  {customerFilter ? `${customerFilter.name} · ` : ''}
+                  {t('locations_results_count', '{{count}} locais encontrados', {
+                    count: resultsCount
+                  })}
+                </Typography>
+              </Box>
+              <Card
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  border: (theme) => `1px solid ${theme.palette.divider}`,
+                  boxShadow: 'none'
+                }}
+              >
                 <CustomDatagrid2
-                  columns={columns.slice(1)}
+                  columns={isFlatMode ? columns.slice(1) : columns}
                   data={filteredTableData}
                   loading={searchLoading}
                   pagination={{
@@ -1106,7 +1334,7 @@ function Locations() {
                     pageSize: pageable.size
                   }}
                   onPaginationChange={handlePaginationChange}
-                  totalRows={searchTotal}
+                  totalRows={resultsCount}
                   pageSizeOptions={[10, 25, 50, 100]}
                   sorting={hierarchySorting}
                   onSortingChange={handleSortingChange}
@@ -1123,9 +1351,12 @@ function Locations() {
                   onRowClick={(row) => {
                     navigate(getLocationUrl(row.id));
                   }}
+                  headerBackgroundColor="#F7F8FA"
+                  autoHeight
+                  maxHeight={640}
                 />
-              </Box>
-            </Card>
+              </Card>
+            </>
           )}
           {currentTab === 'map' && (
             <Card
@@ -1179,6 +1410,14 @@ function Locations() {
           question={t('confirm_delete_location')}
         />
         {renderMenu()}
+        {renderRowMenu()}
+        <CreateWorkOrderCustomerDialog
+          dialogLocation={createWoDialogLocation}
+          selectedCustomerId={createWoSelectedCustomerId}
+          setSelectedCustomerId={setCreateWoSelectedCustomerId}
+          onConfirm={confirmCreateWorkOrderWithCustomer}
+          onCancel={cancelCreateWorkOrder}
+        />
       </>
     );
   else return <PermissionErrorMessage message={'no_access_location'} />;
