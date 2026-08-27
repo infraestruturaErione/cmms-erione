@@ -39,6 +39,7 @@ import SelectLocationModal from './SelectLocationModal';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useAuth from '../../../../hooks/useAuth';
 import { LocationMiniDTO } from '../../../../models/owns/location';
+import { getLocationAddressWithReference } from '../../../../utils/locationDisplay';
 import { AssetMiniDTO } from '../../../../models/owns/asset';
 import { PermissionEntity } from '../../../../models/owns/role';
 import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
@@ -62,6 +63,8 @@ interface CreateOptionType extends OptionType {
 interface LocationOptionType extends OptionType {
   address?: string;
   customId?: string;
+  referenceType?: 'ID' | 'PC' | null;
+  referenceCode?: string | null;
 }
 
 interface InviteUserOptionType extends OptionType {
@@ -425,7 +428,9 @@ export const CustomSelect = ({
                 label: location.name,
                 value: location.id,
                 address: location.address,
-                customId: location.customId
+                customId: location.customId,
+                referenceType: location.referenceType,
+                referenceCode: location.referenceCode
               };
             });
       onOpen = locationScopeMissing ? () => {} : fetchLocations;
@@ -574,7 +579,12 @@ export const CustomSelect = ({
                         noWrap
                         title={locationOption.address}
                       >
-                        {locationOption.address}
+                        {getLocationAddressWithReference({
+                          name: locationOption.label,
+                          address: locationOption.address,
+                          referenceType: locationOption.referenceType,
+                          referenceCode: locationOption.referenceCode
+                        })}
                         {locationOption.customId
                           ? ` · ${locationOption.customId}`
                           : ''}

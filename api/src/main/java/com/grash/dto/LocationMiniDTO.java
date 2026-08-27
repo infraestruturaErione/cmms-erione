@@ -1,5 +1,6 @@
 package com.grash.dto;
 
+import com.grash.model.enums.LocationReferenceType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -28,5 +29,11 @@ public class LocationMiniDTO {
 
     @Schema(description = "The latitude coordinate of the location")
     private Double latitude;
+
+    @Schema(description = "Type of the operational reference code (ID or PC) - optional, presentation-only")
+    private LocationReferenceType referenceType;
+
+    @Schema(description = "Operational reference code - optional, presentation-only")
+    private String referenceCode;
 
 }

@@ -235,4 +235,6 @@
              relativeToChangelogFile="true"/>
     <include file="changelog/2026_08_24_00000000001_add_default_work_order_view.xml"
              relativeToChangelogFile="true"/>
+    <include file="changelog/2026_08_27_00000000001_add_location_reference.xml"
+             relativeToChangelogFile="true"/>
 </databaseChangeLog>

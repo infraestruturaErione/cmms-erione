@@ -37,6 +37,7 @@ import { useSelector } from '../../../../store';
 import { useBrand } from '../../../../hooks/useBrand';
 import { ERIONE_VISUAL_IDENTITY } from '../../../../config/erioneVisualIdentity';
 import { parseApiDate } from '../../../../utils/dateTime';
+import { getLocationAddressWithReference } from '../../../../utils/locationDisplay';
 import { LocationMiniDTO } from '../../../../models/owns/location';
 import LocationMiniMap from '../Details/LocationMiniMap';
 import {
@@ -350,7 +351,8 @@ function LocationPreview({ location }: { location: LocationMiniDTO }) {
               {location.name}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {location.address || t('wo_add_destination_no_address')}
+              {getLocationAddressWithReference(location) ||
+                t('wo_add_destination_no_address')}
             </Typography>
           </Box>
         </Stack>

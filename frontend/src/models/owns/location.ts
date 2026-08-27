@@ -6,6 +6,14 @@ import { TeamMiniDTO } from './team';
 import { FileMiniDTO } from './file';
 import { CustomFieldValue } from './customField';
 
+// Referencia Operacional (ID/PC) - presentation-only, opcional. Espelha
+// com.grash.model.enums.LocationReferenceType do backend. Nunca reaproveita
+// Location.id nem customId.
+export enum LocationReferenceType {
+  ID = 'ID',
+  PC = 'PC'
+}
+
 export default interface Location extends Audit {
   id: number;
   name: string;
@@ -20,6 +28,8 @@ export default interface Location extends Audit {
   workers: UserMiniDTO[];
   teams: TeamMiniDTO[];
   customId: string;
+  referenceType?: LocationReferenceType | null;
+  referenceCode?: string | null;
   customFieldValues: CustomFieldValue[];
 }
 export interface LocationMiniDTO {
@@ -30,6 +40,8 @@ export interface LocationMiniDTO {
   parentId: number;
   longitude?: number;
   latitude?: number;
+  referenceType?: LocationReferenceType | null;
+  referenceCode?: string | null;
 }
 
 export interface LocationRow extends Location {

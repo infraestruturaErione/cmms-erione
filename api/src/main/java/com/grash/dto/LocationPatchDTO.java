@@ -2,6 +2,7 @@ package com.grash.dto;
 
 import com.grash.dto.cutomField.CustomFieldValuePostDTO;
 import com.grash.model.*;
+import com.grash.model.enums.LocationReferenceType;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -26,6 +27,27 @@ public class LocationPatchDTO {
 
     @Schema(description = "The latitude coordinate of the location")
     private Double latitude;
+
+    // Diferente dos demais campos escalares deste DTO (name/address/
+    // latitude/longitude, que o MapStruct sobrescreve incondicionalmente -
+    // omitir a chave no JSON tambem os zera), estes dois sao IGNORADOS pelo
+    // mapeamento automatico (@Mapping(ignore=true) em
+    // LocationMapper.updateLocation) e tratados manualmente em
+    // LocationService.applyReferencePatch, porque JSON nao distingue "chave
+    // omitida" de "chave enviada como null" - um consumidor antigo que nao
+    // conhece estes campos novos manda os dois ausentes, e isso NUNCA pode
+    // apagar uma referencia existente:
+    //   referenceType=null, referenceCode=null  => omitido, PRESERVA a referencia atual
+    //   referenceType=null, referenceCode=""    => limpa a referencia explicitamente
+    //   referenceType=X,    referenceCode="abc" => define/altera para X/abc
+    @Schema(description = "Type of the operational reference code (ID or PC). Omitting both this and " +
+            "referenceCode preserves the existing reference; send referenceType=null with referenceCode=\"\" " +
+            "to clear it explicitly")
+    private LocationReferenceType referenceType;
+
+    @Schema(description = "Operational reference code. Omitting both this and referenceType preserves the " +
+            "existing reference; send referenceCode=\"\" with referenceType=null to clear it explicitly")
+    private String referenceCode;
 
     @Schema(description = "The parent location in a hierarchical structure", implementation = IdDTO.class)
     private Location parentLocation;

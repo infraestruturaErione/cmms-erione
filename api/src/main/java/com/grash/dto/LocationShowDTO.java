@@ -4,6 +4,7 @@ import com.grash.dto.cutomField.CustomFieldValueShowDTO;
 import com.grash.model.Company;
 import com.grash.dto.FileShowDTO;
 import com.grash.model.Location;
+import com.grash.model.enums.LocationReferenceType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -54,6 +55,12 @@ public class LocationShowDTO extends AuditShowDTO {
 
     @Schema(description = "Custom identifier")
     private String customId;
+
+    @Schema(description = "Type of the operational reference code (ID or PC) - optional, presentation-only")
+    private LocationReferenceType referenceType;
+
+    @Schema(description = "Operational reference code - optional, presentation-only")
+    private String referenceCode;
 
     @Schema(description = "Custom field values")
     private List<CustomFieldValueShowDTO> customFieldValues = new ArrayList<>();

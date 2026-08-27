@@ -3,6 +3,7 @@ package com.grash.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.grash.dto.IdDTO;
 import com.grash.model.abstracts.CompanyAudit;
+import com.grash.model.enums.LocationReferenceType;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -45,6 +46,20 @@ public class Location extends CompanyAudit {
 
     @Schema(description = "Indicates whether this is a demo location")
     private boolean isDemo;
+
+    // Referencia operacional (ID/PC) - presentation-only, opcional. NUNCA
+    // reaproveita Location.id nem customId (customId e' gerado
+    // internamente, read-only). Ambos precisam estar preenchidos juntos ou
+    // ambos nulos - validado em LocationService.normalizeAndValidateNewReference
+    // (create) e LocationService.applyReferencePatch (patch, com semantica
+    // adicional de omitido-preserva vs. limpeza explicita - ver LocationPatchDTO).
+    @Schema(description = "Type of the operational reference code (ID or PC) - optional, presentation-only")
+    @Enumerated(EnumType.STRING)
+    private LocationReferenceType referenceType;
+
+    @Schema(description = "Operational reference code (e.g. camera ID or collection point number) - optional, " +
+            "presentation-only. String (not numeric) to preserve leading zeros and allow future alphanumeric codes.")
+    private String referenceCode;
 
     @ManyToMany
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)

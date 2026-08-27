@@ -195,6 +195,14 @@ function WorkOrders() {
   const [openAddModal, setOpenAddModal] = useState<boolean>(false);
   const [openUpdateModal, setOpenUpdateModal] = useState<boolean>(false);
   const [openDrawer, setOpenDrawer] = useState<boolean>(false);
+  // Incrementada so' numa transicao real de fechado->aberto do Drawer de
+  // detalhes (ver handleOpenDrawer) - usada como key pra forcar uma
+  // instancia nova do MUI Drawer nesse caso especifico, contornando um bug
+  // real e reproduzivel do Slide/Modal do MUI (fica preso fora da viewport
+  // ao reabrir reaproveitando a mesma instancia logo apos fechar). Trocar de
+  // OS com o drawer ja aberto NAO incrementa isso - continua so' atualizando
+  // o conteudo da mesma instancia, sem remount.
+  const [drawerInstanceKey, setDrawerInstanceKey] = useState(0);
   const [openFilterDrawer, setOpenFilterDrawer] = useState<boolean>(false);
   const { setTitle } = useContext(TitleContext);
   const { workOrderId } = useParams();
@@ -238,9 +246,6 @@ function WorkOrders() {
   const assetParamObject = assetInfos[assetParam]?.asset;
   const tasks = tasksByWorkOrder[currentWorkOrder?.id] ?? [];
   const tasksLoading = !!loadingTasks[currentWorkOrder?.id];
-  const [openDrawerFromUrl, setOpenDrawerFromUrl] = useState<boolean>(false);
-  const [openDrawerForSingleWO, setOpenDrawerForSingleWO] =
-    useState<boolean>(false);
 
   // Use the table state hook for TanStack Table
   const initialCriteria: SearchCriteria = {
@@ -351,6 +356,18 @@ function WorkOrders() {
       'WorkOrder details',
       `/app/work-orders/${workOrder.id}`
     );
+    // So incrementa a key do Drawer numa transicao real de FECHADO pra
+    // ABERTO (nunca ao trocar de OS com o drawer ja aberto, que continua
+    // atualizando o conteudo da mesma instancia sem remount). Fechar e
+    // reabrir em sequencia rapida (ex.: fechar uma OS e clicar em outra logo
+    // em seguida) e' um bug real e reproduzivel do MUI Slide/Modal - o
+    // Drawer as vezes fica preso fora da viewport ao reabrir reaproveitando
+    // a mesma instancia. Isolado da correcao da corrida de estado
+    // (deep-link vs lista) - so' entra em cena depois que aquela corrida ja
+    // nao existe mais.
+    if (!openDrawer) {
+      setDrawerInstanceKey((key) => key + 1);
+    }
     setOpenDrawer(true);
   };
 
@@ -361,15 +378,17 @@ function WorkOrders() {
     if (foundWorkOrder) {
       handleOpenDrawer(foundWorkOrder);
     } else {
-      setOpenDrawerFromUrl(false);
-      setOpenDrawerForSingleWO(true);
-      dispatch(getSingleWorkOrder(id));
+      // Nao esta na pagina atual da tabela (ex.: evento do board/calendario
+      // fora do criteria carregado) - navega pra URL da OS em vez de
+      // duplicar aqui a logica de "buscar e abrir". O efeito de deep-link
+      // abaixo (unica fonte autoritativa pra abrir a partir do GET
+      // individual) reage a workOrderId e cuida do resto.
+      navigate(`/app/work-orders/${id}`);
     }
   };
   const handleCloseDetails = () => {
     window.history.replaceState(null, 'WorkOrder', `/app/work-orders`);
     setOpenDrawer(false);
-    setOpenDrawerForSingleWO(false);
     // No WO is open anymore - a refresh response that's still in flight for
     // whatever was open should not resurrect it into currentWorkOrder.
     currentWorkOrderIdRef.current = undefined;
@@ -415,32 +434,44 @@ function WorkOrders() {
       pageNum: 0
     });
   };
+  // Deep-link (workOrderId na URL) - FONTE UNICA e autoritativa pra abrir o
+  // Drawer via URL direta/F5. So' usa o GET individual (getSingleWorkOrder) -
+  // nunca workOrders.content (lista, que carrega em paralelo so' pra
+  // preencher a tabela por tras do drawer). As duas fontes competindo pela
+  // mesma decisao era exatamente a corrida que deixava o Drawer preso fora
+  // da viewport (MUI Slide recebendo `open=true` em momentos inconsistentes
+  // conforme qual request vencia). Um clique na listagem (handleOpenDetails/
+  // handleOpenDrawer) continua abrindo imediatamente com a linha ja
+  // disponivel - fluxo separado, nao passa por aqui enquanto o WO ja estiver
+  // em workOrders.content.
   useEffect(() => {
-    if (workOrderId && isNumeric(workOrderId)) {
-      setOpenDrawerForSingleWO(true);
-      dispatch(getSingleWorkOrder(Number(workOrderId)));
+    if (!workOrderId || !isNumeric(workOrderId)) return;
+    const id = Number(workOrderId);
+    if (singleWorkOrder?.id === id) {
+      // Mesma funcao usada pelo clique na listagem - unico lugar que
+      // decide como abrir/remontar o Drawer (ver comentario em
+      // handleOpenDrawer sobre a key). window.history.replaceState la'
+      // dentro e' um no-op aqui (a URL ja e' esta mesma).
+      handleOpenDrawer(singleWorkOrder);
+    } else {
+      dispatch(getSingleWorkOrder(id));
     }
-  }, [workOrderId]);
+  }, [workOrderId, singleWorkOrder]);
 
-  //see changes in ui on edit
+  // Mantem o Drawer JA ABERTO sincronizado quando a lista atualiza (ex.: apos
+  // editar a OS em outro lugar, ou o refresh de 20s da tabela) - nunca abre o
+  // Drawer nem decide qual OS exibir, so' atualiza o conteudo se a OS ja em
+  // exibicao mudou na lista. Efeito deliberadamente separado do de deep-link
+  // acima, pra workOrders.content nunca participar da decisao de ABRIR.
   useEffect(() => {
-    if (singleWorkOrder || workOrders.content.length) {
-      const currentInContent = workOrders.content.find(
-        (workOrder) => workOrder.id === currentWorkOrder?.id
-      );
-      const updatedWorkOrder = openDrawerForSingleWO
-        ? singleWorkOrder ?? currentInContent
-        : currentInContent;
-      if (updatedWorkOrder) {
-        if (openDrawerFromUrl) {
-          setCurrentWorkOrder(updatedWorkOrder);
-        } else {
-          handleOpenDrawer(updatedWorkOrder);
-          setOpenDrawerFromUrl(true);
-        }
-      }
+    if (!openDrawer || !currentWorkOrder) return;
+    const updated = workOrders.content.find(
+      (workOrder) => workOrder.id === currentWorkOrder.id
+    );
+    if (updated) {
+      setCurrentWorkOrder(updated);
     }
-  }, [singleWorkOrder, workOrders.content]);
+  }, [workOrders.content]);
 
   useEffect(() => {
     if (!userSettings) {
@@ -1562,22 +1593,25 @@ function WorkOrders() {
         </React.Suspense>
       )}
       {renderWorkOrderUpdateModal()}
-      <Drawer
-        anchor="right"
-        open={openDrawer}
-        onClose={handleCloseDetails}
-        PaperProps={{
-          sx: { width: { xs: '90%', sm: '70%', md: '50%' } }
-        }}
-      >
-        <WorkOrderDetails
-          workOrder={currentWorkOrder}
-          onEdit={handleOpenUpdate}
-          tasks={tasks}
-          tasksLoading={tasksLoading}
-          onDelete={handleOpenDelete}
-        />
-      </Drawer>
+      {currentWorkOrder && (
+        <Drawer
+          key={drawerInstanceKey}
+          anchor="right"
+          open={openDrawer}
+          onClose={handleCloseDetails}
+          PaperProps={{
+            sx: { width: { xs: '90%', sm: '70%', md: '50%' } }
+          }}
+        >
+          <WorkOrderDetails
+            workOrder={currentWorkOrder}
+            onEdit={handleOpenUpdate}
+            tasks={tasks}
+            tasksLoading={tasksLoading}
+            onDelete={handleOpenDelete}
+          />
+        </Drawer>
+      )}
       <Drawer
         anchor="left"
         open={openFilterDrawer}

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+
+    <!-- Referencia Operacional (ID/PC) em Location - opcional, so'
+         apresentacao. Nunca reaproveita location.id nem customId (gerado
+         internamente). Sem UNIQUE (ainda nao sabemos se o mesmo codigo pode
+         se repetir entre Clientes diferentes) e sem migracao de dados
+         legados - prefixos "ID xxxx" digitados manualmente em name/address
+         em importacoes antigas (Auvo) permanecem como estao. -->
+    <changeSet id="20260827-01-add-location-reference" author="claude">
+        <sql>
+            ALTER TABLE location ADD COLUMN IF NOT EXISTS reference_type VARCHAR(32);
+            ALTER TABLE location ADD COLUMN IF NOT EXISTS reference_code VARCHAR(64);
+        </sql>
+        <rollback>
+            ALTER TABLE location DROP COLUMN IF EXISTS reference_type;
+            ALTER TABLE location DROP COLUMN IF EXISTS reference_code;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

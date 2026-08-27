@@ -6,6 +6,7 @@ import com.grash.model.Company;
 import com.grash.model.Customer;
 import com.grash.model.Location;
 import com.grash.model.abstracts.DateAudit;
+import com.grash.model.enums.LocationReferenceType;
 import com.grash.repository.LocationRepository;
 
 import jakarta.persistence.EntityManager;
@@ -70,6 +71,8 @@ class LocationTextSearchSpecificationIntegrationTest {
     private Customer paraibuna;
     private Location multiCustomerLocation;
     private Location ubsCentro;
+    private Location cameraComId;
+    private Location pontoDeColeta;
 
     @BeforeEach
     void setUp() {
@@ -96,6 +99,31 @@ class LocationTextSearchSpecificationIntegrationTest {
         ubsCentro.setCustomers(new ArrayList<>(List.of(santaBranca)));
         stampAudit(ubsCentro);
         em.persist(ubsCentro);
+
+        // Referencia Operacional (ID/PC) - uma Location com cada tipo, e as
+        // duas ja existentes (multiCustomerLocation/ubsCentro) permanecem
+        // SEM referencia (referenceType/referenceCode null) - cobre "Location
+        // sem referencia nao quebra a busca existente" junto com os testes
+        // ja existentes acima, que continuam passando inalterados.
+        cameraComId = new Location();
+        cameraComId.setName("Camera Praca Central");
+        cameraComId.setAddress("Praca Central, 1");
+        cameraComId.setCustomId("L000020");
+        cameraComId.setCompany(company);
+        cameraComId.setReferenceType(LocationReferenceType.ID);
+        cameraComId.setReferenceCode("15540");
+        stampAudit(cameraComId);
+        em.persist(cameraComId);
+
+        pontoDeColeta = new Location();
+        pontoDeColeta.setName("Ponto de Coleta Centro");
+        pontoDeColeta.setAddress("Rua da Coleta, 2");
+        pontoDeColeta.setCustomId("L000021");
+        pontoDeColeta.setCompany(company);
+        pontoDeColeta.setReferenceType(LocationReferenceType.PC);
+        pontoDeColeta.setReferenceCode("04");
+        stampAudit(pontoDeColeta);
+        em.persist(pontoDeColeta);
 
         em.flush();
         em.clear();
@@ -283,8 +311,9 @@ class LocationTextSearchSpecificationIntegrationTest {
         em.flush();
         em.clear();
 
-        // +2 das Locations criadas no setUp (multiCustomerLocation, ubsCentro).
-        long expectedTotal = totalToCreate + 2;
+        // +4 das Locations criadas no setUp (multiCustomerLocation, ubsCentro,
+        // cameraComId, pontoDeColeta).
+        long expectedTotal = totalToCreate + 4;
         assertTrue(withParentCount > 0, "sanity check: o cenario precisa incluir Locations com parentLocation");
 
         SpecificationBuilder<Location> builder = new SpecificationBuilder<>();
@@ -308,5 +337,84 @@ class LocationTextSearchSpecificationIntegrationTest {
         }
         assertEquals(expectedTotal, accumulated,
                 "a soma de todas as paginas precisa bater com totalElements - nada pode ser perdido nem duplicado");
+    }
+
+    // ===== Referencia Operacional (ID/PC) =====
+
+    // Busca SEM prefixo - "15540" sozinho encontra a Location pelo
+    // referenceCode puro (fallback de busca livre, novo predicado LIKE).
+    @Test
+    void searchByReferenceCodeWithoutPrefix_findsIt() {
+        Page<Location> page = search("15540");
+
+        assertEquals(List.of(cameraComId.getId()), page.getContent().stream().map(Location::getId).toList());
+    }
+
+    // Busca COM prefixo "ID " - vira busca estruturada (referenceType=ID AND
+    // referenceCode LIKE "15540"), nao um LIKE livre concatenando enum+string.
+    @Test
+    void searchByIdPrefix_findsOnlyMatchingType() {
+        Page<Location> page = search("ID 15540");
+
+        assertEquals(List.of(cameraComId.getId()), page.getContent().stream().map(Location::getId).toList());
+    }
+
+    // Busca COM prefixo "PC " - mesmo mecanismo, tipo diferente. Tambem
+    // confirma que "04" (zero a esquerda) e' preservado e casado literalmente.
+    @Test
+    void searchByPcPrefix_findsOnlyMatchingType() {
+        Page<Location> page = search("PC 04");
+
+        assertEquals(List.of(pontoDeColeta.getId()), page.getContent().stream().map(Location::getId).toList());
+    }
+
+    // Prefixo reconhecido mas tipo errado para o codigo buscado - "ID 04" nao
+    // pode encontrar a Location PC 04 (tipos diferentes, AND estrito).
+    @Test
+    void searchByPrefixWithWrongType_findsNothing() {
+        Page<Location> page = search("ID 04");
+
+        assertTrue(page.getContent().isEmpty());
+    }
+
+    // Prefixo case-insensitive - "id 15540" (minusculo) tambem encontra.
+    @Test
+    void searchByPrefixIsCaseInsensitive() {
+        Page<Location> page = search("id 15540");
+
+        assertEquals(List.of(cameraComId.getId()), page.getContent().stream().map(Location::getId).toList());
+    }
+
+    // CASO explicito: Location sem referencia nenhuma nao quebra a busca
+    // geral - buscar por um termo que so bate no nome de uma Location sem
+    // referencia continua funcionando exatamente como antes desta feature.
+    @Test
+    void locationWithoutReference_generalSearchStillWorks() {
+        Page<Location> page = search("UBS Centro");
+
+        assertEquals(List.of(ubsCentro.getId()), page.getContent().stream().map(Location::getId).toList());
+    }
+
+    // Round-trip de persistencia (nivel JPA/Hibernate, sem passar pelo
+    // LocationService.create/update) - confirma que o enum (STRING) e o
+    // varchar sao gravados e lidos de volta corretamente via H2 real.
+    @Test
+    void referenceFields_roundTripThroughPersistence() {
+        em.clear();
+        Location reloaded = em.find(Location.class, cameraComId.getId());
+
+        assertEquals(LocationReferenceType.ID, reloaded.getReferenceType());
+        assertEquals("15540", reloaded.getReferenceCode());
+    }
+
+    // Location sem referencia persiste/le null em ambos os campos, nao uma
+    // string vazia ou sentinela.
+    @Test
+    void locationWithoutReference_persistsNullFields() {
+        em.clear();
+        Location reloaded = em.find(Location.class, ubsCentro.getId());
+
+        assertNull(reloaded.getReferenceType());
+        assertNull(reloaded.getReferenceCode());
     }
 }

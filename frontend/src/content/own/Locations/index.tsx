@@ -1,47 +1,13 @@
 import { Helmet } from 'react-helmet-async';
-import {
-  Box,
-  Button,
-  Card,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Drawer,
-  IconButton,
-  Menu,
-  MenuItem,
-  Select,
-  Stack,
-  Tab,
-  Tabs,
-  TextField,
-  Tooltip,
-  Typography
-} from '@mui/material';
+import { Box, Card, Drawer } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { getCustomFieldsValues, IField } from '../type';
-import ReplayTwoToneIcon from '@mui/icons-material/ReplayTwoTone';
 import Location from '../../../models/owns/location';
 import * as React from 'react';
-import {
-  ChangeEvent,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState
-} from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { TitleContext } from '../../../contexts/TitleContext';
-import { addLocation, deleteLocation, editLocation } from '../../../slices/location';
+import { deleteLocation } from '../../../slices/location';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useDispatch, useSelector } from '../../../store';
-import DeleteTwoToneIcon from '@mui/icons-material/DeleteTwoTone';
-import EditTwoToneIcon from '@mui/icons-material/EditTwoTone';
-import AddTwoToneIcon from '@mui/icons-material/AddTwoTone';
-import Form from '../components/form';
-import * as Yup from 'yup';
 import { isNumeric } from '../../../utils/validators';
 import LocationDetails from './LocationDetails';
 import {
@@ -51,58 +17,24 @@ import {
   useSearchParams
 } from 'react-router-dom';
 import Map from '../components/Map';
-import { formatSelectMultiple } from '../../../utils/formatters';
 import { CustomSnackBarContext } from 'src/contexts/CustomSnackBarContext';
-import { CompanySettingsContext } from '../../../contexts/CompanySettingsContext';
 import useAuth from '../../../hooks/useAuth';
 import { PermissionEntity } from '../../../models/owns/role';
 import PermissionErrorMessage from '../components/PermissionErrorMessage';
-import { handleFileUpload, getImageAndFiles } from '../../../utils/overall';
 import { getLocationUrl } from '../../../utils/urlPaths';
-import { useExport } from '../../../hooks/useExport';
-import MoreVertTwoToneIcon from '@mui/icons-material/MoreVertTwoTone';
-import { PlanFeature } from '../../../models/owns/subscriptionPlan';
-import { Page, Pageable, SearchCriteria, Sort } from '../../../models/owns/page';
 import { googleMapsConfig } from '../../../config';
-import { ERIONE_HIDDEN_MODULES } from '../../../config/erioneModules';
 import { getErrorMessage } from '../../../utils/api';
-import SplitButton from '../components/SplitButton';
-import CustomDatagrid2, {
-  CustomDatagridColumn2
-} from '../components/CustomDatagrid2';
-import {
-  createColumnHelper,
-  SortingState,
-  Updater
-} from '@tanstack/react-table';
-import useTableState from '../../../hooks/useTableState';
-import SearchTwoToneIcon from '@mui/icons-material/SearchTwoTone';
-import InputAdornment from '@mui/material/InputAdornment';
-import SearchInput from '../components/SearchInput';
 import { getCustomFields } from '../../../slices/customField';
-import { CustomFieldEntityType } from '../../../models/owns/customField';
-import { getCustomFieldsIFields, getCustomFieldsRequiredShape } from '../type';
-import { formatCustomFields } from '../../../utils/formatters';
 import api from '../../../utils/api';
-import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
-import OpenInNewTwoToneIcon from '@mui/icons-material/OpenInNewTwoTone';
-import ClearTwoToneIcon from '@mui/icons-material/ClearTwoTone';
 import { getCustomersMini } from '../../../slices/customer';
-import { CustomerMiniDTO } from '../../../models/owns/customer';
 import {
   CreateWorkOrderCustomerDialog,
   useLocationWorkOrderCreation
 } from './locationWorkOrderCreation';
-import {
-  getLocationDisplayAddress,
-  getLocationIdentification
-} from '../../../utils/locationDisplay';
-import NumberedPagination from '../components/NumberedPagination';
-
-// Precisa ser uma das opcoes de CustomDatagrid2 pageSizeOptions ([10,25,50,100])
-// - um valor fora dessa lista (era 40) faz o MUI Select "Linhas por pagina"
-// nao achar nenhum item correspondente e renderizar vazio (bug reportado).
-const HIERARCHY_ZERO_PAGE_SIZE = 10;
+import LocationsToolbar from './components/LocationsToolbar';
+import LocationsTable from './components/LocationsTable';
+import LocationFormDialog from './components/LocationFormDialog';
+import useLocationsSearch from './hooks/useLocationsSearch';
 
 function Locations() {
   const { t }: { t: any } = useTranslation();
@@ -114,72 +46,51 @@ function Locations() {
   const [openDelete, setOpenDelete] = useState<boolean>(false);
   const { apiKey } = googleMapsConfig;
 
-  const [searchResults, setSearchResults] = useState<Location[]>([]);
-  const [searchTotal, setSearchTotal] = useState(0);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [mapLocations, setMapLocations] = useState<Location[]>([]);
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>();
   const { customFields } = useSelector((state) => state.customFields);
   const { customersMini } = useSelector((state) => state.customers);
-  // Filtro explicito de Cliente (Location.customers, AND com a busca
-  // textual) - null = "Todos os clientes".
-  const [customerFilter, setCustomerFilter] = useState<CustomerMiniDTO | null>(
-    null
-  );
 
-  const { exportEntity, loadingExport } = useExport();
-  const tabs = [
-    { value: 'list', label: t('list_view') },
-    ...(apiKey ? [{ value: 'map', label: t('map_view') }] : [])
-  ];
-  const handleTabsChange = (_event: ChangeEvent<{}>, value: string): void => {
-    setCurrentTab(value);
-  };
   const [openAddModal, setOpenAddModal] = useState<boolean>(false);
   const [openUpdateModal, setOpenUpdateModal] = useState<boolean>(false);
   const [openDrawer, setOpenDrawer] = useState<boolean>(false);
   const { setTitle } = useContext(TitleContext);
   const { locationId } = useParams();
-  const { uploadFiles } = useContext(CompanySettingsContext);
-  const {
-    hasViewPermission,
-    hasViewOtherPermission,
-    hasEditPermission,
-    hasCreatePermission,
-    hasDeletePermission,
-    hasFeature
-  } = useAuth();
+  const { hasViewPermission, hasCreatePermission } = useAuth();
   const [currentLocation, setCurrentLocation] = useState<Location>();
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const openMenu = Boolean(anchorEl);
   const navigate = useNavigate();
-  const [pageable, setPageable] = useState<Pageable>({
-    page: 0,
-    size: HIERARCHY_ZERO_PAGE_SIZE
-  });
-  const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Sorting da lista - sempre a mesma lista flat paginada pelo backend
-  // (POST locations/search), com ou sem busca/filtro de Cliente. A tela
+  // Busca/listagem (server-side, real paginacao) - "Cliente: Todos" +
+  // busca vazia significa literalmente todos os locais acessiveis. A tela
   // "hierarquica" (GET locations/children/0, so' locais raiz) foi retirada:
   // ela tratava "Cliente: Todos" como "so' locais sem parentLocation", o
   // que em producao (onde a maioria/todos os locais tem parentLocation)
   // fazia a tela mostrar "0 locais encontrados" mesmo com centenas de
-  // locais reais cadastrados. "Cliente: Todos" agora significa
-  // literalmente todos os locais acessiveis, paginados de verdade.
-  const [sorting, setSortingState] = useState<SortingState>([]);
+  // locais reais cadastrados.
+  const {
+    searchQuery,
+    customerFilter,
+    pageable,
+    sorting,
+    searchResults,
+    searchTotal,
+    searchLoading,
+    hasBothFilters,
+    fetchSearchResults,
+    handleReset,
+    handleSearchQueryChange,
+    handleSearchClear,
+    handleCustomerFilterChange,
+    handleClearCustomerFilter,
+    handleClearFilters,
+    handlePaginationChange,
+    handleNumberedPageChange,
+    handleSortingChange
+  } = useLocationsSearch();
+
   // State for pre-filling location name from query params
   const [initialLocationName, setInitialLocationName] = useState<string>('');
   const [returnPath, setReturnPath] = useState<string>('');
   const [returnField, setReturnField] = useState<string>('');
-
-  // Field mapping for sorting
-  const fieldMapping: Record<string, string> = {
-    customId: 'customId',
-    name: 'name',
-    address: 'address',
-    createdAt: 'createdAt'
-  };
 
   // Regra multi-Customer (nunca customers[0] silencioso) extraida em hook
   // compartilhado - reutilizada tambem em Locations/Show/index.tsx (Stage 3).
@@ -192,19 +103,6 @@ function Locations() {
     cancel: cancelCreateWorkOrder
   } = useLocationWorkOrderCreation();
 
-  // Table state for column state persistence
-  const tableState = useTableState({
-    prefix: 'locations',
-    fieldMapping,
-    initialPagination: { pageIndex: 0, pageSize: HIERARCHY_ZERO_PAGE_SIZE }
-  });
-
-  const handleOpenMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-  const handleCloseMenu = () => {
-    setAnchorEl(null);
-  };
   const handleOpenUpdate = () => {
     setOpenUpdateModal(true);
   };
@@ -227,6 +125,15 @@ function Locations() {
     setOpenAddModal(false);
     setInitialLocationName('');
     showSnackBar(t('location_create_success'), 'success');
+    // Recarrega a lista atual (mesma busca/filtro/pagina) pra refletir o
+    // novo local - nao ha mais arvore de hierarquia pra atualizar
+    // incrementalmente.
+    fetchSearchResults(
+      searchQuery,
+      customerFilter?.id,
+      pageable.page,
+      pageable.size
+    );
 
     if (returnField && createdLocation) {
       // Navigate back to the return path with query params
@@ -264,54 +171,6 @@ function Locations() {
     window.history.replaceState(null, 'Location', `/app/locations`);
     setOpenDrawer(false);
   };
-  // Busca DB-side (SearchCriteria.search - name/address/customId/customer.name
-  // via EXISTS, ver LocationService.textSearchSpecification) + filtro
-  // explicito de Cliente (customers/inm, AND com a busca) - nunca filtro no
-  // browser. totalElements sempre vem de response.totalElements, nunca de
-  // content.length.
-  const fetchSearchResults = useCallback(
-    async (
-      query: string,
-      customerId: number | undefined,
-      pageIdx: number,
-      pageSz: number
-    ) => {
-      if (!hasViewPermission(PermissionEntity.LOCATIONS)) return;
-      setSearchLoading(true);
-      try {
-        const criteria: SearchCriteria = {
-          filterFields: customerId
-            ? [
-                {
-                  field: 'customers',
-                  operation: 'inm',
-                  joinType: 'LEFT',
-                  value: '',
-                  values: [customerId]
-                }
-              ]
-            : [],
-          search: query || undefined,
-          pageNum: pageIdx,
-          pageSize: pageSz,
-          sortField: 'name',
-          direction: 'ASC'
-        };
-        const response = await api.post<Page<Location>>(
-          'locations/search',
-          criteria
-        );
-        setSearchResults(response.content);
-        setSearchTotal(response.totalElements);
-      } catch {
-        setSearchResults([]);
-        setSearchTotal(0);
-      }
-      setSearchLoading(false);
-    },
-    [hasViewPermission]
-  );
-
   useEffect(() => {
     setTitle(t('locations_web_page_title', 'Endereços'));
   }, []);
@@ -321,30 +180,6 @@ function Locations() {
       dispatch(getCustomersMini());
     }
   }, []);
-
-  // Busca/lista sempre via POST locations/search (server-side, real
-  // paginacao) - "Cliente: Todos" + busca vazia significa literalmente
-  // todos os locais acessiveis (filterFields=[], search=undefined), nao
-  // "so' locais raiz" como a antiga tela hierarquica assumia.
-  useEffect(() => {
-    if (!hasViewPermission(PermissionEntity.LOCATIONS)) return;
-    if (searchDebounceRef.current) {
-      clearTimeout(searchDebounceRef.current);
-    }
-    searchDebounceRef.current = setTimeout(() => {
-      fetchSearchResults(
-        searchQuery,
-        customerFilter?.id,
-        pageable.page,
-        pageable.size
-      );
-    }, 250);
-    return () => {
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current);
-      }
-    };
-  }, [fetchSearchResults, hasViewPermission, pageable, searchQuery, customerFilter]);
 
   useEffect(() => {
     if (!hasViewPermission(PermissionEntity.LOCATIONS) || !apiKey) return;
@@ -385,743 +220,12 @@ function Locations() {
     }
   }, [openAddModal, openUpdateModal]);
 
-  const formatValues = (values) => {
-    const newValues = { ...values };
-    newValues.customers = formatSelectMultiple(newValues.customers);
-    newValues.vendors = formatSelectMultiple(newValues.vendors);
-    // parentLocation/workers/teams nao fazem mais parte deste formulario
-    // (reforma do modal de Endereco) - nao processar/reenviar esses campos
-    // aqui, pra nao sobrescrever com vazio/null associacoes que um endereco
-    // ja tenha. O values object tambem nao os inclui mais (ver
-    // renderLocationUpdateModal).
-    const latitude =
-      newValues.latitude !== undefined &&
-      newValues.latitude !== null &&
-      newValues.latitude !== ''
-        ? Number(newValues.latitude)
-        : newValues.coordinates?.lat;
-    const longitude =
-      newValues.longitude !== undefined &&
-      newValues.longitude !== null &&
-      newValues.longitude !== ''
-        ? Number(newValues.longitude)
-        : newValues.coordinates?.lng;
-    newValues.latitude = latitude ?? null;
-    newValues.longitude = longitude ?? null;
-    return formatCustomFields(newValues);
-  };
-
-  // Menu "..." por linha (kebab). Usa anchorPosition (coordenadas de tela
-  // capturadas no clique) em vez de anchorEl (referencia ao no do DOM) -
-  // anchorEl abria o menu em (0,0)/canto superior esquerdo, pois qualquer
-  // re-render do Locations entre o clique e o efeito de posicionamento do
-  // Popover (ex.: o proprio setState do clique, que recria "columns" e
-  // reconstroi as celulas da tabela) trocava o IconButton clicado por uma
-  // nova instancia do DOM, deixando a referencia antiga desconectada
-  // (getBoundingClientRect() de um no desconectado retorna tudo zero, que e'
-  // exatamente o fallback top:16/left:16 do MUI Popover). Coordenadas de
-  // tela nao dependem do no do DOM continuar montado, entao o problema nao
-  // se repete. Um state por clique (nao um Map por linha) e' suficiente pois
-  // so um menu de linha pode estar aberto por vez.
-  const [rowMenuAnchor, setRowMenuAnchor] = useState<{
-    top: number;
-    left: number;
-    location: Location;
-  } | null>(null);
-
-  const columnHelper = createColumnHelper<Location>();
-
-  // "Prefeitura de Santa Branca +1" com tooltip listando todos - nunca
-  // esconder silenciosamente Customers alem do primeiro (cenario real: 1
-  // Location no DEV2 tem 2 Customers).
-  const renderCustomersCell = (customers: CustomerMiniDTO[] | undefined) => {
-    if (!customers || customers.length === 0) {
-      return (
-        <Typography variant="body2" color="text.secondary">
-          --
-        </Typography>
-      );
-    }
-    const [first, ...rest] = customers;
-    // Cliente nao deve ser cortado agressivamente - ate 2 linhas de wrap
-    // antes de truncar (line-clamp), em vez de noWrap+ellipsis numa linha so'.
-    const nameSx = {
-      display: '-webkit-box',
-      WebkitLineClamp: 2,
-      WebkitBoxOrient: 'vertical',
-      overflow: 'hidden',
-      whiteSpace: 'normal',
-      wordBreak: 'break-word'
-    } as const;
-    if (rest.length === 0) {
-      return (
-        <Typography variant="body2" sx={nameSx}>
-          {first.name}
-        </Typography>
-      );
-    }
-    return (
-      <Tooltip
-        title={customers.map((customer) => customer.name).join(', ')}
-        arrow
-      >
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
-          <Typography variant="body2" sx={nameSx}>
-            {first.name}
-          </Typography>
-          <Chip
-            label={`+${rest.length}`}
-            size="small"
-            sx={{ height: 20, fontSize: 11, fontWeight: 700, flexShrink: 0 }}
-          />
-        </Box>
-      </Tooltip>
-    );
-  };
-
-  // Distribuicao proporcional (% da tabela, nao px) - ver CustomDatagrid2
-  // meta.widthPercent. Sem coluna ID (Location nao tem campo de negocio "ID"
-  // proprio - Cliente/Endereco ocupam o espaco que antes era dividido com ela.
-  const customersWidthPercent = 25;
-  const addressWidthPercent = 64;
-  const actionsWidthPercent = 11;
-
-  const columns: CustomDatagridColumn2<Location>[] = [
-    columnHelper.accessor((row) => row.customers, {
-      id: 'customers',
-      header: () => t('customer'),
-      cell: (info) => renderCustomersCell(info.getValue() as CustomerMiniDTO[]),
-      meta: { widthPercent: customersWidthPercent, minWidthPx: 160 }
-    }),
-    columnHelper.accessor('address', {
-      id: 'address',
-      header: () => t('address'),
-      cell: (info) => {
-        const currentLocationRow = info.row.original;
-        const displayAddress = getLocationDisplayAddress(currentLocationRow);
-        const identification = getLocationIdentification(currentLocationRow);
-        return (
-          <Tooltip title={t('open_location', 'Abrir endereço')}>
-            <Box
-              sx={{
-                cursor: 'pointer',
-                width: 'fit-content',
-                maxWidth: '100%'
-              }}
-            >
-              <Typography
-                variant="body2"
-                fontWeight={700}
-                noWrap
-                sx={{
-                  lineHeight: 1.5,
-                  transition:
-                    'color 120ms ease, text-decoration-color 120ms ease',
-                  '&:hover': {
-                    color: 'primary.main',
-                    textDecoration: 'underline',
-                    textUnderlineOffset: '3px'
-                  }
-                }}
-              >
-                {identification || displayAddress || '--'}
-              </Typography>
-              {!!displayAddress && displayAddress !== identification && (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  noWrap
-                  sx={{ lineHeight: 1.5, display: 'block', mt: 0.25 }}
-                >
-                  {displayAddress}
-                </Typography>
-              )}
-            </Box>
-          </Tooltip>
-        );
-      },
-      meta: { widthPercent: addressWidthPercent, minWidthPx: 260 }
-    }),
-    columnHelper.display({
-      id: 'actions',
-      header: () => t('actions'),
-      cell: ({ row }) => {
-        const location = row.original;
-        // No maximo 2 acoes principais visiveis (Abrir + Criar OS) - Editar
-        // e Excluir vao para o menu "..." (kebab), e Excluir nunca aparece
-        // como icone vermelho direto na linha.
-        const canEdit = hasEditPermission(PermissionEntity.LOCATIONS, location);
-        const canDelete = hasDeletePermission(
-          PermissionEntity.LOCATIONS,
-          location
-        );
-        return (
-          <Stack direction="row" spacing={0.5} alignItems="center">
-            <Tooltip title={t('view_location', 'Ver local')}>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(getLocationUrl(Number(location.id)));
-                }}
-              >
-                <OpenInNewTwoToneIcon fontSize="small" color="primary" />
-              </IconButton>
-            </Tooltip>
-            {hasCreatePermission(PermissionEntity.WORK_ORDERS) && (
-              <Tooltip
-                title={t('create_wo_for_location', 'Criar OS neste local')}
-              >
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCreateWorkOrder(location);
-                  }}
-                >
-                  <AssignmentTwoToneIcon fontSize="small" color="primary" />
-                </IconButton>
-              </Tooltip>
-            )}
-            {(canEdit || canDelete) && (
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // Captura a posicao de tela do botao AGORA (sincrono, antes
-                  // de qualquer re-render) - ver comentario acima de
-                  // rowMenuAnchor sobre por que anchorEl nao e' confiavel aqui.
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setRowMenuAnchor({
-                    top: rect.bottom,
-                    left: rect.right,
-                    location
-                  });
-                }}
-              >
-                <MoreVertTwoToneIcon fontSize="small" />
-              </IconButton>
-            )}
-          </Stack>
-        );
-      },
-      meta: { widthPercent: actionsWidthPercent, minWidthPx: 96 }
-    })
-  ];
-  const fields: Array<IField> = [
-    {
-      name: 'customers',
-      multiple: true,
-      type: 'select',
-      type2: 'customer',
-      label: t('customers'),
-      placeholder: 'Select customers'
-    },
-    // Semantica visual apenas - Location.name continua sendo o campo gravado
-    // (backend/DB seguem exigindo @NotNull, nao alterado nesta etapa). O
-    // usuario nunca ve "nome do local"; ve "Identificação", que e' como ele
-    // reconhece o ponto de atendimento (ex.: "Mercado Municipal").
-    {
-      name: 'name',
-      type: 'text',
-      label: t('location_identification_label', 'Identificação'),
-      placeholder: t(
-        'location_identification_placeholder',
-        'Ex.: Mercado Municipal, Pronto Socorro, CAC'
-      ),
-      helperText: t(
-        'location_identification_helper',
-        'Como esse endereço é reconhecido no dia a dia.'
-      ),
-      required: true
-    },
-    {
-      name: 'address',
-      type: 'text',
-      label: t('address'),
-      placeholder: '13th St, New York'
-    },
-    // Erione nao usa Fornecedores/Vendors na operacao atual -
-    // ERIONE_HIDDEN_MODULES.vendors ja e' o padrao usado em toda a app pra
-    // ocultar o modulo sem tocar backend/entidade/relacionamentos (nao
-    // relacionado a' remocao de Localizacao Pai/Trabalhadores/Equipes abaixo).
-    ...(!ERIONE_HIDDEN_MODULES.vendors
-      ? ([
-          {
-            name: 'vendors',
-            multiple: true,
-            type: 'select',
-            type2: 'vendor',
-            label: t('vendors'),
-            placeholder: 'Select vendors'
-          }
-        ] as IField[])
-      : []),
-    // Secao secundaria - Coordenadas (opcional, so' latitude/longitude com
-    // placeholders curtos; sem paragrafo explicativo grande). Localizacao
-    // Pai/Trabalhadores/Equipes saem deste formulario de Endereco (reforma do
-    // modal - Location.name/address/customId/backend continuam intocados,
-    // so' esses 3 campos saem da UI e do payload).
-    {
-      name: 'manualCoordinatesTitle',
-      type: 'titleGroupField',
-      label: t('coordinates', 'Coordenadas')
-    },
-    {
-      name: 'latitude',
-      type: 'number',
-      label: t('latitude'),
-      placeholder: '-22.962065',
-      midWidth: true
-    },
-    {
-      name: 'longitude',
-      type: 'number',
-      label: t('longitude'),
-      placeholder: '-45.552194',
-      midWidth: true
-    },
-    ...(apiKey
-      ? ([
-          {
-            name: 'mapSwitch',
-            type: 'checkbox',
-            label: t('put_location_in_map'),
-            relatedFields: [
-              { field: 'mapTitle', value: false, hide: true },
-              { field: 'coordinates', value: false, hide: true }
-            ]
-          },
-          {
-            name: 'mapTitle',
-            type: 'titleGroupField',
-            label: t('map_coordinates')
-          },
-          {
-            name: 'coordinates',
-            type: 'coordinates',
-            label: t('map_coordinates')
-          }
-        ] as IField[])
-      : []),
-    // Secao secundaria - Anexos. "Foto do endereco" e "Anexos" ficam
-    // separados (Location.image e' um unico arquivo/capa, Location.files e'
-    // uma lista - payloads diferentes, nao dá pra unificar sem mudar o
-    // contrato). Variante 'light' + hideDescription/ctaText deixam a UI mais
-    // enxuta (sem o paragrafo "Arraste um arquivo aqui" grande).
-    {
-      name: 'image',
-      type: 'file',
-      fileType: 'image',
-      fileVariant: 'light',
-      fileHideDescription: true,
-      fileCtaText: t('locations_add_photo_button', 'Adicionar foto'),
-      label: t('locations_photo_label', 'Foto do endereço')
-    },
-    {
-      name: 'files',
-      type: 'file',
-      multiple: true,
-      fileType: 'file',
-      fileVariant: 'light',
-      fileHideDescription: true,
-      fileCtaText: t('locations_add_files_button', 'Adicionar arquivos'),
-      label: t('locations_attachments_label', 'Anexos')
-    },
-    ...getCustomFieldsIFields(customFields, CustomFieldEntityType.LOCATION)
-  ];
-
-  const getEditFields = () => {
-    const fieldsClone = [...fields];
-    return fieldsClone;
-  };
-  const handleReset = () => {
-    fetchSearchResults(searchQuery, customerFilter?.id, pageable.page, pageable.size);
-  };
-  const shape = {
-    name: Yup.string().required(t('required_location_name')),
-    latitude: Yup.number()
-      .nullable()
-      .transform((value, originalValue) =>
-        originalValue === '' || originalValue === null ? null : value
-      )
-      .min(-90, t('invalid_latitude'))
-      .max(90, t('invalid_latitude')),
-    longitude: Yup.number()
-      .nullable()
-      .transform((value, originalValue) =>
-        originalValue === '' || originalValue === null ? null : value
-      )
-      .min(-180, t('invalid_longitude'))
-      .max(180, t('invalid_longitude')),
-    ...getCustomFieldsRequiredShape(
-      customFields,
-      CustomFieldEntityType.LOCATION,
-      t
-    )
-  };
-
-  const renderLocationAddModal = () => (
-    <Dialog
-      fullWidth
-      maxWidth="sm"
-      open={openAddModal}
-      onClose={() => {
-        setOpenAddModal(false);
-        setInitialLocationName('');
-      }}
-    >
-      <DialogTitle
-        sx={{
-          p: 3
-        }}
-      >
-        <Typography variant="h4" gutterBottom>
-          {t('add_location')}
-        </Typography>
-        <Typography variant="subtitle2">
-          {t('add_location_description')}
-        </Typography>
-      </DialogTitle>
-      <DialogContent
-        dividers
-        sx={{
-          p: 3
-        }}
-      >
-        <Box>
-          <Form
-            fields={fields}
-            validation={Yup.object().shape(shape)}
-            values={initialLocationName ? { name: initialLocationName } : {}}
-            onChange={({ field, e }) => {}}
-            onSubmit={async (values) => {
-              let formattedValues = formatValues(values);
-              try {
-                const uploadedFiles = await uploadFiles(
-                  formattedValues.files,
-                  formattedValues.image
-                );
-
-                const imageAndFiles = getImageAndFiles(uploadedFiles);
-                formattedValues = {
-                  ...formattedValues,
-                  image: imageAndFiles.image,
-                  files: imageAndFiles.files
-                };
-
-                const createdLocation = await dispatch(
-                  addLocation(formattedValues)
-                );
-                onCreationSuccess(createdLocation);
-                // Recarrega a lista atual (mesma busca/filtro/pagina) pra
-                // refletir o novo local - nao ha mais arvore de hierarquia
-                // pra atualizar incrementalmente.
-                fetchSearchResults(
-                  searchQuery,
-                  customerFilter?.id,
-                  pageable.page,
-                  pageable.size
-                );
-                return createdLocation;
-              } catch (err) {
-                onCreationFailure(err);
-                throw err;
-              }
-            }}
-            renderActions={(formik) => (
-              <Stack
-                direction="row"
-                alignItems="center"
-                justifyContent="flex-end"
-                spacing={1}
-                width="100%"
-              >
-                <Button
-                  color="secondary"
-                  disabled={formik.isSubmitting}
-                  onClick={() => {
-                    setOpenAddModal(false);
-                    setInitialLocationName('');
-                  }}
-                >
-                  {t('cancel')}
-                </Button>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  onClick={() => formik.handleSubmit()}
-                  startIcon={
-                    formik.isSubmitting ? (
-                      <CircularProgress size="1rem" />
-                    ) : null
-                  }
-                  disabled={
-                    Boolean(formik.errors.submit) || formik.isSubmitting
-                  }
-                >
-                  {t('locations_save_button', 'Salvar endereço')}
-                </Button>
-              </Stack>
-            )}
-          />
-        </Box>
-      </DialogContent>
-    </Dialog>
-  );
-  const renderMenu = () => (
-    <Menu
-      id="basic-menu"
-      anchorEl={anchorEl}
-      open={openMenu}
-      onClose={handleCloseMenu}
-      MenuListProps={{
-        'aria-labelledby': 'basic-button'
-      }}
-    >
-      {hasViewOtherPermission(PermissionEntity.LOCATIONS) && (
-        <MenuItem
-          disabled={loadingExport['locations']}
-          onClick={async () => {
-            try {
-              await exportEntity('locations');
-            } catch (error) {
-              showSnackBar(t('Export failed'), 'error');
-            }
-          }}
-        >
-          <Stack spacing={2} direction="row">
-            {loadingExport['locations'] && <CircularProgress size="1rem" />}
-            <Typography>{t('to_export')}</Typography>
-          </Stack>
-        </MenuItem>
-      )}
-    </Menu>
-  );
-  const renderRowMenu = () => {
-    const rowLocation = rowMenuAnchor?.location;
-    const canEdit =
-      rowLocation && hasEditPermission(PermissionEntity.LOCATIONS, rowLocation);
-    const canDelete =
-      rowLocation &&
-      hasDeletePermission(PermissionEntity.LOCATIONS, rowLocation);
-    return (
-      <Menu
-        open={Boolean(rowMenuAnchor)}
-        onClose={() => setRowMenuAnchor(null)}
-        anchorReference="anchorPosition"
-        anchorPosition={
-          rowMenuAnchor
-            ? { top: rowMenuAnchor.top, left: rowMenuAnchor.left }
-            : undefined
-        }
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        {canEdit && (
-          <MenuItem
-            onClick={() => {
-              changeCurrentLocation(Number(rowLocation.id));
-              handleOpenUpdate();
-              setRowMenuAnchor(null);
-            }}
-          >
-            <EditTwoToneIcon fontSize="small" sx={{ mr: 1 }} color="primary" />
-            {t('edit')}
-          </MenuItem>
-        )}
-        {canDelete && (
-          <MenuItem
-            onClick={() => {
-              changeCurrentLocation(Number(rowLocation.id));
-              setOpenDelete(true);
-              setRowMenuAnchor(null);
-            }}
-          >
-            <DeleteTwoToneIcon fontSize="small" sx={{ mr: 1 }} color="error" />
-            {t('to_delete')}
-          </MenuItem>
-        )}
-      </Menu>
-    );
-  };
-  const renderLocationUpdateModal = () => (
-    <Dialog
-      fullWidth
-      maxWidth="sm"
-      open={openUpdateModal}
-      onClose={() => setOpenUpdateModal(false)}
-    >
-      <DialogTitle
-        sx={{
-          p: 3
-        }}
-      >
-        <Typography variant="h4" gutterBottom>
-          {t('edit_location')}
-        </Typography>
-        <Typography variant="subtitle2">
-          {t('edit_location_description')}
-        </Typography>
-      </DialogTitle>
-      <DialogContent
-        dividers
-        sx={{
-          p: 3
-        }}
-      >
-        <Box>
-          <Form
-            fields={getEditFields()}
-            validation={Yup.object().shape(shape)}
-            values={{
-              ...currentLocation,
-              // parentLocation/workers/teams nao fazem mais parte deste
-              // formulario - undefined aqui (em vez do valor cru vindo do
-              // "...currentLocation" acima) garante que formatValues() e o
-              // payload final NAO incluam essas chaves, entao o backend
-              // preserva as associacoes existentes em vez de zera-las.
-              parentLocation: undefined,
-              workers: undefined,
-              teams: undefined,
-              vendors: currentLocation?.vendors.map((vendor) => {
-                return {
-                  label: vendor.companyName,
-                  value: vendor.id
-                };
-              }),
-              customers: currentLocation?.customers.map((customer) => {
-                return {
-                  label: customer.name,
-                  value: customer.id
-                };
-              }),
-              latitude: currentLocation?.latitude,
-              longitude: currentLocation?.longitude,
-              coordinates: currentLocation?.longitude
-                ? {
-                    lng: currentLocation.longitude,
-                    lat: currentLocation.latitude
-                  }
-                : null,
-              ...getCustomFieldsValues(currentLocation)
-            }}
-            onChange={({ field, e }) => {}}
-            onSubmit={async (values) => {
-              let formattedValues = formatValues(values);
-              try {
-                const imageAndFiles = await handleFileUpload(
-                  {
-                    files: formattedValues.files,
-                    image: formattedValues.image
-                  },
-                  uploadFiles
-                );
-
-                formattedValues = {
-                  ...formattedValues,
-                  image: imageAndFiles.image,
-                  files: imageAndFiles.files
-                };
-
-                await dispatch(
-                  editLocation(currentLocation.id, formattedValues)
-                );
-                await onEditSuccess();
-              } catch (err) {
-                onEditFailure(err);
-                throw err;
-              }
-            }}
-            renderActions={(formik) => (
-              <Stack
-                direction="row"
-                alignItems="center"
-                justifyContent="flex-end"
-                spacing={1}
-                width="100%"
-              >
-                <Button
-                  color="secondary"
-                  disabled={formik.isSubmitting}
-                  onClick={() => setOpenUpdateModal(false)}
-                >
-                  {t('cancel')}
-                </Button>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  onClick={() => formik.handleSubmit()}
-                  startIcon={
-                    formik.isSubmitting ? (
-                      <CircularProgress size="1rem" />
-                    ) : null
-                  }
-                  disabled={
-                    Boolean(formik.errors.submit) || formik.isSubmitting
-                  }
-                >
-                  {t('locations_save_button', 'Salvar endereço')}
-                </Button>
-              </Stack>
-            )}
-          />
-        </Box>
-      </DialogContent>
-    </Dialog>
-  );
   // Lista sempre a flat paginada pelo backend (POST locations/search) -
   // totalElements sempre vem de response.totalElements (searchTotal),
   // nunca de content.length. "Cliente: Todos" + busca vazia = todos os
   // locais acessiveis, nao apenas locais raiz.
   const filteredTableData = searchResults;
   const resultsCount = searchTotal;
-  // "Limpar filtros" so' aparece quando os DOIS filtros estao ativos ao
-  // mesmo tempo - com so' um ativo, o "x" individual dele (campo de busca ou
-  // Select de cliente) ja resolve, e mostrar os dois seria redundante.
-  const hasBothFilters = Boolean(searchQuery.trim()) && Boolean(customerFilter);
-  const handleClearFilters = () => {
-    setSearchQuery('');
-    setCustomerFilter(null);
-    setPageable((prev) => ({ ...prev, page: 0 }));
-  };
-  const handlePaginationChange = (newPagination: {
-    pageIndex: number;
-    pageSize: number;
-  }) => {
-    setPageable((prev) => ({
-      ...prev,
-      page: newPagination.pageIndex,
-      size: newPagination.pageSize
-    }));
-  };
-
-  // Paginacao numerada (estilo referencia, componente compartilhado) -
-  // pageSize fixo em HIERARCHY_ZERO_PAGE_SIZE (10) nesta tela, sem seletor de
-  // linhas-por-pagina. Continua 100% server-side: so' muda pageable.page, que
-  // ja' dispara fetchSearchResults via o useEffect existente.
-  const handleNumberedPageClick = (pageIndex: number) => {
-    setPageable((prev) => ({ ...prev, page: pageIndex }));
-  };
-
-  const handleSortingChange = (newSorting: Updater<SortingState>) => {
-    const resolvedSorting: SortingState =
-      typeof newSorting === 'function' ? newSorting(sorting) : newSorting;
-    setSortingState(resolvedSorting);
-    const sortParams =
-      resolvedSorting.length > 0
-        ? resolvedSorting.map(
-            (sort) =>
-              `${fieldMapping[sort.id] || sort.id},${
-                sort.desc ? 'desc' : 'asc'
-              }` as Sort
-          )
-        : [];
-    setPageable((prev) => ({
-      ...prev,
-      sort: sortParams.length > 0 ? [...sortParams] : undefined
-    }));
-  };
 
   if (hasViewPermission(PermissionEntity.LOCATIONS))
     return (
@@ -1130,256 +234,46 @@ function Locations() {
           <title>{t('locations_web_page_title', 'Endereços')}</title>
         </Helmet>
         <Box justifyContent="center" alignItems="stretch" paddingX={4}>
-          <Box sx={{ mt: 0.5, mb: 1 }}>
-            <Typography variant="h4" fontWeight={800}>
-              {t('locations_web_page_title', 'Endereços')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t(
-                'locations_page_subtitle',
-                'Gerencie os endereços de atendimento dos clientes.'
-              )}
-            </Typography>
-          </Box>
-          <Box
-            mb={0.25}
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-          >
-            {tabs.length > 1 ? (
-              <Tabs
-                onChange={handleTabsChange}
-                value={currentTab}
-                variant="scrollable"
-                scrollButtons="auto"
-                textColor="primary"
-                indicatorColor="primary"
-                sx={{
-                  minHeight: 36,
-                  '& .MuiTab-root': { minHeight: 36, py: 0.5 }
-                }}
-              >
-                {tabs.map((tab) => (
-                  <Tab key={tab.value} label={tab.label} value={tab.value} />
-                ))}
-              </Tabs>
-            ) : (
-              <Box />
-            )}
-            <Stack direction={'row'} alignItems="center" spacing={1}>
-              <IconButton onClick={handleReset} color="primary" size="small">
-                <ReplayTwoToneIcon fontSize="small" />
-              </IconButton>
-              <IconButton onClick={handleOpenMenu} color="primary" size="small">
-                <MoreVertTwoToneIcon fontSize="small" />
-              </IconButton>
-            </Stack>
-          </Box>
+          <LocationsToolbar
+            currentTab={currentTab}
+            onTabsChange={setCurrentTab}
+            showMapTab={Boolean(apiKey)}
+            onRefresh={handleReset}
+            searchQuery={searchQuery}
+            onSearchQueryChange={handleSearchQueryChange}
+            onSearchClear={handleSearchClear}
+            customerFilter={customerFilter}
+            customersMini={customersMini}
+            onCustomerFilterChange={handleCustomerFilterChange}
+            onClearCustomerFilter={handleClearCustomerFilter}
+            hasBothFilters={hasBothFilters}
+            onClearFilters={handleClearFilters}
+            resultsCount={resultsCount}
+            onOpenAddModal={() => setOpenAddModal(true)}
+          />
           {currentTab === 'list' && (
-            <>
-              {/* Uma unica faixa horizontal: busca + filtro de cliente a
-                  esquerda, contador + botao "Novo endereco" a direita - sem
-                  quebrar em linhas separadas com espaco vazio entre elas. */}
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 1,
-                  mb: 1
-                }}
-              >
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    gap: 1
-                  }}
-                >
-                  <Box sx={{ minWidth: 240, width: 320 }}>
-                    <SearchInput
-                      fullWidth
-                      size="small"
-                      value={searchQuery}
-                      placeholder={t(
-                        'locations_search_placeholder',
-                        'Buscar por ID, endereço ou cliente...'
-                      )}
-                      onChange={(e) => {
-                        setPageable((prev) => ({ ...prev, page: 0 }));
-                        setSearchQuery(e.target.value);
-                      }}
-                      onClear={() => {
-                        setSearchQuery('');
-                        setPageable((prev) => ({ ...prev, page: 0 }));
-                      }}
-                    />
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Select
-                      size="small"
-                      displayEmpty
-                      value={customerFilter?.id ?? ''}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setPageable((prev) => ({ ...prev, page: 0 }));
-                        setCustomerFilter(
-                          value === ''
-                            ? null
-                            : customersMini.find(
-                                (c) => c.id === Number(value)
-                              ) || null
-                        );
-                      }}
-                      sx={{
-                        minWidth: 180,
-                        ...(customerFilter && {
-                          borderTopRightRadius: 0,
-                          borderBottomRightRadius: 0
-                        })
-                      }}
-                    >
-                      <MenuItem value="">
-                        {t('locations_all_customers', 'Cliente: Todos')}
-                      </MenuItem>
-                      {customersMini.map((customer) => (
-                        <MenuItem key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {customerFilter && (
-                      <Tooltip
-                        title={t(
-                          'clear_customer_filter',
-                          'Limpar filtro de cliente'
-                        )}
-                      >
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setCustomerFilter(null);
-                            setPageable((prev) => ({ ...prev, page: 0 }));
-                          }}
-                          sx={{
-                            ml: '1px',
-                            borderRadius: 1,
-                            borderTopLeftRadius: 0,
-                            borderBottomLeftRadius: 0,
-                            border: (theme) =>
-                              `1px solid ${theme.palette.divider}`,
-                            borderLeft: 'none',
-                            height: 40
-                          }}
-                        >
-                          <ClearTwoToneIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </Box>
-                  {hasBothFilters && (
-                    <Button
-                      size="small"
-                      color="inherit"
-                      sx={{ color: 'text.secondary' }}
-                      startIcon={<ClearTwoToneIcon fontSize="small" />}
-                      onClick={handleClearFilters}
-                    >
-                      {t('clear_filters', 'Limpar filtros')}
-                    </Button>
-                  )}
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ whiteSpace: 'nowrap' }}
-                  >
-                    {customerFilter ? `${customerFilter.name} · ` : ''}
-                    {t(
-                      'locations_results_count',
-                      '{{count}} endereços encontrados',
-                      { count: resultsCount }
-                    )}
-                  </Typography>
-                </Box>
-                {hasCreatePermission(PermissionEntity.LOCATIONS) && (
-                  <SplitButton
-                    onMainClick={() => setOpenAddModal(true)}
-                    startIcon={<AddTwoToneIcon />}
-                    label={t('locations_new_address_button', 'Novo endereço')}
-                    menuItems={
-                      hasViewPermission(PermissionEntity.SETTINGS) &&
-                      hasFeature(PlanFeature.IMPORT_CSV)
-                        ? [
-                            {
-                              label: t('to_import'),
-                              onClick: () =>
-                                navigate('/app/imports/locations')
-                            }
-                          ]
-                        : []
-                    }
-                  />
-                )}
-              </Box>
-              <Card
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  border: (theme) => `1px solid ${theme.palette.divider}`,
-                  borderRadius: 1.5,
-                  boxShadow: 'none'
-                }}
-              >
-                <CustomDatagrid2
-                  columns={columns}
-                  data={filteredTableData}
-                  loading={searchLoading}
-                  pagination={{
-                    pageIndex: pageable.page,
-                    pageSize: pageable.size
-                  }}
-                  onPaginationChange={handlePaginationChange}
-                  totalRows={resultsCount}
-                  sorting={sorting}
-                  onSortingChange={handleSortingChange}
-                  columnOrder={tableState.columnOrder}
-                  onColumnOrderChange={tableState.setColumnOrder}
-                  columnSizing={tableState.columnSizing}
-                  onColumnSizingChange={tableState.setColumnSizing}
-                  columnVisibility={tableState.columnVisibility}
-                  onColumnVisibilityChange={tableState.setColumnVisibility}
-                  pinnedColumns={tableState.pinnedColumns}
-                  onPinnedColumnsChange={tableState.setPinnedColumns}
-                  noRowsMessage={t('noRows.location.message')}
-                  noRowsAction={t('noRows.location.action')}
-                  onRowClick={(row) => {
-                    navigate(getLocationUrl(row.id));
-                  }}
-                  headerBackgroundColor="#F7F9FC"
-                  headerVariant="plain"
-                  rowCellPaddingY={14}
-                  headerCellPaddingY={10}
-                  rowCellPaddingYCompact={11}
-                  headerCellPaddingYCompact={8}
-                  compactViewportHeight={820}
-                  zebraStripe
-                  hidePagination
-                  disableInternalScroll
-                  fluidTableWidth
-                  enableColumnResizing={false}
-                />
-                <NumberedPagination
-                  pageIndex={pageable.page}
-                  pageSize={pageable.size}
-                  totalRows={resultsCount}
-                  onPageChange={handleNumberedPageClick}
-                />
-              </Card>
-            </>
+            <LocationsTable
+              data={filteredTableData}
+              loading={searchLoading}
+              pageable={pageable}
+              sorting={sorting}
+              totalRows={resultsCount}
+              onPaginationChange={handlePaginationChange}
+              onSortingChange={handleSortingChange}
+              onNumberedPageChange={handleNumberedPageChange}
+              onOpenLocation={(location) =>
+                navigate(getLocationUrl(Number(location.id)))
+              }
+              onCreateWorkOrder={handleCreateWorkOrder}
+              onEdit={(location) => {
+                changeCurrentLocation(Number(location.id));
+                handleOpenUpdate();
+              }}
+              onDelete={(location) => {
+                changeCurrentLocation(Number(location.id));
+                setOpenDelete(true);
+              }}
+            />
           )}
           {currentTab === 'map' && (
             <Card
@@ -1407,8 +301,27 @@ function Locations() {
             </Card>
           )}
         </Box>
-        {renderLocationAddModal()}
-        {renderLocationUpdateModal()}
+        <LocationFormDialog
+          mode="create"
+          open={openAddModal}
+          onClose={() => {
+            setOpenAddModal(false);
+            setInitialLocationName('');
+          }}
+          initialLocationName={initialLocationName}
+          customFields={customFields}
+          onCreateSuccess={onCreationSuccess}
+          onCreateFailure={onCreationFailure}
+        />
+        <LocationFormDialog
+          mode="edit"
+          open={openUpdateModal}
+          onClose={() => setOpenUpdateModal(false)}
+          currentLocation={currentLocation}
+          customFields={customFields}
+          onEditSuccess={onEditSuccess}
+          onEditFailure={onEditFailure}
+        />
         <Drawer
           anchor="right"
           open={openDrawer}
@@ -1432,8 +345,6 @@ function Locations() {
           confirmText={t('to_delete')}
           question={t('confirm_delete_location')}
         />
-        {renderMenu()}
-        {renderRowMenu()}
         <CreateWorkOrderCustomerDialog
           dialogLocation={createWoDialogLocation}
           selectedCustomerId={createWoSelectedCustomerId}

@@ -12,6 +12,7 @@ import com.grash.exception.CustomException;
 import com.grash.mapper.LocationMapper;
 import com.grash.model.*;
 import com.grash.model.enums.CustomFieldEntityType;
+import com.grash.model.enums.LocationReferenceType;
 import com.grash.model.enums.NotificationType;
 import com.grash.model.enums.webhook.WebhookEvent;
 import com.grash.repository.LocationRepository;
@@ -63,6 +64,7 @@ public class LocationService {
             }
         }
         location.setCustomId(getLocationNumber(company));
+        normalizeAndValidateNewReference(location);
 
         Location savedLocation = locationRepository.saveAndFlush(location);
         em.refresh(savedLocation);
@@ -81,8 +83,9 @@ public class LocationService {
             if (location.getCustomFields() != null && !location.getCustomFields().isEmpty()) {
                 setLocationCustomFields(savedLocation, location.getCustomFields(), company);
             }
-            Location patchedLocation = locationRepository.saveAndFlush(locationMapper.updateLocation(savedLocation,
-                    location));
+            Location mergedLocation = locationMapper.updateLocation(savedLocation, location);
+            applyReferencePatch(mergedLocation, location);
+            Location patchedLocation = locationRepository.saveAndFlush(mergedLocation);
             em.refresh(patchedLocation);
             return patchedLocation;
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
@@ -305,7 +308,15 @@ public class LocationService {
         if (search == null || search.isBlank()) {
             return null;
         }
-        String likePattern = "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
+        String trimmed = search.trim();
+
+        org.springframework.data.jpa.domain.Specification<Location> prefixSpec =
+                referencePrefixSearchSpecification(trimmed);
+        if (prefixSpec != null) {
+            return prefixSpec;
+        }
+
+        String likePattern = "%" + trimmed.toLowerCase(Locale.ROOT) + "%";
         return (root, query, cb) -> {
             jakarta.persistence.criteria.Predicate nameMatch =
                     cb.like(cb.lower(root.get("name")), likePattern);
@@ -313,6 +324,10 @@ public class LocationService {
                     cb.like(cb.lower(root.get("address")), likePattern);
             jakarta.persistence.criteria.Predicate customIdMatch =
                     cb.like(cb.lower(root.get("customId")), likePattern);
+            // Sem prefixo reconhecido - "15540" sozinho ainda encontra a
+            // Location pelo codigo puro, seja ela ID ou PC.
+            jakarta.persistence.criteria.Predicate referenceCodeMatch =
+                    cb.like(cb.lower(root.get("referenceCode")), likePattern);
 
             jakarta.persistence.criteria.Subquery<Long> customerSubquery = query.subquery(Long.class);
             jakarta.persistence.criteria.Root<Location> correlatedRoot = customerSubquery.correlate(root);
@@ -322,7 +337,7 @@ public class LocationService {
             customerSubquery.where(cb.like(cb.lower(customerJoin.get("name")), likePattern));
             jakarta.persistence.criteria.Predicate customerNameMatch = cb.exists(customerSubquery);
 
-            return cb.or(nameMatch, addressMatch, customIdMatch, customerNameMatch);
+            return cb.or(nameMatch, addressMatch, customIdMatch, referenceCodeMatch, customerNameMatch);
         };
     }
 
@@ -387,6 +402,115 @@ public class LocationService {
 
     public boolean hasChildren(Long locationId) {
         return locationRepository.countByParentLocation_Id(locationId) > 0;
+    }
+
+    // Referencia Operacional (ID/PC) - CREATE: um Location novo nao tem
+    // estado anterior pra preservar, entao a regra e' so' a invariante final
+    // (ambos preenchidos ou ambos ausentes) aplicada direto nos campos que
+    // vieram do LocationPostDTO (ja mapeados incondicionalmente por
+    // LocationMapper.fromPostDto - sem @Mapping(ignore) la, propositalmente,
+    // ja que create nao tem ambiguidade omitido-vs-limpeza).
+    private void normalizeAndValidateNewReference(Location location) {
+        String code = normalizeReferenceCode(location.getReferenceCode());
+        location.setReferenceCode(code);
+        if (!isValidReferenceState(location.getReferenceType(), code)) {
+            throw new CustomException(REFERENCE_INVALID_STATE_MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    // Referencia Operacional (ID/PC) - PATCH: referenceType/referenceCode sao
+    // ignorados pelo mapeamento automatico do MapStruct
+    // (@Mapping(target=..., ignore=true) em LocationMapper.updateLocation) e
+    // aplicados aqui manualmente, porque a semantica de "campo omitido"
+    // precisa ser DIFERENTE da dos demais campos escalares (que o MapStruct
+    // sobrescreve incondicionalmente, inclusive com null - ver name/address
+    // em LocationMapperImpl gerado). Um consumidor antigo que faz PATCH sem
+    // conhecer estes 2 campos manda ambos ausentes no JSON, que chegam como
+    // null no DTO - isso NUNCA pode apagar uma referencia ja existente.
+    //
+    // JSON nao distingue "chave ausente" de "chave enviada como null" (os
+    // dois viram null no DTO apos o Jackson) - a unica forma de expressar
+    // "limpar" sem introduzir JsonNullable/infraestrutura nova e' usar uma
+    // string vazia em referenceCode (que so' chega assim se for enviada de
+    // proposito) combinada com referenceType null:
+    //
+    //   referenceType=null, referenceCode=null  => nao informado, preserva
+    //   referenceType=null, referenceCode=""    => limpar os dois
+    //   referenceType=X,    referenceCode="abc" => define/altera para X/abc
+    //   qualquer outra combinacao parcial        => invalido (400)
+    private void applyReferencePatch(Location entity, LocationPatchDTO dto) {
+        LocationReferenceType type = dto.getReferenceType();
+        boolean typeOmitted = type == null;
+        boolean codeOmitted = dto.getReferenceCode() == null;
+
+        if (typeOmitted && codeOmitted) {
+            return; // nao informado - preserva a referencia existente do entity
+        }
+
+        String code = normalizeReferenceCode(dto.getReferenceCode());
+        boolean explicitClear = typeOmitted && !codeOmitted && code == null;
+        if (explicitClear) {
+            entity.setReferenceType(null);
+            entity.setReferenceCode(null);
+            return;
+        }
+
+        if (!isValidReferenceState(type, code)) {
+            throw new CustomException(REFERENCE_INVALID_STATE_MESSAGE, HttpStatus.BAD_REQUEST);
+        }
+        entity.setReferenceType(type);
+        entity.setReferenceCode(code);
+    }
+
+    private static final String REFERENCE_INVALID_STATE_MESSAGE =
+            "referenceType and referenceCode must be both provided or both empty";
+
+    // Trim + string vazia/so' espacos vira null - regra pura, reutilizada
+    // tanto pelo caminho de create (normalizeAndValidateNewReference) quanto
+    // pelo de patch (applyReferencePatch).
+    private static String normalizeReferenceCode(String code) {
+        if (code == null) return null;
+        String trimmed = code.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    // Invariante final da Referencia Operacional - regra pura reutilizada
+    // pelos dois fluxos (create/patch), cada um chegando ao (type, code) já
+    // normalizado por um caminho de decisao diferente.
+    private static boolean isValidReferenceState(LocationReferenceType type, String normalizedCode) {
+        return (type != null) == (normalizedCode != null);
+    }
+
+    // Busca textual livre - reconhece um prefixo explicito "ID " ou "PC "
+    // (case-insensitive) no INICIO do termo digitado e, quando presente,
+    // transforma a busca numa condicao estruturada (referenceType = X AND
+    // referenceCode LIKE resto) em vez de tentar casar o termo inteiro contra
+    // qualquer coluna. Isso evita depender de CONCAT entre enum e string no
+    // banco (pedido explicito) - a normalizacao acontece aqui, em Java, antes
+    // de montar a Specification. Sem prefixo reconhecido, o termo cai no
+    // fallback de busca livre (ver textSearchSpecification), que ja inclui
+    // referenceCode entre os campos comparados via LIKE simples - cobre o
+    // caso "15540" sem prefixo.
+    private static org.springframework.data.jpa.domain.Specification<Location> referencePrefixSearchSpecification(
+            String trimmedSearch) {
+        for (LocationReferenceType type : LocationReferenceType.values()) {
+            String prefix = type.name() + " ";
+            if (trimmedSearch.regionMatches(true, 0, prefix, 0, prefix.length())) {
+                String remainder = trimmedSearch.substring(prefix.length()).trim();
+                if (remainder.isEmpty()) {
+                    // "ID " ou "PC " sozinho, sem codigo depois - nao vira
+                    // busca estruturada, cai no fallback de busca livre com o
+                    // termo original (nao filtra por engano tudo do tipo).
+                    return null;
+                }
+                String codeLikePattern = "%" + remainder.toLowerCase(Locale.ROOT) + "%";
+                return (root, query, cb) -> cb.and(
+                        cb.equal(root.get("referenceType"), type),
+                        cb.like(cb.lower(root.get("referenceCode")), codeLikePattern)
+                );
+            }
+        }
+        return null;
     }
 }
 

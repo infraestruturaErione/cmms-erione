@@ -22,7 +22,7 @@ import CustomDatagrid2, { CustomDatagridColumn2 } from '../CustomDatagrid2';
 import SearchInput from '../SearchInput';
 import { normalizeSearchText } from '../../../../utils/formatters';
 import {
-  getLocationDisplayAddress,
+  getLocationAddressWithReference,
   getLocationIdentification
 } from '../../../../utils/locationDisplay';
 
@@ -235,7 +235,7 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
     columnHelper.display({
       id: 'address',
       header: () => t('address'),
-      cell: (info) => getLocationDisplayAddress(info.row.original) || '--',
+      cell: (info) => getLocationAddressWithReference(info.row.original) || '--',
       size: Number.MAX_SAFE_INTEGER
     })
   ];

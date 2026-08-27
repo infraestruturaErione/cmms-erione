@@ -15,6 +15,11 @@ export interface LocationDisplaySource {
   address?: string | null;
 }
 
+export interface LocationReferenceSource {
+  referenceType?: 'ID' | 'PC' | null;
+  referenceCode?: string | null;
+}
+
 // Casa "ID 1010", "ID: 1010", "ID-1010", "ID1027" etc. apenas no INICIO do
 // texto (com espacos opcionais antes) - usado so' para strip de prefixo
 // duplicado em getLocationIdentification/getLocationDisplayAddress, onde o
@@ -70,5 +75,53 @@ export const getLocationDisplayAddress = (
   }
 
   return withoutIdPrefix;
+};
+
+// Referencia Operacional (ID/PC) - unica fonte da regra "ID+codigo / PC+
+// codigo / sem referencia", pra nao espalhar if(referenceType === 'ID')
+// pelos componentes que mostram Location (tabela, autocomplete/preview de
+// OS, lupa). Helper interno privado, compartilhado pelas duas funcoes
+// publicas abaixo - decide SE existe uma referencia valida (type e code
+// trimado, ambos presentes - mesma regra do backend) e devolve as partes ja
+// normalizadas; cada funcao publica so' decide COMO formatar essas partes
+// pro seu proprio contexto.
+const getValidReference = (
+  location: LocationReferenceSource | null | undefined
+): { type: 'ID' | 'PC'; code: string } | null => {
+  const type = location?.referenceType;
+  const code = location?.referenceCode?.trim();
+  if (!type || !code) return null;
+  return { type, code };
+};
+
+// Coluna "ID / PC" da tabela de Enderecos.
+// referenceType=ID, referenceCode="15540" => "15540"
+// referenceType=PC, referenceCode="04"    => "PC 04"
+// sem referencia                          => null (quem renderiza decide o
+// placeholder visual, ex. "--" - este helper nunca devolve "--").
+export const getLocationReferenceLabel = (
+  location: LocationReferenceSource | null | undefined
+): string | null => {
+  const ref = getValidReference(location);
+  if (!ref) return null;
+  return ref.type === 'PC' ? `PC ${ref.code}` : ref.code;
+};
+
+// Segunda linha (endereco) na criacao de OS - prefixa a referencia quando
+// existir, sempre sobre o endereco ja normalizado por
+// getLocationDisplayAddress (nunca location.address cru), pra nao duplicar
+// um prefixo "ID xxxx" legado que ainda exista em dados antigos com o novo
+// prefixo estruturado.
+// referenceType=ID, referenceCode="15540" => "ID 15540 - <endereco>"
+// referenceType=PC, referenceCode="04"    => "PC 04 - <endereco>"
+// sem referencia                          => "<endereco>"
+export const getLocationAddressWithReference = (
+  location: (LocationDisplaySource & LocationReferenceSource) | null | undefined
+): string => {
+  const address = getLocationDisplayAddress(location);
+  const ref = getValidReference(location);
+  if (!ref) return address;
+  const prefix = `${ref.type} ${ref.code}`;
+  return address ? `${prefix} - ${address}` : prefix;
 };
 

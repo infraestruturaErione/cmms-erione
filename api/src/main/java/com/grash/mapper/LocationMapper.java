@@ -15,6 +15,15 @@ import org.mapstruct.*;
 @Mapper(componentModel = "spring", uses = {CustomerMapper.class, VendorMapper.class, UserMapper.class,
         TeamMapper.class, FileMapper.class, CustomFieldValueMapper.class})
 public interface LocationMapper {
+    // referenceType/referenceCode sao ignorados aqui de proposito - a
+    // semantica de "campo omitido = preserva" (diferente dos demais campos
+    // escalares, que este mapper sobrescreve incondicionalmente) e' aplicada
+    // manualmente em LocationService.applyReferencePatch, depois desta
+    // chamada. Ver comentario la' para o motivo (evitar que um consumidor
+    // antigo do PATCH apague uma referencia existente so' por nao conhecer
+    // estes 2 campos novos).
+    @Mapping(target = "referenceType", ignore = true)
+    @Mapping(target = "referenceCode", ignore = true)
     Location updateLocation(@MappingTarget Location entity, LocationPatchDTO dto);
 
     @Mappings({})
