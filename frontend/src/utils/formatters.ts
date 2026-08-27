@@ -11,6 +11,20 @@ export const normalizeSearchText = (value: string) =>
     .trim()
     .toLowerCase();
 
+// So formatacao de apresentacao (pt-BR) - nunca altera o valor persistido.
+// Se o CNPJ nao tiver os 14 digitos esperados (dado legado/incompleto),
+// mostra como veio em vez de quebrar a mascara. Extraido de CustomerShow.tsx
+// pra ser reutilizado tambem na listagem de Clientes, sem duplicar a mascara.
+export const formatCnpj = (value?: string) => {
+  if (!value) return value;
+  const digits = value.replace(/\D/g, '');
+  if (digits.length !== 14) return value;
+  return digits.replace(
+    /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+    '$1.$2.$3/$4-$5'
+  );
+};
+
 export const formatSelectMultiple = (
   array: { label: string; value: string }[] | undefined
 ) => {

@@ -58,6 +58,7 @@ import { Page, SearchCriteria } from '../../../models/owns/page';
 import api from '../../../utils/api';
 import { getErrorMessage } from '../../../utils/api';
 import { isNumeric } from '../../../utils/validators';
+import { formatCnpj } from '../../../utils/formatters';
 import { ERIONE_VISUAL_IDENTITY } from '../../../config/erioneVisualIdentity';
 import ErioneTableActions, {
   viewAction,
@@ -205,19 +206,6 @@ const buildCustomerWorkOrdersCriteria = (
 
 const formatDate = (value?: string) =>
   value ? new Date(value).toLocaleDateString('pt-BR') : '--';
-
-// So formatacao de apresentacao (pt-BR) - nunca altera o valor persistido.
-// Se o CNPJ nao tiver os 14 digitos esperados (dado legado/incompleto),
-// mostra como veio em vez de quebrar a mascara.
-const formatCnpj = (value?: string) => {
-  if (!value) return value;
-  const digits = value.replace(/\D/g, '');
-  if (digits.length !== 14) return value;
-  return digits.replace(
-    /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
-    '$1.$2.$3/$4-$5'
-  );
-};
 
 const CustomerShow = () => {
   const { t }: { t: any } = useTranslation();

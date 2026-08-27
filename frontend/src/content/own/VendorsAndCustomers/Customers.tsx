@@ -19,6 +19,7 @@ import { useContext, useMemo, useState } from 'react';
 import CustomDatagrid2, {
   CustomDatagridColumn2
 } from '../components/CustomDatagrid2';
+import NumberedPagination from '../components/NumberedPagination';
 import { Customer } from '../../../models/owns/customer';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -38,6 +39,7 @@ import SearchInput from '../components/SearchInput';
 import { createColumnHelper } from '@tanstack/react-table';
 import useTableState from '../../../hooks/useTableState';
 import { getErrorMessage } from '../../../utils/api';
+import { formatCnpj } from '../../../utils/formatters';
 import { getCustomFields } from '../../../slices/customField';
 import CustomerForm from './CustomerForm';
 import AddTwoToneIcon from '@mui/icons-material/AddTwoTone';
@@ -181,6 +183,7 @@ const Customers = ({}: PropsType) => {
             sx={{
               py: 1,
               width: 'fit-content',
+              maxWidth: '100%',
               cursor: 'pointer',
               transition: 'color 120ms ease, text-decoration-color 120ms ease',
               '&:hover .customer-name': {
@@ -193,47 +196,74 @@ const Customers = ({}: PropsType) => {
               navigate(`/app/vendors-customers/customers/${info.row.original.id}`)
             }
           >
+            {/* Ate' 2 linhas de wrap antes de truncar - nao cortar
+                agressivamente nomes longos (mesmo padrao da coluna Cliente
+                de /app/locations). */}
             <Typography
               className="customer-name"
-              sx={{ fontWeight: 700, fontSize: '0.95rem' }}
+              variant="body2"
+              fontWeight={700}
+              sx={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                whiteSpace: 'normal',
+                wordBreak: 'break-word'
+              }}
             >
               {info.getValue()}
             </Typography>
-            {info.row.original.cnpj && (
-              <Typography variant="caption" color="text.secondary">
-                {info.row.original.cnpj}
-              </Typography>
-            )}
           </Box>
         </Tooltip>
       ),
-      size: 260
+      meta: { widthPercent: 30, minWidthPx: 190 }
     }),
     columnHelper.accessor('email', {
       id: 'email',
       header: () => t('contact', 'Contato'),
       cell: (info) => (
-        <Typography variant="body2" color="text.secondary" noWrap>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            whiteSpace: 'normal',
+            wordBreak: 'break-word'
+          }}
+        >
           {info.getValue() || '--'}
         </Typography>
       ),
-      size: 220
+      meta: { widthPercent: 24, minWidthPx: 160 }
+    }),
+    columnHelper.accessor('cnpj', {
+      id: 'cnpj',
+      header: () => t('cnpj', 'CNPJ'),
+      cell: (info) => (
+        <Typography variant="body2" color="text.secondary" noWrap>
+          {formatCnpj(info.getValue()) || '--'}
+        </Typography>
+      ),
+      meta: { widthPercent: 18, minWidthPx: 140 }
     }),
     columnHelper.accessor('phone', {
       id: 'phone',
       header: () => t('phone'),
-      cell: (info) => info.getValue() || '--',
-      size: 150
-    }),
-    columnHelper.accessor('customerType', {
-      id: 'customerType',
-      header: () => t('type', 'Tipo'),
-      cell: (info) => info.getValue() || '--',
-      size: 150
+      cell: (info) => (
+        <Typography variant="body2" color="text.secondary" noWrap>
+          {info.getValue() || '--'}
+        </Typography>
+      ),
+      meta: { widthPercent: 16, minWidthPx: 110 }
     }),
     columnHelper.display({
       id: 'actions',
       header: () => t('actions'),
+      meta: { widthPercent: 12, minWidthPx: 100 },
       cell: ({ row }) => {
         const customer = row.original;
         const canEdit = hasEditPermission(
@@ -245,7 +275,13 @@ const Customers = ({}: PropsType) => {
           customer
         );
         return (
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={0.5}
+            alignItems="center"
+            justifyContent="flex-end"
+            width="100%"
+          >
             <Tooltip title={t('open_customer', 'Abrir cliente')}>
               <IconButton
                 size="small"
@@ -290,8 +326,7 @@ const Customers = ({}: PropsType) => {
             )}
           </Stack>
         );
-      },
-      size: 110
+      }
     })
   ];
 
@@ -407,7 +442,7 @@ const Customers = ({}: PropsType) => {
 
   return (
     <Box justifyContent="center" alignItems="stretch" paddingX={4}>
-      <Box sx={{ mt: 0.5, mb: 0.5 }}>
+      <Box sx={{ mt: 0.5, mb: 1 }}>
         <Typography variant="h4" fontWeight={800}>
           {t('customers_page_title', 'Clientes')}
         </Typography>
@@ -456,6 +491,7 @@ const Customers = ({}: PropsType) => {
           display: 'flex',
           flexDirection: 'column',
           border: (theme) => `1px solid ${theme.palette.divider}`,
+          borderRadius: 1.5,
           boxShadow: 'none'
         }}
       >
@@ -466,7 +502,6 @@ const Customers = ({}: PropsType) => {
           pagination={pagination}
           onPaginationChange={setPagination}
           totalRows={customers.totalElements}
-          pageSizeOptions={[10, 25, 50, 100]}
           sorting={sorting}
           onSortingChange={setSorting}
           columnOrder={columnOrder}
@@ -482,9 +517,26 @@ const Customers = ({}: PropsType) => {
           }
           noRowsMessage={t('noRows.customer.message')}
           noRowsAction={t('noRows.customer.action')}
-          headerBackgroundColor="#F7F8FA"
-          autoHeight
-          maxHeight={640}
+          headerBackgroundColor="#F7F9FC"
+          headerVariant="plain"
+          rowCellPaddingY={14}
+          headerCellPaddingY={10}
+          rowCellPaddingYCompact={11}
+          headerCellPaddingYCompact={8}
+          compactViewportHeight={820}
+          zebraStripe
+          hidePagination
+          disableInternalScroll
+          fluidTableWidth
+          enableColumnResizing={false}
+        />
+        <NumberedPagination
+          pageIndex={pagination.pageIndex}
+          pageSize={pagination.pageSize}
+          totalRows={customers.totalElements}
+          onPageChange={(pageIndex) =>
+            setPagination({ ...pagination, pageIndex })
+          }
         />
       </Card>
 
