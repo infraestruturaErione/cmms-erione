@@ -28,6 +28,7 @@ import {
   RecommendedFieldActionType
 } from '../fieldExecutionRules';
 import useAuth from '../../../../hooks/useAuth';
+import { getLocationIdentification } from '../../../../utils/locationDisplay';
 
 type FieldAction = 'depart' | 'check-in' | 'check-out';
 
@@ -209,7 +210,7 @@ export default function WorkOrderCard({
           <MetaRow>
             <LocationOnTwoToneIcon />
             <MetaText variant="caption" noWrap>
-              {workOrder.location.name}
+              {getLocationIdentification(workOrder.location)}
             </MetaText>
           </MetaRow>
         )}

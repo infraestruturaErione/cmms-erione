@@ -9,6 +9,10 @@ import { getPendingRequirements } from './PendingRequirements';
 import FieldExecutionTimeline from './FieldExecutionTimeline';
 import { getAssetUrl, getPreventiveMaintenanceUrl, getUserUrl } from '../../../../utils/urlPaths';
 import { getCustomFieldValuesForDetails } from '../../type';
+import {
+  getLocationDisplayAddress,
+  getLocationIdentification
+} from '../../../../utils/locationDisplay';
 
 interface OverviewTabProps {
   workOrder: WorkOrder;
@@ -206,7 +210,7 @@ export default function OverviewTab({
             {workOrder.location && (
               <Box>
                 <Typography variant="caption" color="text.secondary">
-                  {t('location')}
+                  {t('wo_overview_address_label', 'Endereço')}
                 </Typography>
                 <Link
                   display="block"
@@ -214,8 +218,13 @@ export default function OverviewTab({
                   fontWeight={600}
                   href={getPath('location', workOrder.location.id)}
                 >
-                  {workOrder.location.name}
+                  {getLocationIdentification(workOrder.location)}
                 </Link>
+                {getLocationDisplayAddress(workOrder.location) && (
+                  <Typography variant="body2" color="text.secondary">
+                    {getLocationDisplayAddress(workOrder.location)}
+                  </Typography>
+                )}
               </Box>
             )}
             {!!workOrder.location?.latitude && !!workOrder.location?.longitude && (

@@ -50,6 +50,10 @@ import DevicesOtherTwoToneIcon from '@mui/icons-material/DevicesOtherTwoTone';
 import LocationOnTwoToneIcon from '@mui/icons-material/LocationOnTwoTone';
 import MapTwoToneIcon from '@mui/icons-material/MapTwoTone';
 import OpenInNewTwoToneIcon from '@mui/icons-material/OpenInNewTwoTone';
+import {
+  getLocationDisplayAddress,
+  getLocationIdentification
+} from '../../../utils/locationDisplay';
 
 interface LocationDetailsProps {
   location: Location;
@@ -206,9 +210,11 @@ export default function LocationDetails(props: LocationDetailsProps) {
       >
         <Box>
           <Typography variant="overline" color="primary" fontWeight={800}>
-            {t('location_address', 'Local/Endereco')}
+            {t('location_details_overline', 'Endereço')}
           </Typography>
-          <Typography variant="h2">{location?.name}</Typography>
+          <Typography variant="h2">
+            {getLocationIdentification(location)}
+          </Typography>
           <Stack direction="row" flexWrap="wrap" gap={1} mt={1}>
             {primaryCustomer && (
               <Chip
@@ -218,13 +224,10 @@ export default function LocationDetails(props: LocationDetailsProps) {
                 clickable
               />
             )}
-            {location.customId && (
-              <Chip label={location.customId} variant="outlined" />
-            )}
           </Stack>
-          {location?.address && (
+          {!!getLocationDisplayAddress(location) && (
             <Typography variant="h6" color="text.secondary" mt={1}>
-              {location.address}
+              {getLocationDisplayAddress(location)}
             </Typography>
           )}
         </Box>
@@ -360,14 +363,21 @@ export default function LocationDetails(props: LocationDetailsProps) {
             <Grid item xs={12} md={6}>
               <Card sx={{ p: 2, borderRadius: 1.5, height: '100%' }}>
                 <Typography variant="h4" gutterBottom>
-                  {t('location_address', 'Local/Endereco')}
+                  {t('location_details_overline', 'Endereço')}
                 </Typography>
                 <Stack spacing={1.5}>
                   <InfoLine
                     label={t('customer_city', 'Cliente/Cidade')}
                     value={primaryCustomer?.name}
                   />
-                  <InfoLine label={t('address')} value={location.address} />
+                  <InfoLine
+                    label={t('location_identification_label', 'Identificação')}
+                    value={getLocationIdentification(location)}
+                  />
+                  <InfoLine
+                    label={t('address')}
+                    value={getLocationDisplayAddress(location)}
+                  />
                   <InfoLine
                     label={t('coordinates', 'Coordenadas')}
                     value={

@@ -21,6 +21,10 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CustomDatagrid2, { CustomDatagridColumn2 } from '../CustomDatagrid2';
 import SearchInput from '../SearchInput';
 import { normalizeSearchText } from '../../../../utils/formatters';
+import {
+  getLocationDisplayAddress,
+  getLocationIdentification
+} from '../../../../utils/locationDisplay';
 
 interface SelectLocationModalProps {
   open: boolean;
@@ -209,15 +213,9 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
       },
       size: 50
     }),
-    columnHelper.accessor('customId', {
-      id: 'customId',
-      header: () => t('id'),
-      cell: (info) => info.getValue(),
-      size: 100
-    }),
-    columnHelper.accessor('name', {
+    columnHelper.display({
       id: 'name',
-      header: () => t('name'),
+      header: () => t('location_identification_label', 'Identificação'),
       cell: (info) => (
         <Box
           sx={{
@@ -226,7 +224,7 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
             ml: (info.row.depth || 0) * 24
           }}
         >
-          {info.getValue()}
+          {getLocationIdentification(info.row.original)}
         </Box>
       ),
       size: 260
@@ -234,10 +232,10 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
     // Locations com o mesmo name (ex.: varias unidades "Aeroporto") so' se
     // distinguem pelo endereco - precisa ficar bem visivel na tabela, nao
     // so' no seletor.
-    columnHelper.accessor('address', {
+    columnHelper.display({
       id: 'address',
       header: () => t('address'),
-      cell: (info) => info.getValue() || '--',
+      cell: (info) => getLocationDisplayAddress(info.row.original) || '--',
       size: Number.MAX_SAFE_INTEGER
     })
   ];
@@ -305,7 +303,9 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
           alignItems: 'center'
         }}
       >
-        <Typography variant="h4">{t('select_location')}</Typography>
+        <Typography variant="h4">
+          {t('select_location_address', 'Selecionar endereço')}
+        </Typography>
         <IconButton
           onClick={() => handleReset(true)}
           color="primary"
@@ -322,7 +322,7 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
           value={searchQuery}
           placeholder={t(
             'select_location_search_placeholder',
-            'Buscar por local, endereço ou código...'
+            'Buscar por endereço ou identificação...'
           )}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -333,7 +333,7 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
           {selectedLocations.map((location) => (
             <Chip
               key={location.id}
-              label={`${location.customId}: ${location.name}`}
+              label={getLocationIdentification(location)}
               onDelete={() => handleRemoveSelection(location.id)}
               color="primary"
               variant="outlined"

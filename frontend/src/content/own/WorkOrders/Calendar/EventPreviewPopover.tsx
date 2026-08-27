@@ -18,6 +18,10 @@ import {
   ERIONE_TIME_ZONE,
   parseApiDate
 } from '../../../../utils/dateTime';
+import {
+  getLocationDisplayAddress,
+  getLocationIdentification
+} from '../../../../utils/locationDisplay';
 
 interface EventPreviewPopoverProps {
   workOrder: WorkOrder | null;
@@ -81,8 +85,8 @@ export default function EventPreviewPopover({
         .trim()
     : null;
   const locationLabel = [
-    workOrder.location?.name?.trim(),
-    workOrder.location?.address?.trim()
+    workOrder.location ? getLocationIdentification(workOrder.location) : null,
+    workOrder.location ? getLocationDisplayAddress(workOrder.location) : null
   ]
     .filter((value, index, values) => value && values.indexOf(value) === index)
     .join(' · ');

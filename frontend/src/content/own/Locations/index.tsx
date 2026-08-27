@@ -51,7 +51,7 @@ import {
   useSearchParams
 } from 'react-router-dom';
 import Map from '../components/Map';
-import { formatSelect, formatSelectMultiple } from '../../../utils/formatters';
+import { formatSelectMultiple } from '../../../utils/formatters';
 import { CustomSnackBarContext } from 'src/contexts/CustomSnackBarContext';
 import { CompanySettingsContext } from '../../../contexts/CompanySettingsContext';
 import useAuth from '../../../hooks/useAuth';
@@ -93,6 +93,11 @@ import {
   CreateWorkOrderCustomerDialog,
   useLocationWorkOrderCreation
 } from './locationWorkOrderCreation';
+import {
+  getLocationDisplayAddress,
+  getLocationIdentification
+} from '../../../utils/locationDisplay';
+import NumberedPagination from '../components/NumberedPagination';
 
 // Precisa ser uma das opcoes de CustomDatagrid2 pageSizeOptions ([10,25,50,100])
 // - um valor fora dessa lista (era 40) faz o MUI Select "Linhas por pagina"
@@ -308,7 +313,7 @@ function Locations() {
   );
 
   useEffect(() => {
-    setTitle(t('locations_addresses', 'Locais/Enderecos'));
+    setTitle(t('locations_web_page_title', 'Endereços'));
   }, []);
 
   useEffect(() => {
@@ -384,9 +389,11 @@ function Locations() {
     const newValues = { ...values };
     newValues.customers = formatSelectMultiple(newValues.customers);
     newValues.vendors = formatSelectMultiple(newValues.vendors);
-    newValues.workers = formatSelectMultiple(newValues.workers);
-    newValues.teams = formatSelectMultiple(newValues.teams);
-    newValues.parentLocation = formatSelect(newValues.parentLocation);
+    // parentLocation/workers/teams nao fazem mais parte deste formulario
+    // (reforma do modal de Endereco) - nao processar/reenviar esses campos
+    // aqui, pra nao sobrescrever com vazio/null associacoes que um endereco
+    // ja tenha. O values object tambem nao os inclui mais (ver
+    // renderLocationUpdateModal).
     const latitude =
       newValues.latitude !== undefined &&
       newValues.latitude !== null &&
@@ -436,76 +443,104 @@ function Locations() {
       );
     }
     const [first, ...rest] = customers;
+    // Cliente nao deve ser cortado agressivamente - ate 2 linhas de wrap
+    // antes de truncar (line-clamp), em vez de noWrap+ellipsis numa linha so'.
+    const nameSx = {
+      display: '-webkit-box',
+      WebkitLineClamp: 2,
+      WebkitBoxOrient: 'vertical',
+      overflow: 'hidden',
+      whiteSpace: 'normal',
+      wordBreak: 'break-word'
+    } as const;
     if (rest.length === 0) {
-      return <Typography variant="body2">{first.name}</Typography>;
+      return (
+        <Typography variant="body2" sx={nameSx}>
+          {first.name}
+        </Typography>
+      );
     }
     return (
       <Tooltip
         title={customers.map((customer) => customer.name).join(', ')}
         arrow
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-          <Typography variant="body2" noWrap>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
+          <Typography variant="body2" sx={nameSx}>
             {first.name}
           </Typography>
           <Chip
             label={`+${rest.length}`}
             size="small"
-            sx={{ height: 20, fontSize: 11, fontWeight: 700 }}
+            sx={{ height: 20, fontSize: 11, fontWeight: 700, flexShrink: 0 }}
           />
         </Box>
       </Tooltip>
     );
   };
 
+  // Distribuicao proporcional (% da tabela, nao px) - ver CustomDatagrid2
+  // meta.widthPercent. Sem coluna ID (Location nao tem campo de negocio "ID"
+  // proprio - Cliente/Endereco ocupam o espaco que antes era dividido com ela.
+  const customersWidthPercent = 25;
+  const addressWidthPercent = 64;
+  const actionsWidthPercent = 11;
+
   const columns: CustomDatagridColumn2<Location>[] = [
-    columnHelper.accessor('name', {
-      id: 'name',
-      header: () => t('locations_table_local', 'Local'),
-      cell: (info) => (
-        <Tooltip title={t('open_location', 'Abrir local')}>
-          <Box
-            sx={{
-              py: 1,
-              fontWeight: 700,
-              fontSize: '0.95rem',
-              cursor: 'pointer',
-              width: 'fit-content',
-              transition: 'color 120ms ease, text-decoration-color 120ms ease',
-              '&:hover': {
-                color: 'primary.main',
-                textDecoration: 'underline',
-                textUnderlineOffset: '3px'
-              }
-            }}
-          >
-            {info.getValue()}
-          </Box>
-        </Tooltip>
-      ),
-      size: 240
-    }),
     columnHelper.accessor((row) => row.customers, {
       id: 'customers',
       header: () => t('customer'),
       cell: (info) => renderCustomersCell(info.getValue() as CustomerMiniDTO[]),
-      size: 200
+      meta: { widthPercent: customersWidthPercent, minWidthPx: 160 }
     }),
     columnHelper.accessor('address', {
       id: 'address',
       header: () => t('address'),
-      cell: (info) => (
-        <Typography variant="body2" color="text.secondary" noWrap>
-          {info.getValue() || '--'}
-        </Typography>
-      ),
-      size: 300
-    }),
-    columnHelper.accessor('customId', {
-      id: 'customId',
-      header: () => t('locations_table_code', 'Código'),
-      cell: (info) => info.getValue() || '--',
-      size: 100
+      cell: (info) => {
+        const currentLocationRow = info.row.original;
+        const displayAddress = getLocationDisplayAddress(currentLocationRow);
+        const identification = getLocationIdentification(currentLocationRow);
+        return (
+          <Tooltip title={t('open_location', 'Abrir endereço')}>
+            <Box
+              sx={{
+                cursor: 'pointer',
+                width: 'fit-content',
+                maxWidth: '100%'
+              }}
+            >
+              <Typography
+                variant="body2"
+                fontWeight={700}
+                noWrap
+                sx={{
+                  lineHeight: 1.5,
+                  transition:
+                    'color 120ms ease, text-decoration-color 120ms ease',
+                  '&:hover': {
+                    color: 'primary.main',
+                    textDecoration: 'underline',
+                    textUnderlineOffset: '3px'
+                  }
+                }}
+              >
+                {identification || displayAddress || '--'}
+              </Typography>
+              {!!displayAddress && displayAddress !== identification && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  noWrap
+                  sx={{ lineHeight: 1.5, display: 'block', mt: 0.25 }}
+                >
+                  {displayAddress}
+                </Typography>
+              )}
+            </Box>
+          </Tooltip>
+        );
+      },
+      meta: { widthPercent: addressWidthPercent, minWidthPx: 260 }
     }),
     columnHelper.display({
       id: 'actions',
@@ -570,15 +605,34 @@ function Locations() {
           </Stack>
         );
       },
-      size: 110
+      meta: { widthPercent: actionsWidthPercent, minWidthPx: 96 }
     })
   ];
   const fields: Array<IField> = [
     {
+      name: 'customers',
+      multiple: true,
+      type: 'select',
+      type2: 'customer',
+      label: t('customers'),
+      placeholder: 'Select customers'
+    },
+    // Semantica visual apenas - Location.name continua sendo o campo gravado
+    // (backend/DB seguem exigindo @NotNull, nao alterado nesta etapa). O
+    // usuario nunca ve "nome do local"; ve "Identificação", que e' como ele
+    // reconhece o ponto de atendimento (ex.: "Mercado Municipal").
+    {
       name: 'name',
       type: 'text',
-      label: t('name'),
-      placeholder: t('enter_location_name'),
+      label: t('location_identification_label', 'Identificação'),
+      placeholder: t(
+        'location_identification_placeholder',
+        'Ex.: Mercado Municipal, Pronto Socorro, CAC'
+      ),
+      helperText: t(
+        'location_identification_helper',
+        'Como esse endereço é reconhecido no dia a dia.'
+      ),
       required: true
     },
     {
@@ -587,32 +641,10 @@ function Locations() {
       label: t('address'),
       placeholder: '13th St, New York'
     },
-    {
-      name: 'parentLocation',
-      type: 'select',
-      type2: 'parentLocation',
-      label: t('parent_location'),
-      placeholder: t('select_location')
-    },
-    {
-      name: 'workers',
-      multiple: true,
-      type: 'select',
-      type2: 'user',
-      label: t('workers'),
-      placeholder: t('select_workers')
-    },
-    {
-      name: 'teams',
-      multiple: true,
-      type: 'select',
-      type2: 'team',
-      label: t('teams'),
-      placeholder: 'Select teams'
-    },
     // Erione nao usa Fornecedores/Vendors na operacao atual -
     // ERIONE_HIDDEN_MODULES.vendors ja e' o padrao usado em toda a app pra
-    // ocultar o modulo sem tocar backend/entidade/relacionamentos.
+    // ocultar o modulo sem tocar backend/entidade/relacionamentos (nao
+    // relacionado a' remocao de Localizacao Pai/Trabalhadores/Equipes abaixo).
     ...(!ERIONE_HIDDEN_MODULES.vendors
       ? ([
           {
@@ -625,14 +657,11 @@ function Locations() {
           }
         ] as IField[])
       : []),
-    {
-      name: 'customers',
-      multiple: true,
-      type: 'select',
-      type2: 'customer',
-      label: t('customers'),
-      placeholder: 'Select customers'
-    },
+    // Secao secundaria - Coordenadas (opcional, so' latitude/longitude com
+    // placeholders curtos; sem paragrafo explicativo grande). Localizacao
+    // Pai/Trabalhadores/Equipes saem deste formulario de Endereco (reforma do
+    // modal - Location.name/address/customId/backend continuam intocados,
+    // so' esses 3 campos saem da UI e do payload).
     {
       name: 'manualCoordinatesTitle',
       type: 'titleGroupField',
@@ -643,9 +672,6 @@ function Locations() {
       type: 'number',
       label: t('latitude'),
       placeholder: '-22.962065',
-      helperText: apiKey
-        ? t('manual_coordinates_helper')
-        : t('manual_coordinates_no_map_helper'),
       midWidth: true
     },
     {
@@ -653,7 +679,6 @@ function Locations() {
       type: 'number',
       label: t('longitude'),
       placeholder: '-45.552194',
-      helperText: t('manual_coordinates_longitude_helper'),
       midWidth: true
     },
     ...(apiKey
@@ -679,18 +704,29 @@ function Locations() {
           }
         ] as IField[])
       : []),
+    // Secao secundaria - Anexos. "Foto do endereco" e "Anexos" ficam
+    // separados (Location.image e' um unico arquivo/capa, Location.files e'
+    // uma lista - payloads diferentes, nao dá pra unificar sem mudar o
+    // contrato). Variante 'light' + hideDescription/ctaText deixam a UI mais
+    // enxuta (sem o paragrafo "Arraste um arquivo aqui" grande).
     {
       name: 'image',
       type: 'file',
       fileType: 'image',
-      label: t('image')
+      fileVariant: 'light',
+      fileHideDescription: true,
+      fileCtaText: t('locations_add_photo_button', 'Adicionar foto'),
+      label: t('locations_photo_label', 'Foto do endereço')
     },
     {
       name: 'files',
       type: 'file',
       multiple: true,
-      label: t('files'),
-      fileType: 'file'
+      fileType: 'file',
+      fileVariant: 'light',
+      fileHideDescription: true,
+      fileCtaText: t('locations_add_files_button', 'Adicionar arquivos'),
+      label: t('locations_attachments_label', 'Anexos')
     },
     ...getCustomFieldsIFields(customFields, CustomFieldEntityType.LOCATION)
   ];
@@ -728,7 +764,7 @@ function Locations() {
   const renderLocationAddModal = () => (
     <Dialog
       fullWidth
-      maxWidth="md"
+      maxWidth="sm"
       open={openAddModal}
       onClose={() => {
         setOpenAddModal(false);
@@ -757,7 +793,6 @@ function Locations() {
           <Form
             fields={fields}
             validation={Yup.object().shape(shape)}
-            submitText={t('add')}
             values={initialLocationName ? { name: initialLocationName } : {}}
             onChange={({ field, e }) => {}}
             onSubmit={async (values) => {
@@ -794,6 +829,41 @@ function Locations() {
                 throw err;
               }
             }}
+            renderActions={(formik) => (
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="flex-end"
+                spacing={1}
+                width="100%"
+              >
+                <Button
+                  color="secondary"
+                  disabled={formik.isSubmitting}
+                  onClick={() => {
+                    setOpenAddModal(false);
+                    setInitialLocationName('');
+                  }}
+                >
+                  {t('cancel')}
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  onClick={() => formik.handleSubmit()}
+                  startIcon={
+                    formik.isSubmitting ? (
+                      <CircularProgress size="1rem" />
+                    ) : null
+                  }
+                  disabled={
+                    Boolean(formik.errors.submit) || formik.isSubmitting
+                  }
+                >
+                  {t('locations_save_button', 'Salvar endereço')}
+                </Button>
+              </Stack>
+            )}
           />
         </Box>
       </DialogContent>
@@ -878,7 +948,7 @@ function Locations() {
   const renderLocationUpdateModal = () => (
     <Dialog
       fullWidth
-      maxWidth="md"
+      maxWidth="sm"
       open={openUpdateModal}
       onClose={() => setOpenUpdateModal(false)}
     >
@@ -904,22 +974,16 @@ function Locations() {
           <Form
             fields={getEditFields()}
             validation={Yup.object().shape(shape)}
-            submitText={t('save')}
             values={{
               ...currentLocation,
-              title: currentLocation?.name,
-              workers: currentLocation?.workers.map((worker) => {
-                return {
-                  label: `${worker.firstName} ${worker.lastName}`,
-                  value: worker.id
-                };
-              }),
-              teams: currentLocation?.teams.map((team) => {
-                return {
-                  label: team.name,
-                  value: team.id
-                };
-              }),
+              // parentLocation/workers/teams nao fazem mais parte deste
+              // formulario - undefined aqui (em vez do valor cru vindo do
+              // "...currentLocation" acima) garante que formatValues() e o
+              // payload final NAO incluam essas chaves, entao o backend
+              // preserva as associacoes existentes em vez de zera-las.
+              parentLocation: undefined,
+              workers: undefined,
+              teams: undefined,
               vendors: currentLocation?.vendors.map((vendor) => {
                 return {
                   label: vendor.companyName,
@@ -938,12 +1002,6 @@ function Locations() {
                 ? {
                     lng: currentLocation.longitude,
                     lat: currentLocation.latitude
-                  }
-                : null,
-              parentLocation: currentLocation?.parentLocation
-                ? {
-                    label: currentLocation.parentLocation.name,
-                    value: currentLocation.parentLocation.id
                   }
                 : null,
               ...getCustomFieldsValues(currentLocation)
@@ -975,6 +1033,38 @@ function Locations() {
                 throw err;
               }
             }}
+            renderActions={(formik) => (
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="flex-end"
+                spacing={1}
+                width="100%"
+              >
+                <Button
+                  color="secondary"
+                  disabled={formik.isSubmitting}
+                  onClick={() => setOpenUpdateModal(false)}
+                >
+                  {t('cancel')}
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  onClick={() => formik.handleSubmit()}
+                  startIcon={
+                    formik.isSubmitting ? (
+                      <CircularProgress size="1rem" />
+                    ) : null
+                  }
+                  disabled={
+                    Boolean(formik.errors.submit) || formik.isSubmitting
+                  }
+                >
+                  {t('locations_save_button', 'Salvar endereço')}
+                </Button>
+              </Stack>
+            )}
           />
         </Box>
       </DialogContent>
@@ -986,7 +1076,10 @@ function Locations() {
   // locais acessiveis, nao apenas locais raiz.
   const filteredTableData = searchResults;
   const resultsCount = searchTotal;
-  const hasActiveFilters = Boolean(searchQuery.trim()) || Boolean(customerFilter);
+  // "Limpar filtros" so' aparece quando os DOIS filtros estao ativos ao
+  // mesmo tempo - com so' um ativo, o "x" individual dele (campo de busca ou
+  // Select de cliente) ja resolve, e mostrar os dois seria redundante.
+  const hasBothFilters = Boolean(searchQuery.trim()) && Boolean(customerFilter);
   const handleClearFilters = () => {
     setSearchQuery('');
     setCustomerFilter(null);
@@ -1001,6 +1094,14 @@ function Locations() {
       page: newPagination.pageIndex,
       size: newPagination.pageSize
     }));
+  };
+
+  // Paginacao numerada (estilo referencia, componente compartilhado) -
+  // pageSize fixo em HIERARCHY_ZERO_PAGE_SIZE (10) nesta tela, sem seletor de
+  // linhas-por-pagina. Continua 100% server-side: so' muda pageable.page, que
+  // ja' dispara fetchSearchResults via o useEffect existente.
+  const handleNumberedPageClick = (pageIndex: number) => {
+    setPageable((prev) => ({ ...prev, page: pageIndex }));
   };
 
   const handleSortingChange = (newSorting: Updater<SortingState>) => {
@@ -1026,22 +1127,22 @@ function Locations() {
     return (
       <>
         <Helmet>
-          <title>{t('locations_addresses', 'Locais/Enderecos')}</title>
+          <title>{t('locations_web_page_title', 'Endereços')}</title>
         </Helmet>
         <Box justifyContent="center" alignItems="stretch" paddingX={4}>
-          <Box sx={{ mt: 0.5, mb: 0.5 }}>
+          <Box sx={{ mt: 0.5, mb: 1 }}>
             <Typography variant="h4" fontWeight={800}>
-              {t('locations_addresses', 'Locais / Endereços')}
+              {t('locations_web_page_title', 'Endereços')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {t(
                 'locations_page_subtitle',
-                'Pontos de atendimento vinculados aos clientes.'
+                'Gerencie os endereços de atendimento dos clientes.'
               )}
             </Typography>
           </Box>
           <Box
-            my={0.5}
+            mb={0.25}
             display="flex"
             flexDirection="row"
             justifyContent="space-between"
@@ -1055,6 +1156,10 @@ function Locations() {
                 scrollButtons="auto"
                 textColor="primary"
                 indicatorColor="primary"
+                sx={{
+                  minHeight: 36,
+                  '& .MuiTab-root': { minHeight: 36, py: 0.5 }
+                }}
               >
                 {tabs.map((tab) => (
                   <Tab key={tab.value} label={tab.label} value={tab.value} />
@@ -1064,107 +1169,168 @@ function Locations() {
               <Box />
             )}
             <Stack direction={'row'} alignItems="center" spacing={1}>
-              <IconButton onClick={handleReset} color="primary">
-                <ReplayTwoToneIcon />
+              <IconButton onClick={handleReset} color="primary" size="small">
+                <ReplayTwoToneIcon fontSize="small" />
               </IconButton>
-              <IconButton onClick={handleOpenMenu} color="primary">
-                <MoreVertTwoToneIcon />
+              <IconButton onClick={handleOpenMenu} color="primary" size="small">
+                <MoreVertTwoToneIcon fontSize="small" />
               </IconButton>
-              {hasCreatePermission(PermissionEntity.LOCATIONS) && (
-                <SplitButton
-                  onMainClick={() => setOpenAddModal(true)}
-                  startIcon={<AddTwoToneIcon />}
-                  sx={{ mx: 6, my: 1 }}
-                  label={t('location_address', 'Local/Endereco')}
-                  menuItems={
-                    hasViewPermission(PermissionEntity.SETTINGS) &&
-                    hasFeature(PlanFeature.IMPORT_CSV)
-                      ? [
-                          {
-                            label: t('to_import'),
-                            onClick: () => navigate('/app/imports/locations')
-                          }
-                        ]
-                      : []
-                  }
-                />
-              )}
             </Stack>
           </Box>
           {currentTab === 'list' && (
             <>
+              {/* Uma unica faixa horizontal: busca + filtro de cliente a
+                  esquerda, contador + botao "Novo endereco" a direita - sem
+                  quebrar em linhas separadas com espaco vazio entre elas. */}
               <Box
                 sx={{
                   display: 'flex',
                   flexWrap: 'wrap',
                   alignItems: 'center',
+                  justifyContent: 'space-between',
                   gap: 1,
                   mb: 1
                 }}
               >
-                <Box sx={{ minWidth: 260, flexGrow: 1, maxWidth: 380 }}>
-                  <SearchInput
-                    fullWidth
-                    size="small"
-                    value={searchQuery}
-                    placeholder={t(
-                      'locations_search_placeholder',
-                      'Buscar por local, endereço ou cliente...'
-                    )}
-                    onChange={(e) => {
-                      setPageable((prev) => ({ ...prev, page: 0 }));
-                      setSearchQuery(e.target.value);
-                    }}
-                  />
-                </Box>
-                <Select
-                  size="small"
-                  displayEmpty
-                  value={customerFilter?.id ?? ''}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setPageable((prev) => ({ ...prev, page: 0 }));
-                    setCustomerFilter(
-                      value === ''
-                        ? null
-                        : customersMini.find((c) => c.id === Number(value)) ||
-                            null
-                    );
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    gap: 1
                   }}
-                  sx={{ minWidth: 200 }}
                 >
-                  <MenuItem value="">
-                    {t('locations_all_customers', 'Cliente: Todos')}
-                  </MenuItem>
-                  {customersMini.map((customer) => (
-                    <MenuItem key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {hasActiveFilters && (
-                  <Button
-                    size="small"
-                    color="inherit"
-                    sx={{ color: 'text.secondary' }}
-                    startIcon={<ClearTwoToneIcon fontSize="small" />}
-                    onClick={handleClearFilters}
+                  <Box sx={{ minWidth: 240, width: 320 }}>
+                    <SearchInput
+                      fullWidth
+                      size="small"
+                      value={searchQuery}
+                      placeholder={t(
+                        'locations_search_placeholder',
+                        'Buscar por ID, endereço ou cliente...'
+                      )}
+                      onChange={(e) => {
+                        setPageable((prev) => ({ ...prev, page: 0 }));
+                        setSearchQuery(e.target.value);
+                      }}
+                      onClear={() => {
+                        setSearchQuery('');
+                        setPageable((prev) => ({ ...prev, page: 0 }));
+                      }}
+                    />
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Select
+                      size="small"
+                      displayEmpty
+                      value={customerFilter?.id ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setPageable((prev) => ({ ...prev, page: 0 }));
+                        setCustomerFilter(
+                          value === ''
+                            ? null
+                            : customersMini.find(
+                                (c) => c.id === Number(value)
+                              ) || null
+                        );
+                      }}
+                      sx={{
+                        minWidth: 180,
+                        ...(customerFilter && {
+                          borderTopRightRadius: 0,
+                          borderBottomRightRadius: 0
+                        })
+                      }}
+                    >
+                      <MenuItem value="">
+                        {t('locations_all_customers', 'Cliente: Todos')}
+                      </MenuItem>
+                      {customersMini.map((customer) => (
+                        <MenuItem key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {customerFilter && (
+                      <Tooltip
+                        title={t(
+                          'clear_customer_filter',
+                          'Limpar filtro de cliente'
+                        )}
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setCustomerFilter(null);
+                            setPageable((prev) => ({ ...prev, page: 0 }));
+                          }}
+                          sx={{
+                            ml: '1px',
+                            borderRadius: 1,
+                            borderTopLeftRadius: 0,
+                            borderBottomLeftRadius: 0,
+                            border: (theme) =>
+                              `1px solid ${theme.palette.divider}`,
+                            borderLeft: 'none',
+                            height: 40
+                          }}
+                        >
+                          <ClearTwoToneIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
+                  {hasBothFilters && (
+                    <Button
+                      size="small"
+                      color="inherit"
+                      sx={{ color: 'text.secondary' }}
+                      startIcon={<ClearTwoToneIcon fontSize="small" />}
+                      onClick={handleClearFilters}
+                    >
+                      {t('clear_filters', 'Limpar filtros')}
+                    </Button>
+                  )}
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ whiteSpace: 'nowrap' }}
                   >
-                    {t('clear_filters', 'Limpar filtros')}
-                  </Button>
+                    {customerFilter ? `${customerFilter.name} · ` : ''}
+                    {t(
+                      'locations_results_count',
+                      '{{count}} endereços encontrados',
+                      { count: resultsCount }
+                    )}
+                  </Typography>
+                </Box>
+                {hasCreatePermission(PermissionEntity.LOCATIONS) && (
+                  <SplitButton
+                    onMainClick={() => setOpenAddModal(true)}
+                    startIcon={<AddTwoToneIcon />}
+                    label={t('locations_new_address_button', 'Novo endereço')}
+                    menuItems={
+                      hasViewPermission(PermissionEntity.SETTINGS) &&
+                      hasFeature(PlanFeature.IMPORT_CSV)
+                        ? [
+                            {
+                              label: t('to_import'),
+                              onClick: () =>
+                                navigate('/app/imports/locations')
+                            }
+                          ]
+                        : []
+                    }
+                  />
                 )}
-                <Typography variant="body2" color="text.secondary">
-                  {customerFilter ? `${customerFilter.name} · ` : ''}
-                  {t('locations_results_count', '{{count}} locais encontrados', {
-                    count: resultsCount
-                  })}
-                </Typography>
               </Box>
               <Card
                 sx={{
                   display: 'flex',
                   flexDirection: 'column',
                   border: (theme) => `1px solid ${theme.palette.divider}`,
+                  borderRadius: 1.5,
                   boxShadow: 'none'
                 }}
               >
@@ -1178,7 +1344,6 @@ function Locations() {
                   }}
                   onPaginationChange={handlePaginationChange}
                   totalRows={resultsCount}
-                  pageSizeOptions={[10, 25, 50, 100]}
                   sorting={sorting}
                   onSortingChange={handleSortingChange}
                   columnOrder={tableState.columnOrder}
@@ -1194,9 +1359,24 @@ function Locations() {
                   onRowClick={(row) => {
                     navigate(getLocationUrl(row.id));
                   }}
-                  headerBackgroundColor="#F7F8FA"
-                  autoHeight
-                  maxHeight={640}
+                  headerBackgroundColor="#F7F9FC"
+                  headerVariant="plain"
+                  rowCellPaddingY={14}
+                  headerCellPaddingY={10}
+                  rowCellPaddingYCompact={11}
+                  headerCellPaddingYCompact={8}
+                  compactViewportHeight={820}
+                  zebraStripe
+                  hidePagination
+                  disableInternalScroll
+                  fluidTableWidth
+                  enableColumnResizing={false}
+                />
+                <NumberedPagination
+                  pageIndex={pageable.page}
+                  pageSize={pageable.size}
+                  totalRows={resultsCount}
+                  onPageChange={handleNumberedPageClick}
                 />
               </Card>
             </>
