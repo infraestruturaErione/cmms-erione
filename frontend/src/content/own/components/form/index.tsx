@@ -229,6 +229,8 @@ export default (props: PropsType) => {
                         title={field.label}
                         type={field.fileType || 'file'}
                         variant={field.fileVariant}
+                        hideDescription={field.fileHideDescription}
+                        ctaText={field.fileCtaText}
                         description={t('upload')}
                         files={
                           Array.isArray(formik.values[field.name])

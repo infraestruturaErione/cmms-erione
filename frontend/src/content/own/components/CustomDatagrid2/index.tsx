@@ -67,6 +67,17 @@ declare module '@tanstack/react-table' {
   interface ColumnMeta<TData extends RowData, TValue> {
     uiConfigKey?: keyof Omit<UiConfiguration, 'id'>;
     enableReordering?: boolean;
+    // widthPercent: largura da coluna em % da tabela (nao px) - th e td da
+    // mesma coluna sempre recebem exatamente o mesmo width, entao ficam
+    // alinhados. So funciona bem combinado com fluidTableWidth (table
+    // width:100%) e table-layout:fixed. As porcentagens de uma tabela devem
+    // somar ~100% - nenhuma coluna fica sem limite (ver minWidthPx).
+    // Opcional, retrocompativel: colunas sem isso continuam usando px
+    // (column.getSize()) como sempre.
+    widthPercent?: number;
+    // minWidthPx: protecao contra a coluna ficar espremida demais em
+    // viewports estreitos, sem virar o mecanismo principal de largura.
+    minWidthPx?: number;
   }
 }
 
@@ -129,6 +140,40 @@ interface CustomDatagrid2Props<TData extends RowData> {
   // autoHeight=true, a altura encolhe pro conteudo (ate maxHeight).
   autoHeight?: boolean;
   maxHeight?: number;
+  // Todos os abaixo sao opcionais, retrocompativeis (default = comportamento
+  // EXATO de antes, undefined nao aplica nenhum override) - adicionados so'
+  // para permitir uma composicao visual diferente em /app/locations sem
+  // alterar nenhuma outra tela que usa este componente compartilhado.
+  //
+  // rowCellPaddingY / headerCellPaddingY: padding vertical explicito (px) de
+  // celulas do corpo/header. undefined preserva o padding atual (py:1.5 do
+  // MUI spacing / padding padrao do TableCell) em qualquer outra tela.
+  rowCellPaddingY?: number;
+  headerCellPaddingY?: number;
+  // Variante "compacta" dos dois acima, ativada via media query de ALTURA de
+  // viewport (nao de largura, nao de "tamanho de monitor") quando o viewport
+  // e' baixo demais pra caber a linha confortavel inteira. So tem efeito se
+  // rowCellPaddingY/headerCellPaddingY tambem forem passados.
+  rowCellPaddingYCompact?: number;
+  headerCellPaddingYCompact?: number;
+  // Breakpoint (px de ALTURA de viewport, via @media max-height) que ativa a
+  // variante compacta acima. Default 800 quando as props *Compact sao usadas.
+  compactViewportHeight?: number;
+  // zebraStripe: listras sutis (branco / cinza-azulado muito claro) nas linhas
+  // nao-aninhadas, em vez do fundo unico atual.
+  zebraStripe?: boolean;
+  // headerVariant: 'uppercase-bold' e' o padrao atual (todo mundo em
+  // CAIXA-ALTA e negrito). 'plain' usa peso medio e caixa normal.
+  headerVariant?: 'uppercase-bold' | 'plain';
+  // disableInternalScroll: remove o scroll vertical INTERNO do grid (Paper
+  // com maxHeight + Box com overflow:auto) - a tabela cresce naturalmente
+  // (header + linhas + footer) e quem rola, se precisar, e' a PAGINA. Default
+  // false preserva o comportamento atual (scroll interno) em toda outra tela.
+  disableInternalScroll?: boolean;
+  // fluidTableWidth: table width:100% do container em vez da soma fixa em px
+  // das colunas (table.getTotalSize()) - necessario pras colunas com
+  // meta.widthPercent renderizarem como % de verdade, responsivas ao viewport.
+  fluidTableWidth?: boolean;
 }
 
 const PINNED_BG = '#F2F5F9';
@@ -166,7 +211,16 @@ function CustomDatagrid2<TData extends RowData>({
   getRowId,
   headerBackgroundColor = '#E8EAEE',
   autoHeight = false,
-  maxHeight
+  maxHeight,
+  rowCellPaddingY,
+  headerCellPaddingY,
+  rowCellPaddingYCompact,
+  headerCellPaddingYCompact,
+  compactViewportHeight = 800,
+  zebraStripe = false,
+  headerVariant = 'uppercase-bold',
+  disableInternalScroll = false,
+  fluidTableWidth = false
 }: CustomDatagrid2Props<TData>) {
   const { t }: { t: any } = useTranslation();
   const theme = useTheme();
@@ -503,12 +557,20 @@ function CustomDatagrid2<TData extends RowData>({
     <Paper
       ref={tableRef}
       sx={{
-        height: autoHeight ? 'auto' : tableHeight,
-        maxHeight: autoHeight ? maxHeight ?? 480 : undefined,
+        height: disableInternalScroll
+          ? 'auto'
+          : autoHeight
+          ? 'auto'
+          : tableHeight,
+        maxHeight: disableInternalScroll
+          ? undefined
+          : autoHeight
+          ? maxHeight ?? 480
+          : undefined,
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden',
+        overflow: disableInternalScroll ? 'visible' : 'hidden',
         boxShadow: 'none',
         position: 'relative'
       }}
@@ -517,7 +579,7 @@ function CustomDatagrid2<TData extends RowData>({
       <Box
         ref={scrollContainerRef}
         sx={{
-          overflow: 'auto',
+          overflow: disableInternalScroll ? 'visible' : 'auto',
           flex: 1,
           '&::-webkit-scrollbar': {
             width: 8,
@@ -533,24 +595,43 @@ function CustomDatagrid2<TData extends RowData>({
         }}
       >
         <Table
-          stickyHeader
-          style={{ width: table.getTotalSize() }}
+          stickyHeader={!disableInternalScroll}
+          style={{
+            width: fluidTableWidth ? '100%' : table.getTotalSize()
+          }}
           sx={{
             tableLayout: 'fixed',
             minWidth: '100%',
             borderCollapse: 'separate',
             '& .MuiTableHead-root': {
-              position: 'sticky',
+              position: disableInternalScroll ? 'static' : 'sticky',
               top: 0,
               zIndex: 2,
               '& .MuiTableCell-head': {
-                fontWeight: 'bold',
-                textTransform: 'uppercase',
+                fontWeight: headerVariant === 'plain' ? 600 : 'bold',
+                textTransform:
+                  headerVariant === 'plain' ? 'none' : 'uppercase',
+                ...(headerVariant === 'plain' && {
+                  fontSize: '0.8125rem',
+                  color: theme.palette.text.secondary
+                }),
                 borderBottom: `1px solid ${theme.palette.divider}`,
                 backgroundColor: headerBackgroundColor,
-                position: 'sticky',
+                position: disableInternalScroll ? 'static' : 'sticky',
                 top: 0,
-                zIndex: 3
+                zIndex: 3,
+                verticalAlign: 'middle',
+                ...(headerCellPaddingY !== undefined && {
+                  paddingTop: `${headerCellPaddingY}px`,
+                  paddingBottom: `${headerCellPaddingY}px`
+                }),
+                ...(headerCellPaddingY !== undefined &&
+                  headerCellPaddingYCompact !== undefined && {
+                    [`@media (max-height: ${compactViewportHeight}px)`]: {
+                      paddingTop: `${headerCellPaddingYCompact}px`,
+                      paddingBottom: `${headerCellPaddingYCompact}px`
+                    }
+                  })
               }
             },
             '& .MuiTableBody-root': {
@@ -599,7 +680,12 @@ function CustomDatagrid2<TData extends RowData>({
                         }
                       }}
                       style={{
-                        width: header.getSize(),
+                        width:
+                          header.column.columnDef.meta?.widthPercent !==
+                          undefined
+                            ? `${header.column.columnDef.meta.widthPercent}%`
+                            : header.getSize(),
+                        minWidth: header.column.columnDef.meta?.minWidthPx,
                         // Use inline style for zIndex so it beats MUI's global .MuiTableCell-head rule
                         zIndex: isPinned ? 5 : 3
                       }}
@@ -739,13 +825,15 @@ function CustomDatagrid2<TData extends RowData>({
                 />
               </Box>
             ) : (
-              table.getRowModel().rows.map((row) => {
+              table.getRowModel().rows.map((row, rowIndex) => {
                 const rowDepth = (row.original as any)?.depth ?? 0;
                 const isNested = rowDepth > 0;
                 const backgroundColor = isNested
                   ? rowDepth % 2 === 0
                     ? theme.colors.primary.light
                     : theme.palette.primary.main
+                  : zebraStripe && rowIndex % 2 === 1
+                  ? alpha(theme.palette.primary.main, 0.07)
                   : undefined;
                 const textColor = isNested ? 'white' : undefined;
 
@@ -760,7 +848,10 @@ function CustomDatagrid2<TData extends RowData>({
                       '&:hover': {
                         backgroundColor: isNested
                           ? theme.palette.primary.main
-                          : alpha(theme.palette.primary.main, 0.04)
+                          : alpha(
+                              theme.palette.primary.main,
+                              zebraStripe ? 0.1 : 0.04
+                            )
                       }
                     }}
                   >
@@ -785,8 +876,22 @@ function CustomDatagrid2<TData extends RowData>({
                             color: textColor,
                             textOverflow: 'ellipsis',
                             // Mais respiro vertical: a lista estava muito comprimida
-                            // e dificil de varrer com os olhos.
-                            py: 1.5,
+                            // e dificil de varrer com os olhos. rowCellPaddingY
+                            // (opt-in, px) sobrescreve esse respiro quando uma
+                            // tela precisa de uma altura de linha especifica
+                            // (ex.: /app/locations, alinhado a' referencia visual).
+                            py: rowCellPaddingY !== undefined
+                              ? `${rowCellPaddingY}px`
+                              : 1.5,
+                            ...(rowCellPaddingY !== undefined &&
+                              rowCellPaddingYCompact !== undefined && {
+                                [`@media (max-height: ${compactViewportHeight}px)`]:
+                                  {
+                                    paddingTop: `${rowCellPaddingYCompact}px`,
+                                    paddingBottom: `${rowCellPaddingYCompact}px`
+                                  }
+                              }),
+                            verticalAlign: 'middle',
                             position: isPinned ? 'sticky' : undefined,
                             left: isPinned ? stickyLeft : undefined,
                             backgroundColor: isPinned ? PINNED_BG : undefined,
@@ -801,7 +906,12 @@ function CustomDatagrid2<TData extends RowData>({
                               : undefined
                           }}
                           style={{
-                            width: cell.column.getSize(),
+                            width:
+                              cell.column.columnDef.meta?.widthPercent !==
+                              undefined
+                                ? `${cell.column.columnDef.meta.widthPercent}%`
+                                : cell.column.getSize(),
+                            minWidth: cell.column.columnDef.meta?.minWidthPx,
                             zIndex: isPinned ? 2 : undefined
                           }}
                         >

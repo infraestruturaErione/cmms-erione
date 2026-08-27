@@ -127,6 +127,10 @@ interface FileUploadProps {
   // AddWorkOrderTabbedModal) - mesmo drag&drop, mesma validacao, mesmo
   // onDrop/payload, so troca cor/tamanho via sx local.
   variant?: 'default' | 'light';
+  // Opcionais, retrocompativeis - omitidos preservam exatamente o texto
+  // padrao em qualquer tela que ja usa este componente.
+  hideDescription?: boolean;
+  ctaText?: string;
 }
 function FileUpload(props: FileUploadProps) {
   const { t }: { t: any } = useTranslation();
@@ -141,7 +145,9 @@ function FileUpload(props: FileUploadProps) {
     files: defaultFiles,
     error,
     disabled,
-    variant = 'default'
+    variant = 'default',
+    hideDescription = false,
+    ctaText
   } = props;
   const isLight = variant === 'light';
   const lightUploadBoxSx = isLight
@@ -282,7 +288,7 @@ function FileUpload(props: FileUploadProps) {
       >
         {title || t('file')}
       </TypographyPrimary>
-      {!isLight && (
+      {!isLight && !hideDescription && (
         <TypographySecondary variant="body1">
           {description || t('drag_one_file')}
         </TypographySecondary>
@@ -322,14 +328,15 @@ function FileUpload(props: FileUploadProps) {
               <CloudUploadTwoToneIcon fontSize={isLight ? 'small' : 'medium'} />
             </AvatarWrapper>
             <TypographyPrimary sx={{ mt: isLight ? 0 : 2, ...lightDropzoneTextSx }}>
-              {multiple
-                ? t(isLight ? 'select_or_drag_files' : 'drag_many_files')
-                : t(isLight ? 'select_image' : 'drag_one_file')}
+              {ctaText ||
+                (multiple
+                  ? t(isLight ? 'select_or_drag_files' : 'drag_many_files')
+                  : t(isLight ? 'select_image' : 'drag_one_file'))}
             </TypographyPrimary>
           </>
         )}
       </BoxUploadWrapper>
-      {isLight && description && (
+      {isLight && !hideDescription && description && (
         <TypographySecondary
           variant="caption"
           sx={{ ...lightDescriptionSx, display: 'block', mt: 0.75 }}

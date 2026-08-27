@@ -61,6 +61,14 @@ export interface IField {
   // aparencia atual do FileUpload em todas as telas. So AddWorkOrderTabbedModal
   // opta por 'light' nesta Sprint de redesign visual.
   fileVariant?: 'default' | 'light';
+  // Opcional, retrocompativel - omitido preserva a legenda padrao
+  // (t('upload')) abaixo da dropzone em todo mundo. So' /app/locations usa
+  // true, pra tirar esse texto extra dos campos de Foto/Anexos simplificados.
+  fileHideDescription?: boolean;
+  // Opcional, retrocompativel - omitido preserva o texto padrao
+  // ("Selecionar imagem"/"Arraste arquivos..."). So' /app/locations customiza
+  // pra "Adicionar foto"/"Adicionar arquivos".
+  fileCtaText?: string;
   helperText?: string;
   fullWidth?: boolean;
   multiple?: boolean;

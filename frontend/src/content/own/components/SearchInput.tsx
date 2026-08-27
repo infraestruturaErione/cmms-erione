@@ -1,5 +1,6 @@
-import { InputAdornment, TextField } from '@mui/material';
+import { IconButton, InputAdornment, TextField } from '@mui/material';
 import SearchTwoToneIcon from '@mui/icons-material/SearchTwoTone';
+import ClearTwoToneIcon from '@mui/icons-material/ClearTwoTone';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,6 +19,10 @@ interface OwnProps {
   // usos deste componente. Locations/index.tsx passa "small" para alinhar a
   // altura com o Select de filtro de Cliente ao lado.
   size?: 'small' | 'medium';
+  // onClear: opcional, retrocompativel - so' aparece o "x" dentro do campo
+  // quando informado E value nao estiver vazio. Sem isso, nenhum outro uso
+  // deste componente muda (nunca tinham essa affordance antes).
+  onClear?: () => void;
 }
 
 export default function SearchInput({
@@ -25,7 +30,8 @@ export default function SearchInput({
   value,
   placeholder,
   fullWidth,
-  size
+  size,
+  onClear
 }: OwnProps) {
   const { t }: { t: any } = useTranslation();
   return (
@@ -40,7 +46,20 @@ export default function SearchInput({
           <InputAdornment position="start">
             <SearchTwoToneIcon color="primary" />
           </InputAdornment>
-        )
+        ),
+        endAdornment:
+          onClear && value ? (
+            <InputAdornment position="end">
+              <IconButton
+                size="small"
+                aria-label={t('clear', 'Limpar')}
+                onClick={onClear}
+                edge="end"
+              >
+                <ClearTwoToneIcon fontSize="small" />
+              </IconButton>
+            </InputAdornment>
+          ) : undefined
       }}
       placeholder={placeholder ?? t('search')}
       variant="outlined"
