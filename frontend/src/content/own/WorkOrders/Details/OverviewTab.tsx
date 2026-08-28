@@ -10,7 +10,7 @@ import FieldExecutionTimeline from './FieldExecutionTimeline';
 import { getAssetUrl, getPreventiveMaintenanceUrl, getUserUrl } from '../../../../utils/urlPaths';
 import { getCustomFieldValuesForDetails } from '../../type';
 import {
-  getLocationDisplayAddress,
+  getLocationAddressWithReference,
   getLocationIdentification
 } from '../../../../utils/locationDisplay';
 
@@ -99,7 +99,10 @@ export default function OverviewTab({
     .join(', ');
 
   const fields: FieldDef[] = [
-    { label: t('id'), value: workOrder.customId },
+    {
+      label: t('wo_overview_code_label', 'Código da OS'),
+      value: workOrder.customId
+    },
     { label: t('category'), value: workOrder.category?.name },
     {
       label: t('asset'),
@@ -220,9 +223,9 @@ export default function OverviewTab({
                 >
                   {getLocationIdentification(workOrder.location)}
                 </Link>
-                {getLocationDisplayAddress(workOrder.location) && (
+                {getLocationAddressWithReference(workOrder.location) && (
                   <Typography variant="body2" color="text.secondary">
-                    {getLocationDisplayAddress(workOrder.location)}
+                    {getLocationAddressWithReference(workOrder.location)}
                   </Typography>
                 )}
               </Box>

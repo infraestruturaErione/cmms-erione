@@ -1020,6 +1020,7 @@ const ptBRJSON = {
   locations_table_id: 'ID',
   select_location_address: 'Selecionar endereço',
   wo_overview_address_label: 'Endereço',
+  wo_overview_code_label: 'Código da OS',
   location_details_overline: 'Endereço',
   confirm_delete_location:
     'Tem certeza de que deseja excluir esta Localização?',
