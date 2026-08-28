@@ -20,7 +20,6 @@ import com.grash.model.*;
 import com.grash.model.abstracts.WorkOrderBase;
 import com.grash.model.enums.*;
 import com.grash.model.enums.workflow.WFMainCondition;
-import com.grash.repository.CommentRepository;
 import com.grash.repository.CustomerRepository;
 import com.grash.repository.GeneratedReportRepository;
 import com.grash.dto.workOrder.report.WorkOrderBulkReportRequestDTO;
@@ -28,8 +27,6 @@ import com.grash.dto.workOrder.report.GeneratedReportShowDTO;
 import com.grash.service.*;
 import com.grash.utils.Helper;
 import com.grash.utils.MultipartFileImpl;
-import com.grash.utils.Utils;
-import com.itextpdf.html2pdf.HtmlConverter;
 
 
 import io.swagger.v3.oas.annotations.Parameter;
@@ -37,7 +34,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
-import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -55,9 +51,7 @@ import jakarta.transaction.Transactional;
 
 import jakarta.validation.Valid;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.URLConnection;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -73,14 +67,6 @@ import static java.util.stream.Collectors.toCollection;
 @RequiredArgsConstructor
 @Transactional
 public class WorkOrderController {
-    private static final String FIELD_REPORT_PREFIX = "[Relato em campo]";
-    private static final List<String> PHOTO_ONLY_FIELD_REPORT_TEXTS = List.of(
-            "Photo evidence registered.",
-            "Evidencia fotografica registrada.",
-            "Evidência fotográfica registrada.",
-            "EvidÃªncia fotogrÃ¡fica registrada."
-    );
-
     private final WorkOrderService workOrderService;
     private final WorkOrderMapper workOrderMapper;
     private final UserService userService;
@@ -94,26 +80,19 @@ public class WorkOrderController {
     private final PartQuantityService partQuantityService;
     private final NotificationService notificationService;
     private final MailServiceFactory mailServiceFactory;
-    private final Utils utils;
-    private final TaskService taskService;
-    private final RelationService relationService;
-    private final AdditionalCostService additionalCostService;
-    private final WorkOrderHistoryService workOrderHistoryService;
     private final SpringTemplateEngine thymeleafTemplateEngine;
     private final StorageServiceFactory storageServiceFactory;
     private final WorkflowService workflowService;
-    private final Environment environment;
     private final PreventiveMaintenanceService preventiveMaintenanceService;
     private final EntityManager em;
     private final PreventiveMaintenanceMapper preventiveMaintenanceMapper;
-    private final BrandingService brandingService;
     private final ScheduleService scheduleService;
     private final LicenseService licenseService;
     private final IntercomService intercomService;
     private final CompanyService companyService;
     private final WorkOrderOperationalReportService workOrderOperationalReportService;
+    private final WorkOrderReportService workOrderReportService;
     private final CustomerScopeService customerScopeService;
-    private final CommentRepository commentRepository;
     private final CustomerRepository customerRepository;
     private final WorkOrderCompletionValidator workOrderCompletionValidator;
 
@@ -569,97 +548,19 @@ public class WorkOrderController {
         if (user.getRole().getViewPermissions().contains(PermissionEntity.WORK_ORDERS)) {
                 Context thymeleafContext = new Context();
                 thymeleafContext.setLocale(Helper.getLocale(user));
-                Map<String, Object> variables = new HashMap<>(buildCompanyReportVariables(user, storageService));
-                variables.putAll(buildWorkOrderReportVariables(savedWorkOrder, storageService));
+                Map<String, Object> variables =
+                        new HashMap<>(workOrderReportService.buildCompanyReportVariables(user));
+                variables.putAll(workOrderReportService.buildWorkOrderReportVariables(savedWorkOrder, storageService));
                 thymeleafContext.setVariables(variables);
 
                 String reportHtml = thymeleafTemplateEngine.process("work-order-report.html", thymeleafContext);
-
-                /* Setup Source and target I/O streams */
-                ByteArrayOutputStream target = new ByteArrayOutputStream();
-                /* Call convert method */
-                HtmlConverter.convertToPdf(reportHtml, target);
-                /* extract output as bytes */
-                byte[] bytes = target.toByteArray();
+                byte[] bytes = workOrderReportService.renderPdf(reportHtml);
                 MultipartFile file = new MultipartFileImpl(bytes, "Work Order Report.pdf");
                 return ResponseEntity.ok()
                         .body(new SuccessResponse(true, storageServiceFactory.getStorageService().uploadAndSign(file,
                                 "reports/" + user.getCompany().getId())));
         } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
 
-    }
-
-    // Variaveis de nivel de EMPRESA usadas pelo template do relatorio - iguais
-    // pra toda OS do mesmo usuario, entao so' precisam ser calculadas uma vez
-    // (usado tanto no relatorio individual quanto no relatorio em massa).
-    private Map<String, Object> buildCompanyReportVariables(User user, StorageService storageService) {
-        Map<String, Object> variables = new HashMap<>();
-        variables.put("companyName", user.getCompany().getName());
-        variables.put("companyPhone", user.getCompany().getPhone());
-        variables.put("companyLogo", user.getCompany().getLogo() == null ? null :
-                storageService.generateSignedUrl(user.getCompany().getLogo(), 5));
-        com.grash.model.Currency currency =
-                user.getCompany().getCompanySettings().getGeneralPreferences().getCurrency();
-        variables.put("currency", currency == null ? null : currency.getCode());
-        variables.put("utils", utils);
-        variables.put("dateFormat", user.getCompany().getCompanySettings().getGeneralPreferences().getDateFormat());
-        variables.put("timeZone", user.getCompany().getCompanySettings().getGeneralPreferences().getTimeZone());
-        variables.put("environment", environment);
-        variables.put("messageSource", messageSource);
-        variables.put("locale", Helper.getLocale(user));
-        variables.put("backgroundColor", brandingService.getMailBackgroundColor());
-        return variables;
-    }
-
-    // Variaveis especificas de UMA OS - extraido do relatorio individual pra
-    // poder ser chamado em loop no relatorio em massa (uma OS por bloco no
-    // mesmo PDF), sem duplicar a logica de evidencias/checklist/etc.
-    private Map<String, Object> buildWorkOrderReportVariables(WorkOrder savedWorkOrder, StorageService storageService) {
-        Long id = savedWorkOrder.getId();
-        Optional<User> creator = savedWorkOrder.getCreatedBy() == null ? Optional.empty() :
-                userService.findById(savedWorkOrder.getCreatedBy());
-        List<Task> tasks = taskService.findByWorkOrder(id);
-        Map<Long, String[]> tasksImagesUrls = tasks.stream()
-                .collect(Collectors.toMap(
-                        Task::getId,
-                        task -> task.getImages().stream()
-                                .map(image -> storageService.generateSignedUrl(image, 5))
-                                .toArray(String[]::new)
-                ));
-        Collection<PartQuantity> partQuantities = partQuantityService.findByWorkOrder(id);
-        Collection<Labor> labors = laborService.findByWorkOrder(id);
-        Collection<Relation> relations = relationService.findByWorkOrder(id);
-        Collection<AdditionalCost> additionalCosts = additionalCostService.findByWorkOrder(id);
-        Collection<WorkOrderHistory> workOrderHistories = workOrderHistoryService.findByWorkOrder(id);
-        List<Comment> fieldComments = commentRepository
-                .findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(List.of(id),
-                        FIELD_REPORT_PREFIX);
-        List<String> fieldReports = fieldComments.stream()
-                .map(comment -> getRealFieldReportText(comment.getContent()))
-                .filter(Objects::nonNull)
-                .filter(fieldReport -> !fieldReport.isBlank())
-                .collect(Collectors.toList());
-        List<Map<String, Object>> fieldEvidenceItems = buildFieldEvidenceItems(savedWorkOrder, fieldComments,
-                storageService);
-        Map<String, Object> variables = new HashMap<>();
-        variables.put("assignedTo",
-                Helper.enumerate(savedWorkOrder.getAssignedTo().stream().map(User::getFullName).collect(Collectors.toList())));
-        variables.put("customers",
-                Helper.enumerate(savedWorkOrder.getCustomers().stream().map(Customer::getName).collect(Collectors.toList())));
-        variables.put("workOrder", savedWorkOrder);
-        variables.put("primaryUserName", savedWorkOrder.getPrimaryUser() == null ? null :
-                savedWorkOrder.getPrimaryUser().getFullName());
-        variables.put("createdBy", creator.<Object>map(User::getFullName).orElse(null));
-        variables.put("tasks", tasks);
-        variables.put("labors", labors);
-        variables.put("relations", relations);
-        variables.put("additionalCosts", additionalCosts);
-        variables.put("workOrderHistories", workOrderHistories);
-        variables.put("partQuantities", partQuantities);
-        variables.put("tasksImagesUrls", tasksImagesUrls);
-        variables.put("fieldReports", fieldReports);
-        variables.put("fieldEvidenceItems", fieldEvidenceItems);
-        return variables;
     }
 
     @PostMapping(path = "/report/bulk")
@@ -722,9 +623,10 @@ public class WorkOrderController {
         StorageService storageService = storageServiceFactory.getStorageService();
         Context thymeleafContext = new Context();
         thymeleafContext.setLocale(Helper.getLocale(user));
-        Map<String, Object> variables = new HashMap<>(buildCompanyReportVariables(user, storageService));
+        Map<String, Object> variables =
+                new HashMap<>(workOrderReportService.buildCompanyReportVariables(user));
         List<Map<String, Object>> workOrderReports = workOrders.stream()
-                .map(workOrder -> buildWorkOrderReportVariables(workOrder, storageService))
+                .map(workOrder -> workOrderReportService.buildWorkOrderReportVariables(workOrder, storageService))
                 .collect(Collectors.toList());
         // Cabecalho/nome do arquivo sempre correspondem ao cliente selecionado.
         // Cidade e CNPJ, quando existirem no cadastro, entram so como dado
@@ -746,9 +648,7 @@ public class WorkOrderController {
         thymeleafContext.setVariables(variables);
 
         String reportHtml = thymeleafTemplateEngine.process("work-orders-bulk-report.html", thymeleafContext);
-        ByteArrayOutputStream target = new ByteArrayOutputStream();
-        HtmlConverter.convertToPdf(reportHtml, target);
-        byte[] bytes = target.toByteArray();
+        byte[] bytes = workOrderReportService.renderPdf(reportHtml);
         MultipartFile file = new MultipartFileImpl(bytes, "Relatorio em Massa - " + customerLabel + ".pdf");
         String filePath = storageService.upload(file, "reports/" + companyId);
 
@@ -842,76 +742,6 @@ public class WorkOrderController {
         }
         StorageService storageService = storageServiceFactory.getStorageService();
         return new SuccessResponse(true, storageService.generateSignedUrl(report.getFilePath(), 10));
-    }
-
-    private String stripFieldReportPrefix(String content) {
-        if (content == null || !content.startsWith(FIELD_REPORT_PREFIX)) {
-            return null;
-        }
-        return content.substring(FIELD_REPORT_PREFIX.length()).trim();
-    }
-
-    private String getRealFieldReportText(String content) {
-        String text = stripFieldReportPrefix(content);
-        if (text == null || PHOTO_ONLY_FIELD_REPORT_TEXTS.contains(text)) {
-            return null;
-        }
-        return text;
-    }
-
-    private List<Map<String, Object>> buildFieldEvidenceItems(WorkOrder workOrder, List<Comment> fieldComments,
-                                                              StorageService storageService) {
-        List<Map<String, Object>> items = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
-        if (workOrder.getImage() != null) {
-            addEvidenceItem(items, seen, workOrder.getImage(), "OS", null, storageService);
-        }
-        if (workOrder.getFiles() != null) {
-            workOrder.getFiles().forEach(file -> addEvidenceItem(items, seen, file, "OS", null, storageService));
-        }
-        fieldComments.forEach(comment -> {
-            if (comment.getFiles() != null) {
-                String note = stripFieldReportPrefix(comment.getContent());
-                comment.getFiles().forEach(file -> addEvidenceItem(items, seen, file, "Relato em campo", note,
-                        storageService));
-            }
-        });
-        return items;
-    }
-
-    private void addEvidenceItem(List<Map<String, Object>> items, Set<String> seen, File file, String source,
-                                 String note, StorageService storageService) {
-        String key = file.getId() == null ? file.getPath() : file.getId().toString();
-        if (key == null || seen.contains(key)) {
-            return;
-        }
-        seen.add(key);
-        Map<String, Object> item = new HashMap<>();
-        item.put("name", file.getName());
-        item.put("type", file.getType());
-        boolean isImage = file.getType() == FileType.IMAGE;
-        // O PDF e' montado com HtmlConverter.convertToPdf DENTRO do container da API.
-        // Uma URL assinada do MinIO (localhost:9000) so' funciona pro navegador do
-        // usuario - de dentro do proprio container, "localhost" e' o container, nao
-        // o MinIO, entao a imagem falhava silenciosamente (texto aparecia, foto nao).
-        // Baixando os bytes e embutindo como data URI (mesmo esquema ja usado pra
-        // workOrder.signature) elimina esse fetch de rede na hora de gerar o PDF.
-        String url = null;
-        if (isImage) {
-            try {
-                byte[] bytes = storageService.download(file.getPath());
-                String mimeType = Optional.ofNullable(URLConnection.guessContentTypeFromName(file.getName()))
-                        .orElse("image/jpeg");
-                url = "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(bytes);
-            } catch (Exception ignored) {
-                isImage = false;
-            }
-        }
-        item.put("image", isImage);
-        item.put("source", source);
-        item.put("note", note);
-        item.put("url", url);
-        items.add(item);
     }
 
     @GetMapping("/urgent")

@@ -3,184 +3,7 @@
 <head>
     <meta charset="UTF-8"/>
     <title>Relatorio em Massa de Ordens de Servico</title>
-    <style>
-        @page { size: A4; margin: 18mm 14mm; }
-        body {
-            font-family: Helvetica, Arial, sans-serif;
-            font-size: 11px;
-            color: #17323a;
-            margin: 0;
-            background: #ffffff;
-        }
-        h1, h2, h3, p { margin: 0; }
-        .header {
-            border-bottom: 3px solid #128276;
-            padding-bottom: 14px;
-            margin-bottom: 16px;
-        }
-        .brand-row {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .brand-left { width: 65%; vertical-align: top; }
-        .brand-right { width: 35%; text-align: right; vertical-align: top; }
-        .logo { max-height: 42px; margin-bottom: 8px; }
-        .kicker {
-            color: #128276;
-            font-size: 10px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-        }
-        .title {
-            font-size: 23px;
-            line-height: 1.15;
-            color: #0b2f3a;
-            margin-top: 5px;
-        }
-        .subtitle {
-            color: #64748b;
-            margin-top: 4px;
-        }
-        .badge {
-            display: inline-block;
-            padding: 5px 9px;
-            border-radius: 12px;
-            background: #e7f3f1;
-            color: #128276;
-            font-weight: bold;
-            margin-left: 4px;
-        }
-        .cover-section {
-            margin-top: 14px;
-        }
-        .cover-title {
-            background: #0b2f3a;
-            color: #ffffff;
-            padding: 7px 10px;
-            font-size: 12px;
-            font-weight: bold;
-            border-radius: 6px 6px 0 0;
-        }
-        .cover-body {
-            border: 1px solid #d9e5e5;
-            border-top: 0;
-            padding: 10px;
-            border-radius: 0 0 6px 6px;
-        }
-        .wo-block {
-            margin-top: 14px;
-        }
-        .wo-block.page-break {
-            page-break-before: always;
-        }
-        .wo-index {
-            color: #128276;
-            font-size: 10px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            margin-bottom: 4px;
-        }
-        .section {
-            margin-top: 14px;
-            page-break-inside: avoid;
-        }
-        .section-title {
-            background: #0b2f3a;
-            color: #ffffff;
-            padding: 7px 10px;
-            font-size: 12px;
-            font-weight: bold;
-            border-radius: 6px 6px 0 0;
-        }
-        .section-body {
-            border: 1px solid #d9e5e5;
-            border-top: 0;
-            padding: 10px;
-            border-radius: 0 0 6px 6px;
-        }
-        .grid {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .grid td {
-            width: 50%;
-            padding: 5px 8px;
-            vertical-align: top;
-            border-bottom: 1px solid #edf3f3;
-        }
-        .label {
-            display: block;
-            color: #64748b;
-            font-size: 9px;
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 2px;
-        }
-        .value {
-            color: #17323a;
-            font-size: 11px;
-            line-height: 1.35;
-        }
-        .text-block {
-            line-height: 1.5;
-            white-space: pre-wrap;
-        }
-        .timeline {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .timeline td {
-            width: 25%;
-            border: 1px solid #d9e5e5;
-            padding: 8px;
-            vertical-align: top;
-        }
-        .timeline-step {
-            font-weight: bold;
-            color: #0b2f3a;
-            margin-bottom: 4px;
-        }
-        .item {
-            padding: 8px 0;
-            border-bottom: 1px solid #edf3f3;
-        }
-        .item:last-child { border-bottom: 0; }
-        .evidence {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .evidence td {
-            width: 50%;
-            padding: 8px;
-            vertical-align: top;
-            border: 1px solid #edf3f3;
-        }
-        .evidence-img {
-            max-width: 220px;
-            max-height: 150px;
-            display: block;
-            margin-bottom: 6px;
-            border: 1px solid #d9e5e5;
-        }
-        .signature-img {
-            max-width: 260px;
-            max-height: 120px;
-            border: 1px solid #d9e5e5;
-            background: #ffffff;
-            margin-top: 8px;
-        }
-        .muted { color: #64748b; }
-        .footer {
-            margin-top: 18px;
-            padding-top: 10px;
-            border-top: 1px solid #d9e5e5;
-            text-align: center;
-            color: #64748b;
-            font-size: 10px;
-        }
-    </style>
+    <th:block th:insert="~{fragments/work-order-report-styles :: styles}"></th:block>
 </head>
 <body>
 <!--@thymesVar id="workOrderReports" type="java.util.List<java.util.Map>"-->
@@ -188,198 +11,75 @@
 <!--@thymesVar id="cityLabel" type="java.lang.String"-->
 <!--@thymesVar id="cnpjLabel" type="java.lang.String"-->
 
+<!-- Capa - resumo do lote, nao e' uma OS. Usa o mesmo vocabulario visual
+     (doc-title/section-label/kv-*) do corpo de cada OS, pra nao introduzir
+     uma segunda linguagem visual so' pra capa. -->
 <div class="header">
     <table class="brand-row">
         <tr>
             <td class="brand-left">
-                <img th:if="${companyLogo!=null}" th:src="@{${companyLogo}}" class="logo"/>
-                <div class="kicker">Erione CMMS</div>
-                <h1 class="title">Relatorio em Massa de Ordens de Servico</h1>
-                <p class="subtitle">
-                    <span th:text="${companyName}">Empresa</span>
-                </p>
+                <div class="doc-title">Relatorio em Massa</div>
+                <div class="doc-subtitle">Ordens de servico concluidas no periodo</div>
+                <div class="company-name" th:text="${companyName}">Empresa</div>
             </td>
             <td class="brand-right">
-                <div class="kicker">Cliente</div>
-                <h2 th:text="${customerLabel}">Cliente</h2>
+                <img th:if="${erioneLogoDataUri != null}" th:src="${erioneLogoDataUri}" class="logo"/>
             </td>
         </tr>
     </table>
+    <div class="header-rule"></div>
 </div>
 
-<div class="cover-section">
-    <div class="cover-title">Resumo do relatorio</div>
-    <div class="cover-body">
-        <table class="grid">
-            <tr>
-                <td><span class="label">Cidade</span><span class="value" th:text="${cityLabel == null or #strings.isEmpty(cityLabel) ? '--' : cityLabel}"></span></td>
-                <td><span class="label">CNPJ</span><span class="value" th:text="${cnpjLabel == null or #strings.isEmpty(cnpjLabel) ? '--' : cnpjLabel}"></span></td>
-            </tr>
-            <tr>
-                <td><span class="label">Total de OS concluidas</span><span class="value" th:text="${#lists.size(workOrderReports)}"></span></td>
-                <td></td>
-            </tr>
-            <tr>
-                <td><span class="label">Periodo inicial</span><span class="value" th:text="${periodStart == null or #strings.isEmpty(periodStart) ? '--' : periodStart}"></span></td>
-                <td><span class="label">Periodo final</span><span class="value" th:text="${periodEnd == null or #strings.isEmpty(periodEnd) ? '--' : periodEnd}"></span></td>
-            </tr>
-        </table>
-    </div>
-</div>
+<table class="summary-row">
+    <tr>
+        <td class="summary-code-cell">
+            <div class="summary-code-label">Cliente</div>
+            <div class="summary-code-value" style="font-size:13pt" th:text="${customerLabel}">Cliente</div>
+        </td>
+        <td class="summary-stat-cell">
+            <div class="summary-label">Cidade</div>
+            <div class="summary-value" th:text="${cityLabel == null or #strings.isEmpty(cityLabel) ? '' : cityLabel}"></div>
+        </td>
+        <td class="summary-stat-cell">
+            <div class="summary-label">CNPJ</div>
+            <div class="summary-value" th:text="${cnpjLabel == null or #strings.isEmpty(cnpjLabel) ? '' : cnpjLabel}"></div>
+        </td>
+        <td class="summary-stat-cell">
+            <div class="summary-label">Periodo</div>
+            <div class="summary-value" th:text="${periodStart} + ' a ' + ${periodEnd}"></div>
+        </td>
+        <td class="summary-stat-cell">
+            <div class="summary-label">Total de OS</div>
+            <div class="summary-value" th:text="${#lists.size(workOrderReports)}"></div>
+        </td>
+    </tr>
+</table>
+
+<div class="cover-rule"></div>
 
 <div class="wo-block" th:each="wo, iter : ${workOrderReports}" th:classappend="${iter.first} ? '' : 'page-break'">
-
-    <div class="wo-index" th:text="'OS ' + (${iter.index} + 1) + ' de ' + ${#lists.size(workOrderReports)}"></div>
-
-    <div class="header">
-        <table class="brand-row">
-            <tr>
-                <td class="brand-left">
-                    <h1 class="title" th:text="${wo.workOrder.title}">Ordem de Servico</h1>
-                </td>
-                <td class="brand-right">
-                    <div class="kicker">Ordem de Servico</div>
-                    <h2 th:text="${wo.workOrder.customId}">WO000000</h2>
-                    <div style="margin-top:8px">
-                        <span class="badge" th:text="#{${wo.workOrder.status}}">Status</span>
-                        <span class="badge" th:if="${wo.workOrder.priority}" th:text="#{${wo.workOrder.priority}}">Prioridade</span>
-                    </div>
-                </td>
-            </tr>
-        </table>
+    <div class="wo-index" th:text="'OS ' + (${iter.index} + 1) + ' DE ' + ${#lists.size(workOrderReports)}"></div>
+    <div th:with="workOrder=${wo.workOrder},
+                  primaryUserName=${wo.primaryUserName},
+                  customers=${wo.customers},
+                  customerCnpj=${wo.customerCnpj},
+                  customerEmail=${wo.customerEmail},
+                  customerPhone=${wo.customerPhone},
+                  customerAddress=${wo.customerAddress},
+                  serviceLabel=${wo.serviceLabel},
+                  tasks=${wo.tasks},
+                  tasksImagesUrls=${wo.tasksImagesUrls},
+                  fieldReports=${wo.fieldReports},
+                  fieldEvidenceRows=${wo.fieldEvidenceRows},
+                  fieldEvidenceCount=${wo.fieldEvidenceCount},
+                  locationIdentification=${wo.locationIdentification},
+                  locationAddressWithReference=${wo.locationAddressWithReference},
+                  checkInDistanceLabel=${wo.checkInDistanceLabel},
+                  checkOutDistanceLabel=${wo.checkOutDistanceLabel},
+                  siteDurationLabel=${wo.siteDurationLabel}">
+        <div th:replace="~{fragments/work-order-report-body :: workOrderBody}"></div>
     </div>
-
-    <div class="section">
-        <div class="section-title">Resumo da OS</div>
-        <div class="section-body">
-            <table class="grid">
-                <tr>
-                    <td><span class="label">Criada em</span><span class="value" th:text="${utils.getFormattedDate(wo.workOrder.createdAt, dateFormat, timeZone)}"></span></td>
-                    <td><span class="label">Atualizada em</span><span class="value" th:text="${utils.getFormattedDate(wo.workOrder.updatedAt, dateFormat, timeZone)}"></span></td>
-                </tr>
-                <tr>
-                    <td><span class="label">Prazo</span><span class="value" th:text="${wo.workOrder.dueDate == null ? '--' : utils.getFormattedDate(wo.workOrder.dueDate, dateFormat, timeZone)}"></span></td>
-                    <td><span class="label">Tecnico principal</span><span class="value" th:text="${wo.primaryUserName == null ? '--' : wo.primaryUserName}"></span></td>
-                </tr>
-                <tr>
-                    <td><span class="label">Atribuidos</span><span class="value" th:text="${#strings.isEmpty(wo.assignedTo) ? '--' : wo.assignedTo}"></span></td>
-                    <td><span class="label">Criada por</span><span class="value" th:text="${wo.createdBy == null ? '--' : wo.createdBy}"></span></td>
-                </tr>
-            </table>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="section-title">Destino e equipamento</div>
-        <div class="section-body">
-            <table class="grid">
-                <tr>
-                    <td><span class="label">Cliente</span><span class="value" th:text="${#strings.isEmpty(wo.customers) ? '--' : wo.customers}"></span></td>
-                    <td><span class="label">Local</span><span class="value" th:text="${wo.workOrder.location == null ? '--' : wo.workOrder.location.name}"></span></td>
-                </tr>
-                <tr>
-                    <td><span class="label">Endereco</span><span class="value" th:text="${wo.workOrder.location == null || wo.workOrder.location.address == null ? '--' : wo.workOrder.location.address}"></span></td>
-                    <td><span class="label">Equipamento</span><span class="value" th:text="${wo.workOrder.asset == null ? '--' : wo.workOrder.asset.name}"></span></td>
-                </tr>
-            </table>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="section-title">Problema / solicitacao</div>
-        <div class="section-body">
-            <p class="text-block" th:text="${#strings.isEmpty(wo.workOrder.description) ? 'Nenhuma descricao informada.' : wo.workOrder.description}"></p>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="section-title">Execucao em campo</div>
-        <div class="section-body">
-            <table class="timeline">
-                <tr>
-                    <td>
-                        <div class="timeline-step">Deslocamento</div>
-                        <div class="muted" th:text="${wo.workOrder.departureAt == null ? 'Pendente' : utils.getFormattedDate(wo.workOrder.departureAt, dateFormat, timeZone)}"></div>
-                    </td>
-                    <td>
-                        <div class="timeline-step">Check-in</div>
-                        <div class="muted" th:text="${wo.workOrder.checkInAt == null ? 'Pendente' : utils.getFormattedDate(wo.workOrder.checkInAt, dateFormat, timeZone)}"></div>
-                    </td>
-                    <td>
-                        <div class="timeline-step">Check-out</div>
-                        <div class="muted" th:text="${wo.workOrder.checkOutAt == null ? 'Pendente' : utils.getFormattedDate(wo.workOrder.checkOutAt, dateFormat, timeZone)}"></div>
-                    </td>
-                    <td>
-                        <div class="timeline-step">Conclusao</div>
-                        <div class="muted" th:text="${wo.workOrder.completedOn == null ? 'Pendente' : utils.getFormattedDate(wo.workOrder.completedOn, dateFormat, timeZone)}"></div>
-                    </td>
-                </tr>
-            </table>
-        </div>
-    </div>
-
-    <div class="section" th:if="${not #lists.isEmpty(wo.fieldReports)}">
-        <div class="section-title">Relatos de campo</div>
-        <div class="section-body">
-            <div class="item" th:each="fieldReport : ${wo.fieldReports}">
-                <p class="text-block" th:text="${fieldReport}"></p>
-            </div>
-        </div>
-    </div>
-
-    <div class="section" th:if="${not #lists.isEmpty(wo.fieldEvidenceItems)}">
-        <div class="section-title">Evidencias de campo</div>
-        <div class="section-body">
-            <table class="evidence">
-                <tr th:each="evidence, iter2 : ${wo.fieldEvidenceItems}">
-                    <td>
-                        <img th:if="${evidence.image}" th:src="${evidence.url}" class="evidence-img"/>
-                        <div><span class="label">Arquivo</span><span class="value" th:text="${evidence.name}"></span></div>
-                        <div><span class="label">Origem</span><span class="value" th:text="${evidence.source}"></span></div>
-                        <div th:if="${evidence.note != null}"><span class="label">Observacao</span><span class="value" th:text="${evidence.note}"></span></div>
-                    </td>
-                </tr>
-            </table>
-        </div>
-    </div>
-
-    <div class="section" th:if="${not #lists.isEmpty(wo.tasks)}">
-        <div class="section-title">Checklist / tarefas</div>
-        <div class="section-body">
-            <div class="item" th:each="task : ${wo.tasks}">
-                <strong th:text="${task.getTaskBase().getLabel()}"></strong>
-                <div th:text="${task.getTranslatedValue(locale, messageSource)}"></div>
-                <div class="muted" th:text="${task.getNotes()}"></div>
-                <span th:each="imageUrl : ${wo.tasksImagesUrls.get(task.getId())}">
-                    <img th:src="${imageUrl}" class="evidence-img"/>
-                </span>
-            </div>
-        </div>
-    </div>
-
-    <div class="section">
-        <div class="section-title">Conclusao</div>
-        <div class="section-body">
-            <table class="grid">
-                <tr>
-                    <td><span class="label">Concluido por</span><span class="value" th:text="${wo.workOrder.completedBy == null ? '--' : wo.workOrder.completedBy.getFullName()}"></span></td>
-                    <td><span class="label">Concluido em</span><span class="value" th:text="${wo.workOrder.completedOn == null ? '--' : utils.getFormattedDate(wo.workOrder.completedOn, dateFormat, timeZone)}"></span></td>
-                </tr>
-                <tr>
-                    <td colspan="2"><span class="label">Feedback</span><span class="value" th:text="${#strings.isEmpty(wo.workOrder.feedback) ? '--' : wo.workOrder.feedback}"></span></td>
-                </tr>
-            </table>
-            <div th:if="${wo.workOrder.signature != null}">
-                <span class="label">Assinatura</span>
-                <img th:src="@{${wo.workOrder.signature}}" class="signature-img"/>
-            </div>
-        </div>
-    </div>
-
 </div>
 
-<div class="footer">
-    Relatorio gerado pelo Erione CMMS
-</div>
 </body>
 </html>

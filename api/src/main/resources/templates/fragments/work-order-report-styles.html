@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <!--
+    Estilos do PDF de Ordem de Servico (individual e em massa) - fragmento
+    UNICO incluido pelos dois templates via th:insert.
+
+    Terceira rodada de design: o objetivo mudou de "documento tipo Auvo" pra
+    "relatorio tecnico de atendimento corporativo" - Auvo continua a
+    referencia de familiaridade/densidade, mas a composicao agora usa
+    tipografia/hierarquia/whitespace no lugar de caixas cinzas repetidas.
+    Cada secao usa um ROTULO + REGRA FINA (nao mais cabecalho-caixa +
+    corpo-com-borda em toda secao) - tabela HTML so' onde a informacao e'
+    genuinamente tabular (checklist, fotos, algumas linhas de execucao).
+    Azul institucional Erione (#2A4899) so' como acento (linha do cabecalho,
+    marcador do codigo da OS) - 90%+ da pagina e' branco/cinza/preto.
+    -->
+    <th:block th:fragment="styles">
+        <!--
+        th:inline="text" no <style> - so' pra poder interpolar o codigo da OS
+        no rodape (@bottom-center) com [[...]]. "workOrder" so' existe no
+        contexto de nivel superior no relatorio INDIVIDUAL (setado direto em
+        thymeleafContext.setVariables) - no Bulk ele so' existe DENTRO do
+        th:with de cada bloco de OS, nao aqui em cima onde o <head> e'
+        processado uma unica vez pro documento inteiro (varias OS, nenhum
+        codigo unico faz sentido) - por isso o operador ternario com fallback
+        pra string vazia, sem quebrar o Bulk.
+        -->
+        <style th:inline="text">
+            @page {
+                size: A4;
+                margin: 16mm 15mm 14mm;
+                @bottom-center {
+                    content: "Erione Technologies | [[${workOrder != null ? workOrder.customId + ' | ' : ''}]]Pagina " counter(page) " de " counter(pages);
+                    font-family: Roboto, Helvetica, Arial, sans-serif;
+                    font-size: 7.5px;
+                    color: #9a9a9a;
+                }
+            }
+            body {
+                font-family: Roboto, Helvetica, Arial, sans-serif;
+                font-size: 9.5pt;
+                color: #1a1a1a;
+                margin: 0;
+                background: #ffffff;
+            }
+            h1, h2, h3, p { margin: 0; }
+            table { border-collapse: collapse; }
+
+            .wo-block { margin-top: 0; }
+            .wo-block.page-break { page-break-before: always; }
+            .wo-index {
+                color: #9a9a9a;
+                font-size: 8pt;
+                font-weight: bold;
+                letter-spacing: 0.5px;
+                margin-bottom: 8px;
+            }
+            .cover-rule { border-bottom: 1px solid #d8d8d8; margin: 12px 0 14px; }
+
+            /* ===== Cabecalho ===== */
+            .header { margin-bottom: 10px; }
+            .brand-row { width: 100%; }
+            .brand-left { width: 68%; vertical-align: top; }
+            .brand-right { width: 32%; text-align: right; vertical-align: top; }
+            .doc-title {
+                font-size: 21pt;
+                font-weight: bold;
+                color: #101010;
+                letter-spacing: 0.2px;
+            }
+            .doc-subtitle {
+                font-size: 9.5pt;
+                color: #6b6b6b;
+                margin-top: 1px;
+            }
+            .company-name { font-size: 11pt; font-weight: bold; color: #262626; margin-top: 7px; }
+            .company-meta { color: #5a5a5a; font-size: 8.5pt; line-height: 1.6; margin-top: 1px; }
+            .logo { max-height: 56px; max-width: 56px; margin-top: 2px; }
+            .header-rule {
+                height: 2px;
+                background: #2A4899;
+                margin-top: 10px;
+            }
+
+            /* Codigo da OS - linha simples no espirito do "No da OS #123"
+               do Auvo (nao mais um painel de resumo repetindo Status/Data/
+               Responsavel/Local, que ja aparecem em "Informacoes da
+               tarefa" - ver work-order-report-body.html). So' usada no
+               corpo de cada OS; a capa do Bulk continua com seu proprio
+               resumo agregado em .summary-row (Cliente/Cidade/CNPJ/
+               Periodo/Total - informacao genuinamente nova, nao repetida). */
+            .wo-code-line {
+                text-align: center;
+                font-size: 10pt;
+                font-weight: bold;
+                color: #101010;
+                letter-spacing: 0.2px;
+                margin: 12px 0 16px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #e2e2e2;
+            }
+
+            /* ===== Resumo do lote (capa do Bulk) ===== */
+            .summary-row { width: 100%; margin: 12px 0 14px; table-layout: fixed; }
+            .summary-code-cell { width: 30%; vertical-align: top; padding-right: 10px; }
+            .summary-stat-cell {
+                vertical-align: top;
+                padding: 0 10px;
+                border-left: 1px solid #e2e2e2;
+            }
+            .summary-code-label {
+                font-size: 8pt;
+                font-weight: bold;
+                color: #8a8a8a;
+                letter-spacing: 0.4px;
+            }
+            .summary-code-value {
+                font-size: 16pt;
+                font-weight: bold;
+                color: #101010;
+                margin-top: 2px;
+            }
+            .summary-label {
+                font-size: 8pt;
+                font-weight: bold;
+                color: #8a8a8a;
+                letter-spacing: 0.4px;
+            }
+            .summary-value {
+                font-size: 11pt;
+                font-weight: bold;
+                color: #1a1a1a;
+                margin-top: 2px;
+            }
+            .summary-rule { border-bottom: 1px solid #e2e2e2; }
+
+            /* ===== Rotulo de secao (rotulo + regra fina, SEM caixa) ===== */
+            .section { margin-top: 13px; page-break-inside: avoid; }
+            .section-label {
+                font-size: 9.5pt;
+                font-weight: bold;
+                color: #2A4899;
+                letter-spacing: 0.5px;
+                padding-bottom: 4px;
+                border-bottom: 1px solid #c4c4c4;
+                margin-bottom: 7px;
+            }
+
+            /* "Informacoes da tarefa" - bloco logico UNICO (servico, local,
+               execucao, relato, checklist sao subsecoes dele, nao secoes
+               irmas). Sem page-break-inside:avoid de proposito: com relato/
+               checklist longos o bloco inteiro pode ultrapassar 1 pagina -
+               cada subsecao interna (linha de grid, linha de checklist)
+               protege sua propria quebra em vez do bloco todo. */
+            .section-task { margin-top: 13px; }
+
+            /* H3 - subsecao DENTRO de "Informacoes da tarefa" (Execucao,
+               Relato de execucao, Checklist/Questionario). Cor continua
+               diferenciando do rotulo de secao principal (H2, .section-label
+               e' azul institucional; aqui e' cinza escuro/preto) - mas
+               ganhou a mesma regra horizontal de largura total, aprovada
+               visualmente no modelo de referencia. page-break-after:avoid
+               pra nao deixar o rotulo sozinho no fim da pagina, separado do
+               proprio conteudo. */
+            .subsection-label {
+                font-size: 8.5pt;
+                font-weight: bold;
+                color: #262626;
+                letter-spacing: 0.3px;
+                padding-bottom: 4px;
+                border-bottom: 1px solid #d6d6d6;
+                margin-top: 11px;
+                margin-bottom: 6px;
+                page-break-after: avoid;
+            }
+
+            /* ===== Blocos label/valor "flutuantes" (cliente, local, servico) ===== */
+            .kv-block { margin-bottom: 6px; }
+            .kv-block:last-child { margin-bottom: 0; }
+            .kv-label {
+                font-size: 8pt;
+                font-weight: bold;
+                color: #8a8a8a;
+                letter-spacing: 0.3px;
+                margin-bottom: 1px;
+            }
+            .kv-value-lg { font-size: 12.5pt; font-weight: bold; color: #101010; }
+            .kv-value { font-size: 9.8pt; color: #1a1a1a; }
+            .kv-meta { font-size: 8.7pt; color: #5a5a5a; margin-top: 2px; line-height: 1.5; }
+
+            /* ===== Grade tabular (execucao, checklist) ===== */
+            .grid { width: 100%; }
+            .grid tr { page-break-inside: avoid; }
+            .grid td {
+                padding: 5px 10px 5px 0;
+                vertical-align: top;
+                border-bottom: 1px solid #ececec;
+            }
+            .grid tr:last-child td { border-bottom: 0; }
+            .label {
+                display: block;
+                color: #8a8a8a;
+                font-size: 8pt;
+                font-weight: bold;
+                letter-spacing: 0.2px;
+                margin-bottom: 1px;
+            }
+            .value { color: #1a1a1a; font-size: 10pt; font-weight: bold; line-height: 1.35; }
+            .value-muted { color: #5a5a5a; font-size: 8.5pt; font-weight: normal; margin-top: 1px; }
+
+            .text-block { line-height: 1.65; white-space: pre-wrap; font-size: 10pt; color: #1a1a1a; }
+            .muted { color: #6b6b6b; }
+
+            /* ===== Checklist ===== */
+            .qa-table { width: 100%; }
+            .qa-table tr { page-break-inside: avoid; }
+            .qa-index {
+                width: 28px;
+                padding: 7px 6px 7px 0;
+                border-bottom: 1px solid #ececec;
+                vertical-align: top;
+            }
+            .qa-badge {
+                display: inline-block;
+                width: 18px;
+                height: 18px;
+                line-height: 18px;
+                border-radius: 9px;
+                background: #2A4899;
+                color: #ffffff;
+                font-size: 8pt;
+                font-weight: bold;
+                text-align: center;
+            }
+            .qa-table tr:last-child .qa-index,
+            .qa-table tr:last-child .qa-body { border-bottom: 0; }
+            .qa-body {
+                padding: 7px 0;
+                border-bottom: 1px solid #ececec;
+                vertical-align: top;
+            }
+            .qa-question { font-size: 9.8pt; color: #1a1a1a; font-weight: bold; }
+            .qa-answer { font-size: 9.5pt; color: #2A4899; font-weight: bold; margin-top: 2px; }
+            .qa-note { color: #6b6b6b; font-size: 8.5pt; margin-top: 2px; font-weight: normal; }
+
+            /* ===== Fotos ===== */
+            .evidence-count { color: #6b6b6b; font-size: 8.5pt; margin-bottom: 6px; }
+            .evidence-table { width: 100%; }
+            .evidence-table td {
+                padding: 4px;
+                vertical-align: top;
+                page-break-inside: avoid;
+            }
+            .evidence-slot {
+                width: 100%;
+                height: 213px;
+                background: #f7f7f7;
+                border: 1px solid #e6e6e6;
+                text-align: center;
+                vertical-align: middle;
+                display: table-cell;
+            }
+            .evidence-img { max-width: 100%; max-height: 205px; }
+            .evidence-caption { color: #6b6b6b; font-size: 8pt; line-height: 1.4; margin-top: 3px; }
+
+            /* ===== Aceite do servico ===== */
+            .signature-area { margin-top: 4px; page-break-inside: avoid; }
+            .signature-img { max-width: 220px; max-height: 88px; display: block; margin-bottom: 4px; }
+            .signature-rule { width: 220px; border-top: 1px solid #9a9a9a; margin: 2px 0 5px; }
+            .signature-name { font-size: 11pt; font-weight: bold; color: #101010; }
+            .signature-doc { font-size: 9pt; color: #5a5a5a; margin-top: 1px; }
+        </style>
+    </th:block>
+</head>
+<body></body>
+</html>

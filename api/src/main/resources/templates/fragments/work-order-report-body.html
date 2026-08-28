@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+Corpo de UMA Ordem de Servico no PDF - fragmento UNICO usado tanto pelo
+relatorio individual (work-order-report.html) quanto pelo em massa
+(work-orders-bulk-report.html, um bloco por OS dentro do th:each). Le as
+variaveis do contexto ambiente (nao recebe parametros de fragmento) - o
+relatorio em massa projeta cada item de workOrderReports pra estes MESMOS
+nomes de variavel via th:with antes de inserir este fragmento. Ver
+WorkOrderReportService pra como essas variaveis sao calculadas.
+
+"Relatorio tecnico de atendimento", nao "formulario exportado". Composicao
+por tipografia/hierarquia/whitespace; tabela HTML so' onde a informacao e'
+genuinamente tabular (checklist, fotos, tira de execucao) - ver
+work-order-report-styles.html pro raciocinio completo.
+
+Hierarquia (4a rodada): so' 4 secoes principais tem peso de H2 -
+Informacoes do cliente / Informacoes da tarefa / Evidencias fotograficas /
+Aceite do servico. Servico, Local, Execucao, Relato e Checklist NAO sao
+secoes independentes - sao subsecoes de "Informacoes da tarefa" (mesma
+logica do Auvo: tudo isso pertence ao mesmo atendimento). Ver .section-task
+e .subsection-label em work-order-report-styles.html.
+
+Codigo da OS (5a rodada): virou uma linha simples (.wo-code-line), no
+espirito do "No da OS #123" do Auvo - o antigo painel de resumo executivo
+repetia Status/Data/Responsavel/Local que ja aparecem em "Informacoes da
+tarefa" logo abaixo.
+
+Variaveis esperadas: companyName, companyPhone, companyEmail,
+companyAddress, companyCnpj, erioneLogoDataUri, dateFormat, timeZone,
+locale, messageSource, utils, workOrder, primaryUserName, customers,
+customerCnpj, customerEmail, customerPhone, customerAddress, serviceLabel,
+tasks, tasksImagesUrls, fieldReports, fieldEvidenceRows, fieldEvidenceCount,
+locationIdentification, locationAddressWithReference, checkInDistanceLabel,
+checkOutDistanceLabel, siteDurationLabel.
+-->
+<th:block th:fragment="workOrderBody">
+
+    <!-- ===== Cabecalho ===== -->
+    <div class="header">
+        <table class="brand-row">
+            <tr>
+                <td class="brand-left">
+                    <div class="doc-title">Ordem de Servico</div>
+                    <div class="doc-subtitle">Relatorio tecnico de atendimento</div>
+                    <div class="company-name" th:text="${companyName}">Empresa</div>
+                    <div class="company-meta">
+                        <span th:if="${not #strings.isEmpty(companyPhone)}">Telefone <span th:text="${companyPhone}"></span></span>
+                        <span th:if="${not #strings.isEmpty(companyPhone) and not #strings.isEmpty(companyCnpj)}"> &nbsp;|&nbsp; </span>
+                        <span th:if="${not #strings.isEmpty(companyCnpj)}">CNPJ <span th:text="${companyCnpj}"></span></span>
+                    </div>
+                    <div class="company-meta" th:if="${not #strings.isEmpty(companyEmail)}" th:text="${companyEmail}"></div>
+                    <div class="company-meta" th:if="${not #strings.isEmpty(companyAddress)}" th:text="${companyAddress}"></div>
+                </td>
+                <td class="brand-right">
+                    <img th:if="${erioneLogoDataUri != null}" th:src="${erioneLogoDataUri}" class="logo"/>
+                </td>
+            </tr>
+        </table>
+        <div class="header-rule"></div>
+    </div>
+
+    <!-- ===== Codigo da OS - linha simples, no espirito do "No da OS
+         #77369612" do Auvo. Status/Data/Responsavel/Local NAO se repetem
+         aqui - moram so' em "Informacoes da tarefa" (evita a OS inteira
+         aparecer duplicada logo no topo). ===== -->
+    <div class="wo-code-line">Codigo da OS <span th:text="${workOrder.customId}">WO000000</span></div>
+
+    <!-- ===== Cliente ===== -->
+    <div class="section" th:if="${not #strings.isEmpty(customers)}">
+        <div class="section-label">Informacoes do cliente</div>
+        <div class="kv-block">
+            <div class="kv-value-lg" th:text="${customers}">Cliente</div>
+            <div class="kv-meta" th:if="${customerCnpj != null}">CNPJ <span th:text="${customerCnpj}"></span></div>
+            <div class="kv-meta" th:if="${customerEmail != null or customerPhone != null}">
+                <span th:if="${customerEmail != null}" th:text="${customerEmail}"></span>
+                <span th:if="${customerEmail != null and customerPhone != null}"> &nbsp;|&nbsp; </span>
+                <span th:if="${customerPhone != null}" th:text="${customerPhone}"></span>
+            </div>
+            <div class="kv-meta" th:if="${customerAddress != null}" th:text="${customerAddress}"></div>
+        </div>
+    </div>
+
+    <!-- ===== Informacoes da tarefa - bloco UNICO com tudo que pertence ao
+         atendimento (servico, local, execucao, relato, checklist), no
+         mesmo espirito do Auvo: sao subsecoes da mesma tarefa, nao secoes
+         independentes de mesmo peso. Por isso NAO usa .section (que tem
+         page-break-inside:avoid - inviavel aqui, o bloco pode crescer
+         bastante com relato/checklist longos) - cada subsecao interna
+         protege sua propria quebra (.grid tr / .qa-table tr). ===== -->
+    <div class="section-task">
+        <div class="section-label">Informacoes da tarefa</div>
+        <table class="grid">
+            <tr th:if="${primaryUserName != null or workOrder.dueDate != null}">
+                <td th:if="${primaryUserName != null}"><span class="label">Responsavel tecnico</span><span class="value" th:text="${primaryUserName}"></span></td>
+                <td th:if="${primaryUserName == null}"></td>
+                <td th:if="${workOrder.dueDate != null}"><span class="label">Data/Hora</span><span class="value" th:text="${utils.getFormattedDate(workOrder.dueDate, dateFormat, timeZone)}"></span></td>
+                <td th:if="${workOrder.dueDate == null}"></td>
+            </tr>
+            <tr>
+                <td><span class="label">Servico realizado</span><span class="value" th:text="${serviceLabel}"></span></td>
+                <td>
+                    <span class="label">Status</span>
+                    <span class="value" th:text="#{${workOrder.status}}"></span><span
+                        th:if="${workOrder.priority}" class="value" th:text="' | Prioridade ' + #{${workOrder.priority}}"></span>
+                </td>
+            </tr>
+        </table>
+        <div class="kv-block" th:if="${not #strings.isEmpty(workOrder.description)}">
+            <div class="kv-label">Orientacao</div>
+            <p class="text-block" th:text="${workOrder.description}"></p>
+        </div>
+
+        <div class="kv-block" th:if="${workOrder.location != null}">
+            <div class="kv-label">Local de atendimento</div>
+            <div class="kv-value-lg" th:text="${locationIdentification}">Local</div>
+            <div class="kv-meta" th:if="${not #strings.isEmpty(locationAddressWithReference)}" th:text="${locationAddressWithReference}"></div>
+        </div>
+
+        <!-- Execucao - subsecao -->
+        <div th:if="${workOrder.departureAt != null or workOrder.checkInAt != null or workOrder.checkOutAt != null or siteDurationLabel != null or workOrder.mileageTraveled != null}">
+            <div class="subsection-label">Execucao</div>
+            <!-- Layout de 3 colunas fixas, no espirito do modelo aprovado -
+                 aqui (so' aqui) um campo ausente mostra "-" em vez de ficar
+                 em branco, porque a linha inteira e' uma unidade visual
+                 (Inicio/Check-in/Check-out, depois as 2 duracoes+Km) e
+                 precisa continuar alinhada em 3 colunas mesmo faltando 1. -->
+            <table class="grid">
+                <tr th:if="${workOrder.departureAt != null or workOrder.checkInAt != null or workOrder.checkOutAt != null}">
+                    <td>
+                        <span class="label">Inicio do deslocamento</span>
+                        <span class="value" th:text="${workOrder.departureAt == null ? '-' : utils.getFormattedDate(workOrder.departureAt, dateFormat, timeZone)}"></span>
+                    </td>
+                    <td>
+                        <span class="label">Check-in</span>
+                        <span class="value" th:text="${workOrder.checkInAt == null ? '-' : utils.getFormattedDate(workOrder.checkInAt, dateFormat, timeZone)}"></span>
+                        <div class="value-muted" th:if="${checkInDistanceLabel != null}" th:text="${checkInDistanceLabel} + ' do local'"></div>
+                    </td>
+                    <td>
+                        <span class="label">Check-out</span>
+                        <span class="value" th:text="${workOrder.checkOutAt == null ? '-' : utils.getFormattedDate(workOrder.checkOutAt, dateFormat, timeZone)}"></span>
+                        <div class="value-muted" th:if="${checkOutDistanceLabel != null}" th:text="${checkOutDistanceLabel} + ' do local'"></div>
+                    </td>
+                </tr>
+                <tr th:if="${siteDurationLabel != null or travelDurationLabel != null or workOrder.mileageTraveled != null}">
+                    <td>
+                        <span class="label">Duracao do atendimento</span>
+                        <span class="value" th:text="${siteDurationLabel == null ? '-' : siteDurationLabel}"></span>
+                    </td>
+                    <td>
+                        <span class="label">Duracao do deslocamento</span>
+                        <span class="value" th:text="${travelDurationLabel == null ? '-' : travelDurationLabel}"></span>
+                    </td>
+                    <td>
+                        <span class="label">Km informado</span>
+                        <span class="value" th:text="${workOrder.mileageTraveled == null ? '-' : (#numbers.formatDecimal(workOrder.mileageTraveled, 1, 2) + ' km')}"></span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Relato de execucao - subsecao -->
+        <div th:if="${not #lists.isEmpty(fieldReports)}">
+            <div class="subsection-label">Relato de execucao</div>
+            <p class="text-block" th:each="fieldReport, iter : ${fieldReports}" th:text="${fieldReport}"
+               th:style="${iter.first ? '' : 'margin-top:8px'}"></p>
+        </div>
+
+        <!-- Checklist / questionario - subsecao -->
+        <div th:if="${not #lists.isEmpty(tasks)}">
+            <div class="subsection-label">Checklist / Questionario</div>
+            <table class="qa-table">
+                <tr th:each="task, iter : ${tasks}">
+                    <td class="qa-index"><span class="qa-badge" th:text="${#numbers.formatInteger(iter.index + 1, 2)}">01</span></td>
+                    <td class="qa-body">
+                        <div class="qa-question" th:text="${task.getTaskBase().getLabel()}"></div>
+                        <div class="qa-answer" th:text="${task.getTranslatedValue(locale, messageSource)}"></div>
+                        <div class="qa-note" th:if="${not #strings.isEmpty(task.getNotes())}" th:text="${task.getNotes()}"></div>
+                        <span th:each="imageUrl : ${tasksImagesUrls.get(task.getId())}">
+                            <img th:src="${imageUrl}" style="max-width:120px;max-height:90px;display:inline-block;margin-top:5px;border:1px solid #e6e6e6"/>
+                        </span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- ===== Fotos / evidencias ===== -->
+    <div class="section" th:if="${not #lists.isEmpty(fieldEvidenceRows)}">
+        <div class="section-label">Evidencias fotograficas</div>
+        <div class="evidence-count" th:text="${fieldEvidenceCount} + ${fieldEvidenceCount == 1 ? ' registro' : ' registros'}">N registros</div>
+        <table class="evidence-table">
+            <tr th:each="row : ${fieldEvidenceRows}">
+                <td th:each="evidence : ${row}" th:style="${'width:' + (100.0 / #lists.size(row)) + '%'}">
+                    <div class="evidence-slot">
+                        <img th:if="${evidence.image}" th:src="${evidence.url}" class="evidence-img"/>
+                    </div>
+                    <div class="evidence-caption" th:if="${evidence.note != null}" th:text="${evidence.note}"></div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- ===== Aceite do servico ===== -->
+    <div class="section" th:if="${workOrder.signature != null}">
+        <div class="section-label">Aceite do servico</div>
+        <div class="signature-area">
+            <img th:src="@{${workOrder.signature}}" class="signature-img"/>
+            <div class="signature-rule"></div>
+            <div class="signature-name" th:if="${not #strings.isEmpty(workOrder.signerName)}" th:text="${workOrder.signerName}"></div>
+            <div class="signature-doc" th:if="${not #strings.isEmpty(workOrder.signerDocument)}">CPF/CNPJ <span th:text="${workOrder.signerDocument}"></span></div>
+        </div>
+    </div>
+
+</th:block>
+</body>
+</html>
