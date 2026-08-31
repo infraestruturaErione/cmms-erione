@@ -17,21 +17,27 @@
     -->
     <th:block th:fragment="styles">
         <!--
-        th:inline="text" no <style> - so' pra poder interpolar o codigo da OS
-        no rodape (@bottom-center) com [[...]]. "workOrder" so' existe no
-        contexto de nivel superior no relatorio INDIVIDUAL (setado direto em
-        thymeleafContext.setVariables) - no Bulk ele so' existe DENTRO do
-        th:with de cada bloco de OS, nao aqui em cima onde o <head> e'
-        processado uma unica vez pro documento inteiro (varias OS, nenhum
-        codigo unico faz sentido) - por isso o operador ternario com fallback
-        pra string vazia, sem quebrar o Bulk.
+        th:inline="text" no <style> - so' pra poder interpolar o nome
+        institucional e o codigo da OS no rodape (@bottom-center) com
+        [[...]]. "companyName" (ERIONE_INSTITUTIONAL_NAME em
+        WorkOrderReportService - fixo, "Erione Technologies", nao
+        configuravel) esta no contexto de nivel superior em AMBOS os
+        relatorios (buildCompanyReportVariables entra direto em
+        thymeleafContext.setVariables nos dois fluxos) - unica fonte desse
+        texto, mesma usada no cabecalho, sem duplicar a string. Ja
+        "workOrder" so' existe no contexto de nivel superior no relatorio
+        INDIVIDUAL - no Bulk ele so' existe DENTRO do th:with de cada bloco
+        de OS, nao aqui em cima onde o <head> e' processado uma unica vez
+        pro documento inteiro (varias OS, nenhum codigo unico faz sentido) -
+        por isso o operador ternario com fallback pra string vazia, sem
+        quebrar o Bulk.
         -->
         <style th:inline="text">
             @page {
                 size: A4;
                 margin: 16mm 15mm 14mm;
                 @bottom-center {
-                    content: "Erione Technologies | [[${workOrder != null ? workOrder.customId + ' | ' : ''}]]Pagina " counter(page) " de " counter(pages);
+                    content: "[[${companyName}]] | [[${workOrder != null ? workOrder.customId + ' | ' : ''}]]Pagina " counter(page) " de " counter(pages);
                     font-family: Roboto, Helvetica, Arial, sans-serif;
                     font-size: 7.5px;
                     color: #9a9a9a;

@@ -17,6 +17,7 @@ import com.itextpdf.html2pdf.HtmlConverter;
 import com.itextpdf.layout.font.FontProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
@@ -63,6 +64,28 @@ public class WorkOrderReportService {
     private final MessageSource messageSource;
     private final Utils utils;
 
+    // Dados do EMISSOR institucional do relatorio (Erione, o fornecedor do
+    // software) - NAO vem de Company/Customer/BrandConfig (BrandConfig e'
+    // pra white-labeling de tenant, comportamento global do sistema que
+    // nao pode ser alterado so' pra resolver o cabecalho do PDF). Namespace
+    // proprio (erione.institutional.*), lido direto por @Value, sem
+    // depender do BrandingService - assim um brandRawConfig customizado de
+    // tenant nunca chega perto desses campos. Cada campo fica null quando a
+    // variavel de ambiente correspondente nao esta definida;
+    // blankToNull() garante que nenhum deles chega vazio/em branco ao
+    // Thymeleaf, e o template ja trata ausencia sem quebrar layout (nem
+    // "CNPJ ", nem "null"). O NOME institucional (ERIONE_INSTITUTIONAL_NAME
+    // abaixo) de proposito NAO esta neste bloco - "Erione Technologies" e'
+    // fixo, nunca configuravel por ambiente/BRAND_CONFIG/Company.
+    @Value("${erione.institutional.cnpj:#{null}}")
+    private String institutionalCnpj;
+    @Value("${erione.institutional.email:#{null}}")
+    private String institutionalEmail;
+    @Value("${erione.institutional.phone:#{null}}")
+    private String institutionalPhone;
+    @Value("${erione.institutional.address:#{null}}")
+    private String institutionalAddress;
+
     // Logo oficial da Erione (marca "EI", de frontend/public/static/images/
     // logo/logo.png - mesmo arquivo usado no header/login da Web, copiado
     // pra resources/static/images do backend porque o PDF e' gerado aqui).
@@ -81,16 +104,17 @@ public class WorkOrderReportService {
         }
     }
 
-    // !!! FIXTURE DE DEV - NAO E' IMPLEMENTACAO FINAL !!!
-    // CNPJ institucional da Erione pedido no layout do cabecalho do PDF, mas
-    // NAO existe nenhum campo pra isso em Company/CompanySettings hoje (so'
-    // name/phone/email/address - confirmado de novo nesta rodada). Sem uma
-    // fonte persistente real, este valor fixo e' usado APENAS pra
-    // demonstrar visualmente como o layout fica com o campo preenchido.
-    // Antes de qualquer entrega real, isso precisa virar um campo de
-    // verdade em Company (migration) - nao adicionei essa migration porque
-    // esta rodada e' so' visual/DEV e o usuario pediu pra ser avisado antes.
-    private static final String DEV_FIXTURE_ERIONE_CNPJ_NAO_USAR_EM_PRODUCAO = "08.427.847/0001-56";
+    // Nome institucional do EMISSOR do relatorio - FIXO, nao configuravel
+    // (nao e' um @Value como cnpj/email/phone/address acima; nao vem de
+    // Company/Customer/BrandConfig/BRAND_CONFIG). Unica fonte pro texto
+    // "Erione Technologies" em TODO o documento: entra no contexto
+    // Thymeleaf como variavel "companyName" (buildCompanyReportVariables)
+    // e e' usada tanto no cabecalho (work-order-report-body.html,
+    // ${companyName}) quanto no rodape (work-order-report-styles.html,
+    // [[${companyName}]] dentro do @bottom-center) - antes o rodape tinha
+    // o texto duplicado direto no CSS; agora os dois leem desta MESMA
+    // constante, sem duplicacao.
+    private static final String ERIONE_INSTITUTIONAL_NAME = "Erione Technologies";
 
     // FontProvider com Roboto (resources/fonts, Apache 2.0) embutido
     // explicitamente - a fonte padrao dos 14 fonts base do PDF (Helvetica)
@@ -132,15 +156,34 @@ public class WorkOrderReportService {
 
     // Variaveis de nivel de EMPRESA - iguais pra toda OS do mesmo usuario,
     // entao so' precisam ser calculadas uma vez (individual e em massa).
+    //
+    // company* aqui = identidade INSTITUCIONAL do EMISSOR do relatorio
+    // (Erione, o fornecedor do software) - NUNCA o tenant/Company do
+    // usuario logado, NUNCA Customer, e de proposito NAO usa BrandConfig/
+    // BrandingService (aquele e' o mecanismo de white-labeling do tenant,
+    // comportamento GLOBAL do sistema - email/telefone/endereco/nome ali
+    // tambem alimentam e-mails transacionais, SSO e API docs; nao da' pra
+    // mudar o default global so' pra resolver o cabecalho do PDF). CNPJ/
+    // e-mail/telefone/endereco institucionais vem de erione.institutional.*
+    // (application.yml / env ERIONE_INSTITUTIONAL_* - ver campos @Value no
+    // topo da classe), namespace proprio, nao white-labeling.*. Cada um
+    // fica null se a variavel de ambiente correspondente nao estiver
+    // definida; o template ja trata ausencia sem quebrar layout. O NOME e'
+    // a UNICA excecao: NAO e' configuravel por ambiente, vem da constante
+    // fixa ERIONE_INSTITUTIONAL_NAME (ver acima).
+    //
+    // Company do tenant continua usada so' pra dateFormat/timeZone (formato
+    // de exibicao de data/hora), que sao preferencias operacionais do
+    // tenant, nao identidade do emissor - esse uso permanece correto.
     public Map<String, Object> buildCompanyReportVariables(User user) {
         Company company = user.getCompany();
         Map<String, Object> variables = new HashMap<>();
-        variables.put("companyName", company.getName());
-        variables.put("companyPhone", company.getPhone());
-        variables.put("companyEmail", company.getEmail());
-        variables.put("companyAddress", company.getAddress());
+        variables.put("companyName", ERIONE_INSTITUTIONAL_NAME);
+        variables.put("companyPhone", blankToNull(institutionalPhone));
+        variables.put("companyEmail", blankToNull(institutionalEmail));
+        variables.put("companyAddress", blankToNull(institutionalAddress));
         variables.put("erioneLogoDataUri", ERIONE_LOGO_DATA_URI);
-        variables.put("companyCnpj", DEV_FIXTURE_ERIONE_CNPJ_NAO_USAR_EM_PRODUCAO);
+        variables.put("companyCnpj", blankToNull(institutionalCnpj));
         variables.put("dateFormat", company.getCompanySettings().getGeneralPreferences().getDateFormat());
         variables.put("timeZone", company.getCompanySettings().getGeneralPreferences().getTimeZone());
         variables.put("messageSource", messageSource);

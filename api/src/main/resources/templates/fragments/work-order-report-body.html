@@ -44,7 +44,7 @@ checkOutDistanceLabel, siteDurationLabel.
                 <td class="brand-left">
                     <div class="doc-title">Ordem de Servico</div>
                     <div class="doc-subtitle">Relatorio tecnico de atendimento</div>
-                    <div class="company-name" th:text="${companyName}">Empresa</div>
+                    <div class="company-name" th:if="${not #strings.isEmpty(companyName)}" th:text="${companyName}">Empresa</div>
                     <div class="company-meta">
                         <span th:if="${not #strings.isEmpty(companyPhone)}">Telefone <span th:text="${companyPhone}"></span></span>
                         <span th:if="${not #strings.isEmpty(companyPhone) and not #strings.isEmpty(companyCnpj)}"> &nbsp;|&nbsp; </span>

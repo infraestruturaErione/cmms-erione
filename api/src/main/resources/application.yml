@@ -150,6 +150,22 @@ white-labeling:
   custom-colors: ${CUSTOM_COLORS:}
   brand-config: ${BRAND_CONFIG:}
 
+# Dados institucionais do EMISSOR do relatorio de OS - Erione (fornecedor
+# do software), NAO de white-labeling (BrandConfig/white-labeling.* e' o
+# branding customizavel de um TENANT, comportamento global do sistema que
+# tambem alimenta e-mails/SSO/API docs - nao usado aqui de proposito, pra
+# nao acoplar o cabecalho do PDF a esse comportamento global). So'
+# consumido por WorkOrderReportService. O NOME institucional nao esta
+# aqui de proposito - "Erione Technologies" e' fixo, NAO configuravel por
+# ambiente (constante ERIONE_INSTITUTIONAL_NAME em
+# WorkOrderReportService.java).
+erione:
+  institutional:
+    cnpj: ${ERIONE_INSTITUTIONAL_CNPJ:}
+    email: ${ERIONE_INSTITUTIONAL_EMAIL:}
+    phone: ${ERIONE_INSTITUTIONAL_PHONE:}
+    address: ${ERIONE_INSTITUTIONAL_ADDRESS:}
+
 ldap:
   enabled: ${LDAP_ENABLED:false}
   org-admin: ${LDAP_ORG_ADMIN:}
