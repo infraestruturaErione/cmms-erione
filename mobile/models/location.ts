@@ -21,6 +21,8 @@ export default interface Location extends Audit {
   teams: TeamMiniDTO[];
   customId: string;
   customFieldValues?: CustomFieldValue[];
+  referenceType?: 'ID' | 'PC' | null;
+  referenceCode?: string | null;
 }
 export interface LocationMiniDTO {
   id: number;
@@ -29,6 +31,8 @@ export interface LocationMiniDTO {
   customId: string;
   longitude?: number;
   latitude?: number;
+  referenceType?: 'ID' | 'PC' | null;
+  referenceCode?: string | null;
 }
 
 export interface LocationRow extends Location {

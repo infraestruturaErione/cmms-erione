@@ -1631,6 +1631,8 @@ const ptBRJSON = {
   evidence_pending: 'Evidência pendente',
   evidence: 'Evidências',
   evidence_photo_count: '{{count}} foto(s)',
+  field_evidence_selected_count_one: '{{count}} foto selecionada',
+  field_evidence_selected_count_other: '{{count}} fotos selecionadas',
   evidence_does_not_replace_report: 'Foto/evidência não substitui o relato técnico.',
   add_another: 'Adicionar outro',
   register_field_report_photo: 'Registrar relato e evidências',
@@ -1672,6 +1674,11 @@ const ptBRJSON = {
     'Ex.: Substituído o rolamento do motor, realizado alinhamento e teste operacional sem anomalias.',
   field_report_read_only_helper:
     'Este relato foi registrado por outro usuário e está disponível somente para consulta.',
+  discard_field_report_title: 'Descartar relato não salvo?',
+  discard_field_report_message:
+    'As alterações feitas no relato serão perdidas.',
+  keep_editing_field_report: 'Continuar editando',
+  discard: 'Descartar',
   save_field_report: 'Salvar relato',
   view_report: 'Ver relato',
   add_field_report: 'Adicionar relato',

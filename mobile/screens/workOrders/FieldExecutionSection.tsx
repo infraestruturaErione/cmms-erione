@@ -4,6 +4,9 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import mime from 'mime';
 import { useContext, useState } from 'react';
 import {
+  Alert,
+  FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -294,6 +297,7 @@ export default function FieldExecutionSection({
   const [reportOpen, setReportOpen] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [fieldReport, setFieldReport] = useState('');
+  const [initialFieldReport, setInitialFieldReport] = useState('');
   const [evidenceFiles, setEvidenceFiles] = useState<
     { uri: string; name: string; type: string }[]
   >([]);
@@ -323,10 +327,36 @@ export default function FieldExecutionSection({
     .reduce((count, comment) => count + (comment.files?.length ?? 0), 0);
 
   const openFieldReport = () => {
-    setFieldReport(
-      existingFieldReport ? getFieldReportText(existingFieldReport) : ''
-    );
+    const initialValue = existingFieldReport
+      ? getFieldReportText(existingFieldReport)
+      : '';
+    setFieldReport(initialValue);
+    setInitialFieldReport(initialValue);
     setReportOpen(true);
+  };
+
+  const isReportReadOnly = !!existingFieldReport && !canUpdateExistingReport;
+
+  const closeReportDialog = () => setReportOpen(false);
+
+  const attemptCloseReportDialog = () => {
+    if (savingReport) return;
+    if (isReportReadOnly || fieldReport === initialFieldReport) {
+      closeReportDialog();
+      return;
+    }
+    Alert.alert(
+      t('discard_field_report_title'),
+      t('discard_field_report_message'),
+      [
+        { text: t('keep_editing_field_report'), style: 'cancel' },
+        {
+          text: t('discard'),
+          style: 'destructive',
+          onPress: closeReportDialog
+        }
+      ]
+    );
   };
 
   const runFieldAction = async (action: FieldAction) => {
@@ -400,7 +430,13 @@ export default function FieldExecutionSection({
     }
   };
 
+  const closeEvidenceDialog = () => {
+    if (savingEvidence) return;
+    setEvidenceOpen(false);
+  };
+
   const pickEvidenceImage = async () => {
+    if (savingEvidence) return;
     if (netInfo.isInternetReachable === false) {
       showSnackBar(t('field_evidence_offline_error'), 'error');
       return;
@@ -428,6 +464,11 @@ export default function FieldExecutionSection({
         });
       return [...current, ...newFiles];
     });
+  };
+
+  const openEvidenceCamera = () => {
+    if (savingEvidence) return;
+    setCameraOpen(true);
   };
 
   const handleCameraCapture = (uri: string) => {
@@ -739,7 +780,9 @@ export default function FieldExecutionSection({
           >
             <Dialog
               visible={reportOpen}
-              onDismiss={() => setReportOpen(false)}
+              onDismiss={attemptCloseReportDialog}
+              dismissable={!savingReport}
+              dismissableBackButton={!savingReport}
               style={styles.reportDialog}
             >
               <View style={styles.reportHeader}>
@@ -758,7 +801,8 @@ export default function FieldExecutionSection({
                 </View>
                 <IconButton
                   icon="close"
-                  onPress={() => setReportOpen(false)}
+                  onPress={attemptCloseReportDialog}
+                  disabled={savingReport}
                   style={{ margin: 0 }}
                 />
               </View>
@@ -789,7 +833,7 @@ export default function FieldExecutionSection({
                 </Text>
               </Dialog.Content>
               <View style={styles.reportActions}>
-                <Button onPress={() => setReportOpen(false)}>
+                <Button onPress={attemptCloseReportDialog} disabled={savingReport}>
                   {t(existingFieldReport && !canUpdateExistingReport ? 'close' : 'cancel')}
                 </Button>
                 {(!existingFieldReport || canUpdateExistingReport) && (
@@ -810,48 +854,98 @@ export default function FieldExecutionSection({
       )}
 
       <Portal>
-        <Dialog visible={evidenceOpen} onDismiss={() => setEvidenceOpen(false)}>
-          <Dialog.Title>{t('add_field_evidence')}</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodySmall" style={styles.dialogHelper}>
-              {t('field_evidence_input_helper')}
-            </Text>
-            <View style={styles.evidenceActions}>
-              <Button icon="image" onPress={pickEvidenceImage}>
-                {t('choose_from_gallery')}
-              </Button>
-              <Button icon="camera" onPress={() => setCameraOpen(true)}>
-                {t('take_photo')}
-              </Button>
+        <Dialog
+          visible={evidenceOpen}
+          onDismiss={closeEvidenceDialog}
+          dismissable={!savingEvidence}
+          dismissableBackButton={!savingEvidence}
+          style={styles.evidenceDialog}
+        >
+          <View style={styles.evidenceHeader}>
+            <View style={{ flex: 1 }}>
+              <Text variant="titleLarge" style={styles.reportDialogTitle}>
+                {t('add_field_evidence')}
+              </Text>
+              <Text variant="bodySmall" style={styles.reportDialogHelper}>
+                {t('field_evidence_input_helper')}
+              </Text>
             </View>
-            {evidenceFiles.map((file, index) => (
-              <View key={`${file.uri}-${index}`} style={styles.evidenceFile}>
-                <Text numberOfLines={1} style={{ flex: 1 }}>
-                  {file.name}
-                </Text>
+            <IconButton
+              icon="close"
+              onPress={closeEvidenceDialog}
+              disabled={savingEvidence}
+              style={{ margin: 0 }}
+            />
+          </View>
+
+          <View style={styles.evidenceActions}>
+            <Button
+              mode="outlined"
+              icon="image"
+              onPress={pickEvidenceImage}
+              disabled={savingEvidence}
+              style={styles.evidenceActionButton}
+            >
+              {t('choose_from_gallery')}
+            </Button>
+            <Button
+              mode="outlined"
+              icon="camera"
+              onPress={openEvidenceCamera}
+              disabled={savingEvidence}
+              style={styles.evidenceActionButton}
+            >
+              {t('take_photo')}
+            </Button>
+          </View>
+
+          {!!evidenceFiles.length && (
+            <Text variant="labelMedium" style={styles.evidenceCounter}>
+              {t('field_evidence_selected_count', { count: evidenceFiles.length })}
+            </Text>
+          )}
+
+          <FlatList
+            data={evidenceFiles}
+            keyExtractor={(file, index) => `${file.uri}-${index}`}
+            numColumns={3}
+            style={styles.evidenceGrid}
+            contentContainerStyle={styles.evidenceGridContent}
+            columnWrapperStyle={styles.evidenceGridRow}
+            renderItem={({ item, index }) => (
+              <View style={styles.evidenceThumbWrap}>
+                <Image source={{ uri: item.uri }} style={styles.evidenceThumb} />
                 <IconButton
                   icon="close-circle"
-                  size={16}
-                  onPress={() =>
+                  size={22}
+                  iconColor="#FFFFFF"
+                  containerColor="rgba(20,20,20,0.55)"
+                  style={styles.evidenceThumbRemove}
+                  disabled={savingEvidence}
+                  onPress={() => {
+                    if (savingEvidence) return;
                     setEvidenceFiles((current) =>
                       current.filter((_, currentIndex) => currentIndex !== index)
-                    )
-                  }
+                    );
+                  }}
                 />
               </View>
-            ))}
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setEvidenceOpen(false)}>{t('cancel')}</Button>
-            <Button
-              mode="contained"
+            )}
+          />
+
+          <View style={styles.evidenceFooter}>
+            <Button onPress={closeEvidenceDialog} disabled={savingEvidence}>
+              {t('cancel')}
+            </Button>
+            <ErionePrimaryButton
+              style={styles.saveEvidenceButton}
               loading={savingEvidence}
               disabled={savingEvidence || !evidenceFiles.length}
               onPress={submitEvidence}
             >
               {t('save')}
-            </Button>
-          </Dialog.Actions>
+            </ErionePrimaryButton>
+          </View>
         </Dialog>
       </Portal>
       <InAppCamera
@@ -1167,21 +1261,73 @@ const styles = StyleSheet.create({
   saveReportButton: {
     flex: 1
   },
-  dialogHelper: {
-    color: colors.muted,
-    marginBottom: 10
+  evidenceDialog: {
+    maxHeight: '90%',
+    marginHorizontal: 10,
+    backgroundColor: '#FFFFFF'
+  },
+  evidenceHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF'
   },
   evidenceActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10
+    gap: 10,
+    paddingHorizontal: 20
   },
-  evidenceFile: {
+  evidenceActionButton: {
+    flex: 1
+  },
+  evidenceCounter: {
+    color: colors.muted,
+    paddingHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 4
+  },
+  evidenceGrid: {
+    flex: 1,
+    marginTop: 6
+  },
+  evidenceGridContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    flexGrow: 1
+  },
+  evidenceGridRow: {
+    gap: 8
+  },
+  evidenceThumbWrap: {
+    width: '31%',
+    aspectRatio: 1,
+    marginBottom: 8,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#F1F3F5'
+  },
+  evidenceThumb: {
+    width: '100%',
+    height: '100%'
+  },
+  evidenceThumbRemove: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    margin: 0
+  },
+  evidenceFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
-    backgroundColor: colors.primarySoft,
-    marginTop: 6,
-    paddingLeft: 8
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF'
+  },
+  saveEvidenceButton: {
+    flex: 1
   }
 });

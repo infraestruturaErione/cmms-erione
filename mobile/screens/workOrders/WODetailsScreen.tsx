@@ -75,6 +75,7 @@ import WorkOrder from '../../models/workOrder';
 import Labor from '../../models/labor';
 import { AudioPlayer } from '../../components/AudioPlayer';
 import { getErrorMessage } from '../../utils/api';
+import { getLocationAddressWithReference } from '../../utils/locationDisplay';
 import ImageView from 'react-native-image-viewing';
 import { getCustomFieldValuesForDetails } from '../../models/form';
 import CommentItem from '../../components/CommentItem';
@@ -782,13 +783,19 @@ export default function WODetailsScreen({
     value,
     link,
     permissionEntity,
-    address
+    address,
+    displayAddress
   }: {
     label: string;
     value: string | number;
     link: { route: keyof RootStackParamList; id: number };
     permissionEntity: PermissionEntity;
     address?: string;
+    // Texto exibido no lugar de `address` quando informado (ex.: endereco
+    // com prefixo de referencia ID/PC). `address` continua sendo o texto
+    // usado na busca do Google Maps (openMaps), sem o prefixo, pra nao
+    // prejudicar a precisao da busca.
+    displayAddress?: string;
   }) {
     if (value) {
       const openMaps = () => {
@@ -830,7 +837,7 @@ export default function WODetailsScreen({
                     marginTop: 4
                   }}
                 >
-                  {address}
+                  {displayAddress ?? address}
                 </Text>
               )}
             </View>
@@ -1049,6 +1056,7 @@ export default function WODetailsScreen({
           link={{ route: 'LocationDetails', id: workOrder.location.id }}
           permissionEntity={PermissionEntity.LOCATIONS}
           address={workOrder.location.address}
+          displayAddress={getLocationAddressWithReference(workOrder.location)}
         />
       )}
       {workOrder.asset && (

@@ -103,8 +103,8 @@ android {
         applicationId 'com.cmms.erione'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 36
-        versionName "1.0.43"
+        versionCode 37
+        versionName "1.0.44"
     }
     signingConfigs {
         debug {
