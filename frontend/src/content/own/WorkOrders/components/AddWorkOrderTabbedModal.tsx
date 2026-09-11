@@ -38,7 +38,7 @@ import { useBrand } from '../../../../hooks/useBrand';
 import { ERIONE_VISUAL_IDENTITY } from '../../../../config/erioneVisualIdentity';
 import { parseApiDate } from '../../../../utils/dateTime';
 import { getLocationAddressWithReference } from '../../../../utils/locationDisplay';
-import { LocationMiniDTO } from '../../../../models/owns/location';
+import Location, { LocationMiniDTO } from '../../../../models/owns/location';
 import LocationMiniMap from '../Details/LocationMiniMap';
 import {
   getWorkOrderAssignmentValues,
@@ -312,7 +312,11 @@ function AssignmentFields({
   );
 }
 
-function LocationPreview({ location }: { location: LocationMiniDTO }) {
+function LocationPreview({
+  location
+}: {
+  location: LocationMiniDTO | Location;
+}) {
   const { t }: { t: any } = useTranslation();
   const theme = useTheme();
   const latitude = Number(location.latitude);
@@ -392,7 +396,7 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
   const theme = useTheme();
   const { logo, name: brandName } = useBrand();
   const { categories } = useSelector((state) => state.categories);
-  const { locationsMini } = useSelector((state) => state.locations);
+  const { locations, locationsMini } = useSelector((state) => state.locations);
   const { open, onClose, fields, validation, values, onSubmit, onChange } =
     props;
   const [activeTab, setActiveTab] = useState(0);
@@ -466,7 +470,8 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
     const locationField = fieldByName.get('location');
     const selectedLocationId = Number(formik.values.location?.value);
     const selectedLocation = Number.isFinite(selectedLocationId)
-      ? locationsMini.find((location) => location.id === selectedLocationId)
+      ? locations.find((location) => location.id === selectedLocationId) ??
+        locationsMini.find((location) => location.id === selectedLocationId)
       : null;
 
     return (

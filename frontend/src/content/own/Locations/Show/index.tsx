@@ -4,11 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   alpha,
+  Alert,
   Box,
   Button,
   Card,
   Chip,
   Grid,
+  Skeleton,
   Stack,
   Tab,
   Table,
@@ -20,20 +22,27 @@ import {
   Tabs,
   ToggleButton,
   ToggleButtonGroup,
-  Typography,
-  useTheme
+  Typography
 } from '@mui/material';
 import ArrowBackTwoToneIcon from '@mui/icons-material/ArrowBackTwoTone';
 import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
+import EditTwoToneIcon from '@mui/icons-material/EditTwoTone';
+import BadgeTwoToneIcon from '@mui/icons-material/BadgeTwoTone';
+import PhoneTwoToneIcon from '@mui/icons-material/PhoneTwoTone';
+import MailTwoToneIcon from '@mui/icons-material/MailTwoTone';
+import HomeWorkTwoToneIcon from '@mui/icons-material/HomeWorkTwoTone';
 import DevicesOtherTwoToneIcon from '@mui/icons-material/DevicesOtherTwoTone';
 import MapTwoToneIcon from '@mui/icons-material/MapTwoTone';
 import OpenInNewTwoToneIcon from '@mui/icons-material/OpenInNewTwoTone';
 import PendingActionsTwoToneIcon from '@mui/icons-material/PendingActionsTwoTone';
 import PlayCircleTwoToneIcon from '@mui/icons-material/PlayCircleTwoTone';
 import CheckCircleTwoToneIcon from '@mui/icons-material/CheckCircleTwoTone';
+import GroupsTwoToneIcon from '@mui/icons-material/GroupsTwoTone';
+import LocationOnTwoToneIcon from '@mui/icons-material/LocationOnTwoTone';
 
 import { TitleContext } from '../../../../contexts/TitleContext';
 import { CompanySettingsContext } from '../../../../contexts/CompanySettingsContext';
+import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
 import useAuth from '../../../../hooks/useAuth';
 import { PermissionEntity } from '../../../../models/owns/role';
 import { AssetDTO } from '../../../../models/owns/asset';
@@ -42,15 +51,24 @@ import WorkOrder from '../../../../models/owns/workOrder';
 import { Page, SearchCriteria } from '../../../../models/owns/page';
 import api from '../../../../utils/api';
 import { isNumeric } from '../../../../utils/validators';
-import { ERIONE_VISUAL_IDENTITY } from '../../../../config/erioneVisualIdentity';
+import { formatCnpj } from '../../../../utils/formatters';
 import { getAssetUrl } from '../../../../utils/urlPaths';
+import {
+  getLocationDisplayAddress,
+  getLocationReferenceLabel
+} from '../../../../utils/locationDisplay';
+import { Customer, CustomerMiniDTO } from '../../../../models/owns/customer';
 import ErioneTableActions, {
   viewAction,
   createWorkOrderAction
 } from '../../components/ErioneTableActions';
 import AssetStatusTag from '../../Assets/components/AssetStatusTag';
+import WorkOrderStatusCell from '../../WorkOrders/components/WorkOrderStatusCell';
 import PermissionErrorMessage from '../../components/PermissionErrorMessage';
 import LocationMiniMap from '../../WorkOrders/Details/LocationMiniMap';
+import LocationFormDialog from '../components/LocationFormDialog';
+import { getCustomFields } from '../../../../slices/customField';
+import { useDispatch, useSelector } from '../../../../store';
 import {
   CreateWorkOrderCustomerDialog,
   useLocationWorkOrderCreation
@@ -77,6 +95,17 @@ const formatCoordinates = (location?: LocationModel | null) =>
   Number.isFinite(location.longitude)
     ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
     : null;
+
+export const getLocationSummaryKpis = (summary: LocationSummary | null) => ({
+  totalAssets: summary ? summary.totalAssets : null,
+  open: summary ? summary.openWorkOrders : null,
+  inProgress: summary
+    ? summary.enRouteWorkOrders +
+      summary.inProgressWorkOrders +
+      summary.onHoldWorkOrders
+    : null,
+  complete: summary ? summary.completedWorkOrders : null
+});
 
 // Buckets de status usados no filtro simples da aba OS - "Em andamento"
 // agrupa EN_ROUTE/IN_PROGRESS/ON_HOLD (mesmo agrupamento do KPI, ver
@@ -148,13 +177,20 @@ const LocationShow = () => {
   const { t }: { t: any } = useTranslation();
   const { locationId } = useParams();
   const navigate = useNavigate();
-  const theme = useTheme();
   const { setTitle } = useContext(TitleContext);
   const { getFormattedDate } = useContext(CompanySettingsContext);
-  const { hasViewPermission, hasCreatePermission } = useAuth();
+  const { showSnackBar } = useContext(CustomSnackBarContext);
+  const dispatch = useDispatch();
+  const { customFields } = useSelector((state) => state.customFields);
+  const { hasViewPermission, hasCreatePermission, hasEditPermission } = useAuth();
+  const [openEditModal, setOpenEditModal] = useState(false);
 
   const [tab, setTab] = useState<LocationTab>('overview');
   const [location, setLocation] = useState<LocationModel | null>(null);
+  const [customerDetails, setCustomerDetails] = useState<
+    Record<number, Customer | null>
+  >({});
+  const [customerDetailsLoading, setCustomerDetailsLoading] = useState(false);
   const [summary, setSummary] = useState<LocationSummary | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -175,6 +211,12 @@ const LocationShow = () => {
 
   const canViewAssets = hasViewPermission(PermissionEntity.ASSETS);
   const canViewWorkOrders = hasViewPermission(PermissionEntity.WORK_ORDERS);
+  const canViewCustomers = hasViewPermission(
+    PermissionEntity.VENDORS_AND_CUSTOMERS
+  );
+  const canEditLocation = location
+    ? hasEditPermission(PermissionEntity.LOCATIONS, location)
+    : false;
 
   const numericLocationId =
     locationId && isNumeric(locationId) ? Number(locationId) : null;
@@ -187,6 +229,33 @@ const LocationShow = () => {
     confirm: confirmCreateWorkOrder,
     cancel: cancelCreateWorkOrder
   } = useLocationWorkOrderCreation();
+
+  const handleEditSuccess = async () => {
+    setOpenEditModal(false);
+    showSnackBar(t('changes_saved_success', 'Alterações salvas'), 'success');
+    if (!numericLocationId) return;
+    try {
+      const refreshedLocation = await api.get<LocationModel>(
+        `locations/${numericLocationId}`
+      );
+      setLocation(refreshedLocation);
+    } catch {
+      showSnackBar(
+        t('load_failure', 'Falha ao atualizar o local exibido'),
+        'error'
+      );
+    }
+  };
+
+  const handleEditFailure = () => {
+    showSnackBar(t('location_edit_failure', 'Falha ao editar local'), 'error');
+  };
+
+  useEffect(() => {
+    if (openEditModal && !customFields.length) {
+      dispatch(getCustomFields());
+    }
+  }, [openEditModal, customFields.length, dispatch]);
 
   useEffect(() => {
     setTitle(location?.name ?? t('location_address', 'Local/Endereco'));
@@ -296,27 +365,76 @@ const LocationShow = () => {
 
   const coordinates = formatCoordinates(location);
   const customers = location?.customers ?? [];
+  const customerIds = customers.map((customer) => customer.id).join(',');
   const hasMap = Boolean(coordinates);
+  const displayAddress = getLocationDisplayAddress(location);
+  const referenceLabel = getLocationReferenceLabel(location);
+  const operationalReferenceLabel = referenceLabel
+    ? location.referenceType === 'ID'
+      ? `ID ${referenceLabel}`
+      : referenceLabel
+    : null;
+
+  useEffect(() => {
+    if (!location || !canViewCustomers || !customers.length) {
+      setCustomerDetails({});
+      setCustomerDetailsLoading(false);
+      return;
+    }
+
+    let active = true;
+    setCustomerDetailsLoading(true);
+    Promise.all(
+      customers.map((customer) =>
+        api.get<Customer>(`customers/${customer.id}`).catch(() => null)
+      )
+    )
+      .then((responses) => {
+        if (!active) return;
+        setCustomerDetails(
+          responses.reduce<Record<number, Customer | null>>(
+            (details, customer, index) => {
+              details[customers[index].id] = customer;
+              return details;
+            },
+            {}
+          )
+        );
+      })
+      .finally(() => {
+        if (active) setCustomerDetailsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [location?.id, canViewCustomers, customerIds]);
 
   // KPI: "Em andamento" agrupa EN_ROUTE/IN_PROGRESS/ON_HOLD - mesmo
   // agrupamento usado no filtro da aba OS.
   const kpis = useMemo(
-    () => ({
-      totalAssets: summary?.totalAssets ?? 0,
-      open: summary?.openWorkOrders ?? 0,
-      inProgress:
-        (summary?.enRouteWorkOrders ?? 0) +
-        (summary?.inProgressWorkOrders ?? 0) +
-        (summary?.onHoldWorkOrders ?? 0),
-      complete: summary?.completedWorkOrders ?? 0
-    }),
+    () => getLocationSummaryKpis(summary),
     [summary]
   );
 
   if (loading) {
     return (
-      <Box p={3}>
-        <Typography>{t('loading', 'Carregando...')}</Typography>
+      <Box
+        sx={{
+          minHeight: '100%',
+          p: { xs: 2, md: 3 },
+          bgcolor: 'background.default'
+        }}
+        aria-busy="true"
+        aria-label={t('loading', 'Carregando...')}
+      >
+        <Card sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 2, mb: 1.5 }}>
+          <Skeleton width={120} height={24} />
+          <Skeleton width="42%" height={48} />
+          <Skeleton width="64%" height={28} />
+        </Card>
+        <Skeleton variant="rectangular" height={76} sx={{ mb: 1.5 }} />
+        <Skeleton variant="rectangular" height={360} />
       </Box>
     );
   }
@@ -327,123 +445,220 @@ const LocationShow = () => {
 
   if (error || !location) {
     return (
-      <Box p={3}>
-        <Typography color="error">
+      <Box p={{ xs: 2, md: 3 }} bgcolor="background.default" minHeight="100%">
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => navigate('/app/locations')}>
+              {t('back', 'Voltar')}
+            </Button>
+          }
+        >
           {error ?? t('not_found', 'Nao encontrado')}
-        </Typography>
+        </Alert>
       </Box>
     );
   }
 
   const renderEmpty = (message: string) => (
-    <Card sx={{ p: 3, borderRadius: 1.5 }}>
-      <Typography color="text.secondary">{message}</Typography>
-    </Card>
+    <Box
+      sx={{
+        px: 2,
+        py: 4,
+        textAlign: 'center',
+        bgcolor: (currentTheme) => alpha(currentTheme.palette.primary.main, 0.025)
+      }}
+    >
+      <Typography color="text.secondary" variant="body2">
+        {message}
+      </Typography>
+    </Box>
   );
 
   const renderOverview = () => (
-    <Grid container spacing={2}>
-      <Grid item xs={12} md={hasMap ? 7 : 12}>
-        <Card sx={{ p: 3, borderRadius: 1.5, height: '100%' }}>
-          <Typography variant="h4" gutterBottom>
-            {t('overview', 'Visao geral')}
-          </Typography>
-          <Stack spacing={2}>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                {t('customers')}
-              </Typography>
-              {customers.length ? (
-                <Stack direction="row" flexWrap="wrap" gap={1} mt={0.5}>
-                  {customers.map((customer) => (
-                    <Chip
-                      key={customer.id}
-                      label={customer.name}
-                      component="a"
-                      href={`/app/vendors-customers/customers/${customer.id}`}
-                      clickable
-                      size="small"
-                    />
-                  ))}
-                </Stack>
-              ) : (
-                <Typography fontWeight={700}>--</Typography>
-              )}
-            </Box>
-            <InfoLine label={t('address')} value={location.address} />
-            <InfoLine label={t('locations_table_code', 'Código')} value={location.customId} />
-            {/* Coordenadas ja aparecem no card do mini-mapa ao lado quando
-                hasMap e' true - mostrar de novo aqui duplicaria a mesma
-                informacao (Stage 3, item 7). Sem coordenadas, hasMap e'
-                sempre false e o card do mapa nem existe - nada a mostrar
-                aqui tambem, entao a linha de coordenadas fica so no card. */}
-            {!!location.workers?.length && (
-              <InfoLine
-                label={t('workers', 'Tecnicos')}
-                value={location.workers
-                  .map((worker) => `${worker.firstName} ${worker.lastName}`)
-                  .join(', ')}
-              />
-            )}
-            {!!location.teams?.length && (
-              <InfoLine
-                label={t('teams')}
-                value={location.teams.map((team) => team.name).join(', ')}
-              />
-            )}
-            {location.parentLocation && (
-              <InfoLine
-                label={t('parent_location')}
-                value={location.parentLocation.name}
-              />
-            )}
-          </Stack>
-        </Card>
-      </Grid>
-      {hasMap && (
-        <Grid item xs={12} md={5}>
-          <Card sx={{ p: 2, borderRadius: 1.5, height: '100%' }}>
-            <LocationMiniMap
-              latitude={location.latitude}
-              longitude={location.longitude}
-              height={200}
-            />
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-              sx={{ mt: 1.5 }}
+    <Grid container spacing={2} alignItems="flex-start">
+      <Grid item xs={12} md={6} sx={{ alignSelf: 'flex-start' }}>
+        <Box
+          sx={{
+            p: 1.5,
+            border: 1,
+            borderColor: (currentTheme) =>
+              alpha(currentTheme.palette.primary.main, 0.12),
+            borderRadius: 2,
+            bgcolor: 'background.paper'
+          }}
+        >
+          <SectionTitle
+            icon={<GroupsTwoToneIcon fontSize="small" />}
+            title={t('linked_customers', 'Clientes vinculados')}
+          />
+          {!customers.length && (
+            <Box
+              sx={{
+                p: 2,
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 1.5,
+                bgcolor: (currentTheme) =>
+                  alpha(currentTheme.palette.primary.main, 0.025)
+              }}
             >
               <Typography variant="body2" color="text.secondary">
-                {coordinates}
+                {t(
+                  'no_customer_linked_to_location',
+                  'Nenhum cliente vinculado a este local.'
+                )}
               </Typography>
-              <Button
-                size="small"
-                component="a"
-                href={`https://www.google.com/maps?q=${location.latitude},${location.longitude}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {t('open_in_google_maps', 'Abrir no Google Maps')}
-              </Button>
+            </Box>
+          )}
+          {customers.length > 0 && !canViewCustomers && (
+            <Stack spacing={1.25}>
+              {customers.map((customer) => (
+                <CustomerSummaryCard
+                  key={customer.id}
+                  customer={customer}
+                  canOpen={false}
+                />
+              ))}
             </Stack>
-          </Card>
-        </Grid>
-      )}
+          )}
+          {canViewCustomers && customerDetailsLoading && (
+            <Stack spacing={1.25}>
+              {customers.map((customer) => (
+                <Skeleton key={customer.id} variant="rectangular" height={142} />
+              ))}
+            </Stack>
+          )}
+          {canViewCustomers && !customerDetailsLoading && (
+            <Stack spacing={1.25}>
+              {customers.map((customer) => (
+                <CustomerSummaryCard
+                  key={customer.id}
+                  customer={customerDetails[customer.id] ?? customer}
+                  canOpen
+                />
+              ))}
+            </Stack>
+          )}
+        </Box>
+      </Grid>
+      <Grid item xs={12} md={6} sx={{ alignSelf: 'flex-start' }}>
+        <Box
+          sx={{
+            p: 1.5,
+            border: 1,
+            borderColor: (currentTheme) =>
+              alpha(currentTheme.palette.primary.main, 0.12),
+            borderRadius: 2,
+            bgcolor: 'background.paper'
+          }}
+        >
+          <SectionTitle
+            icon={<LocationOnTwoToneIcon fontSize="small" />}
+            title={t('location_context', 'Localização')}
+          />
+          <Grid container spacing={1.5} sx={{ mt: 0.25 }}>
+            <InfoLine label={t('address')} value={displayAddress} noWrap sm={8} />
+            <Grid item xs={12} sm={4}>
+              <Typography variant="caption" color="text.secondary" display="block">
+                {t('location_reference_column', 'ID / PC')}
+              </Typography>
+              {operationalReferenceLabel ? (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={operationalReferenceLabel}
+                  sx={{
+                    mt: 0.5,
+                    color: 'primary.main',
+                    borderColor: (currentTheme) =>
+                      alpha(currentTheme.palette.primary.main, 0.3),
+                    bgcolor: (currentTheme) =>
+                      alpha(currentTheme.palette.primary.main, 0.05),
+                    fontWeight: 700
+                  }}
+                />
+              ) : (
+                <Typography variant="body2" fontWeight={700}>
+                  --
+                </Typography>
+              )}
+            </Grid>
+            {!hasMap && (
+              <InfoLine
+                label={t('coordinates', 'Coordenadas')}
+                value={t('coordinates_not_registered', 'Não cadastradas')}
+              />
+            )}
+          </Grid>
+          {hasMap ? (
+            <Box
+              sx={{
+                mt: 1.5,
+                p: 1.5,
+                border: 1,
+                borderColor: (currentTheme) =>
+                  alpha(currentTheme.palette.primary.main, 0.14),
+                borderRadius: 1.5,
+                bgcolor: (currentTheme) =>
+                  alpha(currentTheme.palette.primary.main, 0.025)
+              }}
+            >
+              <LocationMiniMap
+                latitude={location.latitude}
+                longitude={location.longitude}
+                height={200}
+              />
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                sx={{ mt: 1.25 }}
+              >
+                <Typography variant="caption" color="text.secondary">
+                  {coordinates}
+                </Typography>
+                <Button
+                  size="small"
+                  component="a"
+                  href={`https://www.google.com/maps?q=${location.latitude},${location.longitude}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t('open_in_google_maps', 'Abrir no Google Maps')}
+                </Button>
+              </Stack>
+            </Box>
+          ) : (
+            <Box sx={{ mt: 1.5 }}>
+              <Typography variant="caption" color="text.secondary">
+                {t('map_unavailable', 'Mapa indisponível sem coordenadas.')}
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      </Grid>
       {location.image && (
         <Grid item xs={12}>
-          <Card sx={{ p: 2, borderRadius: 1.5 }}>
+          <Box sx={{ pt: 0.5 }}>
             <img
               src={location.image.url}
               alt={location.name}
               style={{ maxHeight: 260, maxWidth: '100%', borderRadius: 6 }}
             />
-          </Card>
+          </Box>
         </Grid>
       )}
       {!!location.files?.length && (
         <Grid item xs={12}>
-          <Card sx={{ overflow: 'auto', borderRadius: 1.5 }}>
+          <Box
+            sx={{
+              overflow: 'auto',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1.5
+            }}
+          >
             <Table size="small">
               <TableBody>
                 {location.files.map((file) => (
@@ -462,7 +677,7 @@ const LocationShow = () => {
                 ))}
               </TableBody>
             </Table>
-          </Card>
+          </Box>
         </Grid>
       )}
     </Grid>
@@ -656,14 +871,13 @@ const LocationShow = () => {
       <Box p={{ xs: 2, md: 3 }}>
         <Card
           sx={{
-            p: 3,
-            mb: 2,
-            borderRadius: 1.5,
-            background: `linear-gradient(135deg, ${alpha(
-              ERIONE_VISUAL_IDENTITY.primary,
-              0.08
-            )}, ${theme.colors.alpha.white[100]} 56%)`,
-            border: `1px solid ${alpha(ERIONE_VISUAL_IDENTITY.primary, 0.12)}`
+            p: { xs: 2, md: 2.5 },
+            mb: 1.5,
+            borderRadius: 2,
+            boxShadow: 'none',
+            border: 1,
+            borderColor: (currentTheme) =>
+              alpha(currentTheme.palette.primary.main, 0.16)
           }}
         >
           <Stack
@@ -675,26 +889,40 @@ const LocationShow = () => {
               <Typography variant="overline" color="primary" fontWeight={800}>
                 {t('location_address', 'Local/Endereco')}
               </Typography>
-              <Typography variant="h2" gutterBottom>
-                {location.name}
-              </Typography>
+              <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+                <Typography variant="h2" gutterBottom sx={{ mb: 0 }}>
+                  {location.name}
+                </Typography>
+              </Stack>
               <Stack direction="row" flexWrap="wrap" gap={1}>
                 {customers.map((customer) => (
                   <Chip
                     key={customer.id}
-                    label={customer.name}
+                    label={`${customer.name}${customer.city ? ` · ${customer.city}` : ''}`}
                     component="a"
                     href={`/app/vendors-customers/customers/${customer.id}`}
                     clickable
+                    size="small"
+                    variant="outlined"
                   />
                 ))}
-                {location.customId && (
-                  <Chip label={location.customId} variant="outlined" />
+                {!customers.length && (
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={t('no_customer_linked', 'Nenhum cliente vinculado')}
+                    sx={{ color: 'text.secondary' }}
+                  />
                 )}
               </Stack>
-              {location.address && (
-                <Typography mt={1.5} color="text.secondary">
-                  {location.address}
+              {displayAddress && (
+                <Typography
+                  mt={1.5}
+                  color="text.secondary"
+                  noWrap
+                  sx={{ maxWidth: '100%', textOverflow: 'ellipsis', overflow: 'hidden' }}
+                >
+                  {displayAddress}
                 </Typography>
               )}
             </Box>
@@ -713,6 +941,16 @@ const LocationShow = () => {
                   {t('create_wo_for_location', 'Criar OS neste local')}
                 </Button>
               )}
+              {canEditLocation && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<EditTwoToneIcon />}
+                  onClick={() => setOpenEditModal(true)}
+                >
+                  {t('edit', 'Editar')}
+                </Button>
+              )}
               <Button
                 size="small"
                 variant="outlined"
@@ -725,7 +963,29 @@ const LocationShow = () => {
           </Stack>
         </Card>
 
-        <Grid container spacing={2} mb={2}>
+        <Grid
+          container
+          sx={(currentTheme) => ({
+            mb: 1.5,
+            border: 1,
+            borderColor: alpha(currentTheme.palette.primary.main, 0.12),
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            '& > .MuiGrid-item': {
+              px: { xs: 1.5, md: 2 },
+              py: 1.25,
+              borderRight: {
+                xs: 'none',
+                sm: `1px solid ${alpha(currentTheme.palette.primary.main, 0.1)}`
+              },
+              borderBottom: {
+                xs: `1px solid ${alpha(currentTheme.palette.primary.main, 0.1)}`,
+                sm: 'none'
+              },
+              '&:last-child': { borderRight: 0, borderBottom: 0 }
+            }
+          })}
+        >
           {canViewAssets && (
             <SummaryCard
               icon={<DevicesOtherTwoToneIcon />}
@@ -754,38 +1014,133 @@ const LocationShow = () => {
           )}
         </Grid>
 
-        <Card sx={{ borderRadius: 1.5 }}>
-          <Tabs
-            value={tab}
-            onChange={(_event, value) => setTab(value)}
-            variant="scrollable"
-            scrollButtons="auto"
-            sx={{ px: 2, borderBottom: `1px solid ${theme.palette.divider}` }}
+        <Box
+          sx={{
+            bgcolor: 'transparent'
+          }}
+        >
+          <Card
+            sx={{
+              mb: 1.5,
+              borderRadius: 2,
+              boxShadow: 'none',
+              border: 1,
+              borderColor: (currentTheme) =>
+                alpha(currentTheme.palette.primary.main, 0.12)
+            }}
           >
-            <Tab value="overview" label={t('overview', 'Visao geral')} />
-            {canViewAssets && (
+            <Tabs
+              value={tab}
+              onChange={(_event, value) => setTab(value)}
+              variant="scrollable"
+              scrollButtons="auto"
+              textColor="primary"
+              TabIndicatorProps={{
+                style: {
+                  height: 2,
+                  minHeight: 2,
+                  border: 0,
+                  borderRadius: 0,
+                  boxShadow: 'none'
+                }
+              }}
+              sx={{
+                px: { xs: 1, md: 2 },
+                minHeight: 46,
+                minWidth: 0,
+                height: 'auto',
+                '& .MuiTabs-scroller': {
+                  overflowX: 'auto !important',
+                  overflowY: 'hidden'
+                },
+                '& .MuiTab-root': {
+                  minHeight: 46,
+                  minWidth: 0,
+                  px: 1.5,
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  color: 'text.secondary',
+                  borderRadius: 0,
+                  '&:hover': { bgcolor: 'action.hover' },
+                  '&.Mui-focusVisible': {
+                    outline: '2px solid',
+                    outlineColor: 'primary.main',
+                    outlineOffset: -2
+                  }
+                },
+                '& .MuiTabs-indicator': {
+                  height: '2px !important',
+                  minHeight: '2px !important',
+                  display: 'block',
+                  bottom: '0 !important',
+                  border: '0 !important',
+                  borderRadius: '0 !important',
+                  boxShadow: 'none !important',
+                  bgcolor: 'primary.main'
+                }
+              }}
+            >
               <Tab
-                value="assets"
-                label={t('equipment_devices', 'Equipamentos/Dispositivos')}
+                value="overview"
+                label={t('overview', 'Visão Geral')}
+                sx={{
+                  '&&.Mui-selected, &&.Mui-selected:hover': {
+                    color: 'primary.main',
+                    bgcolor: 'transparent',
+                    boxShadow: 'none'
+                  }
+                }}
               />
-            )}
-            {canViewWorkOrders && (
-              <Tab value="workOrders" label={t('work_orders')} />
-            )}
-            {hasMap && (
-              <Tab
-                value="map"
-                icon={<MapTwoToneIcon fontSize="small" />}
-                iconPosition="start"
-                label={t('location_map_tab', 'Mapa')}
-              />
-            )}
-          </Tabs>
-          <Box p={2}>
-            {tab === 'overview' && renderOverview()}
-            {tab === 'assets' && canViewAssets && renderAssets()}
-            {tab === 'workOrders' && canViewWorkOrders && renderWorkOrders()}
-            {tab === 'map' && hasMap && (
+              {canViewAssets && (
+                <Tab
+                  value="assets"
+                  label={t('equipment_devices', 'Equipamentos/Dispositivos')}
+                  sx={{
+                    '&&.Mui-selected, &&.Mui-selected:hover': {
+                      color: 'primary.main',
+                      bgcolor: 'transparent',
+                      boxShadow: 'none'
+                    }
+                  }}
+                />
+              )}
+              {canViewWorkOrders && (
+                <Tab
+                  value="workOrders"
+                  label={t('work_orders')}
+                  sx={{
+                    '&&.Mui-selected, &&.Mui-selected:hover': {
+                      color: 'primary.main',
+                      bgcolor: 'transparent',
+                      boxShadow: 'none'
+                    }
+                  }}
+                />
+              )}
+              {hasMap && (
+                <Tab
+                  value="map"
+                  icon={<MapTwoToneIcon fontSize="small" />}
+                  iconPosition="start"
+                  label={t('location_map_tab', 'Mapa')}
+                  sx={{
+                    '&&.Mui-selected, &&.Mui-selected:hover': {
+                      color: 'primary.main',
+                      bgcolor: 'transparent',
+                      boxShadow: 'none'
+                    }
+                  }}
+                />
+              )}
+            </Tabs>
+          </Card>
+          {tab === 'overview' ? (
+            renderOverview()
+          ) : (
+            <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper' }}>
+              {tab === 'assets' && canViewAssets && renderAssets()}
+              {tab === 'workOrders' && canViewWorkOrders && renderWorkOrders()}
+              {tab === 'map' && hasMap && (
               <Card sx={{ p: 2, borderRadius: 1.5 }}>
                 <LocationMiniMap
                   latitude={location.latitude}
@@ -812,9 +1167,10 @@ const LocationShow = () => {
                   </Button>
                 </Stack>
               </Card>
-            )}
-          </Box>
-        </Card>
+              )}
+            </Box>
+          )}
+        </Box>
       </Box>
       <CreateWorkOrderCustomerDialog
         dialogLocation={createWoDialogLocation}
@@ -823,23 +1179,164 @@ const LocationShow = () => {
         onConfirm={confirmCreateWorkOrder}
         onCancel={cancelCreateWorkOrder}
       />
+      <LocationFormDialog
+        mode="edit"
+        open={openEditModal}
+        onClose={() => setOpenEditModal(false)}
+        currentLocation={location}
+        customFields={customFields}
+        onEditSuccess={handleEditSuccess}
+        onEditFailure={handleEditFailure}
+      />
     </>
   );
 };
 
+const CustomerSummaryCard = ({
+  customer,
+  canOpen
+}: {
+  customer: Customer | CustomerMiniDTO;
+  canOpen: boolean;
+}) => {
+  const fullCustomer = customer as Customer;
+  const detailRows = [
+    {
+      icon: <BadgeTwoToneIcon fontSize="small" />,
+      label: 'CNPJ',
+      value: formatCnpj(fullCustomer.cnpj),
+      fullWidth: false
+    },
+    {
+      icon: <PhoneTwoToneIcon fontSize="small" />,
+      label: 'Telefone',
+      value: fullCustomer.phone,
+      fullWidth: false
+    },
+    {
+      icon: <MailTwoToneIcon fontSize="small" />,
+      label: 'E-mail',
+      value: fullCustomer.email,
+      fullWidth: true
+    },
+    {
+      icon: <HomeWorkTwoToneIcon fontSize="small" />,
+      label: 'Endereço',
+      value: fullCustomer.address,
+      fullWidth: true
+    }
+  ].filter((row) => row.value);
+
+  return (
+    <Box
+      sx={{
+        p: 1.75,
+        border: 1,
+        borderColor: (currentTheme) =>
+          alpha(currentTheme.palette.primary.main, 0.14),
+        borderRadius: 1.5,
+        bgcolor: 'background.paper'
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="subtitle1" fontWeight={800} noWrap>
+            {customer.name}
+          </Typography>
+          {customer.city && (
+            <Typography variant="caption" color="text.secondary">
+              {customer.city}
+            </Typography>
+          )}
+        </Box>
+        {canOpen && (
+          <Button
+            size="small"
+            component="a"
+            href={`/app/vendors-customers/customers/${customer.id}`}
+            endIcon={<OpenInNewTwoToneIcon fontSize="small" />}
+            sx={{ flexShrink: 0 }}
+          >
+            Abrir cliente
+          </Button>
+        )}
+      </Stack>
+      {!!detailRows.length && (
+        <Box
+          sx={{
+            mt: 1.25,
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+            gap: 0.75
+          }}
+        >
+          {detailRows.map((row) => (
+            <Stack
+              key={row.label}
+              direction="row"
+              spacing={0.75}
+              alignItems="flex-start"
+              sx={{
+                minWidth: 0,
+                gridColumn: { xs: '1', sm: row.fullWidth ? '1 / -1' : 'auto' }
+              }}
+            >
+              <Box sx={{ display: 'flex', color: 'text.secondary' }}>{row.icon}</Box>
+              <Typography variant="caption" color="text.secondary">
+                {row.label}
+              </Typography>
+              <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                {row.value}
+              </Typography>
+            </Stack>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+const SectionTitle = ({
+  icon,
+  title
+}: {
+  icon: JSX.Element;
+  title: string;
+}) => (
+  <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.75 }}>
+    <Box sx={{ display: 'flex', color: 'primary.main' }}>{icon}</Box>
+    <Typography variant="subtitle2" fontWeight={800}>
+      {title}
+    </Typography>
+  </Stack>
+);
+
 const InfoLine = ({
   label,
-  value
+  value,
+  noWrap = false,
+  sm = 6
 }: {
   label: string;
   value?: string | null;
+  noWrap?: boolean;
+  sm?: number;
 }) => (
-  <Box>
-    <Typography variant="caption" color="text.secondary">
-      {label}
-    </Typography>
-    <Typography fontWeight={700}>{value || '--'}</Typography>
-  </Box>
+  <Grid item xs={12} sm={sm}>
+    <Box sx={{ minWidth: 0 }}>
+      <Typography variant="caption" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography
+        variant="body2"
+        fontWeight={700}
+        noWrap={noWrap}
+        sx={noWrap ? { textOverflow: 'ellipsis', overflow: 'hidden' } : undefined}
+      >
+        {value || '--'}
+      </Typography>
+    </Box>
+  </Grid>
 );
 
 const SummaryCard = ({
@@ -849,33 +1346,35 @@ const SummaryCard = ({
 }: {
   icon: JSX.Element;
   label: string;
-  value: number;
+  value: number | null;
 }) => (
   <Grid item xs={12} sm={6} md={3}>
-    <Card sx={{ p: 2, borderRadius: 1.5, height: '100%' }}>
-      <Stack direction="row" spacing={1.5} alignItems="center">
-        <Box
-          sx={{
-            alignItems: 'center',
-            backgroundColor: alpha(ERIONE_VISUAL_IDENTITY.primary, 0.08),
-            borderRadius: 1.5,
-            color: ERIONE_VISUAL_IDENTITY.primary,
-            display: 'flex',
-            height: 38,
-            justifyContent: 'center',
-            width: 38
-          }}
-        >
-          {icon}
-        </Box>
-        <Box>
-          <Typography variant="h3">{value}</Typography>
-          <Typography variant="caption" color="text.secondary">
-            {label}
-          </Typography>
-        </Box>
-      </Stack>
-    </Card>
+    <Stack direction="row" spacing={1.25} alignItems="center">
+      <Box
+        sx={{
+          alignItems: 'center',
+          bgcolor: (currentTheme) =>
+            alpha(currentTheme.palette.primary.main, 0.08),
+          borderRadius: 1.25,
+          color: 'primary.main',
+          display: 'flex',
+          height: 34,
+          justifyContent: 'center',
+          width: 34,
+          flexShrink: 0
+        }}
+      >
+        {icon}
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="h3" sx={{ lineHeight: 1.1 }}>
+          {value === null ? '--' : value}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" noWrap>
+          {label}
+        </Typography>
+      </Box>
+    </Stack>
   </Grid>
 );
 
