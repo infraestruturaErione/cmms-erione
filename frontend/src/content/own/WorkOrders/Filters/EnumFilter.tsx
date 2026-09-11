@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { ReactNode } from 'react';
 import { enumerate } from '../../../../utils/displayers';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import {
   Button,
   Checkbox,
@@ -19,6 +20,7 @@ interface OwnProps {
   fieldName: string;
   icon: ReactNode;
   enumName?: 'STATUS' | 'PRIORITY' | 'JS_DATE';
+  compact?: boolean;
 }
 function EnumFilter({
   filterFields,
@@ -26,7 +28,8 @@ function EnumFilter({
   completeOptions,
   fieldName,
   icon,
-  enumName
+  enumName,
+  compact = false
 }: OwnProps) {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const openMenu = Boolean(anchorEl);
@@ -44,23 +47,38 @@ function EnumFilter({
   return (
     <>
       <Button
+        id={`wo-filter-${fieldName}`}
+        aria-haspopup="menu"
+        aria-expanded={openMenu}
+        aria-controls={openMenu ? `wo-filter-menu-${fieldName}` : undefined}
         onClick={handleOpenMenu}
         sx={{
-          '& .MuiButton-startIcon': { margin: '0px' },
-          minWidth: 0
+          minWidth: 0,
+          whiteSpace: 'nowrap',
+          ...(compact ? { height: 40, textTransform: 'none' } : {})
         }}
+        size={compact ? 'small' : 'medium'}
         variant={'outlined'}
         startIcon={icon}
+        endIcon={compact ? <KeyboardArrowDownIcon /> : undefined}
       >
-        {enumerate(selectedValues.map((priority) => t(priority)))}
+        {compact
+          ? `${t(fieldName)}: ${
+              completeOptions.every((option) => selectedValues.includes(option))
+                ? t('ALL')
+                : selectedValues.length === 1
+                ? t(selectedValues[0])
+                : selectedValues.length
+            }`
+          : enumerate(selectedValues.map((priority) => t(priority)))}
       </Button>
       <Menu
-        id="basic-menu"
+        id={`wo-filter-menu-${fieldName}`}
         anchorEl={anchorEl}
         open={openMenu}
         onClose={handleCloseMenu}
         MenuListProps={{
-          'aria-labelledby': 'basic-button'
+          'aria-labelledby': `wo-filter-${fieldName}`
         }}
       >
         {completeOptions.map((option, index) => {

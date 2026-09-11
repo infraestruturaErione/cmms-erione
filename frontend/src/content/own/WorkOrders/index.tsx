@@ -1,6 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import {
   Box,
+  Avatar,
   Button,
   Card,
   CircularProgress,
@@ -11,6 +12,7 @@ import {
   Divider,
   Drawer,
   IconButton,
+  LinearProgress,
   Menu,
   MenuItem,
   Stack,
@@ -19,7 +21,6 @@ import {
   Tooltip,
   Typography
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import { useTranslation } from 'react-i18next';
 import {
   getCustomFieldsIFields,
@@ -36,7 +37,6 @@ import CustomDatagrid2, {
 import { createColumnHelper } from '@tanstack/react-table';
 import AddTwoToneIcon from '@mui/icons-material/AddTwoTone';
 import Form from '../components/form';
-import UserAvatars from '../components/UserAvatars';
 import * as Yup from 'yup';
 import { isNumeric } from '../../../utils/validators';
 import WorkOrderDetails from './Details/WorkOrderDetails';
@@ -97,6 +97,17 @@ import { getCustomFields } from '../../../slices/customField';
 import { CustomFieldEntityType } from '../../../models/owns/customField';
 import WorkOrderStatusCell from './components/WorkOrderStatusCell';
 import BookmarkAddedTwoToneIcon from '@mui/icons-material/BookmarkAddedTwoTone';
+import ViewListOutlinedIcon from '@mui/icons-material/ViewListOutlined';
+import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
+import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
+import CloseIcon from '@mui/icons-material/Close';
+import ActiveWorkOrderFilters from './Filters/ActiveWorkOrderFilters';
+import { getWorkOrderColumnVisibility, PRIMARY_WORK_ORDER_COLUMNS } from './workOrderColumns';
+import {
+  getWorkOrderSearchText,
+  isDefaultFilter,
+  removeWorkOrderFilter
+} from './Filters/filterSummary';
 import {
   getWorkOrderCriteriaForView,
   isWorkOrderView,
@@ -181,13 +192,14 @@ function WorkOrders() {
     CompanySettingsContext
   );
   const tabs = [
-    { value: 'list', label: t('list_view'), disabled: false },
+    { value: 'list', label: t('list_view'), icon: <ViewListOutlinedIcon fontSize="small" />, disabled: false },
     {
       value: 'calendar',
       label: t('calendar_view'),
+      icon: <CalendarMonthOutlinedIcon fontSize="small" />,
       disabled: !canViewCalendar
     },
-    { value: 'column', label: t('column_view'), disabled: false }
+    { value: 'column', label: t('column_view'), icon: <ViewWeekOutlinedIcon fontSize="small" />, disabled: false }
   ];
   const handleTabsChange = (_event: ChangeEvent<{}>, value: string): void => {
     if (isWorkOrderView(value)) setCurrentTab(value);
@@ -280,6 +292,9 @@ function WorkOrders() {
     sortField: 'updatedAt',
     direction: 'DESC'
   }));
+  const [searchText, setSearchText] = useState(() => getWorkOrderSearchText(criteria.filterFields));
+  const [initialColumnVisibility] = useState(getWorkOrderColumnVisibility);
+  const [columnVisibilityReady, setColumnVisibilityReady] = useState(false);
   const workOrdersCriteria = useMemo(
     () => getWorkOrderCriteriaForView(criteria, currentTab),
     [criteria, currentTab]
@@ -307,6 +322,10 @@ function WorkOrders() {
     setCriteria,
     fieldMapping
   });
+  useEffect(() => {
+    setColumnVisibility(initialColumnVisibility);
+    setColumnVisibilityReady(true);
+  }, [initialColumnVisibility, setColumnVisibility]);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const openMenu = Boolean(anchorEl);
   const navigate = useNavigate();
@@ -399,10 +418,8 @@ function WorkOrders() {
   }, []);
 
   const onFilterChange = (newFilters: FilterField[]) => {
-    const newCriteria = { ...criteria };
-    newCriteria.filterFields = newFilters;
-    newCriteria.pageNum = 0;
-    setCriteria(newCriteria);
+    setPagination((previous) => ({ ...previous, pageIndex: 0 }));
+    setCriteria((previous) => ({ ...previous, filterFields: newFilters, pageNum: 0 }));
   };
 
   useEffect(() => {
@@ -421,18 +438,14 @@ function WorkOrders() {
     const filterFields = criteria.filterFields.filter(
       (filterField) => filterField.field !== 'archived'
     );
-    setCriteria({
-      ...criteria,
-      filterFields: [
+    onFilterChange([
         ...filterFields,
         {
           field: 'archived',
           operation: 'eq',
           value: showArchived
         }
-      ],
-      pageNum: 0
-    });
+      ]);
   };
   // Deep-link (workOrderId na URL) - FONTE UNICA e autoritativa pra abrir o
   // Drawer via URL direta/F5. So' usa o GET individual (getSingleWorkOrder) -
@@ -590,7 +603,8 @@ function WorkOrders() {
     showSnackBar(t('wo_delete_failure'), 'error');
 
   const onQueryChange = (event) => {
-    onSearchQueryChange<WorkOrder>(event, criteria, setCriteria, [
+    setPagination((previous) => ({ ...previous, pageIndex: 0 }));
+    onSearchQueryChange<WorkOrder>(event, { ...criteria, pageNum: 0 }, setCriteria, [
       'title',
       'description',
       'feedback',
@@ -605,6 +619,33 @@ function WorkOrders() {
     () => debounce((event) => onQueryChangeRef.current(event), 1300),
     []
   );
+  useEffect(() => () => debouncedQueryChange.clear(), [debouncedQueryChange]);
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setSearchText(value);
+    debouncedQueryChange({ target: { value } });
+  };
+  const handleClearSearch = () => {
+    debouncedQueryChange.clear();
+    setSearchText('');
+    onQueryChange({ target: { value: '' } });
+  };
+  const handleResetFilters = () => {
+    debouncedQueryChange.clear();
+    setSearchText('');
+    onFilterChange(initialCriteria.filterFields);
+  };
+  const handleRemoveFilter = (index: number) => {
+    if (criteria.filterFields[index]?.field === 'title') {
+      debouncedQueryChange.clear();
+      setSearchText('');
+    }
+    onFilterChange(removeWorkOrderFilter(criteria.filterFields, index, initialCriteria.filterFields));
+  };
+  const advancedFilterCount = criteria.filterFields.filter(
+    (filter) => !['status', 'priority', 'archived', 'title'].includes(filter.field) &&
+      !isDefaultFilter(filter, initialCriteria.filterFields)
+  ).length;
   // So a PRIMEIRA execucao deste efeito apos montar a rota pode reaproveitar
   // o cache do Redux (que sobrevive ao unmount, so o useState local morre) -
   // qualquer mudanca de criteria feita pelo usuario depois disso (filtro,
@@ -765,20 +806,29 @@ function WorkOrders() {
     columnHelper.accessor('title', {
       id: 'title',
       header: () => t('title'),
-      cell: (info) => <Box sx={{ fontWeight: 'bold' }}>{info.getValue()}</Box>,
-      size: 150
+      cell: (info) => (
+        <Box sx={{ minWidth: 0 }}>
+          <Tooltip title={info.getValue() || ''}>
+            <Typography variant="body2" fontWeight={700} sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }}>
+              {info.getValue()}
+            </Typography>
+          </Tooltip>
+          {uiConfiguration.vendorsAndCustomers && !!info.row.original.customers?.length && (
+            <Tooltip title={info.row.original.customers.map((customer) => customer.name).join(' · ')}>
+              <Typography variant="caption" color="text.secondary" component="div" noWrap>
+                {info.row.original.customers.map((customer) => customer.name).join(' · ')}
+              </Typography>
+            </Tooltip>
+          )}
+        </Box>
+      ),
+      size: 240
     }),
     columnHelper.accessor('priority', {
       id: 'priority',
       header: () => t('priority'),
       cell: (info) => <PriorityWrapper priority={info.getValue()} />,
       size: 120
-    }),
-    columnHelper.accessor('description', {
-      id: 'description',
-      header: () => t('description'),
-      cell: (info) => info.getValue() || '',
-      size: 300
     }),
     columnHelper.accessor(
       (row) => {
@@ -790,8 +840,33 @@ function WorkOrders() {
       {
         id: 'assignedTo',
         header: () => t('assigned_to'),
-        cell: (info) => <UserAvatars users={info.getValue()} />,
-        size: 170
+        cell: (info) => (
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+            {!!info.getValue().length && (
+              <Avatar
+                src={info.getValue()[0].image?.url}
+                alt={`${info.getValue()[0].firstName} ${info.getValue()[0].lastName}`}
+                sx={{ width: 24, height: 24, fontSize: 11, fontWeight: 700, bgcolor: 'action.selected', color: 'primary.main', flexShrink: 0 }}
+              >
+                {[info.getValue()[0].firstName, info.getValue()[0].lastName]
+                  .map((name) => name?.trim().charAt(0)).join('').toUpperCase()}
+              </Avatar>
+            )}
+            <Tooltip title={info.getValue().map((person) => `${person.firstName} ${person.lastName}`).join(', ')}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="body2" fontWeight={500} noWrap>
+                  {info.getValue().length
+                    ? `${info.getValue()[0].firstName} ${info.getValue()[0].lastName}`
+                    : t('wo_unassigned', 'Sem responsável')}
+                </Typography>
+                {info.getValue().length > 1 && (
+                  <Typography variant="caption" color="text.secondary">+{info.getValue().length - 1}</Typography>
+                )}
+              </Box>
+            </Tooltip>
+          </Stack>
+        ),
+        size: 190
       }
     ),
     columnHelper.accessor((row) => row.location?.name, {
@@ -811,6 +886,12 @@ function WorkOrders() {
         uiConfigKey: 'locations'
       },
       size: 150
+    }),
+    columnHelper.accessor('description', {
+      id: 'description',
+      header: () => t('description'),
+      cell: (info) => info.getValue() || '',
+      size: 300
     }),
     columnHelper.accessor((row) => row.category?.name, {
       id: 'category',
@@ -1293,40 +1374,41 @@ function WorkOrders() {
       <Box
         sx={{
           minHeight: '100%',
-          px: { xs: 2, md: 4 },
-          py: 2.5,
-          background: `linear-gradient(180deg, #F4F8F8 0%, #F8FBFB 48%, #FFFFFF 100%)`
+          px: { xs: 1.5, md: 3 },
+          py: 2,
+          minWidth: 0,
+          bgcolor: 'background.default'
         }}
       >
         <Stack
-          direction="row"
-          justifyContent="flex-end"
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
           alignItems="center"
           spacing={1}
           sx={{ mb: 1.5 }}
         >
-          <Box sx={{ display: 'none' }}>
-            <Typography
-              variant="overline"
-              sx={{ color: '#128577', fontWeight: 900, letterSpacing: 0.4 }}
-            >
-              Erione CMMS
-            </Typography>
-            <Typography variant="h2" sx={{ color: '#173247', fontWeight: 900 }}>
+          <Box sx={{ minWidth: 0, alignSelf: 'flex-start' }}>
+            <Typography variant="h3" component="h1" sx={{ fontWeight: 700 }}>
               {t('work_orders')}
             </Typography>
-            <Typography
-              variant="body2"
-              sx={{ color: 'text.secondary', maxWidth: 760, mt: 0.5 }}
-            >
-              Crie, acompanhe e conclua ordens de serviço com foco no fluxo real
-              do técnico em campo.
+            <Typography variant="body2" color="text.secondary" role="status" sx={{ mt: 0.25 }}>
+              {currentTab === 'calendar'
+                ? t('wo_calendar_context', 'Planejamento e agenda das ordens de serviço')
+                : loadingGet
+                ? t('wo_updating_results', 'Atualizando resultados…')
+                : t('wo_result_context', {
+                    defaultValue: '{{count}} OS no resultado · {{shown}} exibidas',
+                    count: workOrders.totalElements,
+                    shown: workOrders.content.length
+                  })}
             </Typography>
           </Box>
-          <Stack direction={'row'} alignItems="center" spacing={1}>
-            <IconButton onClick={handleOpenMenu} color="primary">
-              <MoreVertTwoToneIcon />
-            </IconButton>
+          <Stack direction={'row'} alignItems="center" spacing={1} sx={{ alignSelf: { xs: 'flex-end', sm: 'center' }, flexShrink: 0 }}>
+            <Tooltip title={t('more_options', 'Mais opções')}>
+              <IconButton onClick={handleOpenMenu} color="primary" aria-label={t('more_options', 'Mais opções')}>
+                <MoreVertTwoToneIcon />
+              </IconButton>
+            </Tooltip>
             {hasCreatePermission(PermissionEntity.WORK_ORDERS) && (
               <SplitButton
                 onMainClick={() => setOpenAddModal(true)}
@@ -1351,24 +1433,27 @@ function WorkOrders() {
         {currentTab === 'list' && <WorkOrderKpiCards />}
         <Card
           sx={{
-            py: 2,
-            px: { xs: 1.25, md: 2 },
+            px: { xs: 1, md: 2 },
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            borderRadius: 2.5,
-            border: `1px solid ${alpha('#173247', 0.08)}`,
-            boxShadow: `0 18px 50px ${alpha('#173247', 0.08)}`
+            minWidth: 0,
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'divider',
+            boxShadow: 'none'
           }}
         >
           <Box
             sx={{
-              width: '95%',
+              width: '100%',
+              minWidth: 0,
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: { xs: 'stretch', md: 'center' },
               flexDirection: { xs: 'column', md: 'row' },
-              gap: 1.5,
+              gap: 1,
+              borderBottom: '1px solid',
+              borderColor: 'divider',
               mb: 1.5
             }}
           >
@@ -1378,43 +1463,44 @@ function WorkOrders() {
               variant="scrollable"
               scrollButtons="auto"
               textColor="primary"
-              TabIndicatorProps={{ sx: { display: 'none' } }}
+              TabIndicatorProps={{ style: { height: 2, minHeight: 2, border: 0, borderRadius: 0, boxShadow: 'none' } }}
+              aria-label={t('wo_view_modes', 'Modo de visualização das OS')}
               sx={{
-                minHeight: 42,
-                p: 0.5,
-                borderRadius: 2,
-                backgroundColor: alpha('#128577', 0.07),
+                minHeight: 46,
+                minWidth: 0,
+                height: 'auto',
+                '& .MuiTabs-scroller': { overflowX: 'auto !important', overflowY: 'hidden' },
+                '& .MuiTabs-indicator': {
+                  display: 'block', bottom: 0, bgcolor: 'primary.main'
+                },
                 '& .MuiTab-root': {
-                  minHeight: 36,
-                  borderRadius: 1.5,
-                  px: 1.75,
+                  minHeight: 46,
+                  minWidth: 0,
+                  px: 1.5,
                   textTransform: 'none',
                   fontWeight: 700,
-                  color: 'text.secondary'
-                },
-                '& .MuiTab-root.Mui-selected': {
-                  color: '#0B6259',
-                  backgroundColor: '#FFFFFF',
-                  boxShadow: `0 6px 16px ${alpha('#173247', 0.08)}`
+                  color: 'text.secondary',
+                  borderRadius: 0,
+                  '&:hover': { bgcolor: 'action.hover' },
+                  '&.Mui-focusVisible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 }
                 }
               }}
             >
-              {tabs.map((tab) =>
-                tab.disabled ? (
-                  <Tooltip title={t('Coming Soon')} placement="top">
-                    <span>
-                      <Tab
-                        key={tab.value}
-                        label={tab.label}
-                        value={tab.value}
-                        disabled={tab.disabled}
-                      />
-                    </span>
-                  </Tooltip>
-                ) : (
-                  <Tab key={tab.value} label={tab.label} value={tab.value} />
-                )
-              )}
+              {tabs.map((tab) => (
+                <Tab
+                  key={tab.value}
+                  label={tab.label}
+                  value={tab.value}
+                  icon={tab.icon}
+                  iconPosition="start"
+                  disabled={tab.disabled}
+                  sx={{
+                    '&&.Mui-selected, &&.Mui-selected:hover': {
+                      color: 'primary.main', bgcolor: 'transparent', boxShadow: 'none'
+                    }
+                  }}
+                />
+              ))}
             </Tabs>
             <Button
               size="small"
@@ -1434,119 +1520,125 @@ function WorkOrders() {
             </Button>
           </Box>
           {currentTab !== 'calendar' && (
-            <Stack
-              sx={{ ml: 1 }}
-              direction="row"
-              spacing={1}
-              justifyContent={'flex-start'}
-              width={'95%'}
-            >
+            <Box>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mb: 1.25 }}>
+                <Box sx={{ flex: '1 1 280px', minWidth: 0 }}>
+                  <SearchInput
+                    value={searchText}
+                    onChange={handleSearchChange}
+                    onClear={handleClearSearch}
+                    fullWidth
+                    size="small"
+                    placeholder={t('wo_search_placeholder', 'Buscar por código, título ou descrição')}
+                  />
+                </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                  <EnumFilter
+                    compact
+                    filterFields={criteria.filterFields}
+                    onChange={onFilterChange}
+                    completeOptions={['OPEN', 'EN_ROUTE', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE']}
+                    fieldName="status"
+                    enumName="STATUS"
+                    icon={<CircleTwoToneIcon fontSize="small" />}
+                  />
+                  <EnumFilter
+                    compact
+                    filterFields={criteria.filterFields}
+                    onChange={onFilterChange}
+                    completeOptions={['NONE', 'LOW', 'MEDIUM', 'HIGH']}
+                    fieldName="priority"
+                    enumName="PRIORITY"
+                    icon={<SignalCellularAltTwoToneIcon fontSize="small" />}
+                  />
               <Button
                 onClick={() => setOpenFilterDrawer(true)}
-                sx={{
-                  '& .MuiButton-startIcon': { margin: '0px' },
-                  minWidth: 0
-                }}
-                variant={
-                  _.isEqual(criteria.filterFields, initialCriteria.filterFields)
-                    ? 'outlined'
-                    : 'contained'
-                }
+                size="small"
+                sx={{ height: 40, whiteSpace: 'nowrap', textTransform: 'none' }}
+                variant="outlined"
                 startIcon={<FilterAltTwoToneIcon />}
-              />
+              >
+                {t('more_filters')}{advancedFilterCount > 0 ? ` (${advancedFilterCount})` : ''}
+              </Button>
+                </Box>
+              </Box>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
               <Stack
                 direction="row"
                 spacing={0.5}
                 sx={{
-                  p: 0.35,
-                  borderRadius: 999,
-                  bgcolor: alpha('#0B6259', 0.08)
+                  flexShrink: 0,
+                  pr: 1
                 }}
               >
                 <Button
                   size="small"
-                  variant={!showingArchived ? 'contained' : 'text'}
+                  variant="text"
+                  aria-pressed={!showingArchived}
                   onClick={() => handleArchivedViewChange(false)}
                   sx={{
-                    borderRadius: 999,
-                    px: 1.5,
-                    bgcolor: !showingArchived ? '#0B6259' : 'transparent',
-                    color: !showingArchived ? 'common.white' : '#0B6259',
-                    '&:hover': {
-                      bgcolor: !showingArchived
-                        ? '#084C45'
-                        : alpha('#0B6259', 0.12)
-                    }
+                    borderRadius: 1,
+                    bgcolor: !showingArchived ? 'action.selected' : 'transparent',
+                    color: !showingArchived ? 'primary.main' : 'text.secondary'
                   }}
                 >
                   {t('active_work_orders')}
                 </Button>
                 <Button
                   size="small"
-                  variant={showingArchived ? 'contained' : 'text'}
+                  variant="text"
+                  aria-pressed={showingArchived}
                   onClick={() => handleArchivedViewChange(true)}
                   sx={{
-                    borderRadius: 999,
-                    px: 1.5,
-                    bgcolor: showingArchived ? '#0B6259' : 'transparent',
-                    color: showingArchived ? 'common.white' : '#0B6259',
-                    '&:hover': {
-                      bgcolor: showingArchived
-                        ? '#084C45'
-                        : alpha('#0B6259', 0.12)
-                    }
+                    borderRadius: 1,
+                    bgcolor: showingArchived ? 'action.selected' : 'transparent',
+                    color: showingArchived ? 'primary.main' : 'text.secondary'
                   }}
                 >
                   {t('archived_work_orders')}
                 </Button>
               </Stack>
-              <EnumFilter
-                filterFields={criteria.filterFields}
-                onChange={onFilterChange}
-                completeOptions={['NONE', 'LOW', 'MEDIUM', 'HIGH']}
-                fieldName="priority"
-                enumName="PRIORITY"
-                icon={<SignalCellularAltTwoToneIcon />}
-              />
-              <EnumFilter
-                filterFields={criteria.filterFields}
-                onChange={onFilterChange}
-                completeOptions={[
-                  'OPEN',
-                  'EN_ROUTE',
-                  'IN_PROGRESS',
-                  'ON_HOLD',
-                  'COMPLETE'
-                ]}
-                fieldName="status"
-                enumName="STATUS"
-                icon={<CircleTwoToneIcon />}
-              />
-              <SearchInput onChange={debouncedQueryChange} />
-            </Stack>
+              <Box sx={{ flex: '1 1 280px', minWidth: 0 }}>
+                <ActiveWorkOrderFilters filters={criteria.filterFields} defaults={initialCriteria.filterFields}
+                  onRemove={handleRemoveFilter} onReset={handleResetFilters} />
+              </Box>
+              </Box>
+              {currentTab === 'column' && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pb: 1 }}>
+                  {t('wo_board_scope_hint', 'O quadro mostra apenas status ativos. Concluídas ficam disponíveis na lista.')}
+                </Typography>
+              )}
+            </Box>
           )}
-          <Divider sx={{ mt: 1 }} />
-          <Box sx={{ width: '95%' }}>
+          <Box sx={{ height: 2 }}>{currentTab !== 'calendar' && loadingGet && <LinearProgress aria-label={t('loading')} sx={{ height: 2 }} />}</Box>
+          <Box sx={{ width: '100%', minWidth: 0 }}>
             {currentTab === 'list' ? (
               <CustomDatagrid2
                 columns={columns}
                 data={workOrders.content}
                 loading={loadingGet}
+                rowCellPaddingY={9}
+                headerCellPaddingY={10}
+                rowCellPaddingYCompact={6}
+                headerCellPaddingYCompact={8}
+                headerVariant="plain"
                 pagination={pagination}
                 onPaginationChange={setPagination}
                 totalRows={workOrders.totalElements}
                 pageSizeOptions={[10, 20, 50]}
                 sorting={sorting}
                 onSortingChange={setSorting}
-                columnOrder={columnOrder}
+                columnOrder={columnOrder.length ? columnOrder : PRIMARY_WORK_ORDER_COLUMNS}
                 onColumnOrderChange={setColumnOrder}
                 columnSizing={columnSizing}
                 onColumnSizingChange={setColumnSizing}
-                columnVisibility={columnVisibility}
+                columnVisibility={columnVisibilityReady ? columnVisibility : initialColumnVisibility}
                 onColumnVisibilityChange={setColumnVisibility}
                 onRowClick={(row) => handleOpenDetails(row.id)}
                 noRowsMessage={t('noRows.wo.message')}
-                noRowsAction={t('noRows.wo.action')}
+                noRowsAction={criteria.filterFields.some((filter) => !isDefaultFilter(filter, initialCriteria.filterFields))
+                  ? t('wo_empty_filters_hint', 'Revise os filtros ativos ou use Restaurar filtros para ampliar a busca.')
+                  : t('noRows.wo.action')}
                 enableColumnReordering
                 enableColumnResizing
                 pinnedColumns={pinnedColumns}
@@ -1617,9 +1709,14 @@ function WorkOrders() {
         open={openFilterDrawer}
         onClose={handleCloseFilterDrawer}
         PaperProps={{
-          sx: { width: '30%' }
+          sx: { width: { xs: '100%', sm: 440 }, maxWidth: '100%' }
         }}
       >
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 1, pt: 1 }}>
+          <IconButton onClick={handleCloseFilterDrawer} aria-label={t('close', 'Fechar')}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
         <MoreFilters
           filterFields={criteria.filterFields}
           onFilterChange={onFilterChange}

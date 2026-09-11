@@ -1,4 +1,4 @@
-import { alpha, Box, Card, Skeleton, Stack, Typography, useTheme } from '@mui/material';
+import { Box, Skeleton, Stack, Tooltip, Typography, useTheme } from '@mui/material';
 import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
 import AccessTimeTwoToneIcon from '@mui/icons-material/AccessTimeTwoTone';
 import CheckCircleTwoToneIcon from '@mui/icons-material/CheckCircleTwoTone';
@@ -112,40 +112,35 @@ export default function WorkOrderKpiCards() {
 
   return (
     <Stack
-      direction={{ xs: 'column', sm: 'row' }}
-      spacing={1.5}
-      sx={{ mb: 2 }}
+      direction="row"
+      sx={{ mb: 1.5, gap: { xs: 1, md: 2.5 }, alignItems: 'center', flexWrap: 'wrap' }}
     >
+      <Typography variant="caption" color="text.secondary">
+        {t('wo_general_counts', 'Visão geral · sem os filtros abaixo')}
+      </Typography>
       {kpis.map((kpi) => {
         const value = counts?.[kpi.key];
         return (
-          <Card
+          <Box
             key={kpi.key}
             sx={{
-              flex: 1,
-              p: 2,
               display: 'flex',
               alignItems: 'center',
-              gap: 1.5,
-              borderRadius: 2.5,
-              boxShadow: `0 10px 30px ${alpha('#173247', 0.06)}`,
-              border: `1px solid ${alpha('#173247', 0.06)}`
+              gap: 0.75,
+              py: 0.5
             }}
           >
             <Box
               sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 2,
                 display: 'grid',
                 placeItems: 'center',
                 color: theme.palette[kpi.color].main,
-                bgcolor: alpha(theme.palette[kpi.color].main, 0.12)
+                '& .MuiSvgIcon-root': { fontSize: 18 }
               }}
             >
               {kpi.icon}
             </Box>
-            <Box minWidth={0}>
+            <Stack direction="row" alignItems="center" spacing={0.75} minWidth={0}>
               <Typography
                 variant="caption"
                 sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.2 }}
@@ -153,15 +148,19 @@ export default function WorkOrderKpiCards() {
               >
                 {t(kpi.labelKey)}
               </Typography>
-              {value === undefined ? (
-                <Skeleton width={48} height={30} />
+              {counts === null ? (
+                <Skeleton width={28} height={22} />
+              ) : value === undefined ? (
+                <Tooltip title={t('load_failure')}>
+                  <Typography variant="body2" aria-label={t('load_failure')}>—</Typography>
+                </Tooltip>
               ) : (
-                <Typography variant="h3" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
                   {value}
                 </Typography>
               )}
-            </Box>
-          </Card>
+            </Stack>
+          </Box>
         );
       })}
     </Stack>

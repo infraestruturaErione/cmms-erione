@@ -1,12 +1,16 @@
-import { Box, Divider, Grid, Link, Stack, Typography } from '@mui/material';
+import React from 'react';
+import { Box, Chip, Divider, Grid, Link, Stack, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import WorkOrder from '../../../../models/owns/workOrder';
 import { Task } from '../../../../models/owns/tasks';
 import Comment from '../../../../models/owns/comment';
 import LocationMiniMap from './LocationMiniMap';
-import PendingSummary from './PendingSummary';
 import { getPendingRequirements } from './PendingRequirements';
 import FieldExecutionTimeline from './FieldExecutionTimeline';
+import AssignmentLateTwoToneIcon from '@mui/icons-material/AssignmentLateTwoTone';
+import LocationOnTwoToneIcon from '@mui/icons-material/LocationOnTwoTone';
+import PersonOutlineTwoToneIcon from '@mui/icons-material/PersonOutlineTwoTone';
+import RadioButtonCheckedTwoToneIcon from '@mui/icons-material/RadioButtonCheckedTwoTone';
 import { getAssetUrl, getPreventiveMaintenanceUrl, getUserUrl } from '../../../../utils/urlPaths';
 import { getCustomFieldValuesForDetails } from '../../type';
 import {
@@ -30,11 +34,8 @@ interface FieldDef {
   id?: number;
 }
 
-// Aba "Visao Geral" - contexto da OS (quem/onde/quando/o que falta), sem as
-// acoes rapidas (que ficam no header persistente) nem os dados de execucao
-// (timer/tempo/pecas - ver aba Execucao). Layout em duas areas (esquerda:
-// cliente/local/mapa, direita: metadados) inspirado na densidade do Auvo -
-// mesmos dados/props do WorkOrderDetails, so reorganizados.
+// Contexto operacional antes da descricao e dos metadados administrativos.
+// Acoes continuam no header; pendencias e timeline reutilizam as regras atuais.
 export default function OverviewTab({
   workOrder,
   getFormattedDate,
@@ -63,7 +64,7 @@ export default function OverviewTab({
   const Field = ({ label, value, type, id }: FieldDef) => {
     if (!value) return null;
     return (
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid item xs={12} sm={6} md={6}>
         <Typography variant="caption" color="text.secondary">
           {label}
         </Typography>
@@ -110,8 +111,6 @@ export default function OverviewTab({
       type: workOrder.asset ? 'asset' : undefined,
       id: workOrder.asset?.id
     },
-    { label: t('primary_worker'), value: technicianLabel },
-    { label: t('assigned_to'), value: assignedToLabel },
     { label: t('due_date'), value: getFormattedDate(workOrder.dueDate) },
     {
       label: t('estimated_start_date'),
@@ -164,30 +163,96 @@ export default function OverviewTab({
     ...getCustomFieldValuesForDetails(workOrder.customFieldValues, getFormattedDate)
   ].filter(Boolean) as FieldDef[];
 
-  const hasPendingRequirements = !!getPendingRequirements(
+  const pendingRequirements = getPendingRequirements(
     workOrder,
     fieldReportText,
     tasks,
     comments
-  ).length;
+  );
+  const incompleteRequirements = pendingRequirements.filter(
+    (requirement) => !requirement.done
+  );
+  const pendingLabel = incompleteRequirements.length
+    ? incompleteRequirements
+        .slice(0, 2)
+        .map((requirement) => t(requirement.labelKey))
+        .join(' · ') +
+      (incompleteRequirements.length > 2
+        ? ` +${incompleteRequirements.length - 2}`
+        : '')
+    : t('none', 'Nenhuma');
+  const summaryItems = [
+    {
+      label: t('primary_worker'),
+      value: technicianLabel || '—',
+      icon: <PersonOutlineTwoToneIcon fontSize="small" color="primary" />
+    },
+    {
+      label: t('location'),
+      value: workOrder.location
+        ? getLocationIdentification(workOrder.location)
+        : '—',
+      icon: <LocationOnTwoToneIcon fontSize="small" color="primary" />
+    },
+    {
+      label: t('status'),
+      value: workOrder.status ? t(workOrder.status) : '—',
+      icon: <RadioButtonCheckedTwoToneIcon fontSize="small" color="primary" />
+    },
+    {
+      label: incompleteRequirements.length > 1
+        ? t('pending_requirements')
+        : t('pending_requirement', 'Pendência'),
+      value: pendingLabel,
+      icon: (
+        <AssignmentLateTwoToneIcon
+          fontSize="small"
+          color={incompleteRequirements.length ? 'warning' : 'success'}
+        />
+      )
+    }
+  ];
 
   return (
     <Box>
-      {hasPendingRequirements && (
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="overline" color="text.secondary">
-            {t('pending_requirements')}
-          </Typography>
-          <Box sx={{ mt: 0.25 }}>
-            <PendingSummary
-              workOrder={workOrder}
-              fieldReportText={fieldReportText}
-              tasks={tasks}
-              comments={comments}
-            />
-          </Box>
-        </Box>
-      )}
+      <Box
+        sx={{
+          mb: 2,
+          px: { xs: 1.25, sm: 1.75 },
+          py: 1.25,
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: 1.5,
+          bgcolor: 'action.hover'
+        }}
+      >
+        <Grid container spacing={1.5}>
+          {summaryItems.map((item) => (
+            <Grid item xs={12} sm={6} md={3} key={item.label}>
+              <Stack direction="row" spacing={0.75} alignItems="flex-start">
+                <Box sx={{ display: 'flex', mt: 0.15 }}>{item.icon}</Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {item.label}
+                  </Typography>
+                  {item === summaryItems[3] ? (
+                    <Chip
+                      size="small"
+                      label={item.value}
+                      color={incompleteRequirements.length ? 'warning' : 'default'}
+                      variant="outlined"
+                    />
+                  ) : (
+                    <Typography variant="body2" fontWeight={700} sx={{ overflowWrap: 'anywhere' }}>
+                      {item.value}
+                    </Typography>
+                  )}
+                </Box>
+              </Stack>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
       <Grid container spacing={2}>
         <Grid item xs={12} md={5}>
           <Stack spacing={1.5}>
@@ -239,7 +304,6 @@ export default function OverviewTab({
             )}
           </Stack>
         </Grid>
-
         <Grid item xs={12} md={7}>
           <Stack spacing={1.5}>
             {workOrder.description && (
@@ -253,6 +317,18 @@ export default function OverviewTab({
               </Box>
             )}
             <Grid container spacing={1.5} rowSpacing={1.25}>
+              {assignedToLabel && (
+                <Grid item xs={12} sm={6} md={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t('assigned_to')}
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {assignedToLabel}
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+            <Grid container spacing={1.5} rowSpacing={1.25}>
               {fields.map((field, index) => (
                 <Field key={index} {...field} />
               ))}
@@ -260,7 +336,6 @@ export default function OverviewTab({
           </Stack>
         </Grid>
       </Grid>
-
       <Divider sx={{ my: 2 }} />
       <Typography variant="overline" color="text.secondary">
         {t('execution_tab')}
