@@ -65,42 +65,50 @@ function LocationRowActions({
     // controle (IconButton/MenuItem/backdrop) ja rodou - stopPropagation nao
     // impede a acao em si, so' impede que o clique continue subindo.
     <Stack
+      data-registry-actions
       direction="row"
       spacing={0.5}
       alignItems="center"
+      justifyContent="flex-end"
       onClick={(e) => e.stopPropagation()}
     >
       <Tooltip title={t('view_location', 'Ver local')}>
         <IconButton
+          aria-label={t('view_location', 'Ver local')}
           size="small"
           onClick={() => onOpenLocation(location)}
         >
-          <OpenInNewTwoToneIcon fontSize="small" color="primary" />
+          <OpenInNewTwoToneIcon fontSize="small" />
         </IconButton>
       </Tooltip>
       {hasCreatePermission(PermissionEntity.WORK_ORDERS) && (
         <Tooltip title={t('create_wo_for_location', 'Criar OS neste local')}>
           <IconButton
+            aria-label={t('create_wo_for_location', 'Criar OS neste local')}
             size="small"
             onClick={() => onCreateWorkOrder(location)}
           >
-            <AssignmentTwoToneIcon fontSize="small" color="primary" />
+            <AssignmentTwoToneIcon fontSize="small" />
           </IconButton>
         </Tooltip>
       )}
       {(canEdit || canDelete) && (
-        <IconButton
-          size="small"
-          onClick={(e) => {
-            // Captura a posicao de tela do botao AGORA (sincrono, antes de
-            // qualquer re-render) - ver comentario acima sobre por que
-            // anchorEl nao e' confiavel aqui.
-            const rect = e.currentTarget.getBoundingClientRect();
-            setMenuAnchor({ top: rect.bottom, left: rect.right });
-          }}
-        >
-          <MoreVertTwoToneIcon fontSize="small" />
-        </IconButton>
+        <Tooltip title={t('more_actions', 'Mais ações')}>
+          <IconButton
+            aria-label={t('more_actions', 'Mais ações')}
+            aria-haspopup="menu"
+            size="small"
+            onClick={(e) => {
+              // Captura a posicao de tela do botao AGORA (sincrono, antes de
+              // qualquer re-render) - ver comentario acima sobre por que
+              // anchorEl nao e' confiavel aqui.
+              const rect = e.currentTarget.getBoundingClientRect();
+              setMenuAnchor({ top: rect.bottom, left: rect.right });
+            }}
+          >
+            <MoreVertTwoToneIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       )}
       <Menu
         open={Boolean(menuAnchor)}

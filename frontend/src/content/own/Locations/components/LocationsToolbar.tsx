@@ -27,6 +27,11 @@ import { CustomSnackBarContext } from 'src/contexts/CustomSnackBarContext';
 import SearchInput from '../../components/SearchInput';
 import SplitButton from '../../components/SplitButton';
 import { CustomerMiniDTO } from '../../../../models/owns/customer';
+import {
+  RegistryHeader,
+  RegistryQueryBar,
+  RegistryResults
+} from '../../components/RegistryPresentation';
 
 // Toolbar da tela /app/locations - so' UI/apresentacao (titulo, tabs,
 // busca/filtro/contador, botao Novo endereco) - nenhum fetch/API aqui, so'
@@ -48,6 +53,7 @@ export interface LocationsToolbarProps {
   hasBothFilters: boolean;
   onClearFilters: () => void;
   resultsCount: number;
+  loading?: boolean;
   onOpenAddModal: () => void;
 }
 
@@ -66,6 +72,7 @@ function LocationsToolbar({
   hasBothFilters,
   onClearFilters,
   resultsCount,
+  loading,
   onOpenAddModal
 }: LocationsToolbarProps) {
   const { t }: { t: any } = useTranslation();
@@ -89,198 +96,245 @@ function LocationsToolbar({
     onTabsChange(value);
   };
 
+  const createAction =
+    currentTab === 'list' && hasCreatePermission(PermissionEntity.LOCATIONS) ? (
+      <SplitButton
+        onMainClick={onOpenAddModal}
+        startIcon={<AddTwoToneIcon />}
+        label={t('locations_new_address_button', 'Novo endereço')}
+        menuItems={
+          hasViewPermission(PermissionEntity.SETTINGS) &&
+          hasFeature(PlanFeature.IMPORT_CSV)
+            ? [
+                {
+                  label: t('to_import'),
+                  onClick: () => navigate('/app/imports/locations')
+                }
+              ]
+            : []
+        }
+      />
+    ) : null;
+
   return (
     <>
-      <Box sx={{ mt: 0.5, mb: 1 }}>
-        <Typography variant="h4" fontWeight={800}>
-          {t('locations_web_page_title', 'Endereços')}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t(
-            'locations_page_subtitle',
-            'Gerencie os endereços de atendimento dos clientes.'
-          )}
-        </Typography>
-      </Box>
-      <Box
-        mb={0.25}
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        {tabs.length > 1 ? (
-          <Tabs
-            onChange={handleTabsChange}
-            value={currentTab}
-            variant="scrollable"
-            scrollButtons="auto"
-            textColor="primary"
-            indicatorColor="primary"
-            sx={{
-              minHeight: 36,
-              '& .MuiTab-root': { minHeight: 36, py: 0.5 }
-            }}
-          >
-            {tabs.map((tab) => (
-              <Tab key={tab.value} label={tab.label} value={tab.value} />
-            ))}
-          </Tabs>
-        ) : (
-          <Box />
+      <RegistryHeader
+        title={t('locations_web_page_title', 'Endereços')}
+        description={t(
+          'locations_page_subtitle',
+          'Gerencie os endereços de atendimento dos clientes.'
         )}
-        <Stack direction={'row'} alignItems="center" spacing={1}>
-          <IconButton onClick={onRefresh} color="primary" size="small">
-            <ReplayTwoToneIcon fontSize="small" />
-          </IconButton>
-          <IconButton
-            onClick={(event) => setAnchorEl(event.currentTarget)}
-            color="primary"
-            size="small"
+        action={
+          <Box
+            display="flex"
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
           >
-            <MoreVertTwoToneIcon fontSize="small" />
-          </IconButton>
-        </Stack>
-      </Box>
-      {currentTab === 'list' && (
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 1,
-            mb: 1
-          }}
-        >
+            {tabs.length > 1 ? (
+              <Tabs
+                onChange={handleTabsChange}
+                value={currentTab}
+                variant="scrollable"
+                scrollButtons="auto"
+                textColor="primary"
+                indicatorColor="primary"
+                aria-label={t('view', 'Visualização')}
+                TabIndicatorProps={{
+                  style: {
+                    height: 2,
+                    minHeight: 2,
+                    border: 0,
+                    boxShadow: 'none',
+                    bottom: 0
+                  }
+                }}
+                sx={{
+                  minHeight: 36,
+                  minWidth: 0,
+                  '& .MuiTabs-scroller': { overflowX: 'auto !important' },
+                  '& .MuiTab-root': {
+                    minHeight: 36,
+                    py: 0.5,
+                    px: 2,
+                    color: 'text.secondary',
+                    '&&.Mui-selected': {
+                      color: 'primary.main',
+                      backgroundColor: 'transparent'
+                    }
+                  }
+                }}
+              >
+                {tabs.map((tab) => (
+                  <Tab key={tab.value} label={tab.label} value={tab.value} />
+                ))}
+              </Tabs>
+            ) : (
+              <Box />
+            )}
+            <Stack direction={'row'} alignItems="center" spacing={1}>
+              <Tooltip title={t('refresh', 'Atualizar')}>
+                <IconButton
+                  aria-label={t('refresh', 'Atualizar')}
+                  onClick={onRefresh}
+                  color="inherit"
+                  size="small"
+                >
+                  <ReplayTwoToneIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t('more_actions', 'Mais ações')}>
+                <IconButton
+                  id="locations-actions"
+                  aria-label={t('more_actions', 'Mais ações')}
+                  aria-haspopup="menu"
+                  aria-expanded={openMenu}
+                  onClick={(event) => setAnchorEl(event.currentTarget)}
+                  color="inherit"
+                  size="small"
+                >
+                  <MoreVertTwoToneIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          </Box>
+        }
+      />
+      <RegistryQueryBar>
+        {currentTab === 'list' && (
           <Box
             sx={{
               display: 'flex',
               flexWrap: 'wrap',
               alignItems: 'center',
-              gap: 1
+              justifyContent: 'space-between',
+              gap: 1,
+              flex: '1 1 440px',
+              minWidth: 0
             }}
           >
-            <Box sx={{ minWidth: 240, width: 320 }}>
-              <SearchInput
-                fullWidth
-                size="small"
-                value={searchQuery}
-                placeholder={t(
-                  'locations_search_placeholder',
-                  'Buscar por ID, endereço ou cliente...'
-                )}
-                onChange={(e) => onSearchQueryChange(e.target.value)}
-                onClear={onSearchClear}
-              />
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Select
-                size="small"
-                displayEmpty
-                value={customerFilter?.id ?? ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  onCustomerFilterChange(
-                    value === ''
-                      ? null
-                      : customersMini.find((c) => c.id === Number(value)) ||
-                          null
-                  );
-                }}
-                sx={{
-                  minWidth: 180,
-                  ...(customerFilter && {
-                    borderTopRightRadius: 0,
-                    borderBottomRightRadius: 0
-                  })
-                }}
-              >
-                <MenuItem value="">
-                  {t('locations_all_customers', 'Cliente: Todos')}
-                </MenuItem>
-                {customersMini.map((customer) => (
-                  <MenuItem key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </MenuItem>
-                ))}
-              </Select>
-              {customerFilter && (
-                <Tooltip
-                  title={t(
-                    'clear_customer_filter',
-                    'Limpar filtro de cliente'
-                  )}
-                >
-                  <IconButton
-                    size="small"
-                    onClick={onClearCustomerFilter}
-                    sx={{
-                      ml: '1px',
-                      borderRadius: 1,
-                      borderTopLeftRadius: 0,
-                      borderBottomLeftRadius: 0,
-                      border: (theme) => `1px solid ${theme.palette.divider}`,
-                      borderLeft: 'none',
-                      height: 40
-                    }}
-                  >
-                    <ClearTwoToneIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
-            {hasBothFilters && (
-              <Button
-                size="small"
-                color="inherit"
-                sx={{ color: 'text.secondary' }}
-                startIcon={<ClearTwoToneIcon fontSize="small" />}
-                onClick={onClearFilters}
-              >
-                {t('clear_filters', 'Limpar filtros')}
-              </Button>
-            )}
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ whiteSpace: 'nowrap' }}
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: 1,
+                width: '100%',
+                minWidth: 0
+              }}
             >
-              {customerFilter ? `${customerFilter.name} · ` : ''}
-              {t(
-                'locations_results_count',
-                '{{count}} endereços encontrados',
-                { count: resultsCount }
+              <Box
+                sx={{
+                  minWidth: { xs: 0, sm: 220 },
+                  flex: '1 1 240px'
+                }}
+              >
+                <SearchInput
+                  fullWidth
+                  size="small"
+                  value={searchQuery}
+                  placeholder={t(
+                    'locations_search_placeholder',
+                    'Buscar por ID, endereço ou cliente...'
+                  )}
+                  onChange={(e) => onSearchQueryChange(e.target.value)}
+                  onClear={onSearchClear}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Select
+                  inputProps={{ 'aria-label': t('customer', 'Cliente') }}
+                  size="small"
+                  displayEmpty
+                  value={customerFilter?.id ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    onCustomerFilterChange(
+                      value === ''
+                        ? null
+                        : customersMini.find((c) => c.id === Number(value)) ||
+                            null
+                    );
+                  }}
+                  sx={{
+                    width: { xs: 200, sm: 220 },
+                    maxWidth: '100%',
+                    ...(customerFilter && {
+                      borderTopRightRadius: 0,
+                      borderBottomRightRadius: 0
+                    })
+                  }}
+                >
+                  <MenuItem value="">
+                    {t('locations_all_customers', 'Cliente: Todos')}
+                  </MenuItem>
+                  {customersMini.map((customer) => (
+                    <MenuItem key={customer.id} value={customer.id}>
+                      {customer.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {customerFilter && (
+                  <Tooltip
+                    title={t(
+                      'clear_customer_filter',
+                      'Limpar filtro de cliente'
+                    )}
+                  >
+                    <IconButton
+                      aria-label={t(
+                        'clear_customer_filter',
+                        'Limpar filtro de cliente'
+                      )}
+                      size="small"
+                      onClick={onClearCustomerFilter}
+                      sx={{
+                        ml: '1px',
+                        borderRadius: 1,
+                        borderTopLeftRadius: 0,
+                        borderBottomLeftRadius: 0,
+                        border: (theme) => `1px solid ${theme.palette.divider}`,
+                        borderLeft: 'none',
+                        height: 40
+                      }}
+                    >
+                      <ClearTwoToneIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+              {hasBothFilters && (
+                <Button
+                  size="small"
+                  color="inherit"
+                  sx={{ color: 'text.secondary' }}
+                  startIcon={<ClearTwoToneIcon fontSize="small" />}
+                  onClick={onClearFilters}
+                >
+                  {t('clear_filters', 'Limpar filtros')}
+                </Button>
               )}
-            </Typography>
+            </Box>
           </Box>
-          {hasCreatePermission(PermissionEntity.LOCATIONS) && (
-            <SplitButton
-              onMainClick={onOpenAddModal}
-              startIcon={<AddTwoToneIcon />}
-              label={t('locations_new_address_button', 'Novo endereço')}
-              menuItems={
-                hasViewPermission(PermissionEntity.SETTINGS) &&
-                hasFeature(PlanFeature.IMPORT_CSV)
-                  ? [
-                      {
-                        label: t('to_import'),
-                        onClick: () => navigate('/app/imports/locations')
-                      }
-                    ]
-                  : []
-              }
-            />
-          )}
-        </Box>
-      )}
+        )}
+        {currentTab === 'list' && (
+          <RegistryResults
+            count={resultsCount}
+            loading={loading}
+            label={t('locations_results_label', 'endereços encontrados')}
+          />
+        )}
+        {createAction && (
+          <Box sx={{ flexShrink: 0, ml: 'auto' }}>{createAction}</Box>
+        )}
+      </RegistryQueryBar>
       <Menu
         id="basic-menu"
         anchorEl={anchorEl}
         open={openMenu}
         onClose={() => setAnchorEl(null)}
         MenuListProps={{
-          'aria-labelledby': 'basic-button'
+          'aria-labelledby': 'locations-actions'
         }}
       >
         {hasViewOtherPermission(PermissionEntity.LOCATIONS) && (

@@ -233,7 +233,7 @@ function Locations() {
         <Helmet>
           <title>{t('locations_web_page_title', 'Endereços')}</title>
         </Helmet>
-        <Box justifyContent="center" alignItems="stretch" paddingX={4}>
+        <Box sx={{ px: { xs: 2, md: 3, xl: 4 }, pb: 3, minWidth: 0, bgcolor: 'background.default' }}>
           <LocationsToolbar
             currentTab={currentTab}
             onTabsChange={setCurrentTab}
@@ -249,6 +249,7 @@ function Locations() {
             hasBothFilters={hasBothFilters}
             onClearFilters={handleClearFilters}
             resultsCount={resultsCount}
+            loading={searchLoading}
             onOpenAddModal={() => setOpenAddModal(true)}
           />
           {currentTab === 'list' && (
@@ -279,7 +280,9 @@ function Locations() {
             <Card
               sx={{
                 p: 2,
-                justifyContent: 'center'
+                justifyContent: 'center',
+                border: 1, borderColor: 'divider', borderRadius: '0 0 12px 12px', boxShadow: 'none',
+                '& > div': { width: '100% !important' }
               }}
             >
               <Map

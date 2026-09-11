@@ -1,8 +1,8 @@
-import { Card } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { SortingState, Updater } from '@tanstack/react-table';
 import CustomDatagrid2 from '../../components/CustomDatagrid2';
 import NumberedPagination from '../../components/NumberedPagination';
+import { RegistryTableSurface } from '../../components/RegistryPresentation';
 import useTableState from '../../../../hooks/useTableState';
 import Location from '../../../../models/owns/location';
 import { Pageable, Sort } from '../../../../models/owns/page';
@@ -95,15 +95,7 @@ function LocationsTable({
   };
 
   return (
-    <Card
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        border: (theme) => `1px solid ${theme.palette.divider}`,
-        borderRadius: 1.5,
-        boxShadow: 'none'
-      }}
-    >
+    <RegistryTableSurface loading={loading}>
       <CustomDatagrid2
         columns={columns}
         data={data}
@@ -127,14 +119,13 @@ function LocationsTable({
         noRowsMessage={t('noRows.location.message')}
         noRowsAction={t('noRows.location.action')}
         onRowClick={onOpenLocation}
-        headerBackgroundColor="#F7F9FC"
+        headerBackgroundColor="background.default"
         headerVariant="plain"
-        rowCellPaddingY={14}
+        rowCellPaddingY={12}
         headerCellPaddingY={10}
-        rowCellPaddingYCompact={11}
+        rowCellPaddingYCompact={10}
         headerCellPaddingYCompact={8}
         compactViewportHeight={820}
-        zebraStripe
         hidePagination
         disableInternalScroll
         fluidTableWidth
@@ -146,7 +137,7 @@ function LocationsTable({
         totalRows={totalRows}
         onPageChange={onNumberedPageChange}
       />
-    </Card>
+    </RegistryTableSurface>
   );
 }
 

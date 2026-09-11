@@ -1,7 +1,6 @@
 import {
   Box,
   Button,
-  Card,
   debounce,
   Dialog,
   DialogContent,
@@ -20,6 +19,12 @@ import CustomDatagrid2, {
   CustomDatagridColumn2
 } from '../components/CustomDatagrid2';
 import NumberedPagination from '../components/NumberedPagination';
+import {
+  RegistryHeader,
+  RegistryQueryBar,
+  RegistryResults,
+  RegistryTableSurface
+} from '../components/RegistryPresentation';
 import { Customer } from '../../../models/owns/customer';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -103,11 +108,8 @@ const Customers = ({}: PropsType) => {
     setCriteria,
     fieldMapping
   });
-  const {
-    hasEditPermission,
-    hasDeletePermission,
-    hasCreatePermission
-  } = useAuth();
+  const { hasEditPermission, hasDeletePermission, hasCreatePermission } =
+    useAuth();
   const [currentCustomer, setCurrentCustomer] = useState<Customer>();
   const [openAddModal, setOpenAddModal] = useState(false);
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
@@ -137,16 +139,14 @@ const Customers = ({}: PropsType) => {
 
   const onQueryChange = (event) => {
     setSearchValue(event.target.value);
-    onSearchQueryChange<Customer>(
-      event,
-      criteria,
-      setCriteria,
-      [...SEARCH_FIELDS]
-    );
+    onSearchQueryChange<Customer>(event, criteria, setCriteria, [
+      ...SEARCH_FIELDS
+    ]);
   };
-  const debouncedQueryChange = useMemo(() => debounce(onQueryChange, 400), [
-    criteria
-  ]);
+  const debouncedQueryChange = useMemo(
+    () => debounce(onQueryChange, 400),
+    [criteria]
+  );
 
   const onCreationSuccess = () => {
     setOpenAddModal(false);
@@ -181,7 +181,7 @@ const Customers = ({}: PropsType) => {
         <Tooltip title={t('open_customer', 'Abrir cliente')}>
           <Box
             sx={{
-              py: 1,
+              py: 0.5,
               width: 'fit-content',
               maxWidth: '100%',
               cursor: 'pointer',
@@ -193,7 +193,9 @@ const Customers = ({}: PropsType) => {
               }
             }}
             onClick={() =>
-              navigate(`/app/vendors-customers/customers/${info.row.original.id}`)
+              navigate(
+                `/app/vendors-customers/customers/${info.row.original.id}`
+              )
             }
           >
             {/* Ate' 2 linhas de wrap antes de truncar - nao cortar
@@ -209,7 +211,9 @@ const Customers = ({}: PropsType) => {
                 WebkitBoxOrient: 'vertical',
                 overflow: 'hidden',
                 whiteSpace: 'normal',
-                wordBreak: 'break-word'
+                wordBreak: 'break-word',
+                fontSize: 14,
+                lineHeight: 1.5
               }}
             >
               {info.getValue()}
@@ -244,7 +248,16 @@ const Customers = ({}: PropsType) => {
       id: 'cnpj',
       header: () => t('cnpj', 'CNPJ'),
       cell: (info) => (
-        <Typography variant="body2" color="text.secondary" noWrap>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          noWrap
+          sx={{
+            fontVariantNumeric: 'tabular-nums',
+            letterSpacing: '0.25px',
+            fontSize: 12
+          }}
+        >
           {formatCnpj(info.getValue()) || '--'}
         </Typography>
       ),
@@ -254,7 +267,12 @@ const Customers = ({}: PropsType) => {
       id: 'phone',
       header: () => t('phone'),
       cell: (info) => (
-        <Typography variant="body2" color="text.secondary" noWrap>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          noWrap
+          sx={{ fontVariantNumeric: 'tabular-nums', fontSize: 12 }}
+        >
           {info.getValue() || '--'}
         </Typography>
       ),
@@ -276,6 +294,7 @@ const Customers = ({}: PropsType) => {
         );
         return (
           <Stack
+            data-registry-actions
             direction="row"
             spacing={0.5}
             alignItems="center"
@@ -284,18 +303,20 @@ const Customers = ({}: PropsType) => {
           >
             <Tooltip title={t('open_customer', 'Abrir cliente')}>
               <IconButton
+                aria-label={t('open_customer', 'Abrir cliente')}
                 size="small"
                 onClick={(e) => {
                   e.stopPropagation();
                   navigate(`/app/vendors-customers/customers/${customer.id}`);
                 }}
               >
-                <OpenInNewTwoToneIcon fontSize="small" color="primary" />
+                <OpenInNewTwoToneIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             {hasCreatePermission(PermissionEntity.WORK_ORDERS) && (
               <Tooltip title={t('create_wo', 'Criar OS')}>
                 <IconButton
+                  aria-label={t('create_wo', 'Criar OS')}
                   size="small"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -304,25 +325,29 @@ const Customers = ({}: PropsType) => {
                     );
                   }}
                 >
-                  <AssignmentTwoToneIcon fontSize="small" color="primary" />
+                  <AssignmentTwoToneIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             )}
             {(canEdit || canDelete) && (
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setRowMenuAnchor({
-                    top: rect.bottom,
-                    left: rect.right,
-                    customer
-                  });
-                }}
-              >
-                <MoreVertTwoToneIcon fontSize="small" />
-              </IconButton>
+              <Tooltip title={t('more_actions', 'Mais ações')}>
+                <IconButton
+                  aria-label={t('more_actions', 'Mais ações')}
+                  aria-haspopup="menu"
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setRowMenuAnchor({
+                      top: rect.bottom,
+                      left: rect.right,
+                      customer
+                    });
+                  }}
+                >
+                  <MoreVertTwoToneIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
           </Stack>
         );
@@ -441,60 +466,60 @@ const Customers = ({}: PropsType) => {
   );
 
   return (
-    <Box justifyContent="center" alignItems="stretch" paddingX={4}>
-      <Box sx={{ mt: 0.5, mb: 1 }}>
-        <Typography variant="h4" fontWeight={800}>
-          {t('customers_page_title', 'Clientes')}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {t(
-            'customers_page_subtitle',
-            'Clientes e contratantes atendidos pela operação.'
-          )}
-        </Typography>
-      </Box>
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: 1,
-          my: 1
-        }}
-      >
-        <Box sx={{ minWidth: 260, flexGrow: 1, maxWidth: 380 }}>
-          <SearchInput
-            fullWidth
-            size="small"
-            placeholder={t('customers_search_placeholder', 'Buscar cliente...')}
-            onChange={debouncedQueryChange}
-          />
+    <Box sx={{ px: { xs: 2, md: 3, xl: 4 }, pb: 3, minWidth: 0, bgcolor: 'background.default' }}>
+      <RegistryHeader
+        title={t('customers_page_title', 'Clientes')}
+        description={t(
+          'customers_page_subtitle',
+          'Clientes e contratantes atendidos pela operação.'
+        )}
+      />
+      <RegistryQueryBar>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 1,
+            minWidth: 0,
+            flex: '1 1 280px'
+          }}
+        >
+          <Box
+            sx={{
+              minWidth: { xs: 0, sm: 260 },
+              flex: '1 1 320px',
+              maxWidth: 600
+            }}
+          >
+            <SearchInput
+              fullWidth
+              size="small"
+              placeholder={t(
+                'customers_search_fields_placeholder',
+                'Buscar nome, CNPJ, telefone ou e-mail...'
+              )}
+              onChange={debouncedQueryChange}
+            />
+          </Box>
         </Box>
-        <Typography variant="body2" color="text.secondary">
-          {t('customers_results_count', '{{count}} clientes encontrados', {
-            count: customers.totalElements ?? 0
-          })}
-        </Typography>
-        <Box sx={{ flexGrow: 1 }} />
+        <RegistryResults
+          count={customers.totalElements ?? 0}
+          loading={loadingGet}
+          label={t('customers_results_label', 'clientes encontrados')}
+        ></RegistryResults>
         {hasCreatePermission(PermissionEntity.VENDORS_AND_CUSTOMERS) && (
           <Button
             variant="contained"
             startIcon={<AddTwoToneIcon />}
+            sx={{ ml: 'auto', flexShrink: 0 }}
             onClick={() => setOpenAddModal(true)}
           >
             {t('new_customer', 'Novo cliente')}
           </Button>
         )}
-      </Box>
-      <Card
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          border: (theme) => `1px solid ${theme.palette.divider}`,
-          borderRadius: 1.5,
-          boxShadow: 'none'
-        }}
-      >
+      </RegistryQueryBar>
+      <RegistryTableSurface loading={loadingGet}>
         <CustomDatagrid2
           columns={columns}
           data={customers.content}
@@ -517,14 +542,13 @@ const Customers = ({}: PropsType) => {
           }
           noRowsMessage={t('noRows.customer.message')}
           noRowsAction={t('noRows.customer.action')}
-          headerBackgroundColor="#F7F9FC"
+          headerBackgroundColor="background.default"
           headerVariant="plain"
-          rowCellPaddingY={14}
+          rowCellPaddingY={12}
           headerCellPaddingY={10}
-          rowCellPaddingYCompact={11}
+          rowCellPaddingYCompact={10}
           headerCellPaddingYCompact={8}
           compactViewportHeight={820}
-          zebraStripe
           hidePagination
           disableInternalScroll
           fluidTableWidth
@@ -538,7 +562,7 @@ const Customers = ({}: PropsType) => {
             setPagination({ ...pagination, pageIndex })
           }
         />
-      </Card>
+      </RegistryTableSurface>
 
       {renderAddModal()}
       {renderUpdateModal()}

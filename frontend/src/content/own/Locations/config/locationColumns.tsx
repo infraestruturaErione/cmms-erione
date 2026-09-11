@@ -1,4 +1,4 @@
-import { Box, Chip, Tooltip, Typography } from '@mui/material';
+import { alpha, Box, Chip, Tooltip, Typography } from '@mui/material';
 import { createColumnHelper } from '@tanstack/react-table';
 import { CustomDatagridColumn2 } from '../../components/CustomDatagrid2';
 import Location from '../../../../models/owns/location';
@@ -34,7 +34,7 @@ function renderCustomersCell(customers: CustomerMiniDTO[] | undefined) {
   if (!customers || customers.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
-        --
+        Sem cliente vinculado
       </Typography>
     );
   }
@@ -51,21 +51,34 @@ function renderCustomersCell(customers: CustomerMiniDTO[] | undefined) {
   } as const;
   if (rest.length === 0) {
     return (
-      <Typography variant="body2" sx={nameSx}>
+      <Typography variant="body2" sx={{ ...nameSx, fontWeight: 600 }}>
         {first.name}
       </Typography>
     );
   }
   return (
-    <Tooltip title={customers.map((customer) => customer.name).join(', ')} arrow>
+    <Tooltip
+      title={customers.map((customer) => customer.name).join(', ')}
+      arrow
+    >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
-        <Typography variant="body2" sx={nameSx}>
+        <Typography variant="body2" sx={{ ...nameSx, fontWeight: 600 }}>
           {first.name}
         </Typography>
         <Chip
+          variant="outlined"
           label={`+${rest.length}`}
           size="small"
-          sx={{ height: 20, fontSize: 11, fontWeight: 700, flexShrink: 0 }}
+          sx={{
+            height: 22,
+            fontSize: 11,
+            fontWeight: 700,
+            flexShrink: 0,
+            color: 'primary.dark',
+            borderColor: (theme) => alpha(theme.palette.primary.main, 0.22),
+            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.045),
+            borderRadius: 1
+          }}
         />
       </Box>
     </Tooltip>
@@ -104,9 +117,29 @@ export function getLocationColumns({
       header: () => t('location_reference_column', 'ID / PC'),
       cell: (info) => {
         const label = info.getValue() as string | null;
-        return (
-          <Typography variant="body2" color={label ? 'text.primary' : 'text.secondary'}>
-            {label || '--'}
+        return label ? (
+          <Typography
+            component="span"
+            variant="body2"
+            sx={{
+              display: 'inline-block',
+              px: 0.75,
+              py: 0.25,
+              border: 1,
+              borderColor: (theme) => alpha(theme.palette.primary.main, 0.24),
+              bgcolor: (theme) => alpha(theme.palette.primary.main, 0.055),
+              color: 'primary.dark',
+              borderRadius: 0.75,
+              fontWeight: 600,
+              fontVariantNumeric: 'tabular-nums',
+              overflowWrap: 'anywhere'
+            }}
+          >
+            {label}
+          </Typography>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            —
           </Typography>
         );
       },
@@ -120,7 +153,14 @@ export function getLocationColumns({
         const displayAddress = getLocationDisplayAddress(currentLocationRow);
         const identification = getLocationIdentification(currentLocationRow);
         return (
-          <Tooltip title={t('open_location', 'Abrir endereço')}>
+          <Tooltip
+            title={[
+              identification,
+              displayAddress !== identification ? displayAddress : ''
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          >
             <Box
               sx={{
                 cursor: 'pointer',
@@ -131,9 +171,14 @@ export function getLocationColumns({
               <Typography
                 variant="body2"
                 fontWeight={700}
-                noWrap
                 sx={{
                   lineHeight: 1.5,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  overflowWrap: 'anywhere',
+                  fontSize: 14,
                   transition:
                     'color 120ms ease, text-decoration-color 120ms ease',
                   '&:hover': {
@@ -150,7 +195,12 @@ export function getLocationColumns({
                   variant="caption"
                   color="text.secondary"
                   noWrap
-                  sx={{ lineHeight: 1.5, display: 'block', mt: 0.25 }}
+                  sx={{
+                    lineHeight: 1.5,
+                    display: 'block',
+                    mt: 0.25,
+                    fontSize: 12
+                  }}
                 >
                   {displayAddress}
                 </Typography>
