@@ -64,7 +64,13 @@ const slice = createSlice({
     deleteTeam(state: TeamState, action: PayloadAction<{ id: number }>) {
       const { id } = action.payload;
       const teamIndex = state.teams.content.findIndex((team) => team.id === id);
-      state.teams.content.splice(teamIndex, 1);
+      // findIndex devolve -1 quando o time excluido nao esta na pagina
+      // carregada atualmente (ex.: excluido via deep link de uma pagina
+      // diferente) - splice(-1, 1) removeria o ULTIMO item do array (o
+      // errado). So remove quando realmente encontrou o item.
+      if (teamIndex !== -1) {
+        state.teams.content.splice(teamIndex, 1);
+      }
     },
     setLoadingGet(
       state: TeamState,

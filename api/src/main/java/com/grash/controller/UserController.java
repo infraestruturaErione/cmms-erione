@@ -147,8 +147,21 @@ public class UserController {
 
         if (optionalUser.isPresent()) {
             User savedUser = optionalUser.get();
-            if (requester.getId().equals(savedUser.getId()) ||
-                    requester.getRole().getEditOtherPermissions().contains(PermissionEntity.PEOPLE_AND_TEAMS)) {
+            boolean canEditOthers = requester.getRole().getEditOtherPermissions().contains(PermissionEntity.PEOPLE_AND_TEAMS);
+            if (requester.getId().equals(savedUser.getId()) || canEditOthers) {
+                // allowedCustomers define o ESCOPO de dados que o usuario
+                // enxerga (CustomerScopeService - lista vazia = irrestrito
+                // pros papeis escopados). Editar o PROPRIO escopo e' uma
+                // via de escalonamento de privilegio (usuario Requester/
+                // Limited Admin zera a propria lista e vira irrestrito) -
+                // por isso so' e' honrado quando quem faz a chamada tem
+                // permissao administrativa de editar outros, mesmo que o
+                // alvo seja o proprio requester. Sem essa permissao, o
+                // campo e' ignorado (nao apagado - so' nao aplicado),
+                // igual a UserPatchDTO nao ter mandado o campo.
+                if (!canEditOthers) {
+                    userReq.setAllowedCustomers(null);
+                }
                 return userMapper.toResponseDto(userService.update(id, userReq));
             } else {
                 throw new CustomException("You don't have permission", HttpStatus.NOT_ACCEPTABLE);

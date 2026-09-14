@@ -10,6 +10,8 @@ import java.util.Optional;
 public interface TeamRepository extends JpaRepository<Team, Long>, JpaSpecificationExecutor<Team> {
     Collection<Team> findByCompany_Id(Long id);
 
+    Optional<Team> findByIdAndCompany_Id(Long id, Long companyId);
+
     Collection<Team> findByUsers_Id(Long id);
 
     Optional<Team> findByNameIgnoreCaseAndCompany_Id(String teamName, Long id);

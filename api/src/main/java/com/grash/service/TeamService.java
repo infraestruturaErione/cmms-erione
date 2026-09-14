@@ -79,6 +79,10 @@ public class TeamService {
         return teamRepository.findById(id);
     }
 
+    public Optional<Team> findByIdAndCompany(Long id, Long companyId) {
+        return teamRepository.findByIdAndCompany_Id(id, companyId);
+    }
+
     public Collection<Team> findByCompany(Long id) {
         return teamRepository.findByCompany_Id(id);
     }

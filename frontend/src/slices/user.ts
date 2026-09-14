@@ -105,7 +105,12 @@ export const slice = createSlice({
     deleteUser(state: UserState, action: PayloadAction<{ id: number }>) {
       const { id } = action.payload;
       const userIndex = state.users.content.findIndex((user) => user.id === id);
-      state.users.content.splice(userIndex, 1);
+      // findIndex devolve -1 quando o usuario excluido nao esta na pagina
+      // carregada atualmente - splice(-1, 1) removeria o ULTIMO item do
+      // array (o errado). So remove quando realmente encontrou o item.
+      if (userIndex !== -1) {
+        state.users.content.splice(userIndex, 1);
+      }
     },
     setLoadingGet(
       state: UserState,

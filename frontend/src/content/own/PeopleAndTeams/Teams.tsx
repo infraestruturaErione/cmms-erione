@@ -1,28 +1,36 @@
 import {
   Box,
+  Button,
   debounce,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
   Link,
+  Menu,
+  MenuItem,
   Stack,
+  Tooltip,
   Typography
 } from '@mui/material';
+import AddTwoToneIcon from '@mui/icons-material/AddTwoTone';
+import CloseTwoToneIcon from '@mui/icons-material/CloseTwoTone';
+import DeleteTwoToneIcon from '@mui/icons-material/DeleteTwoTone';
+import EditTwoToneIcon from '@mui/icons-material/EditTwoTone';
+import MoreVertTwoToneIcon from '@mui/icons-material/MoreVertTwoTone';
+import OpenInNewTwoToneIcon from '@mui/icons-material/OpenInNewTwoTone';
+import { createColumnHelper } from '@tanstack/react-table';
+import * as React from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Form from '../components/form';
-import * as Yup from 'yup';
-import { IField } from '../type';
-import CustomDataGrid from '../components/CustomDatagrid';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { CustomSnackBarContext } from '../../../contexts/CustomSnackBarContext';
+import useAuth from '../../../hooks/useAuth';
+import useTableState from '../../../hooks/useTableState';
+import { FilterField, SearchCriteria } from '../../../models/owns/page';
+import { PermissionEntity } from '../../../models/owns/role';
 import Team from '../../../models/owns/team';
-import {
-  GridEnrichedColDef,
-  GridRenderCellParams,
-  GridToolbar
-} from '@mui/x-data-grid';
-import { Close } from '@mui/icons-material';
-import { isNumeric } from 'src/utils/validators';
-import { useParams } from 'react-router-dom';
 import {
   addTeam,
   clearSingleTeam,
@@ -32,113 +40,199 @@ import {
   getTeams
 } from '../../../slices/team';
 import { useDispatch, useSelector } from '../../../store';
-import ConfirmDialog from '../components/ConfirmDialog';
-import * as React from 'react';
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { getErrorMessage } from '../../../utils/api';
 import { formatSelectMultiple } from '../../../utils/formatters';
-import { UserMiniDTO } from '../../../models/user';
-import UserAvatars from '../components/UserAvatars';
-import { CustomSnackBarContext } from '../../../contexts/CustomSnackBarContext';
-import useAuth from '../../../hooks/useAuth';
-import { PermissionEntity } from '../../../models/owns/role';
-import NoRowsMessage from '../components/NoRowsMessage';
-import { SearchCriteria, SortDirection } from '../../../models/owns/page';
-import { onSearchQueryChange } from '../../../utils/overall';
+import { getTeamUrl, getUserUrl } from '../../../utils/urlPaths';
+import { isNumeric } from '../../../utils/validators';
+import ConfirmDialog from '../components/ConfirmDialog';
+import CustomDatagrid2, {
+  CustomDatagridColumn2
+} from '../components/CustomDatagrid2';
+import Form from '../components/form';
+import NumberedPagination from '../components/NumberedPagination';
+import {
+  RegistryQueryBar,
+  RegistryResults,
+  RegistryTableSurface
+} from '../components/RegistryPresentation';
 import SearchInput from '../components/SearchInput';
-import { getUserUrl } from '../../../utils/urlPaths';
+import UserAvatars from '../components/UserAvatars';
+import { IField } from '../type';
+import * as Yup from 'yup';
+
+const TEAM_SEARCH_FIELDS: Array<keyof Team> = ['name', 'description'];
+const TEAM_FIELD_MAPPING: Record<string, string> = {
+  name: 'name',
+  description: 'description'
+};
 
 interface PropsType {
   values?: any;
   openModal: boolean;
+  handleOpenModal: () => void;
   handleCloseModal: () => void;
 }
 
-const Teams = ({ openModal, handleCloseModal }: PropsType) => {
+const Teams = ({ openModal, handleOpenModal, handleCloseModal }: PropsType) => {
   const { t }: { t: any } = useTranslation();
   const dispatch = useDispatch();
-  const [openDelete, setOpenDelete] = useState<boolean>(false);
-  const [openUpdateModal, setOpenUpdateModal] = useState<boolean>(false);
-  const [currentTeam, setCurrentTeam] = useState<Team>();
+  const navigate = useNavigate();
+  const { showSnackBar } = useContext(CustomSnackBarContext);
+  const {
+    hasCreatePermission,
+    hasDeletePermission,
+    user: authenticatedUser
+  } = useAuth();
+  const { teamId } = useParams();
   const { teams, loadingGet, singleTeam } = useSelector((state) => state.teams);
-  const [openDrawerFromUrl, setOpenDrawerFromUrl] = useState<boolean>(false);
+
+  const [currentTeam, setCurrentTeam] = useState<Team>();
+  const [searchValue, setSearchValue] = useState('');
+  const [openDelete, setOpenDelete] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [viewOrUpdate, setViewOrUpdate] = useState<'view' | 'update'>('view');
   const [criteria, setCriteria] = useState<SearchCriteria>({
     filterFields: [],
     pageSize: 10,
-    pageNum: 0
+    pageNum: 0,
+    direction: 'DESC'
   });
-  const { showSnackBar } = useContext(CustomSnackBarContext);
-  const { hasEditPermission, hasDeletePermission } = useAuth();
-  const [isTeamDetailsOpen, setIsTeamDetailsOpen] = useState(false);
-  const [viewOrUpdate, setViewOrUpdate] = useState<'view' | 'update'>('view');
-  const { teamId } = useParams();
+  const [rowMenuAnchor, setRowMenuAnchor] = useState<{
+    top: number;
+    left: number;
+    team: Team;
+  } | null>(null);
 
-  const onQueryChange = (event) => {
-    onSearchQueryChange<Team>(event, criteria, setCriteria, [
-      'name',
-      'description'
-    ]);
-  };
-  const debouncedQueryChange = useMemo(() => debounce(onQueryChange, 1300), []);
+  const {
+    sorting,
+    setSorting,
+    pagination,
+    setPagination,
+    columnOrder,
+    setColumnOrder,
+    columnSizing,
+    setColumnSizing,
+    columnVisibility,
+    setColumnVisibility,
+    pinnedColumns,
+    setPinnedColumns
+  } = useTableState({
+    prefix: 'teams',
+    initialSorting: [],
+    initialPagination: { pageSize: 10, pageIndex: 0 },
+    setCriteria,
+    fieldMapping: TEAM_FIELD_MAPPING
+  });
 
-  useEffect(() => {
-    if (teamId && isNumeric(teamId)) {
-      dispatch(getSingleTeam(Number(teamId)));
-    }
-  }, [teamId]);
+  const applySearch = React.useCallback((query: string) => {
+    setCriteria((previous) => {
+      const fields = TEAM_SEARCH_FIELDS.map(String);
+      const filterFields = previous.filterFields.filter(
+        (filter) => !fields.includes(filter.field)
+      );
+      const [firstField, ...alternativeFields] = fields;
+      const normalizedQuery = query.trim();
+      const searchFilter: FilterField | null = normalizedQuery
+        ? {
+            field: firstField,
+            value: normalizedQuery,
+            operation: 'cn',
+            alternatives: alternativeFields.map((field) => ({
+              field,
+              value: normalizedQuery,
+              operation: 'cn'
+            }))
+          }
+        : null;
+      return {
+        ...previous,
+        pageNum: 0,
+        filterFields: searchFilter
+          ? [...filterFields, searchFilter]
+          : filterFields
+      };
+    });
+  }, []);
+  const debouncedSearch = useMemo(
+    () => debounce(applySearch, 400),
+    [applySearch]
+  );
+
+  useEffect(() => () => debouncedSearch.clear(), [debouncedSearch]);
 
   useEffect(() => {
     dispatch(getTeams(criteria));
   }, [criteria]);
 
-  //see changes in ui on edit
+  // Mantem o modal sincronizado com a URL nos dois sentidos: abre quando
+  // teamId aparece (deep link/clique numa linha) e FECHA quando some
+  // (botao voltar do navegador tira o :id da URL sem passar por
+  // closeDetails - sem este ramo o modal ficava aberto mostrando dados
+  // obsoletos enquanto a URL ja mostrava a lista).
   useEffect(() => {
-    if (singleTeam || teams.content.length) {
-      const currentInContent = teams.content.find(
-        (team) => team.id === currentTeam?.id
-      );
-      const updatedTeam = currentInContent ?? singleTeam;
-      if (updatedTeam) {
-        if (openDrawerFromUrl) {
-          setCurrentTeam(updatedTeam);
-        } else {
-          handleOpenModal(updatedTeam);
-          setOpenDrawerFromUrl(true);
-        }
-      }
+    if (!teamId || !isNumeric(teamId)) {
+      setDetailsOpen(false);
+      setViewOrUpdate('view');
+      return;
     }
-    return () => {
+    const inCurrentPage = teams.content.find(
+      (candidate) => candidate.id === Number(teamId)
+    );
+    if (inCurrentPage) {
+      setCurrentTeam(inCurrentPage);
+      setDetailsOpen(true);
+    } else {
+      dispatch(getSingleTeam(Number(teamId)));
+    }
+  }, [teamId]);
+
+  useEffect(() => {
+    if (singleTeam && Number(teamId) === singleTeam.id) {
+      setCurrentTeam(singleTeam);
+      setDetailsOpen(true);
+    }
+  }, [singleTeam, teamId]);
+
+  useEffect(() => {
+    if (!currentTeam) return;
+    const updatedTeam = teams.content.find(
+      (candidate) => candidate.id === currentTeam.id
+    );
+    if (updatedTeam) setCurrentTeam(updatedTeam);
+  }, [teams]);
+
+  useEffect(
+    () => () => {
       dispatch(clearSingleTeam());
-    };
-  }, [singleTeam, teams]);
+    },
+    []
+  );
 
-  const onPageSizeChange = (size: number) => {
-    setCriteria({ ...criteria, pageSize: size });
-  };
-  const onPageChange = (number: number) => {
-    setCriteria({ ...criteria, pageNum: number });
+  const canEditTeam = (team?: Team) =>
+    Boolean(
+      team &&
+        (team.createdBy === authenticatedUser?.id ||
+          authenticatedUser?.role?.editOtherPermissions?.includes(
+            PermissionEntity.PEOPLE_AND_TEAMS
+          ))
+    );
+
+  const openDetails = (selectedTeam: Team) => {
+    setCurrentTeam(selectedTeam);
+    setViewOrUpdate('view');
+    setDetailsOpen(true);
+    navigate(getTeamUrl(selectedTeam.id));
   };
 
-  const handleDelete = (id: number) => {
-    dispatch(deleteTeam(id)).then(onDeleteSuccess).catch(onDeleteFailure);
-    setOpenDelete(false);
+  const closeDetails = () => {
+    setDetailsOpen(false);
+    setViewOrUpdate('view');
+    navigate('/app/people-teams/teams');
   };
-  const onCreationSuccess = () => {
-    handleCloseModal();
-    showSnackBar(t('team_create_success'), 'success');
-  };
-  const onCreationFailure = (err) =>
-    showSnackBar(t('team_create_failure'), 'error');
-  const onEditSuccess = () => {
-    setOpenUpdateModal(false);
-    showSnackBar(t('changes_saved_success'), 'success');
-  };
-  const onEditFailure = (err) => showSnackBar(t('team_edit_failure'), 'error');
-  const onDeleteSuccess = () => {
-    showSnackBar(t('team_delete_success'), 'success');
-  };
-  const onDeleteFailure = (err) =>
-    showSnackBar(t('team_delete_failure'), 'error');
-  let fields: Array<IField> = [
+
+  const refreshCurrentPage = () => dispatch(getTeams(criteria));
+
+  const fields: IField[] = [
     {
       name: 'name',
       type: 'text',
@@ -162,327 +256,474 @@ const Teams = ({ openModal, handleCloseModal }: PropsType) => {
       placeholder: t('people_in_team')
     }
   ];
+  const validation = Yup.object().shape({
+    name: Yup.string().required(t('required_team_name'))
+  });
 
-  const shape = {
-    name: Yup.string().required('required_team_name')
-  };
-
-  const columns: GridEnrichedColDef[] = [
-    {
-      field: 'name',
-      headerName: t('team_name'),
-      width: 150,
-      renderCell: (params: GridRenderCellParams<string>) => (
-        <Box sx={{ fontWeight: 'bold' }}>{params.value}</Box>
-      )
-    },
-    {
-      field: 'description',
-      headerName: t('description'),
-      width: 300
-    },
-    {
-      field: 'users',
-      headerName: t('people_in_team'),
-      width: 200,
-      renderCell: (params: GridRenderCellParams<UserMiniDTO[]>) => (
-        <UserAvatars compact={false} users={params.value} />
-      )
-    }
-  ];
-  const handleOpenModal = (team: Team) => {
-    setCurrentTeam(team);
-    window.history.replaceState(
-      null,
-      'Team details',
-      `/app/people-teams/teams/${team.id}`
-    );
-    setIsTeamDetailsOpen(true);
-  };
-  const handleOpenDetails = (id: number) => {
-    const foundTeam = teams.content.find((team) => team.id === id);
-    if (foundTeam) {
-      handleOpenModal(foundTeam);
-    }
-  };
-  const handleCloseDetails = () => {
-    window.history.replaceState(null, 'Team', `/app/people-teams/teams`);
-    setIsTeamDetailsOpen(false);
-  };
-
-  const RenderTeamsAddModal = () => (
-    <Dialog fullWidth maxWidth="md" open={openModal} onClose={handleCloseModal}>
-      <DialogTitle
-        sx={{
-          p: 3
-        }}
-      >
-        <Typography variant="h4" gutterBottom>
-          {t('create_team')}
-        </Typography>
-        <Typography variant="subtitle2">
-          {t('create_team_description')}
-        </Typography>
-      </DialogTitle>
-
-      <DialogContent
-        dividers
-        sx={{
-          p: 3
-        }}
-      >
-        <Box>
-          <Form
-            fields={fields}
-            validation={Yup.object().shape(shape)}
-            submitText={t('submit')}
-            onChange={({ field, e }) => {}}
-            onSubmit={async (values) => {
-              const newValues = { ...values };
-              newValues.users = formatSelectMultiple(newValues.users);
-              return dispatch(addTeam(newValues))
-                .then(onCreationSuccess)
-                .catch(onCreationFailure);
-            }}
-          />
-        </Box>
-      </DialogContent>
-    </Dialog>
-  );
-
-  const Renderteams = () => (
-    <Box
-      sx={{
-        width: '95%'
-      }}
-    >
-      {teams.content.length !== 0 ? (
-        <CustomDataGrid
-          pageSize={criteria.pageSize}
-          page={criteria.pageNum}
-          rows={teams.content}
-          rowCount={teams.totalElements}
-          pagination
-          paginationMode="server"
-          sortingMode="server"
-          onPageSizeChange={onPageSizeChange}
-          onPageChange={onPageChange}
-          rowsPerPageOptions={[10, 20, 50]}
-          columns={columns}
-          onSortModelChange={(model) => {
-            if (model.length === 0) {
-              setCriteria({
-                ...criteria,
-                sortField: undefined,
-                direction: undefined
-              });
-              return;
-            }
-
-            const fieldMapping = {
-              name: 'name',
-              description: 'description',
-              users: 'users.firstName'
-            };
-
-            const field = model[0].field;
-            const mappedField = fieldMapping[field];
-
-            if (!mappedField) return;
-
-            setCriteria({
-              ...criteria,
-              sortField: mappedField,
-              direction: (model[0].sort?.toUpperCase() ||
-                'ASC') as SortDirection
-            });
-          }}
-          components={{
-            Toolbar: GridToolbar
-          }}
-          initialState={{
-            columns: {
-              columnVisibilityModel: {}
-            }
-          }}
-          onRowClick={(params) => {
-            handleOpenDetails(Number(params.id));
-          }}
-        />
-      ) : (
-        <NoRowsMessage
-          message={t('noRows.team.message')}
-          action={t('noRows.team.action')}
-        />
-      )}
-    </Box>
-  );
-
-  const ModalTeamDetails = () => (
-    <Dialog
-      fullWidth
-      maxWidth="sm"
-      open={isTeamDetailsOpen}
-      onClose={handleCloseDetails}
-    >
-      <DialogTitle
-        sx={{
-          p: 3,
-          display: 'flex',
-          flexDirection: 'row',
-          justifyContent: 'space-between'
-        }}
-      >
-        <Box sx={{ display: 'flex', flexDirection: 'row' }}>
-          {viewOrUpdate === 'view' ? (
-            hasEditPermission(
-              PermissionEntity.PEOPLE_AND_TEAMS,
-              currentTeam
-            ) && (
-              <Typography
-                onClick={() => setViewOrUpdate('update')}
-                style={{ cursor: 'pointer' }}
-                variant="subtitle1"
-                mr={2}
-              >
-                {t('edit')}
-              </Typography>
-            )
-          ) : (
-            <Typography
-              onClick={() => setViewOrUpdate('view')}
-              style={{ cursor: 'pointer' }}
-              variant="subtitle1"
-              mr={2}
-            >
-              {t('go_back')}
-            </Typography>
-          )}
-          {hasDeletePermission(
-            PermissionEntity.PEOPLE_AND_TEAMS,
-            currentTeam
-          ) && (
-            <Typography
-              variant="subtitle1"
-              style={{ cursor: 'pointer' }}
-              onClick={() => {
-                setIsTeamDetailsOpen(false);
-                setOpenDelete(true);
-              }}
-            >
-              {t('to_delete')}
-            </Typography>
-          )}
-        </Box>
-        <IconButton
-          aria-label="close"
-          onClick={handleCloseDetails}
+  const columnHelper = createColumnHelper<Team>();
+  const columns: CustomDatagridColumn2<Team>[] = [
+    columnHelper.accessor('name', {
+      id: 'name',
+      header: () => t('team_name'),
+      cell: (info) => (
+        <Typography
+          variant="body2"
+          fontWeight={700}
           sx={{
-            position: 'absolute',
-            right: 8,
-            top: 8,
-            color: (theme) => theme.palette.grey[500]
+            cursor: 'pointer',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            wordBreak: 'break-word',
+            '&:hover': {
+              color: 'primary.main',
+              textDecoration: 'underline',
+              textUnderlineOffset: '3px'
+            }
           }}
         >
-          <Close />
-        </IconButton>
-      </DialogTitle>
-
-      <DialogContent
-        dividers
-        sx={{
-          p: 3
-        }}
-      >
-        {viewOrUpdate === 'view' ? (
-          <Box>
-            <Typography variant="subtitle1">{t('name')}</Typography>
-            <Typography variant="h5" sx={{ mb: 1 }}>
-              {currentTeam?.name}
+          {info.getValue()}
+        </Typography>
+      ),
+      meta: { widthPercent: 28, minWidthPx: 180 }
+    }),
+    columnHelper.accessor('description', {
+      id: 'description',
+      header: () => t('description'),
+      cell: (info) => (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            wordBreak: 'break-word'
+          }}
+        >
+          {info.getValue() || '--'}
+        </Typography>
+      ),
+      meta: { widthPercent: 37, minWidthPx: 240 }
+    }),
+    columnHelper.accessor('users', {
+      id: 'users',
+      header: () => t('people_in_team'),
+      enableSorting: false,
+      cell: (info) => {
+        const members = info.getValue() ?? [];
+        return members.length ? (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <UserAvatars compact users={members} />
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {t('team_members_count', '{{count}} membros', {
+                count: members.length
+              })}
             </Typography>
-            {currentTeam?.description && (
-              <>
-                <Typography variant="subtitle1">{t('description')}</Typography>
-                <Typography variant="h5" sx={{ mb: 1 }}>
-                  {currentTeam.description}
-                </Typography>
-              </>
-            )}
-            <Typography variant="subtitle1">{t('members')}</Typography>
-            {currentTeam?.users.map((user) => (
-              <Box key={user.id}>
-                <Link
-                  href={getUserUrl(user.id)}
-                  variant="h6"
-                >{`${user.firstName} ${user.lastName}`}</Link>
-              </Box>
-            ))}
-          </Box>
+          </Stack>
         ) : (
-          <Box>
-            <Form
-              fields={fields}
-              validation={Yup.object().shape(shape)}
-              submitText={t('save')}
-              values={
-                {
-                  ...currentTeam,
-                  users: currentTeam.users.map((user) => {
-                    return {
-                      label: `${user.firstName} ${user.lastName}`,
-                      value: user.id
-                    };
-                  })
-                } || {}
-              }
-              onChange={({ field, e }) => {}}
-              onSubmit={async (values) => {
-                values.users = formatSelectMultiple(values.users);
-                return dispatch(editTeam(currentTeam.id, values))
-                  .then(() => {
-                    onEditSuccess();
-                    setViewOrUpdate('view');
-                  })
-                  .catch(onEditFailure);
-              }}
-            />
-          </Box>
-        )}
-      </DialogContent>
-    </Dialog>
+          <Typography variant="body2" color="text.secondary">
+            {t('team_without_members', 'Sem membros')}
+          </Typography>
+        );
+      },
+      meta: { widthPercent: 25, minWidthPx: 180 }
+    }),
+    columnHelper.display({
+      id: 'actions',
+      header: () => t('actions'),
+      meta: { widthPercent: 10, minWidthPx: 96 },
+      cell: ({ row }) => {
+        const selectedTeam = row.original;
+        const hasMoreActions =
+          canEditTeam(selectedTeam) ||
+          hasDeletePermission(PermissionEntity.PEOPLE_AND_TEAMS, selectedTeam);
+        return (
+          <Stack
+            data-registry-actions
+            direction="row"
+            spacing={0.5}
+            justifyContent="flex-end"
+            width="100%"
+          >
+            <Tooltip title={t('team_details', 'Ver equipe')}>
+              <IconButton
+                size="small"
+                aria-label={t('team_details', 'Ver equipe')}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openDetails(selectedTeam);
+                }}
+              >
+                <OpenInNewTwoToneIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {hasMoreActions && (
+              <Tooltip title={t('more_actions', 'Mais ações')}>
+                <IconButton
+                  size="small"
+                  aria-label={t('more_actions', 'Mais ações')}
+                  aria-haspopup="menu"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    setRowMenuAnchor({
+                      top: rect.bottom,
+                      left: rect.right,
+                      team: selectedTeam
+                    });
+                  }}
+                >
+                  <MoreVertTwoToneIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
+        );
+      }
+    })
+  ];
+
+  const menuTeam = rowMenuAnchor?.team;
+  const canDeleteMenuTeam = Boolean(
+    menuTeam && hasDeletePermission(PermissionEntity.PEOPLE_AND_TEAMS, menuTeam)
   );
 
   return (
-    <Box
-      sx={{
-        py: 2,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        width: '100%'
-      }}
-    >
-      <RenderTeamsAddModal />
-      <ModalTeamDetails />
-      {Boolean(teams.content.length) && (
-        <Stack direction="row" width="95%">
-          <Box sx={{ my: 0.5 }}>
-            <SearchInput onChange={debouncedQueryChange} />
-          </Box>
-        </Stack>
-      )}
-      {Renderteams()}
+    <>
+      <RegistryQueryBar>
+        <Box
+          sx={{
+            minWidth: { xs: 0, sm: 260 },
+            flex: '1 1 440px',
+            maxWidth: 720
+          }}
+        >
+          <SearchInput
+            fullWidth
+            size="small"
+            value={searchValue}
+            placeholder={t(
+              'teams_search_placeholder',
+              'Buscar por nome ou descrição...'
+            )}
+            onChange={(event) => {
+              const value = event.target.value;
+              setSearchValue(value);
+              setPagination((previous) => ({ ...previous, pageIndex: 0 }));
+              debouncedSearch(value);
+            }}
+            onClear={() => {
+              debouncedSearch.clear();
+              setSearchValue('');
+              setPagination((previous) => ({ ...previous, pageIndex: 0 }));
+              applySearch('');
+            }}
+          />
+        </Box>
+        <RegistryResults
+          count={teams.totalElements ?? 0}
+          loading={loadingGet}
+          label={t('teams_results_label', 'equipes encontradas')}
+        />
+        {hasCreatePermission(PermissionEntity.PEOPLE_AND_TEAMS) && (
+          <Button
+            variant="contained"
+            startIcon={<AddTwoToneIcon />}
+            sx={{ ml: 'auto', flexShrink: 0 }}
+            onClick={handleOpenModal}
+          >
+            {t('create_team')}
+          </Button>
+        )}
+      </RegistryQueryBar>
+
+      <RegistryTableSurface loading={loadingGet}>
+        <CustomDatagrid2
+          columns={columns}
+          data={teams.content}
+          loading={loadingGet}
+          pagination={pagination}
+          onPaginationChange={setPagination}
+          totalRows={teams.totalElements}
+          sorting={sorting}
+          onSortingChange={setSorting}
+          columnOrder={columnOrder}
+          onColumnOrderChange={setColumnOrder}
+          columnSizing={columnSizing}
+          onColumnSizingChange={setColumnSizing}
+          columnVisibility={columnVisibility}
+          onColumnVisibilityChange={setColumnVisibility}
+          pinnedColumns={pinnedColumns}
+          onPinnedColumnsChange={setPinnedColumns}
+          onRowClick={openDetails}
+          noRowsMessage={t('noRows.team.message')}
+          noRowsAction={t('noRows.team.action')}
+          headerBackgroundColor="background.default"
+          headerVariant="plain"
+          rowCellPaddingY={12}
+          headerCellPaddingY={10}
+          rowCellPaddingYCompact={10}
+          headerCellPaddingYCompact={8}
+          compactViewportHeight={820}
+          hidePagination
+          disableInternalScroll
+          fluidTableWidth
+          enableColumnResizing={false}
+        />
+        <NumberedPagination
+          pageIndex={pagination.pageIndex}
+          pageSize={pagination.pageSize}
+          totalRows={teams.totalElements}
+          onPageChange={(pageIndex) =>
+            setPagination((previous) => ({ ...previous, pageIndex }))
+          }
+        />
+      </RegistryTableSurface>
+
+      <Menu
+        open={Boolean(rowMenuAnchor)}
+        onClose={() => setRowMenuAnchor(null)}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          rowMenuAnchor
+            ? { top: rowMenuAnchor.top, left: rowMenuAnchor.left }
+            : undefined
+        }
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        {menuTeam && canEditTeam(menuTeam) && (
+          <MenuItem
+            onClick={() => {
+              openDetails(menuTeam);
+              setViewOrUpdate('update');
+              setRowMenuAnchor(null);
+            }}
+          >
+            <EditTwoToneIcon fontSize="small" sx={{ mr: 1 }} color="primary" />
+            {t('edit')}
+          </MenuItem>
+        )}
+        {menuTeam && canDeleteMenuTeam && (
+          <MenuItem
+            onClick={() => {
+              setCurrentTeam(menuTeam);
+              setOpenDelete(true);
+              setRowMenuAnchor(null);
+            }}
+          >
+            <DeleteTwoToneIcon fontSize="small" sx={{ mr: 1 }} color="error" />
+            {t('to_delete')}
+          </MenuItem>
+        )}
+      </Menu>
+
+      <Dialog
+        fullWidth
+        maxWidth="md"
+        open={openModal}
+        onClose={handleCloseModal}
+      >
+        <DialogTitle sx={{ p: 3 }}>
+          <Typography variant="h4" gutterBottom>
+            {t('create_team')}
+          </Typography>
+          <Typography variant="subtitle2">
+            {t('create_team_description')}
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 3 }}>
+          <Form
+            fields={fields}
+            validation={validation}
+            submitText={t('submit')}
+            onChange={() => {}}
+            onSubmit={async (values) => {
+              const payload = {
+                ...values,
+                users: formatSelectMultiple(values.users)
+              };
+              return dispatch(addTeam(payload))
+                .then(() => {
+                  handleCloseModal();
+                  showSnackBar(t('team_create_success'), 'success');
+                  refreshCurrentPage();
+                })
+                .catch((error) =>
+                  showSnackBar(
+                    getErrorMessage(error, t('team_create_failure')),
+                    'error'
+                  )
+                );
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog fullWidth maxWidth="sm" open={detailsOpen} onClose={closeDetails}>
+        <DialogTitle sx={{ p: 3, pr: 7 }}>
+          <Typography variant="h4">
+            {viewOrUpdate === 'view'
+              ? currentTeam?.name || t('team_details', 'Detalhes da equipe')
+              : t('edit_team', 'Editar equipe')}
+          </Typography>
+          <IconButton
+            aria-label={t('close')}
+            onClick={closeDetails}
+            sx={{ position: 'absolute', right: 12, top: 12 }}
+          >
+            <CloseTwoToneIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 3 }}>
+          {viewOrUpdate === 'view' ? (
+            <Stack spacing={2.5}>
+              <Box>
+                <Typography
+                  variant="overline"
+                  color="text.secondary"
+                  fontWeight={700}
+                >
+                  {t('description')}
+                </Typography>
+                <Typography variant="body1">
+                  {currentTeam?.description || '--'}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography
+                  variant="overline"
+                  color="text.secondary"
+                  fontWeight={700}
+                >
+                  {t('members')}
+                </Typography>
+                {currentTeam?.users?.length ? (
+                  <Stack spacing={1} mt={0.75}>
+                    {currentTeam.users.map((member) => (
+                      <Link
+                        key={member.id}
+                        component={RouterLink}
+                        to={getUserUrl(member.id)}
+                        underline="hover"
+                        fontWeight={600}
+                      >
+                        {`${member.firstName} ${member.lastName}`}
+                      </Link>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" mt={0.5}>
+                    {t('team_without_members', 'Sem membros')}
+                  </Typography>
+                )}
+              </Box>
+            </Stack>
+          ) : (
+            currentTeam && (
+              <Form
+                fields={fields}
+                validation={validation}
+                submitText={t('save')}
+                values={{
+                  ...currentTeam,
+                  users:
+                    currentTeam.users?.map((member) => ({
+                      label: `${member.firstName} ${member.lastName}`,
+                      value: member.id
+                    })) ?? []
+                }}
+                onChange={() => {}}
+                onSubmit={async (values) => {
+                  const payload = {
+                    ...values,
+                    users: formatSelectMultiple(values.users)
+                  };
+                  return dispatch(editTeam(currentTeam.id, payload))
+                    .then(() => {
+                      setViewOrUpdate('view');
+                      showSnackBar(t('changes_saved_success'), 'success');
+                      refreshCurrentPage();
+                    })
+                    .catch((error) =>
+                      showSnackBar(
+                        getErrorMessage(error, t('team_edit_failure')),
+                        'error'
+                      )
+                    );
+                }}
+              />
+            )
+          )}
+        </DialogContent>
+        {viewOrUpdate === 'view' && currentTeam && (
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            {hasDeletePermission(
+              PermissionEntity.PEOPLE_AND_TEAMS,
+              currentTeam
+            ) && (
+              <Button
+                color="error"
+                startIcon={<DeleteTwoToneIcon />}
+                onClick={() => {
+                  setDetailsOpen(false);
+                  setOpenDelete(true);
+                }}
+              >
+                {t('to_delete')}
+              </Button>
+            )}
+            <Box flex={1} />
+            {canEditTeam(currentTeam) && (
+              <Button
+                variant="contained"
+                startIcon={<EditTwoToneIcon />}
+                onClick={() => setViewOrUpdate('update')}
+              >
+                {t('edit')}
+              </Button>
+            )}
+          </DialogActions>
+        )}
+      </Dialog>
+
       <ConfirmDialog
         open={openDelete}
         onCancel={() => {
           setOpenDelete(false);
-          setIsTeamDetailsOpen(true);
+          if (currentTeam) setDetailsOpen(true);
         }}
-        onConfirm={() => handleDelete(currentTeam?.id)}
+        onConfirm={() => {
+          if (!currentTeam) return;
+          dispatch(deleteTeam(currentTeam.id))
+            .then(() => {
+              setOpenDelete(false);
+              setDetailsOpen(false);
+              navigate('/app/people-teams/teams');
+              showSnackBar(t('team_delete_success'), 'success');
+              if (teams.content.length === 1 && pagination.pageIndex > 0) {
+                setPagination((previous) => ({
+                  ...previous,
+                  pageIndex: previous.pageIndex - 1
+                }));
+              } else {
+                refreshCurrentPage();
+              }
+            })
+            .catch((error) =>
+              showSnackBar(
+                getErrorMessage(error, t('team_delete_failure')),
+                'error'
+              )
+            );
+        }}
         confirmText={t('to_delete')}
         question={t('confirm_delete_team')}
       />
-    </Box>
+    </>
   );
 };
 

@@ -29,6 +29,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import java.util.Collection;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -69,7 +72,13 @@ public class TeamController {
 
     public TeamShowDTO getById(@PathVariable("id") Long id, HttpServletRequest req) {
         User user = userService.whoami(req);
-        Optional<Team> optionalTeam = teamService.findById(id);
+        if (user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT) &&
+                !user.getRole().getViewPermissions().contains(PermissionEntity.PEOPLE_AND_TEAMS)) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        Optional<Team> optionalTeam = user.getRole().getRoleType().equals(RoleType.ROLE_CLIENT)
+                ? teamService.findByIdAndCompany(id, user.getCompany().getId())
+                : teamService.findById(id);
         if (optionalTeam.isPresent()) {
             Team savedTeam = optionalTeam.get();
             return teamMapper.toShowDto(savedTeam);
@@ -82,6 +91,7 @@ public class TeamController {
                        HttpServletRequest req) {
         User user = userService.whoami(req);
         if (user.getRole().getCreatePermissions().contains(PermissionEntity.PEOPLE_AND_TEAMS)) {
+            teamReq.setUsers(resolveMembers(teamReq.getUsers(), user));
             Team savedTeam = teamService.create(teamReq);
             teamService.notify(savedTeam, Helper.getLocale(user));
             return teamMapper.toShowDto(savedTeam);
@@ -96,9 +106,17 @@ public class TeamController {
                                      "id") Long id,
                              HttpServletRequest req) {
         User user = userService.whoami(req);
-        Optional<Team> optionalTeam = teamService.findById(id);
+        Optional<Team> optionalTeam = teamService.findByIdAndCompany(id, user.getCompany().getId());
         if (optionalTeam.isPresent()) {
             Team savedTeam = optionalTeam.get();
+            boolean canEdit = user.getId().equals(savedTeam.getCreatedBy()) ||
+                    user.getRole().getEditOtherPermissions().contains(PermissionEntity.PEOPLE_AND_TEAMS);
+            if (!canEdit) {
+                throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
+            }
+            if (team.getUsers() != null) {
+                team.setUsers(resolveMembers(team.getUsers(), user));
+            }
             em.detach(savedTeam);
             Team patchTeam = teamService.update(id, team);
             teamService.patchNotify(savedTeam, patchTeam, Helper.getLocale(user));
@@ -112,10 +130,10 @@ public class TeamController {
     public ResponseEntity delete(@PathVariable("id") Long id, HttpServletRequest req) {
         User user = userService.whoami(req);
 
-        Optional<Team> optionalTeam = teamService.findById(id);
+        Optional<Team> optionalTeam = teamService.findByIdAndCompany(id, user.getCompany().getId());
         if (optionalTeam.isPresent()) {
             Team savedTeam = optionalTeam.get();
-            if (savedTeam.getCreatedBy().equals(user.getId()) || user.getRole().getDeleteOtherPermissions().contains(PermissionEntity.PEOPLE_AND_TEAMS)) {
+            if (user.getId().equals(savedTeam.getCreatedBy()) || user.getRole().getDeleteOtherPermissions().contains(PermissionEntity.PEOPLE_AND_TEAMS)) {
                 teamService.delete(id);
                 return new ResponseEntity(new SuccessResponse(true, "Deleted successfully"),
                         HttpStatus.OK);
@@ -123,7 +141,29 @@ public class TeamController {
         } else throw new CustomException("Team not found", HttpStatus.NOT_FOUND);
     }
 
+    /**
+     * Resolve member references inside the requester's tenant instead of
+     * trusting deserialized User entities supplied by the client. Team
+     * membership grants operational access to assigned work orders, so a
+     * foreign or disabled user must never be attached by raw ID.
+     */
+    private List<User> resolveMembers(Collection<User> memberReferences, User requester) {
+        if (memberReferences == null) return new ArrayList<>();
+        LinkedHashSet<Long> memberIds = new LinkedHashSet<>();
+        for (User memberReference : memberReferences) {
+            if (memberReference == null || memberReference.getId() == null) {
+                throw new CustomException("Invalid team member", HttpStatus.NOT_ACCEPTABLE);
+            }
+            memberIds.add(memberReference.getId());
+        }
+        List<User> members = new ArrayList<>();
+        for (Long memberId : memberIds) {
+            User member = userService.findByIdAndCompany(memberId, requester.getCompany().getId())
+                    .filter(User::isEnabled)
+                    .orElseThrow(() -> new CustomException("Invalid team member", HttpStatus.NOT_ACCEPTABLE));
+            members.add(member);
+        }
+        return members;
+    }
+
 }
-
-
-
