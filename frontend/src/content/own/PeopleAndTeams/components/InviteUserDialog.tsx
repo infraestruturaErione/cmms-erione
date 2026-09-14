@@ -7,13 +7,14 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  IconButton,
   InputAdornment,
-  Paper,
+  Stack,
   TextField,
   Typography
 } from '@mui/material';
-import { grey } from '@mui/material/colors';
-import UserRoleCardList from '../UserRoleCardList';
+import CloseTwoToneIcon from '@mui/icons-material/CloseTwoTone';
+import UserRoleCardList from './UserRoleCardList';
 import { EmailOutlined } from '@mui/icons-material';
 import { inviteUsers } from '../../../../slices/user';
 import * as React from 'react';
@@ -24,7 +25,19 @@ import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContex
 import { useDispatch, useSelector } from '../../../../store';
 import { isEmailVerificationEnabled } from '../../../../config';
 import CreateUser from './CreateUser';
-import { Simulate } from 'react-dom/test-utils';
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography
+      variant="caption"
+      color="text.secondary"
+      fontWeight={700}
+      sx={{ display: 'block', mb: 1, letterSpacing: 0.2 }}
+    >
+      {children}
+    </Typography>
+  );
+}
 
 export default function InviteUserDialog({
   open,
@@ -49,9 +62,6 @@ export default function InviteUserDialog({
 
   const onRoleChange = (id: number) => {
     setRoleId(id);
-    setTimeout(() => {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 500);
   };
   const verifyCurrentEmail = (): boolean => {
     if (currentEmail) {
@@ -80,70 +90,75 @@ export default function InviteUserDialog({
   };
 
   return (
-    <Dialog fullWidth maxWidth="sm" open={open} onClose={onClose}>
-      <DialogTitle
-        sx={{
-          p: 3
-        }}
-      >
-        <Typography variant="h4" gutterBottom>
-          {t('invite_users')}
-        </Typography>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth={false}
+      PaperProps={{ sx: { width: 720, maxWidth: '94vw', borderRadius: 2 } }}
+    >
+      <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1.5 }}>
+        <Stack
+          direction="row"
+          alignItems="flex-start"
+          justifyContent="space-between"
+          spacing={2}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h4">{t('invite_users')}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+              {t(
+                'invite_users_dialog_subtitle',
+                'Escolha o acesso e informe os dados do usuário.'
+              )}
+            </Typography>
+          </Box>
+          <IconButton
+            aria-label="close"
+            onClick={onClose}
+            size="small"
+            sx={{ mt: -0.5, mr: -0.5 }}
+          >
+            <CloseTwoToneIcon fontSize="small" />
+          </IconButton>
+        </Stack>
       </DialogTitle>
 
       <DialogContent
-        dividers
         sx={{
-          p: 3,
-          display: 'flex',
-          justifyContent: 'center'
+          px: 3,
+          pt: 0,
+          pb: 3
         }}
       >
-        <Box sx={{ width: '95%' }}>
-          <Paper
-            elevation={0}
-            sx={{
-              mb: 2,
-              p: 2,
-              textAlign: 'center',
-              background: grey[100]
-            }}
-          >
-            <Box
-              component="img"
-              sx={{
-                height: 50,
-                width: 50
-              }}
-              alt={
-                "<a href='https://www.flaticon.com/free-icons/team' title='team icons'>Team icons created by Freepik - Flaticon</a>"
-              }
-              src="/static/images/team.png"
-            />
-            <Typography variant="h5">{t('bring_people_team')}</Typography>
-          </Paper>
-          <Box pb={3}>
-            <UserRoleCardList onChange={onRoleChange} />
-          </Box>
+        <Box sx={{ mb: 2.5 }}>
+          <SectionLabel>{t('access', 'Acesso')}</SectionLabel>
+          <UserRoleCardList onChange={onRoleChange} />
+        </Box>
+
+        <Box>
+          <SectionLabel>{t('user_data', 'Dados do usuário')}</SectionLabel>
+
           {isEmailVerificationEnabled ? (
             <>
-              <Grid container spacing={1}>
-                {emails.map((email, index) => (
-                  <Grid item key={index}>
-                    <Chip
-                      label={email}
-                      onDelete={() => {
-                        const emailsClone = [...emails];
-                        emailsClone.splice(index, 1);
-                        setEmails(emailsClone);
-                      }}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
+              {!!emails.length && (
+                <Grid container spacing={1} sx={{ mb: 1.5 }}>
+                  {emails.map((email, index) => (
+                    <Grid item key={index}>
+                      <Chip
+                        label={email}
+                        onDelete={() => {
+                          const emailsClone = [...emails];
+                          emailsClone.splice(index, 1);
+                          setEmails(emailsClone);
+                        }}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
               <TextField
-                sx={{ my: 2 }}
                 fullWidth
+                size="small"
                 helperText={t('add_20_users')}
                 label={t('enter_email')}
                 placeholder={t('example@email.com')}
@@ -167,64 +182,76 @@ export default function InviteUserDialog({
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <EmailOutlined />
+                      <EmailOutlined fontSize="small" />
                     </InputAdornment>
                   )
                 }}
               />
-              <Button
-                fullWidth
-                sx={{ mb: 3 }}
-                onClick={async () => {
-                  setIsInviteSubmitting(true);
-                  const invite = (emails: string[]) =>
-                    dispatch(inviteUsers(roleId, emails, false))
-                      .then(() => {
-                        onClose();
-                        setEmails([]);
-                        setCurrentEmail('');
-                        showSnackBar(t('users_invite_success'), 'success');
-                      })
-                      .catch((err: { message: string }) => {
-                        showSnackBar(JSON.parse(err.message).message, 'error');
-                      })
-                      .finally(() => setIsInviteSubmitting(false));
-                  if (roleId) {
-                    if (emails.length || currentEmail) {
-                      if (currentEmail) {
-                        if (verifyCurrentEmail())
-                          invite([...emails, currentEmail]);
+              <Box
+                ref={bottomRef}
+                sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2.5 }}
+              >
+                <Button
+                  color="inherit"
+                  onClick={onClose}
+                  disabled={isInviteSubmitting}
+                >
+                  {t('cancel')}
+                </Button>
+                <Button
+                  onClick={async () => {
+                    setIsInviteSubmitting(true);
+                    const invite = (emails: string[]) =>
+                      dispatch(inviteUsers(roleId, emails, false))
+                        .then(() => {
+                          onClose();
+                          setEmails([]);
+                          setCurrentEmail('');
+                          showSnackBar(t('users_invite_success'), 'success');
+                        })
+                        .catch((err: { message: string }) => {
+                          showSnackBar(JSON.parse(err.message).message, 'error');
+                        })
+                        .finally(() => setIsInviteSubmitting(false));
+                    if (roleId) {
+                      if (emails.length || currentEmail) {
+                        if (currentEmail) {
+                          if (verifyCurrentEmail())
+                            invite([...emails, currentEmail]);
+                        } else {
+                          invite(emails);
+                        }
                       } else {
-                        invite(emails);
+                        showSnackBar(t('please_type_emails'), 'error');
+                        setIsInviteSubmitting(false);
                       }
                     } else {
-                      showSnackBar(t('please_type_emails'), 'error');
+                      showSnackBar(t('please_select_role'), 'error');
                       setIsInviteSubmitting(false);
                     }
-                  } else {
-                    showSnackBar(t('please_select_role'), 'error');
-                    setIsInviteSubmitting(false);
+                  }}
+                  variant="contained"
+                  startIcon={
+                    isInviteSubmitting ? <CircularProgress size="1rem" /> : null
                   }
-                }}
-                variant="contained"
-                startIcon={
-                  isInviteSubmitting ? <CircularProgress size="1rem" /> : null
-                }
-                disabled={isInviteSubmitting}
-              >
-                {t('invite')}
-              </Button>
+                  disabled={isInviteSubmitting}
+                >
+                  {t('invite')}
+                </Button>
+              </Box>
             </>
           ) : (
             roleId && (
-              <CreateUser
-                roleId={roleId}
-                onClose={onClose}
-                onRefreshUsers={onRefreshUsers}
-              />
+              <>
+                <CreateUser
+                  roleId={roleId}
+                  onClose={onClose}
+                  onRefreshUsers={onRefreshUsers}
+                />
+                <Box ref={bottomRef} />
+              </>
             )
           )}
-          <Box ref={bottomRef} />
         </Box>
       </DialogContent>
     </Dialog>
