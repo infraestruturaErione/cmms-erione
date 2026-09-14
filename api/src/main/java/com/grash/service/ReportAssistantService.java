@@ -727,14 +727,16 @@ public class ReportAssistantService {
         }
     }
 
-    private Date toStartDate(String value, User user) {
-        LocalDate localDate = LocalDate.parse(value, ISO_DATE);
-        return Date.from(localDate.atStartOfDay(getCompanyZone(user)).toInstant());
+    // WorkOrderOperationalReportRequestDTO.start/end agora sao LocalDate (data
+    // civil) - e' o proprio WorkOrderOperationalReportService quem resolve
+    // pro instante certo no fuso da empresa (Helper.getCompanyZoneId), entao
+    // nao precisa mais pre-resolver timezone aqui.
+    private LocalDate toStartDate(String value, User user) {
+        return LocalDate.parse(value, ISO_DATE);
     }
 
-    private Date toEndDateInclusive(String value, User user) {
-        LocalDate localDate = LocalDate.parse(value, ISO_DATE);
-        return Date.from(localDate.plusDays(1).atStartOfDay(getCompanyZone(user)).minusNanos(1).toInstant());
+    private LocalDate toEndDateInclusive(String value, User user) {
+        return LocalDate.parse(value, ISO_DATE);
     }
 
     private ZoneId getCompanyZone(User user) {

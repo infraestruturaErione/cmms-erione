@@ -100,14 +100,6 @@ const periodFieldOptions: WorkOrderOperationalReportPeriodField[] = [
   'CHECK_IN_AT'
 ];
 
-function toIsoStart(value: string): string {
-  return value ? `${value}T00:00:00.000Z` : null;
-}
-
-function toIsoEnd(value: string): string {
-  return value ? `${value}T23:59:59.999Z` : null;
-}
-
 function formatDuration(seconds: number): string {
   if (seconds === null || seconds === undefined) return '--';
   const hours = Math.floor(seconds / 3600);
@@ -282,8 +274,12 @@ function WorkOrderOperationalReport() {
     dispatch(
       getWorkOrderOperationalReport({
         periodField: currentFilters.periodField,
-        start: toIsoStart(currentFilters.start),
-        end: toIsoEnd(currentFilters.end),
+        // Data civil pura ("2026-09-12"), sem hora/fuso - mesmo padrao do
+        // Bulk (WorkOrderBulkReport). O backend e' quem resolve pro instante
+        // certo usando o timezone da empresa; nao fingir aqui que a data
+        // local escolhida ja e' um instante UTC.
+        start: currentFilters.start || null,
+        end: currentFilters.end || null,
         searchCriteria: buildCriteria(currentFilters, currentPagination)
       })
     );

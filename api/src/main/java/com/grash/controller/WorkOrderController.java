@@ -604,13 +604,7 @@ public class WorkOrderController {
         // do dia SEGUINTE ao final (exclusivo), ambos calculados no fuso da
         // empresa - nunca no fuso do navegador nem no fuso da JVM (que e'
         // sempre UTC, ver ApiApplication.configureDefaultTimeZone).
-        String companyTimeZoneId = user.getCompany().getCompanySettings().getGeneralPreferences().getTimeZone();
-        ZoneId companyZone;
-        try {
-            companyZone = ZoneId.of(companyTimeZoneId);
-        } catch (Exception invalidZone) {
-            companyZone = ZoneId.of(GeneralPreferences.DEFAULT_TIME_ZONE);
-        }
+        ZoneId companyZone = Helper.getCompanyZoneId(user.getCompany());
         Date periodStartInstant = Date.from(request.getStart().atStartOfDay(companyZone).toInstant());
         Date periodEndExclusiveInstant = Date.from(request.getEnd().plusDays(1).atStartOfDay(companyZone).toInstant());
 

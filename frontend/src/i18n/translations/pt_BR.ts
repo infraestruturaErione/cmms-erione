@@ -756,15 +756,15 @@ const ptBRJSON = {
     'Acompanhe a execucao em campo por cliente, local, equipamento, status e periodo.',
   operational_report_page_summary_note:
     'Nesta fase, os cards de resumo sao calculados somente sobre a pagina carregada.',
-  bulk_report_by_city_title: 'Relatório em massa por cidade',
+  bulk_report_by_city_title: 'Relatório em massa por cliente',
   bulk_report_by_city_helper:
-    'Escolha um cliente: o relatório traz as OS concluídas de todos os clientes da mesma cidade, no período selecionado.',
+    'Escolha um cliente: o relatório traz as OS concluídas desse cliente, no período selecionado.',
   bulk_report_period_required:
     'Selecione data inicial e final antes de gerar o relatório em massa',
   generate_bulk_report: 'Gerar relatório em massa',
   bulk_report_history: 'Relatórios em Massa',
   bulk_report_history_subtitle:
-    'Gere relatórios combinando as OS concluídas de uma cidade e acompanhe o histórico de solicitações.',
+    'Gere relatórios combinando as OS concluídas de um cliente e acompanhe o histórico de solicitações.',
   bulk_report_download_center_title: 'Central de relatórios',
   bulk_report_download_center_info:
     'Após solicitar um relatório, o arquivo fica disponível para download por 7 dias e depois é apagado automaticamente.',

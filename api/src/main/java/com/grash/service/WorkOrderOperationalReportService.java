@@ -12,11 +12,13 @@ import com.grash.model.User;
 import com.grash.model.WorkOrder;
 import com.grash.model.enums.Status;
 import com.grash.repository.CommentRepository;
+import com.grash.utils.Helper;
 import jakarta.persistence.criteria.JoinType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -40,7 +42,7 @@ public class WorkOrderOperationalReportService {
     private final CommentRepository commentRepository;
 
     public WorkOrderOperationalReportResponseDTO buildReport(WorkOrderOperationalReportRequestDTO request, User user) {
-        SearchCriteria criteria = buildCriteria(request);
+        SearchCriteria criteria = buildCriteria(request, user);
         Page<WorkOrder> workOrders = workOrderService.findBySearchCriteria(workOrderService.getSearchCriteria(user,
                 criteria), user);
         List<Comment> fieldComments = getFieldComments(workOrders.getContent());
@@ -64,7 +66,7 @@ public class WorkOrderOperationalReportService {
                 .build();
     }
 
-    private SearchCriteria buildCriteria(WorkOrderOperationalReportRequestDTO request) {
+    private SearchCriteria buildCriteria(WorkOrderOperationalReportRequestDTO request, User user) {
         WorkOrderOperationalReportRequestDTO safeRequest = request == null ? new WorkOrderOperationalReportRequestDTO() :
                 request;
         SearchCriteria source = safeRequest.getSearchCriteria() == null ? new SearchCriteria() :
@@ -77,7 +79,7 @@ public class WorkOrderOperationalReportService {
         criteria.setFilterFields(source.getFilterFields() == null ? new ArrayList<>() : new ArrayList<>(source
                 .getFilterFields()));
         normalizeFilterAliases(criteria);
-        addPeriodFilters(criteria, safeRequest);
+        addPeriodFilters(criteria, safeRequest, user);
         return criteria;
     }
 
@@ -92,21 +94,35 @@ public class WorkOrderOperationalReportService {
         });
     }
 
-    private void addPeriodFilters(SearchCriteria criteria, WorkOrderOperationalReportRequestDTO request) {
+    // Mesma regra do relatorio em massa (WorkOrderController.getBulkPDF): o
+    // periodo representa datas CIVIS (LocalDate) no fuso configurado da
+    // empresa, nao um instante UTC - o frontend nao deve fingir que a data
+    // local escolhida ja e' UTC. Inicio do dia inicial (inclusive) ate' o
+    // inicio do dia SEGUINTE ao final (exclusivo), ambos calculados no fuso
+    // da empresa via Helper.getCompanyZoneId - nunca no fuso do navegador
+    // nem no fuso da JVM (sempre UTC, ver ApiApplication.
+    // configureDefaultTimeZone).
+    private void addPeriodFilters(SearchCriteria criteria, WorkOrderOperationalReportRequestDTO request, User user) {
         String periodField = request.getPeriodField() == null ? "createdAt" : request.getPeriodField().getFieldName();
+        if (request.getStart() == null && request.getEnd() == null) {
+            return;
+        }
+        ZoneId companyZone = Helper.getCompanyZoneId(user.getCompany());
         if (request.getStart() != null) {
+            Date startInstant = Date.from(request.getStart().atStartOfDay(companyZone).toInstant());
             criteria.getFilterFields().add(FilterField.builder()
                     .field(periodField)
                     .operation("ge")
-                    .value(request.getStart())
+                    .value(startInstant)
                     .values(new ArrayList<>())
                     .build());
         }
         if (request.getEnd() != null) {
+            Date endExclusiveInstant = Date.from(request.getEnd().plusDays(1).atStartOfDay(companyZone).toInstant());
             criteria.getFilterFields().add(FilterField.builder()
                     .field(periodField)
-                    .operation("le")
-                    .value(request.getEnd())
+                    .operation("lt")
+                    .value(endExclusiveInstant)
                     .values(new ArrayList<>())
                     .build());
         }

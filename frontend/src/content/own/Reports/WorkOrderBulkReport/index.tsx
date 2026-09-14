@@ -76,10 +76,9 @@ function WorkOrderBulkReport() {
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
-  // Selecionar qualquer cliente do dropdown sempre funciona - nao existe
-  // bloqueio por falta de cidade. O backend decide sozinho: se o cliente
-  // escolhido tem Customer.city preenchido, agrupa todos os clientes daquela
-  // cidade; se nao tem, usa so o cliente escolhido.
+  // Relatorio restrito EXCLUSIVAMENTE ao cliente selecionado no dropdown -
+  // nunca agrupa por cidade (confirmado no backend, WorkOrderController.
+  // getBulkPDF). Cidade e' so' dado cadastral exibido no PDF.
 
   useEffect(() => {
     setTitle(t('bulk_report_history'));

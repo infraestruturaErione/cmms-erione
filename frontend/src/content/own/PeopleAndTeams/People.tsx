@@ -313,7 +313,7 @@ const People = ({
                   {fullName}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" noWrap>
-                  {selectedUser.jobTitle || t('technician', 'Técnico/usuário')}
+                  {selectedUser.jobTitle || t('no_job_title', 'Sem cargo')}
                 </Typography>
               </Box>
             </Stack>

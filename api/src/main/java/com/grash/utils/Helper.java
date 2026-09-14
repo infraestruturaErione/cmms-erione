@@ -127,6 +127,23 @@ public class Helper {
         return new Date(date.getTime() + seconds * 1000);
     }
 
+    // Fuso horario FUNCIONAL da empresa (ex: America/Sao_Paulo) - usado pra
+    // resolver a que instante UTC uma data civil (LocalDate) escolhida pelo
+    // usuario corresponde. NUNCA usar ZoneId.systemDefault()/TimeZone padrao
+    // da JVM aqui - a JVM roda sempre em UTC (ver ApiApplication.
+    // configureDefaultTimeZone), entao isso daria meia-noite UTC, nao meia-
+    // noite no fuso real da empresa. Mesma logica usada pelo relatorio em
+    // massa (WorkOrderController.getBulkPDF), extraida aqui pra nao duplicar
+    // no relatorio operacional.
+    public static ZoneId getCompanyZoneId(Company company) {
+        String companyTimeZoneId = company.getCompanySettings().getGeneralPreferences().getTimeZone();
+        try {
+            return ZoneId.of(companyTimeZoneId);
+        } catch (Exception invalidZone) {
+            return ZoneId.of(GeneralPreferences.DEFAULT_TIME_ZONE);
+        }
+    }
+
     public static Locale getLocale(User user) {
         return getLocale(user.getCompany());
     }
