@@ -16,6 +16,16 @@ import java.util.List;
 @NoArgsConstructor
 @Schema(description = "Base DTO for task definitions")
 public class TaskBaseDTO {
+    // Preenchido pelo cliente so no bulk sync de checklist de uma WorkOrder/
+    // PreventiveMaintenance existente (PATCH /tasks/work-order/{id} e
+    // /tasks/preventive-maintenance/{id}) para identificar qual Task ja
+    // existente este item representa, preservando resposta/foto/timestamps
+    // ja registrados mesmo que label/tipo/etc tenha mudado. Ignorado em
+    // ChecklistService (create/update de template de checklist), onde nao
+    // ha Task nenhuma envolvida. Null = item novo.
+    @Schema(description = "ID of the existing Task this item represents, when editing a WorkOrder/PreventiveMaintenance checklist that already has answers; null when creating a new item")
+    private Long id;
+
     @Schema(description = "Task label or title")
     @NotNull
     private String label;

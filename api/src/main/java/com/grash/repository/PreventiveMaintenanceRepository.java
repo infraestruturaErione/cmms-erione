@@ -15,6 +15,8 @@ public interface PreventiveMaintenanceRepository extends JpaRepository<Preventiv
         JpaSpecificationExecutor<PreventiveMaintenance> {
     Collection<PreventiveMaintenance> findByCompany_Id(@Param("x") Long id);
 
+    boolean existsByCategory_Id(Long id);
+
     List<PreventiveMaintenance> findByCreatedAtBeforeAndCompany_Id(Date start, Long companyId);
 
     void deleteByCompany_IdAndIsDemoTrue(Long companyId);

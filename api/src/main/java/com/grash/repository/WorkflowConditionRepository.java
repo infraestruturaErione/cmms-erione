@@ -7,4 +7,6 @@ import java.util.Collection;
 
 public interface WorkflowConditionRepository extends JpaRepository<WorkflowCondition, Long> {
     Collection<WorkflowCondition> findByCompany_Id(Long id);
+
+    boolean existsByWorkOrderCategory_Id(Long id);
 }

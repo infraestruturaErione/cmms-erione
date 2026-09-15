@@ -7,4 +7,6 @@ import java.util.Collection;
 
 public interface WorkOrderMeterTriggerRepository extends JpaRepository<WorkOrderMeterTrigger, Long> {
     Collection<WorkOrderMeterTrigger> findByMeter_Id(Long id);
+
+    boolean existsByCategory_Id(Long id);
 }

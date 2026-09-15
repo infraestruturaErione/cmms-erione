@@ -93,6 +93,41 @@ public class TaskBaseService {
         return savedTaskBase;
     }
 
+    // F5 - atualiza a TaskBase de uma Task ja existente IN PLACE (mesmo id),
+    // usado pelo bulk sync do checklist de uma WorkOrder/PreventiveMaintenance
+    // (TaskController.updateEntityTasks) quando o cliente informa
+    // TaskBaseDTO.id. Ao contrario de createFromTaskBaseDTO (que sempre cria
+    // uma TaskBase nova), este metodo nunca deleta/recria a Task dona nem o
+    // TaskBase em si - so muta os campos - preservando Task.value/notes/
+    // images (resposta e evidencia ja registrada pelo tecnico) mesmo que o
+    // texto/config da pergunta tenha mudado. As TaskOption sao recriadas
+    // (clear + addAll) porque sao so a lista de alternativas da pergunta, nao
+    // um registro historico por si - a resposta escolhida fica em Task.value,
+    // que este metodo nunca toca.
+    @Transactional
+    public TaskBase updateFromTaskBaseDTO(TaskBase existing, TaskBaseDTO taskBaseDTO, Company company) {
+        existing.setLabel(taskBaseDTO.getLabel());
+        existing.setTaskType(taskBaseDTO.getTaskType());
+        existing.setUser(taskBaseDTO.getUser() != null
+                ? userService.findById(taskBaseDTO.getUser().getId()).orElse(null) : null);
+        existing.setAsset(taskBaseDTO.getAsset() != null
+                ? assetService.findById(taskBaseDTO.getAsset().getId()).orElse(null) : null);
+        existing.setMeter(taskBaseDTO.getMeter() != null
+                ? meterService.findById(taskBaseDTO.getMeter().getId()).orElse(null) : null);
+
+        existing.getOptions().clear();
+        if (taskBaseDTO.getOptions() != null) {
+            taskBaseDTO.getOptions().forEach(option -> {
+                if (!option.trim().isEmpty()) {
+                    TaskOption taskOption = new TaskOption(option, existing);
+                    TaskOption savedTaskOption = taskOptionService.create(taskOption);
+                    existing.getOptions().add(savedTaskOption);
+                }
+            });
+        }
+        return taskBaseRepository.saveAndFlush(existing);
+    }
+
     public TaskBase update(Long id, TaskBasePatchDTO taskBase) {
         if (taskBaseRepository.existsById(id)) {
             TaskBase savedTaskBase = taskBaseRepository.findById(id).get();

@@ -95,19 +95,45 @@ public class TaskController {
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }
 
+    // Visibilidade de pacote (nao private) de proposito: permite teste
+    // unitario direto do bulk sync (F5), sem precisar mockar toda a cadeia
+    // de dependencias dos endpoints publicos - mesmo criterio ja usado em
+    // WorkOrderService.applyCategoryCompletionRequirementsSnapshot.
     @NotNull
-    private List<Task> updateEntityTasks(List<TaskBaseDTO> incomingTasks, List<Task> savedTasks, User user,
-                                         PreventiveMaintenance preventiveMaintenance, WorkOrder workOrder) {
+    List<Task> updateEntityTasks(List<TaskBaseDTO> incomingTasks, List<Task> savedTasks, User user,
+                                 PreventiveMaintenance preventiveMaintenance, WorkOrder workOrder) {
         List<Task> resultTasks = new ArrayList<>();
         List<Task> matchedTasks = new ArrayList<>();
 
         // Process each incoming task
         for (TaskBaseDTO reqTaskBase : incomingTasks) {
-            // Find matching existing task by comparing task base properties
-            Task matchedTask = savedTasks.stream()
-                    .filter(task -> !matchedTasks.contains(task) && tasksMatch(task.getTaskBase(), reqTaskBase))
-                    .findFirst()
-                    .orElse(null);
+            // F5 - quando o cliente informa qual Task esta editando, casa por
+            // ID primeiro e atualiza a TaskBase em vez de deletar/recriar -
+            // preserva value/notes/images mesmo que label/tipo/etc tenha
+            // mudado. So considera Tasks de savedTasks (ja escopadas a esta
+            // WorkOrder/PM), entao um id de outra OS simplesmente nao casa
+            // aqui (cai no fallback por conteudo ou vira item novo).
+            Task matchedTask = null;
+            if (reqTaskBase.getId() != null) {
+                matchedTask = savedTasks.stream()
+                        .filter(task -> !matchedTasks.contains(task) && task.getId().equals(reqTaskBase.getId()))
+                        .findFirst()
+                        .orElse(null);
+                if (matchedTask != null) {
+                    taskBaseService.updateFromTaskBaseDTO(matchedTask.getTaskBase(), reqTaskBase, user.getCompany());
+                }
+            }
+
+            if (matchedTask == null) {
+                // Find matching existing task by comparing task base properties
+                // (fallback pra clientes que ainda nao mandam id, ex: sync
+                // inicial logo apos a criacao da OS, quando nenhuma Task
+                // existe ainda).
+                matchedTask = savedTasks.stream()
+                        .filter(task -> !matchedTasks.contains(task) && tasksMatch(task.getTaskBase(), reqTaskBase))
+                        .findFirst()
+                        .orElse(null);
+            }
 
             if (matchedTask != null) {
                 // Task already exists - preserve it with all its data (notes, images, value)
@@ -129,13 +155,29 @@ public class TaskController {
             }
         }
 
-        // Delete tasks that are no longer in the incoming request
+        // Delete tasks that are no longer in the incoming request - mas nunca
+        // uma que ja tem resposta/nota/foto registrada (F5): sair da lista
+        // enviada (ex: rename que deixou de casar por conteudo, ou item
+        // removido do formulario) nao pode apagar historico do tecnico.
+        // Fica preservada, so nao aparece mais no resultTasks retornado.
         savedTasks.forEach(task -> {
-            if (!matchedTasks.contains(task)) {
+            if (!matchedTasks.contains(task) && !taskHasRecordedData(task)) {
                 taskService.delete(task.getId());
             }
         });
         return resultTasks;
+    }
+
+    // F5 - criterio de "ja foi usada": alguma evidencia de interacao do
+    // tecnico. Value comeca "OPEN" (SUBTASK) ou "" (demais tipos) antes de
+    // qualquer resposta - ver WorkOrderService.applyCategoryDefaults - entao
+    // "OPEN" sozinho nao conta como usada, qualquer outro valor no-vazio
+    // conta.
+    private boolean taskHasRecordedData(Task task) {
+        if (task.getImages() != null && !task.getImages().isEmpty()) return true;
+        if (task.getNotes() != null && !task.getNotes().trim().isEmpty()) return true;
+        String value = task.getValue();
+        return value != null && !value.trim().isEmpty() && !"OPEN".equals(value);
     }
 
     @PatchMapping("/work-order/{id}")

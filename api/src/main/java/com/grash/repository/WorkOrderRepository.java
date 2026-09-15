@@ -55,6 +55,8 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long>, Jpa
 
     Collection<WorkOrder> findByCategory_Id(Long id);
 
+    boolean existsByCategory_Id(Long id);
+
     Collection<WorkOrder> findByCompletedOnBetweenAndCompany_Id(Date date1, Date date2, Long id);
 
     Collection<WorkOrder> findByCreatedBy(Long id);

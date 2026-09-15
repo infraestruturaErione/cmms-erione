@@ -929,3 +929,83 @@ mesmo jeito com `lt`/`gt`, so nunca foi exposto porque a tela de filtros
   (nenhum card, filtro ou destaque visual nesta rodada - so o motor
   generico de filtros foi corrigido).
 - Commit: `08b69fe`. Local, ainda nao enviado ao GitHub.
+
+## 2026-09-14/15 - Redesign People/Teams, correcao de IDOR em Team/User, e auditoria pesada de Relatorios
+
+### Redesign visual de People/Teams (commit `9a3bc02`)
+
+`InviteUserDialog` reformulado: removida a area decorativa com
+ilustracao, papeis de acesso viraram grid compacto de 2 colunas (radio +
+nome + descricao truncada com tooltip, sem card grande por papel). Toda a
+logica preservada (isEmailVerificationEnabled, CreateUser/RegisterJWT,
+validacoes, limite de 20 emails, dispatches, permissoes) - so' mudou
+apresentacao. `Teams.tsx` NAO foi redesenhado (decisao explicita do
+usuario, ficou so' com o redesign geral de registries ja existente).
+
+### Correcao de IDOR/escalonamento em Team/User (commit `915ca59`)
+
+- `TeamController`: `getById`/`update`/`delete` trocaram `findById`
+  (global) por `findByIdAndCompany` - mesmo padrao ja usado em outros
+  controllers. `resolveMembers` novo - resolve membro de Team por ID
+  server-side (`findByIdAndCompany` + `isEnabled`) em vez de confiar no
+  objeto `User` deserializado do payload do cliente.
+- `UserController`: usuario com escopo restrito (`allowedCustomers`)
+  editando o proprio perfil nao consegue mais zerar/alterar o proprio
+  `allowedCustomers` (escalonamento de privilegio) a menos que quem faz a
+  chamada ja tenha `editOtherPermissions.PEOPLE_AND_TEAMS`.
+- Testes novos: `TeamControllerAuthorizationTest` (11), `UserSelfEditAuthorizationTest`
+  (5). `team.test.js`/`user.test.js` no frontend (6 no total). Todos
+  passando antes do commit.
+
+### Auditoria pesada de Relatorios (commit `ad0c2fb`)
+
+Ver nota dedicada: `Timezone-Data-Hora-Erione-CMMS.md` (secao
+"2026-09-14/15") pro detalhe completo do RPT-01 (borda de data/fuso do
+Relatorio Operacional, corrigido) e do achado de exportacao Excel/PDF
+(pagina atual, nao corrigido por decisao do usuario).
+
+- Texto da tela do Bulk Report corrigido: falava em "agrupar por cidade",
+  mas essa busca por cidade JA tinha sido removida de proposito em
+  `02315ca` (ver entrada `2026-08-06` acima, "relatorio em massa nao pode
+  mais misturar OS de clientes diferentes por cidade") - o texto nunca
+  foi atualizado depois daquela correcao. So' copy, comportamento
+  (restrito ao customerId selecionado) nao mudou - reconfirmado ao vivo
+  hoje com fixture de 2 clientes na mesma cidade, sem vazamento.
+- `People.tsx`: fallback do campo `jobTitle` vazio mostrava um texto fixo
+  "Tecnico/usuario" pra QUALQUER papel (Admin, Requester, etc.) quando o
+  cargo nao estava preenchido - lido erroneamente como "todo mundo e'
+  tecnico". Trocado pro mesmo padrao ja usado ao lado (`Sem telefone`):
+  agora mostra "Sem cargo". A coluna "Funcao" (role real) sempre esteve
+  correta, nao foi tocada.
+- Achado de seguranca, NAO corrigido nesta rodada (fora do escopo de
+  Relatorios): `ApiKeyController.create` sem checagem de `PermissionEntity
+  .SETTINGS` (so' `getById`/`delete` checam); `WebhookEndpointController`
+  inteiro sem NENHUM `@PreAuthorize` alem da autenticacao global. Qualquer
+  usuario logado, de qualquer papel, cria chave de API ou webhook.
+
+### Pendente / pausado (nao corrigido nesta rodada)
+
+Tarefa TEST-FIRST de escopo de Customer nas escritas de WorkOrder
+(`patch`/`change-status`/`depart`/`check-in`/`check-out`/`delete` em
+`WorkOrderController`) foi iniciada e depois pausada pelo usuario pra
+priorizar Relatorios. Teste `WorkOrderCustomerScopeWriteAuthorizationTest.java`
+(17 casos, 9 falhando de proposito - prova o gap, fix nunca aplicado)
+ainda esta untracked no repo, NAO commitado.
+
+**Achado importante pra retomar essa tarefa:** ja existe
+`WorkOrderService.checkWriteAccessToWorkOrderId` (linha ~341), que
+JA aplica escopo de customer (via `checkAccessToWorkOrderId` ->
+`customerScopeService.canAccessWorkOrderBase`) e bloqueia Requester
+incondicionalmente. E' usado por `RequestController`, `RelationController`,
+`PartQuantityController`, `LaborController`, `AdditionalCostController`
+(sub-recursos administrativos da OS - custos/horas/pecas/relacoes/requests)
+- documentado em `Log-Alteracoes.md` do vault, entrada `2026-08-12`. **NAO
+e' usado pelos 6 endpoints da propria WorkOrder** (`patch`/`change-status`/
+`depart`/`check-in`/`check-out`/`delete`), que continuam so' com
+`canBeEditedBy`, sem escopo de customer - esse e' o gap real. Mas cuidado:
+`checkWriteAccessToWorkOrderId` bloqueia Requester SEMPRE, o que e' correto
+pra sub-recursos administrativos mas seria uma mudanca de regra a mais
+(nao pedida) se aplicado direto aos 6 endpoints operacionais, que hoje
+permitem Requester criador/atribuido operar a propria OS. Reusar so' a
+parte de escopo de customer (`canAccessWorkOrderBase`), nao o bloqueio
+incondicional de Requester.

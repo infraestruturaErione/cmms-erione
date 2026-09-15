@@ -66,6 +66,7 @@ public class WorkOrderService {
     private final MailServiceFactory mailServiceFactory;
     private final WorkOrderCategoryService workOrderCategoryService;
     private final TaskBaseService taskBaseService;
+    private final WorkOrderCompletionValidator workOrderCompletionValidator;
     private TaskService taskService;
     private WorkflowService workflowService;
     private final MessageSource messageSource;
@@ -109,6 +110,21 @@ public class WorkOrderService {
         WorkOrder savedWorkOrder = workOrderRepository.saveAndFlush(workOrder);
         em.refresh(savedWorkOrder);
         applyCategoryDefaults(savedWorkOrder);
+        // Fecha o caminho administrativo que deixava POST /work-orders criar
+        // uma OS ja "COMPLETE" sem assinatura/foto/checklist/relato - so'
+        // valida quando o proprio payload pede status=COMPLETE
+        // explicitamente (mesma regra de WorkOrderController.changeStatus,
+        // reaproveitando o WorkOrderCompletionValidator ja existente, nao
+        // uma regra nova). Nao afeta os outros 3 callers de create()
+        // (WorkOrderCreationJob/PM, RequestService/Request aprovada,
+        // ReadingController/meter trigger): todos passam por
+        // getWorkOrderFromWorkOrderBase, que nunca copia "status" - nasce
+        // sempre no default OPEN. Import historico (ImportController) usa
+        // um metodo totalmente separado (importWorkOrder), decisao
+        // explicita e ja documentada da Sprint 3B - tambem nao afetado.
+        if (savedWorkOrder.getStatus() == Status.COMPLETE) {
+            workOrderCompletionValidator.validate(savedWorkOrder, company);
+        }
         notify(savedWorkOrder, Helper.getLocale(company));
         Collection<Workflow> workflows =
                 workflowService.findByMainConditionAndCompany(WFMainCondition.WORK_ORDER_CREATED, company.getId());
@@ -197,6 +213,31 @@ public class WorkOrderService {
                 || (category != null && category.isRequireChecklistCompletion()));
     }
 
+    // F6 - o requiredSignature herdado da Category nao pode ser desligado por
+    // um PATCH que o omite. WorkOrderBasePatchDTO.requiredSignature e um
+    // boolean primitivo: quando o JSON nao manda o campo, Jackson desserializa
+    // como false, e o mapper (NullValuePropertyMappingStrategy.IGNORE so tem
+    // efeito em campos null, nunca em primitivos) reaplica esse false
+    // incondicionalmente - inclusive num PATCH que so muda a description.
+    // Mesma filosofia de OR ja usada no snapshot da criacao
+    // (applyCategoryCompletionRequirementsSnapshot): a categoria so LIGA,
+    // nunca desliga o que o usuario definiu. Roda depois do mapper, pra
+    // corrigir o valor antes de salvar - cobre tambem a troca de Category
+    // no mesmo PATCH, buscando sempre a Category atual (nao a referencia rasa
+    // que chega do JSON, que so tem o id preenchido).
+    // Visibilidade de pacote (nao private) de proposito: permite teste
+    // unitario direto, mesmo criterio ja usado em
+    // applyCategoryCompletionRequirementsSnapshot.
+    void enforceRequiredSignatureFromCategory(WorkOrder workOrder) {
+        if (workOrder.getCategory() == null) return;
+        workOrderCategoryService.findById(workOrder.getCategory().getId())
+                .ifPresent(category -> {
+                    if (category.isRequireSignature()) {
+                        workOrder.setRequiredSignature(true);
+                    }
+                });
+    }
+
     private void setWOCustomFields(WorkOrder workOrder, List<CustomFieldValuePostDTO> customFieldValuePostDTOS,
                                    Company company) {
         customFieldValueService.setCustomFields(
@@ -245,6 +286,7 @@ public class WorkOrderService {
                     null;
 
             WorkOrder newWorkOrder = workOrderMapper.updateWorkOrder(savedWorkOrder, workOrder);
+            enforceRequiredSignatureFromCategory(newWorkOrder);
             if (!workOrder.getCustomFields().isEmpty()) {
                 setWOCustomFields(newWorkOrder, workOrder.getCustomFields(), user.getCompany());
             }

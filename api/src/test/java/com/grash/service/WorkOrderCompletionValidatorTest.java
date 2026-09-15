@@ -385,6 +385,23 @@ class WorkOrderCompletionValidatorTest {
         assertEquals(List.of(MissingRequirement.CHECKLIST), ex.getMissingRequirements());
     }
 
+    // Categoria com requireChecklistCompletion=false (e sem exigencia global
+    // completeTasks) - o Questionario pode existir na OS SEM bloquear a
+    // conclusao por essa regra, mesmo com perguntas em branco. Confirma a
+    // regra real pedida na validacao E2E de Tipo de Tarefa/Questionario
+    // (secao 6): requireChecklistCompletion=false != "sem checklist", so'
+    // significa "nao bloqueia por essa regra".
+    @Test
+    void requireChecklistFalse_incompleteTasks_doesNotBlockViaChecklistRule() {
+        WorkOrder workOrder = baseWorkOrderWithValidReport();
+        workOrder.setRequireChecklistCompletion(false);
+        when(taskService.findByWorkOrder(1L)).thenReturn(List.of(
+                task(TaskType.TEXT, ""),
+                task(TaskType.SUBTASK, "OPEN")));
+
+        assertDoesNotThrow(() -> validator.validate(workOrder, new Company()));
+    }
+
     // ===== Assinatura =====
 
     // signerName/signerDocument so sao exigidos quando a assinatura em si e'

@@ -4,10 +4,17 @@ import com.grash.dto.WorkOrderCategoryPatchDTO;
 import com.grash.exception.CustomException;
 import com.grash.mapper.WorkOrderCategoryMapper;
 import com.grash.model.WorkOrderCategory;
+import com.grash.repository.PreventiveMaintenanceRepository;
+import com.grash.repository.RequestRepository;
 import com.grash.repository.WorkOrderCategoryRepository;
+import com.grash.repository.WorkOrderMeterTriggerRepository;
+import com.grash.repository.WorkOrderRepository;
+import com.grash.repository.WorkflowActionRepository;
+import com.grash.repository.WorkflowConditionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.Optional;
@@ -19,6 +26,12 @@ public class WorkOrderCategoryService {
 
     private final CompanySettingsService companySettingsService;
     private final WorkOrderCategoryMapper workOrderCategoryMapper;
+    private final WorkOrderRepository workOrderRepository;
+    private final PreventiveMaintenanceRepository preventiveMaintenanceRepository;
+    private final RequestRepository requestRepository;
+    private final WorkOrderMeterTriggerRepository workOrderMeterTriggerRepository;
+    private final WorkflowActionRepository workflowActionRepository;
+    private final WorkflowConditionRepository workflowConditionRepository;
 
     public WorkOrderCategory create(WorkOrderCategory workOrderCategory) {
         Optional<WorkOrderCategory> categoryWithSameName =
@@ -41,7 +54,27 @@ public class WorkOrderCategoryService {
         return workOrderCategoryRepository.findAll();
     }
 
+    // F4 - historico operacional (OS, PM, Request, meter trigger) e regras
+    // de workflow que referenciam esta Category nao podem ser destruidos por
+    // uma exclusao administrativa: work_order/preventive_maintenance/
+    // request/work_order_meter_trigger.category_id sao ON DELETE SET NULL
+    // (perderiam a categorizacao silenciosamente, sem aviso) e
+    // workflow_action/workflow_condition.work_order_category_id sao ON
+    // DELETE CASCADE (a regra de automacao seria apagada junto, sem aviso).
+    // Mesmo padrao ja usado em ChecklistService.delete() (409 quando em
+    // uso) - reaproveitado aqui, nao um mecanismo novo.
+    @Transactional
     public void delete(Long id) {
+        if (workOrderRepository.existsByCategory_Id(id)
+                || preventiveMaintenanceRepository.existsByCategory_Id(id)
+                || requestRepository.existsByCategory_Id(id)
+                || workOrderMeterTriggerRepository.existsByCategory_Id(id)
+                || workflowActionRepository.existsByWorkOrderCategory_Id(id)
+                || workflowConditionRepository.existsByWorkOrderCategory_Id(id)) {
+            throw new CustomException(
+                    "Work order category is in use and cannot be deleted",
+                    HttpStatus.CONFLICT);
+        }
         workOrderCategoryRepository.deleteById(id);
     }
 

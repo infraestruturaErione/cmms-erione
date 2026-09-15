@@ -65,6 +65,8 @@ class WorkOrderServiceCompletionRequirementsSnapshotTest {
     @Mock
     private TaskBaseService taskBaseService;
     @Mock
+    private WorkOrderCompletionValidator workOrderCompletionValidator;
+    @Mock
     private org.springframework.context.MessageSource messageSource;
     @Mock
     private CustomSequenceService customSequenceService;

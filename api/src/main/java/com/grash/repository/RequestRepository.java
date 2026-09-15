@@ -21,5 +21,7 @@ public interface RequestRepository extends JpaRepository<Request, Long>, JpaSpec
 
     List<Request> findByCategory_IdAndCreatedAtBetween(Long id, Date start, Date end);
 
+    boolean existsByCategory_Id(Long id);
+
     void deleteByCompany_IdAndIsDemoTrue(Long companyId);
 }

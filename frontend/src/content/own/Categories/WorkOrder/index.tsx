@@ -269,6 +269,32 @@ export default function WorkOrderCategories() {
     }
   }, []);
 
+  // "Criar novo Questionário" abre /app/checklists/new numa aba separada
+  // (window.open) - a lista de checklists desta aba nunca ficava sabendo
+  // do que foi criado la, so' com F5 (que apaga o formulario em edicao).
+  // Mesmo padrao de refresh silencioso ja usado em WorkOrders/index.tsx
+  // (window focus + guarda contra chamada duplicada + cleanup no unmount):
+  // ao voltar o foco pra esta aba, rebusca os checklists - o formulario
+  // (nome/descricao/requisitos/questionario ja selecionado) e' puro
+  // Formik/useState local, entao nao e' afetado por isso. getChecklists()
+  // ja e' seguro de rechamar aqui: esta tela nunca le
+  // state.checklists.loadingGet, entao nao ha spinner pra piscar.
+  const checklistRefreshInFlightRef = useRef(false);
+  useEffect(() => {
+    const onWindowFocus = () => {
+      if (!hasViewPermission(PermissionEntity.CATEGORIES_WEB)) return;
+      if (checklistRefreshInFlightRef.current) return;
+      checklistRefreshInFlightRef.current = true;
+      dispatch(getChecklists()).finally(() => {
+        checklistRefreshInFlightRef.current = false;
+      });
+    };
+    window.addEventListener('focus', onWindowFocus);
+    return () => {
+      window.removeEventListener('focus', onWindowFocus);
+    };
+  }, [dispatch]);
+
   const filteredItems = useMemo(() => {
     const value = search.trim().toLowerCase();
     if (!value) return items;
