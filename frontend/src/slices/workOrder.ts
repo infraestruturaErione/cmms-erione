@@ -528,10 +528,11 @@ export const getWorkOrderEvents =
     }
   };
 export const getCalendarWorkOrders =
-  (criteria: SearchCriteria): AppThunk =>
+  (criteria: SearchCriteria, options?: { silent?: boolean }): AppThunk =>
   async (dispatch) => {
+    const silent = options?.silent ?? false;
     try {
-      dispatch(slice.actions.setLoadingGet({ loading: true }));
+      if (!silent) dispatch(slice.actions.setLoadingGet({ loading: true }));
       const result = await api.post<Page<WorkOrder>>(
         `${basePath}/search`,
         criteria
@@ -540,7 +541,7 @@ export const getCalendarWorkOrders =
         slice.actions.setCalendarWorkOrders({ workOrders: result.content })
       );
     } finally {
-      dispatch(slice.actions.setLoadingGet({ loading: false }));
+      if (!silent) dispatch(slice.actions.setLoadingGet({ loading: false }));
     }
   };
 export const getUrgentWorkOrdersCount = (): AppThunk => async (dispatch) => {

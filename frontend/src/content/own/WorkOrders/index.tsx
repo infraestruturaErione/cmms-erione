@@ -746,13 +746,18 @@ function WorkOrders() {
           }
         ];
         dispatch(
-          getCalendarWorkOrders({
-            filterFields: calendarFilterFields,
-            pageNum: 0,
-            pageSize: 500,
-            sortField: 'estimatedStartDate',
-            direction: 'ASC'
-          })
+          getCalendarWorkOrders(
+            {
+              filterFields: calendarFilterFields,
+              pageNum: 0,
+              pageSize: 500,
+              sortField: 'estimatedStartDate',
+              direction: 'ASC'
+            },
+            // Mesmo motivo do getWorkOrders({silent:true}) acima: foco/visibilidade
+            // voltando nao deve reacender o spinner do Calendar (Calendar/index.tsx:649).
+            { silent: true }
+          )
         );
       }
     };
