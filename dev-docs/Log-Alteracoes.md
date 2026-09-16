@@ -1009,3 +1009,87 @@ pra sub-recursos administrativos mas seria uma mudanca de regra a mais
 permitem Requester criador/atribuido operar a propria OS. Reusar so' a
 parte de escopo de customer (`canAccessWorkOrderBase`), nao o bloqueio
 incondicional de Requester.
+
+## 2026-09-15/16 - P0: geracao automatica de OS de Preventiva quebrada (company_id null sob Quartz), independencia historica de Task de PM, e densidade do calendario (commits `c086e9a`, `1d6c848`)
+
+### Independencia historica de Task de PM (commit `c086e9a`)
+
+`WorkOrderCreationJob` copiava a Task propria de uma `PreventiveMaintenance`
+pra' OS gerada reusando DIRETAMENTE a mesma linha de `TaskBase` da PM (`new
+Task(task.getTaskBase(), ...)`), em vez de clonar como ja' era feito pro
+Checklist padrao da Category (`WorkOrderService.applyCategoryDefaults` ->
+`TaskBaseService.cloneForNewOwner`). Resultado: editar ou excluir a
+pergunta propria da PM depois reescrevia (ou apagava, via `ON DELETE
+CASCADE` de `task.task_base_id`) retroativamente toda OS ja' gerada que a
+tinha usado. Corrigido clonando via `cloneForNewOwner` tambem nesse
+caminho, sem alterar a deduplicacao Category+PM ja' implementada (que
+continua comparando pelo `TaskBase` ORIGINAL da PM, antes do clone).
+Prova: `WorkOrderCreationJobPmTaskHistoricalIndependenceTest` (persistencia
+real H2) - `TaskBase.id` da PM != da OS, editar a PM nao muda OS ja'
+gerada, OS gerada depois da edicao recebe a versao nova, excluir a
+pergunta da PM nao afeta OS antigas.
+
+### P0 - `company_id` null derrubava a geracao de OS via Quartz (commit `1d6c848`)
+
+Auditoria posterior encontrou regressao mais grave introduzida pela propria
+correcao acima: `TaskBase`/`TaskOption`/`Task` estendem `CompanyAudit`, cujo
+`@PrePersist` so' preenche `company` a partir do usuario autenticado no
+`SecurityContextHolder`. O Quartz nao representa usuario nenhum - o clone
+criado por `cloneForNewOwner` ia pro INSERT com `company_id` null, o
+Postgres rejeitava (`null value in column "company_id" ... violates
+not-null constraint`) e a transacao inteira caia: **nenhuma OS era gerada**
+quando a PM tinha pergunta propria. O mesmo buraco existia no segundo call
+site de `cloneForNewOwner` (`WorkOrderService.applyCategoryDefaults`, clone
+do Checklist padrao da Category) e na `Task` criada ali - uma PM "sem Task
+propria" so' parecia funcionar porque a Category do teste nao tinha
+`defaultChecklist`.
+
+Correcao: `cloneForNewOwner(TaskBase source, Company company)` passou a
+receber a company explicitamente (sem overload de 1 argumento, de
+proposito - forca todo call site a ser explicito), em vez de depender do
+`SecurityContext`. Ambos os call sites (`WorkOrderCreationJob` e
+`WorkOrderService.applyCategoryDefaults`) passam a company da operacao
+(`preventiveMaintenance.getCompany()` / `company` do `create()`), nao a do
+dono do modelo original (`source.getCompany()` teria semantica errada se
+um Checklist/Category um dia for visivel pra mais de uma empresa).
+
+Controle negativo (revertido temporariamente so' dentro do container, nunca
+no working tree): sem os `setCompany` explicitos, o teste falha com `NULL
+not allowed for column "COMPANY_ID"` - equivalente H2 do erro real de
+Postgres. Prova de runtime real: harness descartavel rodou o Quartz de
+verdade (scheduler proprio, `JobFactory` pedindo o bean real ao contexto
+Spring) contra o Postgres do DEV, sem SecurityContext, gerando OS de uma PM
+de teste (`DEVTEST20260916`) com `company_id` correto em `task_base`,
+`task_option` e `task` - confirmado tambem por SQL direto no banco.
+
+**Achado relacionado, corrigido na mesma rodada:** `TaskService` tinha
+`private final WorkOrderService workOrderService` nunca usada, fechando o
+ciclo `WorkOrderService -> WorkOrderCompletionValidator -> TaskService ->
+WorkOrderService`. Centenas de testes unitarios continuavam verdes e o
+Docker build passava (`mvn package -DskipTests`), mas a API real falhava
+ao iniciar com `BeanCurrentlyInCreationException: unresolvable circular
+reference`. Dependencia morta removida; criado
+`api/src/test/java/com/grash/ApplicationContextStartupTest.java` (nao
+existia - o `ApiApplicationTests.java` antigo estava inteiramente
+comentado) como smoke permanente que instancia todo o grafo de beans de
+`com.grash` via `@SpringBootTest` + `ComponentScan`, pra esse tipo de ciclo
+quebrar o build em vez de so' aparecer no deploy. Controle negativo:
+reintroduzindo a dependencia morta, o smoke falha com o mesmo
+`BeanCurrentlyInCreationException` do incidente real.
+
+Suite backend completa depois da correcao: 371 testes, 9 falhas - as
+mesmas 9 de sempre em `WorkOrderCustomerScopeWriteAuthorizationTest`
+(tarefa pausada, ver secao acima), confirmadas identicas rodando a mesma
+classe contra o `c086e9a` puro, sem nenhuma alteracao desta rodada.
+
+### Densidade do calendario de OS (commit `1d6c848`)
+
+`frontend/src/content/own/WorkOrders/Calendar/index.tsx`: visualizacao em
+Mes tinha altura fixa (`height={660}`) e limitava a 4 eventos por dia
+(`dayMaxEventRows={4}`, com popover "+X mais" pro resto) - cada dia
+tambem tinha `min-height: 100px` fixo, inflando semanas vazias. Trocado
+pra `height="auto"` + `dayMaxEventRows={false}` (sem cap, sem popover,
+cada semana cresce conforme o dia mais cheio) e `min-height: 44px` (piso
+menor, so' o suficiente pro numero do dia), pra' aproximar a densidade
+visual de referencias como o Auvo, onde semanas vazias ficam finas e
+semanas cheias mostram todos os eventos empilhados.
