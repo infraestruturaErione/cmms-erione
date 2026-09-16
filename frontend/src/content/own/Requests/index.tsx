@@ -71,6 +71,7 @@ import SearchInput from '../components/SearchInput';
 import * as React from 'react';
 import WorkOrder from '../../../models/owns/workOrder';
 import { getCustomersMini } from '../../../slices/customer';
+import { getRequestCreationAction } from './requestCreationFlow';
 
 function Requests() {
   const { t }: { t: any } = useTranslation();
@@ -97,6 +98,7 @@ function Requests() {
   const requesterWithoutScope =
     user?.role?.code === 'REQUESTER' &&
     (!user?.allowedCustomers || user.allowedCustomers.length === 0);
+  const isRequester = user?.role?.code === 'REQUESTER';
   const { customFields } = useSelector((state) => state.customFields);
   const { customersMini } = useSelector((state) => state.customers);
   const [openDrawerFromUrl, setOpenDrawerFromUrl] = useState<boolean>(false);
@@ -570,7 +572,7 @@ function Requests() {
         <Helmet>
           <title>{t('requests')}</title>
         </Helmet>
-        {renderAddModal()}
+        {!isRequester && renderAddModal()}
         {renderUpdateModal()}
         <Box justifyContent="center" alignItems="stretch" paddingX={4}>
           {hasCreatePermission(PermissionEntity.REQUESTS) && (
@@ -585,14 +587,26 @@ function Requests() {
                 sx={{ my: 1 }}
                 variant="contained"
                 onClick={() => {
-                  if (requesterWithoutScope) {
-                    showSnackBar(t('requester_without_allowed_customers'), 'error');
-                    return;
+                  const creationAction = getRequestCreationAction(
+                    user?.role?.code,
+                    user?.allowedCustomers?.length ?? 0
+                  );
+                  switch (creationAction) {
+                    case 'blocked':
+                      showSnackBar(
+                        t('requester_without_allowed_customers'),
+                        'error'
+                      );
+                      return;
+                    case 'quick':
+                      navigate('/app/requests/quick');
+                      return;
+                    default:
+                      setOpenAddModal(true);
                   }
-                  setOpenAddModal(true);
                 }}
               >
-                {t('request')}
+                {isRequester ? t('quick_request') : t('request')}
               </Button>
             </Box>
           )}

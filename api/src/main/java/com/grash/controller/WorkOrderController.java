@@ -514,6 +514,10 @@ public class WorkOrderController {
             if (
                     user.getId().equals(savedWorkOrder.getCreatedBy()) ||
                             user.getRole().getDeleteOtherPermissions().contains(PermissionEntity.WORK_ORDERS)) {
+                // A validacao precisa preceder e-mail, webhook e persistencia:
+                // uma OS originada de Request e' historico da aprovacao e so
+                // pode sair do fluxo comum por arquivamento.
+                workOrderService.assertCanDelete(savedWorkOrder);
                 Map<String, Object> mailVariables = new HashMap<String, Object>() {{
                     put("workOrdersLink", frontendUrl + "/app/work-orders");
                     put("workOrderTitle", savedWorkOrder.getTitle());
@@ -781,5 +785,4 @@ public class WorkOrderController {
     }
 
 }
-
 

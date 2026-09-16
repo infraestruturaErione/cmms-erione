@@ -333,6 +333,7 @@ public class WorkOrderService {
 
     @Transactional
     public void delete(WorkOrder workOrder, Company company) {
+        assertCanDelete(workOrder);
         Map<String, Object> webhookPayload = new HashMap<>();
         webhookPayload.put("workOrderId", workOrder.getId());
         webhookPayload.put("workOrderTitle", workOrder.getTitle());
@@ -340,6 +341,14 @@ public class WorkOrderService {
         webhookDispatchService.dispatchWebhook(company, WebhookEvent.WORK_ORDER_DELETE, webhookPayload,
                 "deleteWorkOrder", serializedWorkOrder, null, null, null, null, null);
         workOrderRepository.deleteById(workOrder.getId());
+    }
+
+    public void assertCanDelete(WorkOrder workOrder) {
+        if (workOrder.getParentRequest() != null) {
+            throw new CustomException(
+                    "Work orders created from requests cannot be deleted. Archive it instead.",
+                    HttpStatus.CONFLICT);
+        }
     }
 
     public Optional<WorkOrder> findById(Long id) {
