@@ -64,7 +64,7 @@ const FullCalendarWrapper = styled(Box)(
 
       .fc-daygrid-day {
         cursor: pointer;
-        min-height: 100px;
+        min-height: 44px;
         background: ${theme.palette.background.paper};
         transition: background-color 0.15s ease;
       }
@@ -672,10 +672,10 @@ function ApplicationsCalendar({
           eventMouseEnter={handleEventMouseEnter}
           eventMouseLeave={handleEventMouseLeave}
           dateClick={(event) => handleAddWorkOrder(event.date)}
-          dayMaxEventRows={4}
+          dayMaxEventRows={false}
           events={calendarEvents}
           headerToolbar={false}
-          height={660}
+          height="auto"
           ref={calendarRef}
           rerenderDelay={10}
           weekends

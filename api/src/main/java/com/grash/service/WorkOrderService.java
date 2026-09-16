@@ -109,7 +109,7 @@ public class WorkOrderService {
 
         WorkOrder savedWorkOrder = workOrderRepository.saveAndFlush(workOrder);
         em.refresh(savedWorkOrder);
-        applyCategoryDefaults(savedWorkOrder);
+        applyCategoryDefaults(savedWorkOrder, company);
         // Fecha o caminho administrativo que deixava POST /work-orders criar
         // uma OS ja "COMPLETE" sem assinatura/foto/checklist/relato - so'
         // valida quando o proprio payload pede status=COMPLETE
@@ -146,7 +146,11 @@ public class WorkOrderService {
     // que e sempre o caso aqui, porque tarefas adicionadas a mao pelo
     // formulario web/mobile so sao enviadas numa chamada separada, depois que a
     // OS ja existe.
-    private void applyCategoryDefaults(WorkOrder workOrder) {
+    // Recebe "company" da operacao em vez de deduzir do SecurityContext: este
+    // metodo tambem roda a partir do Quartz (WorkOrderCreationJob ->
+    // create(workOrder, company)), onde nao existe usuario autenticado e o
+    // @PrePersist de CompanyAudit nao preenche nada.
+    private void applyCategoryDefaults(WorkOrder workOrder, Company company) {
         WorkOrderCategory category = workOrder.getCategory() == null ? null :
                 workOrderCategoryService.findById(workOrder.getCategory().getId()).orElse(null);
         applyCategoryCompletionRequirementsSnapshot(workOrder, category);
@@ -159,14 +163,17 @@ public class WorkOrderService {
         if (defaultChecklist != null && defaultChecklist.getTaskBases() != null
                 && !defaultChecklist.getTaskBases().isEmpty()) {
             defaultChecklist.getTaskBases().forEach(sourceTaskBase -> {
-                TaskBase clonedTaskBase = taskBaseService.cloneForNewOwner(sourceTaskBase);
+                TaskBase clonedTaskBase = taskBaseService.cloneForNewOwner(sourceTaskBase, company);
                 // INSPECTION nasce VAZIO (nao "FLAG"): FLAG e uma resposta legitima do
                 // tecnico ("sinalizar"), nao um placeholder. Usar FLAG como valor inicial
                 // fazia um checklist recem-criado aparecer como parcialmente preenchido
                 // (ex: 60% concluido antes de o tecnico tocar em qualquer coisa).
                 // SUBTASK mantem "OPEN" porque OPEN ja e tratado como pendente.
                 String initialValue = clonedTaskBase.getTaskType() == TaskType.SUBTASK ? "OPEN" : "";
-                taskService.create(new Task(clonedTaskBase, workOrder, null, initialValue));
+                Task task = new Task(clonedTaskBase, workOrder, null, initialValue);
+                // Task tambem e CompanyAudit - mesma razao do clone acima.
+                task.setCompany(company);
+                taskService.create(task);
             });
         }
 

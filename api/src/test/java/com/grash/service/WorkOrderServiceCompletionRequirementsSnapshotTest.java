@@ -223,4 +223,66 @@ class WorkOrderServiceCompletionRequirementsSnapshotTest {
 
         assertAllRequirements(createdWorkOrder, true);
     }
+
+    // P0 / CENARIO B - Category COM defaultChecklist.
+    //
+    // Este e' o segundo call site de cloneForNewOwner (o primeiro e'
+    // WorkOrderCreationJob, com a Task propria da PM). Quando a OS nasce pelo
+    // Quartz, este caminho tambem roda sem usuario autenticado, entao ele
+    // tambem precisa informar a company explicitamente - caso contrario o
+    // clone do Questionario da categoria ia pro banco com company_id null.
+    //
+    // Uma PM "sem Task propria" so parecia funcionar porque a Category usada
+    // no teste anterior nao tinha defaultChecklist; com checklist, quebrava
+    // igual.
+    @Test
+    void create_withCategoryDefaultChecklist_clonesAndPersistsWithCompanyOfTheOperation() {
+        WorkOrderCategory category = categoryWithFlags(false);
+        com.grash.model.Checklist defaultChecklist = new com.grash.model.Checklist();
+        com.grash.model.TaskBase sourceTaskBase = com.grash.model.TaskBase.builder()
+                .label("Pressao normal?")
+                .taskType(com.grash.model.enums.TaskType.TEXT)
+                .build();
+        sourceTaskBase.setId(77L);
+        defaultChecklist.setTaskBases(java.util.List.of(sourceTaskBase));
+        category.setDefaultChecklist(defaultChecklist);
+
+        com.grash.model.TaskBase clonedTaskBase = com.grash.model.TaskBase.builder()
+                .label("Pressao normal?")
+                .taskType(com.grash.model.enums.TaskType.TEXT)
+                .build();
+        clonedTaskBase.setId(78L);
+        clonedTaskBase.setCompany(company);
+
+        WorkOrderCategory categoryRef = new WorkOrderCategory();
+        categoryRef.setId(10L);
+        WorkOrder workOrder = new WorkOrder();
+        workOrder.setTitle("OS com checklist da categoria");
+        workOrder.setCategory(categoryRef);
+
+        when(licenseService.hasEntitlement(any())).thenReturn(true);
+        when(customSequenceService.getNextWorkOrderSequence(company)).thenReturn(1L);
+        when(workOrderRepository.saveAndFlush(any(WorkOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(workOrderCategoryService.findById(10L)).thenReturn(Optional.of(category));
+        when(workflowService.findByMainConditionAndCompany(any(), anyLong())).thenReturn(Collections.emptyList());
+        when(workOrderMapper.toShowDto(any(WorkOrder.class))).thenReturn(new WorkOrderShowDTO());
+        // Casa SO com a company da operacao: se o codigo voltar a omitir a
+        // company (ou mandar outra), o stub nao casa e o teste falha.
+        when(taskBaseService.cloneForNewOwner(sourceTaskBase, company)).thenReturn(clonedTaskBase);
+
+        workOrderService.create(workOrder, company);
+
+        org.mockito.ArgumentCaptor<com.grash.model.Task> taskCaptor =
+                org.mockito.ArgumentCaptor.forClass(com.grash.model.Task.class);
+        org.mockito.Mockito.verify(taskService).create(taskCaptor.capture());
+        com.grash.model.Task createdTask = taskCaptor.getValue();
+
+        assertNotNull(createdTask.getCompany(),
+                "a Task criada a partir do checklist da categoria nao pode ir ao banco com company null");
+        assertEquals(company.getId(), createdTask.getCompany().getId(),
+                "a Task deve pertencer a empresa da operacao");
+        assertEquals(clonedTaskBase.getId(), createdTask.getTaskBase().getId(),
+                "a Task deve apontar pra TaskBase CLONADA, nunca pra do checklist da categoria");
+        org.mockito.Mockito.verify(taskBaseService).cloneForNewOwner(sourceTaskBase, company);
+    }
 }

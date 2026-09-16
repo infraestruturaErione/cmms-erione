@@ -70,8 +70,21 @@ public class TaskBaseService {
     // linha de TaskBase, nao pode compartilhar a mesma referencia do Checklist -
     // mesma logica de createFromTaskBaseDTO, so partindo de uma entidade em vez
     // de um DTO.
+    //
+    // A "company" e' parametro OBRIGATORIO e nao tem overload sem ela de
+    // proposito: TaskBase e TaskOption estendem CompanyAudit, cujo
+    // @PrePersist so consegue preencher company a partir do usuario
+    // autenticado no SecurityContext. WorkOrderCreationJob roda no Quartz,
+    // que nao representa usuario nenhum - ali o hook sai sem fazer nada e o
+    // INSERT ia com company_id null, violando a constraint NOT NULL e
+    // derrubando a transacao inteira (nenhuma OS era gerada). Quem clona
+    // sabe a empresa da operacao, entao ela vem explicita em vez de ser
+    // descoberta por contexto ambiente. Nao usamos source.getCompany():
+    // isso diria "o clone pertence a quem era dono do modelo", e nao "a
+    // empresa da operacao que esta rodando" - a diferenca importa se um dia
+    // um Checklist/Category for visivel para mais de uma empresa.
     @Transactional
-    public TaskBase cloneForNewOwner(TaskBase source) {
+    public TaskBase cloneForNewOwner(TaskBase source, Company company) {
         TaskBase taskBase = TaskBase.builder()
                 .label(source.getLabel())
                 .taskType(source.getTaskType())
@@ -79,12 +92,16 @@ public class TaskBaseService {
                 .asset(source.getAsset())
                 .meter(source.getMeter())
                 .build();
+        taskBase.setCompany(company);
         TaskBase savedTaskBase = create(taskBase);
 
         if (source.getOptions() != null) {
             source.getOptions().forEach(option -> {
                 if (option.getLabel() != null && !option.getLabel().trim().isEmpty()) {
                     TaskOption taskOption = new TaskOption(option.getLabel(), savedTaskBase);
+                    // TaskOption tambem e CompanyAudit - sem isso o clone da
+                    // pergunta passava mas as alternativas dela quebravam.
+                    taskOption.setCompany(company);
                     TaskOption savedTaskOption = taskOptionService.create(taskOption);
                     savedTaskBase.getOptions().add(savedTaskOption);
                 }

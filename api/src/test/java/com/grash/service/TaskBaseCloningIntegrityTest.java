@@ -135,13 +135,12 @@ class TaskBaseCloningIntegrityTest {
         companySettings = company.getCompanySettings(); // ja inicializado com cascade=ALL
         entityManager.flush();
 
-        // CompanyAudit.beforePersist/afterLoad (TaskBase/TaskOption/Checklist)
-        // preenchem/validam "company" a partir do usuario autenticado no
-        // SecurityContext - sem isso, o clone criado por
-        // TaskBaseService.cloneForNewOwner (que nunca seta company
-        // manualmente, confia nesse hook, igual em producao) fica com
-        // company=null e viola a constraint NOT NULL. Simula uma sessao
-        // autenticada real.
+        // Simula uma sessao HTTP autenticada real, que e' o contexto em que
+        // CompanyAudit.beforePersist/afterLoad preenchem/validam "company".
+        // Observacao: cloneForNewOwner NAO depende mais desse hook - ele
+        // recebe a company explicitamente, justamente porque o Quartz roda sem
+        // usuario nenhum (ver cloningWithoutSecurityContext_stillPersistsCompany
+        // no fim desta classe, e WorkOrderCreationJobPmTaskHistoricalIndependenceTest).
         Role role = new Role();
         role.setId(1L);
         role.setRoleType(RoleType.ROLE_CLIENT);
@@ -194,8 +193,8 @@ class TaskBaseCloningIntegrityTest {
     void cloningTwice_producesTwoIndependentRows() {
         TaskBase original = persistTaskBase("Tensao medida?", List.of("Normal", "Alta", "Baixa"));
 
-        TaskBase clone1 = taskBaseService.cloneForNewOwner(original);
-        TaskBase clone2 = taskBaseService.cloneForNewOwner(original);
+        TaskBase clone1 = taskBaseService.cloneForNewOwner(original, company);
+        TaskBase clone2 = taskBaseService.cloneForNewOwner(original, company);
 
         assertNotEquals(original.getId(), clone1.getId());
         assertNotEquals(original.getId(), clone2.getId());
@@ -209,7 +208,7 @@ class TaskBaseCloningIntegrityTest {
     @Test
     void editingOriginalAfterCloning_doesNotAffectAlreadyClonedCopy() {
         TaskBase original = persistTaskBase("Tensao medida?", null);
-        TaskBase clone = taskBaseService.cloneForNewOwner(original); // simula OS #1
+        TaskBase clone = taskBaseService.cloneForNewOwner(original, company); // simula OS #1
 
         // "edita o Questionario original" (equivalente ao que
         // ChecklistService.update() faz ao reescrever o label de um item)
@@ -228,13 +227,13 @@ class TaskBaseCloningIntegrityTest {
     @Test
     void cloningAfterEdit_newCloneGetsUpdatedVersion_oldCloneStaysFrozen() {
         TaskBase original = persistTaskBase("Tensao medida?", null);
-        TaskBase os1Clone = taskBaseService.cloneForNewOwner(original); // "OS #1" na v1
+        TaskBase os1Clone = taskBaseService.cloneForNewOwner(original, company); // "OS #1" na v1
 
         original.setLabel("Tensao medida (com nova instrucao)?");
         taskBaseRepository.save(original);
         entityManager.flush();
 
-        TaskBase os2Clone = taskBaseService.cloneForNewOwner(original); // "OS #2", apos a edicao
+        TaskBase os2Clone = taskBaseService.cloneForNewOwner(original, company); // "OS #2", apos a edicao
         entityManager.flush();
         entityManager.clear();
 
@@ -251,7 +250,7 @@ class TaskBaseCloningIntegrityTest {
     @Test
     void options_areCopiedByValue_notSharedAfterCloning() {
         TaskBase original = persistTaskBase("Disjuntor em boas condicoes?", List.of("Sim", "Nao"));
-        TaskBase clone = taskBaseService.cloneForNewOwner(original);
+        TaskBase clone = taskBaseService.cloneForNewOwner(original, company);
         entityManager.flush();
         entityManager.clear();
 
@@ -280,7 +279,7 @@ class TaskBaseCloningIntegrityTest {
         stamp(original);
         TaskBase saved = taskBaseRepository.save(original);
 
-        TaskBase clone = taskBaseService.cloneForNewOwner(saved);
+        TaskBase clone = taskBaseService.cloneForNewOwner(saved, company);
 
         assertEquals(com.grash.model.enums.TaskType.MULTIPLE, clone.getTaskType());
     }
@@ -305,11 +304,69 @@ class TaskBaseCloningIntegrityTest {
 
         Checklist reloaded = checklistRepository.findById(savedChecklist.getId()).orElseThrow();
         List<TaskBase> clones = new ArrayList<>();
-        reloaded.getTaskBases().forEach(sourceTaskBase -> clones.add(taskBaseService.cloneForNewOwner(sourceTaskBase)));
+        reloaded.getTaskBases().forEach(sourceTaskBase -> clones.add(taskBaseService.cloneForNewOwner(sourceTaskBase, company)));
 
         assertEquals(3, clones.size());
         assertEquals("Tensao medida?", clones.get(0).getLabel());
         assertEquals("Ha aquecimento?", clones.get(1).getLabel());
         assertEquals("Disjuntor em boas condicoes?", clones.get(2).getLabel());
+    }
+
+    // P0 - regressao direta do bug que derrubava a geracao automatica de OS.
+    //
+    // Este e o unico teste da classe que roda SEM SecurityContext, replicando
+    // o Quartz: la nao existe usuario autenticado, entao o @PrePersist de
+    // CompanyAudit nao preenche company nenhuma. Enquanto cloneForNewOwner
+    // dependia desse hook, o INSERT saia com company_id null e o Postgres
+    // derrubava a transacao inteira - nenhuma OS era gerada.
+    //
+    // Cobre os dois call sites de uma vez, porque ambos (WorkOrderCreationJob
+    // e WorkOrderService.applyCategoryDefaults) passam por este mesmo metodo.
+    @Test
+    void cloningWithoutSecurityContext_stillPersistsCompany() {
+        TaskBase original = persistTaskBase("Pressao normal?", List.of("Sim", "Nao"));
+
+        SecurityContextHolder.clearContext();
+        assertNull(SecurityContextHolder.getContext().getAuthentication(),
+                "pre-condicao: este teste precisa rodar sem usuario autenticado");
+
+        TaskBase clone = taskBaseService.cloneForNewOwner(original, company);
+        entityManager.flush();
+        entityManager.clear();
+
+        TaskBase persisted = taskBaseRepository.findById(clone.getId()).orElseThrow();
+        assertNotNull(persisted.getCompany(),
+                "TaskBase clonada sem usuario logado NAO pode ficar com company null");
+        assertEquals(company.getId(), persisted.getCompany().getId());
+        assertEquals(2, persisted.getOptions().size(), "opcoes devem ter sido clonadas");
+        persisted.getOptions().forEach(option -> {
+            assertNotNull(option.getCompany(),
+                    "TaskOption clonada sem usuario logado NAO pode ficar com company null");
+            assertEquals(company.getId(), option.getCompany().getId());
+        });
+    }
+
+    // A company do clone vem da OPERACAO, nao do dono do modelo. Se viesse de
+    // source.getCompany(), um Checklist/Category visivel para outra empresa
+    // criaria silenciosamente linhas na empresa errada.
+    @Test
+    void cloneBelongsToTheCompanyOfTheOperation_notTheCompanyOfTheSource() {
+        Company otherCompany = new Company();
+        otherCompany.setName("Outra Empresa");
+        stamp(otherCompany);
+        entityManager.persist(otherCompany);
+        entityManager.flush();
+
+        TaskBase original = persistTaskBase("Pertence a empresa de origem?", null);
+        assertEquals(company.getId(), original.getCompany().getId(), "pre-condicao: modelo e da empresa A");
+
+        SecurityContextHolder.clearContext();
+        TaskBase clone = taskBaseService.cloneForNewOwner(original, otherCompany);
+        entityManager.flush();
+        entityManager.clear();
+
+        TaskBase persisted = taskBaseRepository.findById(clone.getId()).orElseThrow();
+        assertEquals(otherCompany.getId(), persisted.getCompany().getId(),
+                "o clone deve seguir a company passada pela operacao, nao a da TaskBase de origem");
     }
 }

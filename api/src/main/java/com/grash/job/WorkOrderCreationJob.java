@@ -102,7 +102,11 @@ public class WorkOrderCreationJob extends QuartzJobBean {
             // (ou apagava, via ON DELETE CASCADE de task.task_base_id)
             // retroativamente toda OS ja gerada que a usou - confirmado por
             // WorkOrderCreationJobPmTaskHistoricalIndependenceTest.
-            TaskBase clonedTaskBase = taskBaseService.cloneForNewOwner(task.getTaskBase());
+            // company explicita: o Quartz nao tem SecurityContext, entao o
+            // @PrePersist de CompanyAudit nao consegue descobrir a empresa
+            // sozinho (ver TaskBaseService.cloneForNewOwner).
+            TaskBase clonedTaskBase = taskBaseService.cloneForNewOwner(
+                    task.getTaskBase(), preventiveMaintenance.getCompany());
             Task copiedTask = new Task(clonedTaskBase, savedWorkOrder, null, task.getValue());
             copiedTask.setCompany(preventiveMaintenance.getCompany());
             taskService.create(copiedTask);

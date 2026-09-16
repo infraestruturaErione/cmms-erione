@@ -19,7 +19,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class TaskService {
     private final TaskRepository taskRepository;
-    private final WorkOrderService workOrderService;
     private final CompanyService companyService;
     private final FileService fileService;
     private final TaskMapper taskMapper;

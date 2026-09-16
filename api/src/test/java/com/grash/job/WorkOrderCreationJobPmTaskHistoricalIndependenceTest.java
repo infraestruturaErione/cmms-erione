@@ -4,14 +4,12 @@ import com.grash.dto.workOrder.WorkOrderPostDTO;
 import com.grash.mapper.TaskBaseMapperImpl;
 import com.grash.mapper.TaskOptionMapperImpl;
 import com.grash.model.*;
-import com.grash.model.enums.RoleType;
 import com.grash.model.enums.TaskType;
 import com.grash.repository.PreventiveMaintenanceRepository;
 import com.grash.repository.ScheduleRepository;
 import com.grash.repository.TaskBaseRepository;
 import com.grash.repository.TaskOptionRepository;
 import com.grash.repository.TaskRepository;
-import com.grash.security.CustomUserDetail;
 import com.grash.service.CompanyService;
 import com.grash.service.FileService;
 import com.grash.service.ScheduleService;
@@ -31,7 +29,6 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -48,23 +45,36 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * CORRECAO (esta rodada) - prova, com persistencia REAL (nao mock), que a
- * Task copiada de uma PreventiveMaintenance pra uma OS gerada agora e'
- * historicamente independente. Antes desta correcao,
- * WorkOrderCreationJob.java:92 fazia "new Task(task.getTaskBase(),
- * savedWorkOrder, ...)" - reusando DIRETAMENTE a mesma linha de TaskBase da
- * PM. Agora clona via TaskBaseService.cloneForNewOwner, igual ja' e' feito
- * em WorkOrderService.applyCategoryDefaults pro clone da Category.
+ * Prova, com persistencia REAL (nao mock), que a Task copiada de uma
+ * PreventiveMaintenance pra uma OS gerada e' historicamente independente E
+ * que ela chega ao banco com a company correta.
  *
- * Cobre exatamente o roteiro pedido:
+ * IMPORTANTE - este teste roda SEM SecurityContext, de proposito.
+ *
+ * A versao anterior montava um usuario autenticado no
+ * SecurityContextHolder antes de executar o job. Isso nao representava o
+ * Quartz (que nao roda em nome de usuario nenhum) e mascarou um P0: o
+ * @PrePersist de CompanyAudit so consegue preencher "company" a partir do
+ * usuario autenticado, entao no runtime real o clone criado por
+ * cloneForNewOwner ia pro INSERT com company_id null, o Postgres rejeitava
+ * ("null value in column company_id of relation task_base violates not-null
+ * constraint") e a transacao inteira caia - NENHUMA OS era gerada quando a
+ * PM tinha pergunta propria. Com SecurityContext montado, o teste passava.
+ *
+ * Por isso o setUp limpa o contexto explicitamente: qualquer regressao que
+ * volte a depender de usuario logado pra descobrir a empresa falha aqui.
+ *
+ * Cobre:
  * 1) PM possui Task propria;
- * 2) gera OS #1;
+ * 2) gera OS #1 (cenario A - sem Category/defaultChecklist);
  * 3) TaskBase.id da PM e da OS #1 sao DIFERENTES (clone real, nao
  *    referencia compartilhada);
- * 4) editar label/tipo/opcoes da pergunta na PM NAO altera a Task da OS #1
+ * 4) TaskBase, TaskOption e Task clonados persistem com a company da PM
+ *    (nao null) - a regressao P0 propriamente dita;
+ * 5) editar label/tipo/opcoes da pergunta na PM NAO altera a Task da OS #1
  *    ja gerada;
- * 5) gerar uma OS #2 DEPOIS da edicao recebe a versao NOVA;
- * 6) excluir a pergunta da PM (e a propria linha de TaskBase da PM) NAO
+ * 6) gerar uma OS #2 DEPOIS da edicao recebe a versao NOVA;
+ * 7) excluir a pergunta da PM (e a propria linha de TaskBase da PM) NAO
  *    remove nem modifica a pergunta ja' clonada na OS #1 - prova que sao
  *    linhas totalmente independentes no banco, sem FK de volta.
  */
@@ -124,11 +134,10 @@ class WorkOrderCreationJobPmTaskHistoricalIndependenceTest {
         }
 
         @Bean
-        TaskService taskService(TaskRepository taskRepository, WorkOrderService workOrderService,
-                                 CompanyService companyService, FileService fileService,
-                                 com.grash.mapper.TaskMapper taskMapper, EntityManager entityManager) {
-            return new TaskService(taskRepository, workOrderService, companyService, fileService, taskMapper,
-                    entityManager);
+        TaskService taskService(TaskRepository taskRepository, CompanyService companyService,
+                                 FileService fileService, com.grash.mapper.TaskMapper taskMapper,
+                                 EntityManager entityManager) {
+            return new TaskService(taskRepository, companyService, fileService, taskMapper, entityManager);
         }
 
         @Bean
@@ -194,19 +203,10 @@ class WorkOrderCreationJobPmTaskHistoricalIndependenceTest {
         entityManager.persist(company);
         entityManager.flush();
 
-        Role role = new Role();
-        role.setId(1L);
-        role.setRoleType(RoleType.ROLE_CLIENT);
-        role.setName("Admin");
-        User user = new User();
-        user.setId(1L);
-        user.setEmail("admin@test.local");
-        user.setPassword("test");
-        user.setRole(role);
-        user.setCompany(company);
-        CustomUserDetail principal = CustomUserDetail.builder().user(user).build();
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        // ZERO usuario autenticado - e' assim que o Quartz executa de verdade.
+        // Nao montar SecurityContext aqui e' o ponto central deste teste: com
+        // um usuario fake o P0 de company_id null ficava invisivel.
+        SecurityContextHolder.clearContext();
 
         job = new WorkOrderCreationJob(scheduleRepository, workOrderService, taskService, scheduleService,
                 taskBaseService);
@@ -316,6 +316,42 @@ class WorkOrderCreationJobPmTaskHistoricalIndependenceTest {
         List<String> os1OptionLabels = os1Task.getTaskBase().getOptions().stream()
                 .map(TaskOption::getLabel).sorted().toList();
         assertEquals(List.of("Baixo", "Normal"), os1OptionLabels, "opcoes tambem devem ter sido clonadas");
+
+        // 4) P0: company persistida corretamente mesmo sem usuario autenticado.
+        // Nao basta a OS "aparecer" - o INSERT do clone precisa levar
+        // company_id. Antes da correcao este bloco era inalcancavel: a
+        // transacao explodia antes, em cloneForNewOwner.
+        assertNotNull(os1Task.getTaskBase().getCompany(),
+                "TaskBase clonada NAO pode ficar com company null - era exatamente o P0 "
+                        + "(null value in column company_id of relation task_base)");
+        assertEquals(company.getId(), os1Task.getTaskBase().getCompany().getId(),
+                "TaskBase clonada deve pertencer a empresa da Preventiva");
+        assertNotNull(os1Task.getCompany(), "Task da OS nao pode ficar com company null");
+        assertEquals(company.getId(), os1Task.getCompany().getId(),
+                "Task da OS deve pertencer a empresa da Preventiva");
+        os1Task.getTaskBase().getOptions().forEach(option -> {
+            assertNotNull(option.getCompany(),
+                    "TaskOption clonada nao pode ficar com company null (TaskOption tambem e CompanyAudit)");
+            assertEquals(company.getId(), option.getCompany().getId(),
+                    "TaskOption clonada deve pertencer a empresa da Preventiva");
+        });
+        // Prova direta no banco, sem passar pelo cache de 1o nivel do Hibernate:
+        // garante que nao existe linha com company_id null.
+        Long taskBasesWithoutCompany = (Long) entityManager
+                .createQuery("select count(tb) from TaskBase tb where tb.company is null")
+                .getSingleResult();
+        assertEquals(0L, taskBasesWithoutCompany, "nenhuma TaskBase pode ter company_id null no banco");
+        Long taskOptionsWithoutCompany = (Long) entityManager
+                .createQuery("select count(o) from TaskOption o where o.company is null")
+                .getSingleResult();
+        assertEquals(0L, taskOptionsWithoutCompany, "nenhuma TaskOption pode ter company_id null no banco");
+        Long tasksWithoutCompany = (Long) entityManager
+                .createQuery("select count(t) from Task t where t.company is null")
+                .getSingleResult();
+        assertEquals(0L, tasksWithoutCompany, "nenhuma Task pode ter company_id null no banco");
+        // E o contexto continua sem usuario: a company veio da operacao, nao de sessao.
+        assertNull(SecurityContextHolder.getContext().getAuthentication(),
+                "o job deve ter rodado sem nenhum usuario autenticado");
 
         // 4) Editar label/tipo/opcoes da pergunta na PM.
         TaskBase pmTaskBaseToEdit = taskBaseRepository.findById(pmTaskBaseId).orElseThrow();

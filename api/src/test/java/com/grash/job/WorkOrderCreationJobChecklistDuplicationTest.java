@@ -95,7 +95,10 @@ class WorkOrderCreationJobChecklistDuplicationTest {
     // que o clone devolve.
     private void stubCloneReturnsNewTaskBaseWithSameLabel(TaskBase source) {
         TaskBase clone = taskBase(nextClonedTaskBaseId++, source.getLabel());
-        when(taskBaseService.cloneForNewOwner(source)).thenReturn(clone);
+        // A company e' passada explicitamente pelo job (Quartz nao tem
+        // SecurityContext) - o stub casa com a company da PM de proposito,
+        // pra' falhar se alguem voltar a deduzir a empresa por contexto.
+        when(taskBaseService.cloneForNewOwner(source, company)).thenReturn(clone);
     }
 
     private Schedule scheduleFor(PreventiveMaintenance pm) {
@@ -226,7 +229,7 @@ class WorkOrderCreationJobChecklistDuplicationTest {
         // as 2 ja clonadas pela categoria, entao sao consideradas
         // duplicatas e puladas (nem chegam a ser clonadas).
         verify(taskService, never()).create(any());
-        verify(taskBaseService, never()).cloneForNewOwner(any());
+        verify(taskBaseService, never()).cloneForNewOwner(any(), any());
     }
 
     // CASO D - Category com Questionario, PM tem uma pergunta ADICIONAL
@@ -267,6 +270,6 @@ class WorkOrderCreationJobChecklistDuplicationTest {
         assertEquals("Nivel de oleo do transformador?", createdTaskBase.getLabel());
         assertTrue(createdTaskBase != pmTaskBaseSpecific,
                 "Task da OS deve usar a TaskBase CLONADA, nunca a referencia original da PM");
-        verify(taskBaseService, never()).cloneForNewOwner(pmTaskBaseMatching);
+        verify(taskBaseService, never()).cloneForNewOwner(eq(pmTaskBaseMatching), any());
     }
 }
