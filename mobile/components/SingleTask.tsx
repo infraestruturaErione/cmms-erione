@@ -57,6 +57,17 @@ export default function SingleTask({
     handleChangeRef.current = handleChange;
   }, [handleChange]);
 
+  // O TextInput de NUMBER/METER abaixo e' controlado por inputValue (value=),
+  // nao so' por defaultValue como o campo de texto generico - sem isso,
+  // inputValue comecava sempre em '' e uma resposta numerica ja salva
+  // aparecia em branco ao reabrir a pergunta, mesmo com o valor certo em
+  // task.value. So' re-semeia quando a PERGUNTA muda (task.id), nao a cada
+  // render do mesmo task - assim nao apaga o que o usuario esta digitando.
+  useEffect(() => {
+    setInputValue(task.value?.toString() ?? '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task.id]);
+
   const changeHandler = (newValue: string) => {
     if (!preview) {
       let formattedValue = newValue;

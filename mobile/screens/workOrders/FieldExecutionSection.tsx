@@ -3,30 +3,20 @@ import * as Location from 'expo-location';
 import { useNetInfo } from '@react-native-community/netinfo';
 import mime from 'mime';
 import { useContext, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import {
   Button,
   Chip,
-  Dialog,
   Divider,
   IconButton,
-  Portal,
   ProgressBar,
   Text,
-  TextInput,
   useTheme
 } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import InAppCamera from '../../components/InAppCamera';
+import FieldReportDialog from './FieldReportDialog';
+import FieldEvidenceDialog from './FieldEvidenceDialog';
 import Comment from '../../models/comment';
 import WorkOrder from '../../models/workOrder';
 import { createComment, updateComment } from '../../slices/comment';
@@ -296,8 +286,6 @@ export default function FieldExecutionSection({
   const [loadingAction, setLoadingAction] = useState<FieldAction | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
-  const [fieldReport, setFieldReport] = useState('');
-  const [initialFieldReport, setInitialFieldReport] = useState('');
   const [evidenceFiles, setEvidenceFiles] = useState<
     { uri: string; name: string; type: string }[]
   >([]);
@@ -326,22 +314,23 @@ export default function FieldExecutionSection({
     .filter((comment) => comment.content?.startsWith(FIELD_REPORT_PREFIX))
     .reduce((count, comment) => count + (comment.files?.length ?? 0), 0);
 
-  const openFieldReport = () => {
-    const initialValue = existingFieldReport
-      ? getFieldReportText(existingFieldReport)
-      : '';
-    setFieldReport(initialValue);
-    setInitialFieldReport(initialValue);
-    setReportOpen(true);
-  };
+  // Deriva do proprio existingFieldReport (que ja vem de "comments", prop
+  // do componente) em vez de guardar em estado - so' precisa ser recalculado
+  // quando o dialog abre ou existingFieldReport muda, e o proprio
+  // FieldReportDialog ja faz esse reset internamente via useEffect.
+  const initialFieldReportValue = existingFieldReport
+    ? getFieldReportText(existingFieldReport)
+    : '';
+
+  const openFieldReport = () => setReportOpen(true);
 
   const isReportReadOnly = !!existingFieldReport && !canUpdateExistingReport;
 
   const closeReportDialog = () => setReportOpen(false);
 
-  const attemptCloseReportDialog = () => {
+  const attemptCloseReportDialog = (currentText: string) => {
     if (savingReport) return;
-    if (isReportReadOnly || fieldReport === initialFieldReport) {
+    if (isReportReadOnly || currentText === initialFieldReportValue) {
       closeReportDialog();
       return;
     }
@@ -435,6 +424,13 @@ export default function FieldExecutionSection({
     setEvidenceOpen(false);
   };
 
+  // Remove por URI, nao por indice: a lista e' deduplicada por URI, entao ela
+  // identifica a foto de forma estavel mesmo enquanto a grade re-renderiza.
+  const removeEvidenceFile = (uri: string) => {
+    if (savingEvidence) return;
+    setEvidenceFiles((current) => current.filter((file) => file.uri !== uri));
+  };
+
   const pickEvidenceImage = async () => {
     if (savingEvidence) return;
     if (netInfo.isInternetReachable === false) {
@@ -480,16 +476,16 @@ export default function FieldExecutionSection({
     setCameraOpen(false);
   };
 
-  const submitFieldReport = async () => {
+  const submitFieldReport = async (text: string) => {
     if (savingReport) return;
-    if (!fieldReport.trim()) return;
+    if (!text.trim()) return;
     if (netInfo.isInternetReachable === false) {
       showSnackBar(t('field_report_offline_error'), 'error');
       return;
     }
     setSavingReport(true);
     try {
-      const content = `${FIELD_REPORT_PREFIX} ${fieldReport.trim()}`.trim();
+      const content = `${FIELD_REPORT_PREFIX} ${text.trim()}`.trim();
       if (existingFieldReport) {
         if (!canUpdateExistingReport) return;
         await dispatch(
@@ -772,187 +768,32 @@ export default function FieldExecutionSection({
         {t('evidence_does_not_replace_report')}
       </Text>
 
-      {reportOpen && (
-        <Portal>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.reportKeyboardArea}
-          >
-            <Dialog
-              visible={reportOpen}
-              onDismiss={attemptCloseReportDialog}
-              dismissable={!savingReport}
-              dismissableBackButton={!savingReport}
-              style={styles.reportDialog}
-            >
-              <View style={styles.reportHeader}>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.reportTitleRow}>
-                    <Text variant="titleLarge" style={styles.reportDialogTitle}>
-                      {t('field_report_dialog_title')}
-                    </Text>
-                    <Chip compact style={styles.requiredChip}>
-                      {t('required')}
-                    </Chip>
-                  </View>
-                  <Text variant="bodySmall" style={styles.reportDialogHelper}>
-                    {t('field_report_dialog_helper')}
-                  </Text>
-                </View>
-                <IconButton
-                  icon="close"
-                  onPress={attemptCloseReportDialog}
-                  disabled={savingReport}
-                  style={{ margin: 0 }}
-                />
-              </View>
-              <Dialog.Content style={styles.reportContent}>
-                {!!existingFieldReport && !canUpdateExistingReport && (
-                  <Text variant="bodySmall" style={styles.reportReadOnlyHelper}>
-                    {t('field_report_read_only_helper')}
-                  </Text>
-                )}
-                <TextInput
-                  mode="outlined"
-                  multiline
-                  numberOfLines={8}
-                  maxLength={4000}
-                  scrollEnabled
-                  editable={!existingFieldReport || canUpdateExistingReport}
-                  placeholder={t('field_report_placeholder')}
-                  value={fieldReport}
-                  onChangeText={setFieldReport}
-                  style={styles.reportInput}
-                  contentStyle={styles.reportInputContent}
-                />
-                <Text variant="labelSmall" style={styles.reportCounter}>
-                  {fieldReport.length}/4000
-                </Text>
-                <Text variant="bodySmall" style={styles.reportDisclaimer}>
-                  {t('evidence_does_not_replace_report')}
-                </Text>
-              </Dialog.Content>
-              <View style={styles.reportActions}>
-                <Button onPress={attemptCloseReportDialog} disabled={savingReport}>
-                  {t(existingFieldReport && !canUpdateExistingReport ? 'close' : 'cancel')}
-                </Button>
-                {(!existingFieldReport || canUpdateExistingReport) && (
-                  <ErionePrimaryButton
-                    icon="content-save-outline"
-                    style={styles.saveReportButton}
-                    loading={savingReport}
-                    disabled={savingReport || !fieldReport.trim()}
-                    onPress={submitFieldReport}
-                  >
-                    {t('save_field_report')}
-                  </ErionePrimaryButton>
-                )}
-              </View>
-            </Dialog>
-          </KeyboardAvoidingView>
-        </Portal>
-      )}
-
-      <Portal>
-        <Dialog
-          visible={evidenceOpen}
-          onDismiss={closeEvidenceDialog}
-          dismissable={!savingEvidence}
-          dismissableBackButton={!savingEvidence}
-          style={styles.evidenceDialog}
-        >
-          <View style={styles.evidenceHeader}>
-            <View style={{ flex: 1 }}>
-              <Text variant="titleLarge" style={styles.reportDialogTitle}>
-                {t('add_field_evidence')}
-              </Text>
-              <Text variant="bodySmall" style={styles.reportDialogHelper}>
-                {t('field_evidence_input_helper')}
-              </Text>
-            </View>
-            <IconButton
-              icon="close"
-              onPress={closeEvidenceDialog}
-              disabled={savingEvidence}
-              style={{ margin: 0 }}
-            />
-          </View>
-
-          <View style={styles.evidenceActions}>
-            <Button
-              mode="outlined"
-              icon="image"
-              onPress={pickEvidenceImage}
-              disabled={savingEvidence}
-              style={styles.evidenceActionButton}
-            >
-              {t('choose_from_gallery')}
-            </Button>
-            <Button
-              mode="outlined"
-              icon="camera"
-              onPress={openEvidenceCamera}
-              disabled={savingEvidence}
-              style={styles.evidenceActionButton}
-            >
-              {t('take_photo')}
-            </Button>
-          </View>
-
-          {!!evidenceFiles.length && (
-            <Text variant="labelMedium" style={styles.evidenceCounter}>
-              {t('field_evidence_selected_count', { count: evidenceFiles.length })}
-            </Text>
-          )}
-
-          <FlatList
-            data={evidenceFiles}
-            keyExtractor={(file, index) => `${file.uri}-${index}`}
-            numColumns={3}
-            style={styles.evidenceGrid}
-            contentContainerStyle={styles.evidenceGridContent}
-            columnWrapperStyle={styles.evidenceGridRow}
-            renderItem={({ item, index }) => (
-              <View style={styles.evidenceThumbWrap}>
-                <Image source={{ uri: item.uri }} style={styles.evidenceThumb} />
-                <IconButton
-                  icon="close-circle"
-                  size={22}
-                  iconColor="#FFFFFF"
-                  containerColor="rgba(20,20,20,0.55)"
-                  style={styles.evidenceThumbRemove}
-                  disabled={savingEvidence}
-                  onPress={() => {
-                    if (savingEvidence) return;
-                    setEvidenceFiles((current) =>
-                      current.filter((_, currentIndex) => currentIndex !== index)
-                    );
-                  }}
-                />
-              </View>
-            )}
-          />
-
-          <View style={styles.evidenceFooter}>
-            <Button onPress={closeEvidenceDialog} disabled={savingEvidence}>
-              {t('cancel')}
-            </Button>
-            <ErionePrimaryButton
-              style={styles.saveEvidenceButton}
-              loading={savingEvidence}
-              disabled={savingEvidence || !evidenceFiles.length}
-              onPress={submitEvidence}
-            >
-              {t('save')}
-            </ErionePrimaryButton>
-          </View>
-        </Dialog>
-      </Portal>
-      <InAppCamera
-        visible={cameraOpen}
-        onCapture={handleCameraCapture}
-        onClose={() => setCameraOpen(false)}
+      <FieldReportDialog
+        visible={reportOpen}
+        initialValue={initialFieldReportValue}
+        readOnly={isReportReadOnly}
+        saving={savingReport}
+        onSave={submitFieldReport}
+        onRequestClose={attemptCloseReportDialog}
       />
+
+      <FieldEvidenceDialog
+        visible={evidenceOpen}
+        files={evidenceFiles}
+        saving={savingEvidence}
+        onPickFromGallery={pickEvidenceImage}
+        onTakePhoto={openEvidenceCamera}
+        onRemoveFile={removeEvidenceFile}
+        onCancel={closeEvidenceDialog}
+        onSave={submitEvidence}
+      />
+      {cameraOpen && (
+        <InAppCamera
+          visible={cameraOpen}
+          onCapture={handleCameraCapture}
+          onClose={() => setCameraOpen(false)}
+        />
+      )}
     </ErioneCard>
   );
 }
@@ -1174,160 +1015,5 @@ const styles = StyleSheet.create({
   },
   fieldActionButton: {
     borderRadius: 16
-  },
-  reportKeyboardArea: {
-    flex: 1,
-    justifyContent: 'flex-end'
-  },
-  reportDialog: {
-    maxHeight: '92%',
-    marginHorizontal: 10,
-    marginBottom: 0,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    backgroundColor: '#FFFFFF'
-  },
-  reportHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF'
-  },
-  reportTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    backgroundColor: '#FFFFFF'
-  },
-  reportDialogTitle: {
-    color: colors.text,
-    fontWeight: '900'
-  },
-  requiredChip: {
-    height: 28,
-    backgroundColor: colors.primarySoft
-  },
-  reportDialogHelper: {
-    color: colors.muted,
-    marginTop: 5,
-    lineHeight: 18
-  },
-  reportContent: {
-    paddingTop: 6
-  },
-  reportReadOnlyHelper: {
-    color: colors.muted,
-    marginBottom: 10,
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: '#F6F9FA'
-  },
-  reportInput: {
-    minHeight: 160,
-    maxHeight: 210,
-    backgroundColor: '#FFFFFF'
-  },
-  reportInputContent: {
-    minHeight: 140,
-    maxHeight: 190,
-    paddingTop: 14,
-    paddingBottom: 14,
-    textAlignVertical: 'top'
-  },
-  reportCounter: {
-    color: colors.muted,
-    marginTop: 6,
-    textAlign: 'right'
-  },
-  reportDisclaimer: {
-    color: colors.muted,
-    marginTop: 12,
-    lineHeight: 18
-  },
-  reportActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
-    backgroundColor: '#FFFFFF'
-  },
-  saveReportButton: {
-    flex: 1
-  },
-  evidenceDialog: {
-    maxHeight: '90%',
-    marginHorizontal: 10,
-    backgroundColor: '#FFFFFF'
-  },
-  evidenceHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF'
-  },
-  evidenceActions: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 20
-  },
-  evidenceActionButton: {
-    flex: 1
-  },
-  evidenceCounter: {
-    color: colors.muted,
-    paddingHorizontal: 20,
-    marginTop: 12,
-    marginBottom: 4
-  },
-  evidenceGrid: {
-    flex: 1,
-    marginTop: 6
-  },
-  evidenceGridContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-    flexGrow: 1
-  },
-  evidenceGridRow: {
-    gap: 8
-  },
-  evidenceThumbWrap: {
-    width: '31%',
-    aspectRatio: 1,
-    marginBottom: 8,
-    borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: '#F1F3F5'
-  },
-  evidenceThumb: {
-    width: '100%',
-    height: '100%'
-  },
-  evidenceThumbRemove: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    margin: 0
-  },
-  evidenceFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 16,
-    backgroundColor: '#FFFFFF'
-  },
-  saveEvidenceButton: {
-    flex: 1
   }
 });

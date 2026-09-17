@@ -1178,6 +1178,7 @@
   search: 'Search',
   clear: 'Clear',
   save_signature: 'Save signature',
+  signature_save_error: 'Could not save the signature. Please try again.',
   download_as_csv: 'Download as CSV',
   print: 'Print',
   download_as_excel: 'Download as Excel',
@@ -1582,8 +1583,11 @@
   evidence_pending: 'Evidence pending',
   evidence: 'Evidence',
   evidence_photo_count: '{{count}} photo(s)',
-  field_evidence_selected_count_one: '{{count}} photo selected',
-  field_evidence_selected_count_other: '{{count}} photos selected',
+  // i18n.ts runs with compatibilityJSON: 'v3', where the plural form is the
+  // base key + a _plural suffix. With _one/_other (the v4 format) the key
+  // never resolved and the screen showed the raw key instead.
+  field_evidence_selected_count: '{{count}} photo selected',
+  field_evidence_selected_count_plural: '{{count}} photos selected',
   evidence_does_not_replace_report: 'Photo/evidence does not replace the technical report.',
   add_another: 'Add another',
   register_field_report_photo: 'Register field report and evidence',

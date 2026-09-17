@@ -1219,6 +1219,7 @@ const ptBRJSON = {
   search: 'Pesquisar',
   clear: 'Limpar',
   save_signature: 'Salvar assinatura',
+  signature_save_error: 'Não foi possível salvar a assinatura. Tente novamente.',
   download_as_csv: 'Baixar como CSV',
   print: 'Imprimir',
   download_as_excel: 'Baixar como Excel',
@@ -1631,8 +1632,11 @@ const ptBRJSON = {
   evidence_pending: 'Evidência pendente',
   evidence: 'Evidências',
   evidence_photo_count: '{{count}} foto(s)',
-  field_evidence_selected_count_one: '{{count}} foto selecionada',
-  field_evidence_selected_count_other: '{{count}} fotos selecionadas',
+  // i18n.ts roda com compatibilityJSON: 'v3', onde o plural e' a chave base +
+  // sufixo _plural. Com _one/_other (formato v4) a chave nao resolvia e a tela
+  // exibia "field_evidence_selected_count" cru.
+  field_evidence_selected_count: '{{count}} foto selecionada',
+  field_evidence_selected_count_plural: '{{count}} fotos selecionadas',
   evidence_does_not_replace_report: 'Foto/evidência não substitui o relato técnico.',
   add_another: 'Adicionar outro',
   register_field_report_photo: 'Registrar relato e evidências',

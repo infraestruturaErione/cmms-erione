@@ -10,7 +10,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Erione CMMS',
   slug: 'erione-cmms',
-  version: '1.0.44',
+  version: '1.0.45',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'erionecmms',
@@ -31,10 +31,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     bundleIdentifier: 'com.cmms.erione',
-    buildNumber: '10',
+    buildNumber: '11',
     jsEngine: 'hermes',
     supportsTablet: false,
-    runtimeVersion: '1.0.44',
+    runtimeVersion: '1.0.45',
     ...(enableFirebase
       ? { googleServicesFile: googleServicesPlist ?? './GoogleService-Info.plist' }
       : {}),
@@ -48,7 +48,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#ffffff'
     },
     permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION', 'CAMERA'],
-    versionCode: 37,
+    versionCode: 39,
     package: 'com.cmms.erione',
     jsEngine: 'hermes',
     ...(enableFirebase
@@ -57,7 +57,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             googleServicesJson ?? './android/app/google-services.json'
         }
       : {}),
-    runtimeVersion: '1.0.44'
+    runtimeVersion: '1.0.45'
   },
   web: {
     favicon: './assets/images/favicon.png'
@@ -104,8 +104,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           deploymentTarget: '15.1'
         },
         android: {
-          compileSdkVersion: 35,
-          targetSdkVersion: 35
+          compileSdkVersion: 36,
+          targetSdkVersion: 36,
+          buildToolsVersion: '36.0.0'
         }
       }
     ]

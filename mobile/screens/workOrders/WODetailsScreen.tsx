@@ -323,12 +323,12 @@ export default function WODetailsScreen({
     !generalPreferences.simplifiedWorkOrder &&
     !isWorkOrderFieldHidden('completeTime');
 
+  // getWorkOrderDetails(id) NAO e' disparado aqui mesmo quando !workOrderProp:
+  // o useFocusEffect logo abaixo ja chama isso incondicionalmente a cada
+  // vez que a tela ganha foco (inclusive no mount inicial, que tambem conta
+  // como "ganhar foco") - manter os dois disparava a mesma request 2x
+  // sempre que a tela abria sem workOrderProp pre-carregado.
   const getInfos = () => {
-    if (!workOrderProp) {
-      dispatch(getWorkOrderDetails(id)).catch((err) => {
-        showSnackBar(getErrorMessage(err), 'error');
-      });
-    }
     if (showPartsSection) {
       dispatch(getPartQuantitiesByWorkOrder(id));
     }
@@ -380,8 +380,12 @@ export default function WODetailsScreen({
     getInfos();
   }, [workOrderProp]);
 
+  // Cobre mount inicial (ganhar foco pela 1a vez conta como foco) E volta
+  // de outra tela (Tasks/Relato/etc.) - unico lugar que busca
+  // WorkOrder/Comments, pra' nao duplicar a mesma request.
   useFocusEffect(
     useCallback(() => {
+      setCommentsLoadError(false);
       dispatch(getWorkOrderDetails(id)).catch((err) => {
         showSnackBar(getErrorMessage(err), 'error');
       });
@@ -391,13 +395,12 @@ export default function WODetailsScreen({
     }, [dispatch, id, showSnackBar])
   );
 
+  // getUsersMini() e' uma lista de referencia (pra' dropdowns de
+  // atribuicao) que nao muda por causa de acao do tecnico nesta OS - so'
+  // precisa recarregar se o id da OS mudar, nao a cada foco.
   useEffect(() => {
-    setCommentsLoadError(false);
-    dispatch(getCommentsByWorkOrder(id)).catch(() => {
-      setCommentsLoadError(true);
-    });
     dispatch(getUsersMini());
-  }, [id]);
+  }, [id, dispatch]);
 
   useEffect(() => {
     let intervalId;

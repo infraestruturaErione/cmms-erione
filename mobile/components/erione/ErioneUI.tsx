@@ -78,7 +78,8 @@ export function ErionePrimaryButton({
   loading,
   disabled,
   onPress,
-  style
+  style,
+  testID
 }: {
   children: ReactNode;
   icon?: string;
@@ -86,9 +87,11 @@ export function ErionePrimaryButton({
   disabled?: boolean;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }) {
   return (
     <Button
+      testID={testID}
       mode="contained"
       icon={icon}
       loading={loading}

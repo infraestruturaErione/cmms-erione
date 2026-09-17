@@ -52,4 +52,15 @@ i18n
     }
   });
 
+// Os codigos de idioma aqui usam underscore (pt_br) porque vem de
+// companySettings.generalPreferences.language.toLowerCase(). O i18next nao
+// tem regra de plural pra "pt_br" (so' pra "pt"/"pt-BR"), e sem regra ele cai
+// silenciosamente sempre na forma singular - "20 foto selecionada" em vez de
+// "20 fotos selecionadas". Registrar a regra do idioma base resolve isso sem
+// mexer nos identificadores usados pelo resto do app.
+const ptRule = i18n.services.pluralResolver.getRule('pt');
+if (ptRule) {
+  i18n.services.pluralResolver.addRule('pt_br', ptRule);
+}
+
 export default i18n;
