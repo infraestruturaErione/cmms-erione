@@ -387,7 +387,7 @@ export default function WorkOrderCategories() {
           enableReinitialize
           initialValues={initialValues(category)}
           validationSchema={Yup.object().shape({
-            name: Yup.string().max(30).required(t('required_name'))
+            name: Yup.string().max(255).required(t('required_name'))
           })}
           onSubmit={async (values, { setSubmitting }) => {
             try {

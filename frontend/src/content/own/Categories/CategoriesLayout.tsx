@@ -728,7 +728,7 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
           ...taskTypeInitialValues()
         }}
         validationSchema={Yup.object().shape({
-          name: Yup.string().max(30).required(t('required_name'))
+          name: Yup.string().max(255).required(t('required_name'))
         })}
         onSubmit={async (values, { setSubmitting }) => {
           try {
@@ -843,7 +843,7 @@ function CategoriesLayout(props: CategoriesLayoutProps) {
           ...taskTypeInitialValues(currentCategory)
         }}
         validationSchema={Yup.object().shape({
-          name: Yup.string().max(30).required(t('required_name'))
+          name: Yup.string().max(255).required(t('required_name'))
         })}
         onSubmit={async (values, { setSubmitting }) => {
           try {
