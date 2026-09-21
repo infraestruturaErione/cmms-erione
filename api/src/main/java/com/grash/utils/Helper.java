@@ -1,5 +1,6 @@
 package com.grash.utils;
 
+import com.grash.security.ClientIpResolver;
 
 import com.grash.exception.CustomException;
 import com.grash.model.*;
@@ -423,24 +424,17 @@ public class Helper {
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
+    // Politica unica de IP do cliente: ver ClientIpResolver (o cliente nao escolhe o IP; X-Forwarded-For so'
+    // vale via proxy confiavel, na posicao escrita por ele). O bean se registra aqui no boot; o padrao cobre
+    // testes/uso sem contexto Spring.
+    private static volatile ClientIpResolver clientIpResolver = new ClientIpResolver();
+
+    public static void setClientIpResolver(ClientIpResolver resolver) {
+        clientIpResolver = resolver;
+    }
+
     public static String extractClientIp(HttpServletRequest req) {
-        String[] headerCandidates = {
-                "X-Forwarded-For",
-                "X-Real-IP",
-                "CF-Connecting-IP",   // Cloudflare
-                "True-Client-IP"
-        };
-
-        for (String header : headerCandidates) {
-            String ip = req.getHeader(header);
-            if (ip != null && !ip.isBlank() && !"unknown".equalsIgnoreCase(ip)) {
-                // X-Forwarded-For can be a comma-separated chain: "clientIp, proxy1, proxy2"
-                return ip.split(",")[0].trim();
-            }
-        }
-
-        String remoteAddr = req.getRemoteAddr();
-        return (remoteAddr != null && !remoteAddr.isBlank()) ? remoteAddr : "unknown";
+        return clientIpResolver.resolve(req);
     }
 
     public static String hashKey(String raw) throws NoSuchAlgorithmException {

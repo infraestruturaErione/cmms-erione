@@ -103,13 +103,17 @@ public class UserService {
     @Value("${company-signup-enabled:false}")
     private boolean companySignupEnabled;
 
+    // Credencial invalida = 401 com mensagem unica: email inexistente, senha errada, conta desabilitada e
+    // tipo de perfil errado sao indistinguiveis para quem chama (nao revela se o usuario existe).
+    private static final String INVALID_CREDENTIALS = "Invalid credentials";
+
     public String signin(String email, String password, String type) {
         try {
             cacheService.evictUserFromCache(email);
             Authentication authentication =
                     authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, password));
             if (authentication.getAuthorities().stream().noneMatch(grantedAuthority -> grantedAuthority.getAuthority().equals("ROLE_" + type.toUpperCase()))) {
-                throw new CustomException("Invalid credentials", HttpStatus.FORBIDDEN);
+                throw new CustomException(INVALID_CREDENTIALS, HttpStatus.UNAUTHORIZED);
             }
             Optional<User> optionalUser = userRepository.findByEmailIgnoreCase(email);
             User user = optionalUser.get();
@@ -117,7 +121,7 @@ public class UserService {
             userRepository.save(user);
             return jwtTokenProvider.createToken(email, Collections.singletonList(user.getRole().getRoleType()));
         } catch (AuthenticationException e) {
-            throw new CustomException("Invalid credentials", HttpStatus.FORBIDDEN);
+            throw new CustomException(INVALID_CREDENTIALS, HttpStatus.UNAUTHORIZED);
         }
     }
 
@@ -193,21 +197,27 @@ public class UserService {
                     "Administrator")).findFirst().get());
             checkUsageBasedLimit(1);
         } else {
+            // O role.id vindo do cliente so' SELECIONA qual convite server-side procurar
+            // (email + role); nunca e' autorizacao por si so'. Sem convite registrado
+            // por um admin (UserService.invite) o cadastro e' negado - independente de
+            // INVITATION_VIA_EMAIL, que so' controla o ENVIO do e-mail de convite, nao
+            // a exigencia do convite. Company e role finais vem do convite/role dele.
             Role role = roleService.findById(user.getRole().getId()).orElseThrow(() -> new CustomException("Role not " +
                     "found", HttpStatus.NOT_ACCEPTABLE));
-            if (role.isPaid()) {
-                checkUsageBasedLimit(1);
-            }
             List<UserInvitation> userInvitations =
                     userInvitationService.findByRoleAndEmail(role.getId(), user.getEmail());
-            if (enableInvitationViaEmail && userInvitations.isEmpty()) {
+            if (userInvitations.isEmpty()) {
                 throw new CustomException("You are not invited to this organization for this role",
                         HttpStatus.NOT_ACCEPTABLE);
+            }
+            if (role.isPaid()) {
+                checkUsageBasedLimit(1);
             }
             userInvitations.sort(Comparator.comparing(UserInvitation::getCreatedAt).reversed());
             user.setRole(role);
             if (role.getCompanySettings() == null) {
-                Optional<User> optionalInviter = findById(userInvitations.get(0).getCreatedBy());
+                Long inviterId = userInvitations.get(0).getCreatedBy();
+                Optional<User> optionalInviter = inviterId == null ? Optional.empty() : findById(inviterId);
                 if (!optionalInviter.isPresent())
                     throw new CustomException("Inviter not found", HttpStatus.NOT_ACCEPTABLE);
                 user.setCompany(optionalInviter.get().getCompany());
@@ -219,6 +229,9 @@ public class UserService {
                     throw new CustomException("You have reached the maximum number of users for your subscription",
                             HttpStatus.NOT_ACCEPTABLE);
             }
+            // Convite e' de uso unico (sem expiracao no modelo): consumido na mesma transacao
+            // que cria o usuario, pra nao poder ser reaproveitado se o e-mail for liberado depois.
+            userInvitations.forEach(invitation -> userInvitationService.delete(invitation.getId()));
             return enableAndReturnToken(user, true, userReq);
         }
         if (Helper.isLocalhost(PUBLIC_API_URL)) {

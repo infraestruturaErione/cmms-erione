@@ -21,7 +21,12 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public CustomUserDetail loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userService.whoami(username, true);
+        // Contrato do UserDetailsService: usuario inexistente => UsernameNotFoundException (o
+        // DaoAuthenticationProvider a converte em BadCredentialsException e ainda mitiga o ataque de
+        // tempo). Antes, Optional.get() lancava NoSuchElementException - uma excecao fora do contrato
+        // que so' virava "credencial invalida" por acidente, quando algum chamador a embrulhava.
+        User user = userService.findByEmailWithRolesCached(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         return CustomUserDetail.builder()//
                 .user(user)//
                 .build();

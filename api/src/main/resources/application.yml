@@ -87,6 +87,15 @@ security:
   recaptcha-secret-key: ${RECAPTCHA_SECRET_KEY:}
   cors:
     enabled: ${ENABLE_CORS:true}
+  # IP do cliente (rate limit de login, uploads publicos...). O cliente NAO escolhe o IP: X-Forwarded-For so'
+  # vale se a conexao vier de um proxy em trusted-proxies, e apenas a posicao escrita por eles (ver ClientIpResolver).
+  client-ip:
+    # Quantos proxies que ACRESCENTAM o IP de quem os chamou ao X-Forwarded-For ficam entre a internet e o
+    # backend. Padrao 1 = so' o nginx do frontend. Se ha uma borda na frente (ex.: OpenResty que acrescenta o IP
+    # do cliente), use 2. Errar para MENOS e' seguro (clientes dividem o balde do proxy); para MAIS deixa forjar.
+    proxy-hops: ${TRUSTED_PROXY_HOPS:1}
+    # Pares TCP considerados proxies confiaveis (IP ou CIDR, separados por virgula). Padrao: loopback e redes privadas.
+    trusted-proxies: ${TRUSTED_PROXIES:127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     authenticated:
@@ -117,6 +126,11 @@ observability:
     slow-threshold-ms: ${REQUEST_TIMING_SLOW_THRESHOLD_MS:1000}
 api:
   host: ${PUBLIC_API_URL}
+webhook:
+  # Gerenciamento de webhooks (/webhook-endpoints). Fechado por padrao nesta instalacao.
+  # MANTER false na Erione ate serem tratados: PATCH parcial que zera campos do webhook, ids de
+  # categorias de outra empresa aceitos na criacao e SSRF no envio (URL sem bloqueio de faixas internas).
+  management-enabled: ${WEBHOOK_MANAGEMENT_ENABLED:false}
 storage:
   type: ${STORAGE_TYPE}
   minio:

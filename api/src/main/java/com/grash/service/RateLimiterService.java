@@ -3,22 +3,62 @@ package com.grash.service;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Ticker;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.List;
 
 @Component
 public class RateLimiterService {
 
-    private final ConcurrentMap<String, Bucket> demoCache = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, Bucket> fileUploadCache = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, Bucket> publicMiniCache = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, Bucket> authenticatedUserCache = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, Bucket> authAttemptCache = new ConcurrentHashMap<>();
+    // Baldes por chave (IP/usuario) ficam em caches LIMITADOS e com expiracao: antes eram ConcurrentHashMap
+    // sem teto, e quem variasse a chave (IP) fazia o mapa crescer sem limite. A expiracao por inatividade (24h)
+    // e' maior que a maior janela de reposicao (demo: 5h), entao um balde que expira ja estaria cheio de novo -
+    // o limite continua o mesmo. Se o teto for atingido o Caffeine descarta os menos usados.
+    static final int DEFAULT_MAX_TRACKED_KEYS = 50_000;
+    static final Duration IDLE_EXPIRATION = Duration.ofHours(24);
+
+    private final Cache<String, Bucket> demoCache;
+    private final Cache<String, Bucket> fileUploadCache;
+    private final Cache<String, Bucket> publicMiniCache;
+    private final Cache<String, Bucket> authenticatedUserCache;
+    private final Cache<String, Bucket> authAttemptCache;
+
+    public RateLimiterService() {
+        this(DEFAULT_MAX_TRACKED_KEYS, Ticker.systemTicker());
+    }
+
+    // Visivel ao pacote para os testes (teto pequeno e relogio controlavel).
+    RateLimiterService(int maxTrackedKeys, Ticker ticker) {
+        this.demoCache = newCache(maxTrackedKeys, ticker);
+        this.fileUploadCache = newCache(maxTrackedKeys, ticker);
+        this.publicMiniCache = newCache(maxTrackedKeys, ticker);
+        this.authenticatedUserCache = newCache(maxTrackedKeys, ticker);
+        this.authAttemptCache = newCache(maxTrackedKeys, ticker);
+    }
+
+    private static Cache<String, Bucket> newCache(int maxTrackedKeys, Ticker ticker) {
+        return Caffeine.newBuilder()
+                .maximumSize(maxTrackedKeys)
+                .expireAfterAccess(IDLE_EXPIRATION)
+                .ticker(ticker)
+                .build();
+    }
+
+    long trackedKeyCount() {
+        long total = 0;
+        for (Cache<String, Bucket> cache : List.of(demoCache, fileUploadCache, publicMiniCache,
+                authenticatedUserCache, authAttemptCache)) {
+            cache.cleanUp();
+            total += cache.estimatedSize();
+        }
+        return total;
+    }
 
     /**
      * -- GETTER --
@@ -41,15 +81,15 @@ public class RateLimiterService {
     private int authenticatedLongTermPeriodHours;
 
     public Bucket resolveDemoBucket(String key) {
-        return demoCache.computeIfAbsent(key, this::newDemoBucket);
+        return demoCache.get(key, this::newDemoBucket);
     }
 
     public Bucket resolveFileUploadBucket(String key) {
-        return fileUploadCache.computeIfAbsent(key, this::newFileUploadBucket);
+        return fileUploadCache.get(key, this::newFileUploadBucket);
     }
 
     public Bucket resolvePublicMiniBucket(String key) {
-        return publicMiniCache.computeIfAbsent(key, this::newPublicMiniBucket);
+        return publicMiniCache.get(key, this::newPublicMiniBucket);
     }
 
     private Bucket newDemoBucket(String key) {
@@ -95,7 +135,7 @@ public class RateLimiterService {
      * Resolve rate limit bucket for authenticated users by user ID
      */
     public Bucket resolveAuthenticatedUserBucket(String userId) {
-        return authenticatedUserCache.computeIfAbsent(userId, this::newAuthenticatedUserBucket);
+        return authenticatedUserCache.get(userId, this::newAuthenticatedUserBucket);
     }
 
     /**
@@ -103,7 +143,7 @@ public class RateLimiterService {
      * Protects against brute-force and email-spam on public endpoints that carry no user identity yet.
      */
     public Bucket resolveAuthAttemptBucket(String ipKey) {
-        return authAttemptCache.computeIfAbsent(ipKey, this::newAuthAttemptBucket);
+        return authAttemptCache.get(ipKey, this::newAuthAttemptBucket);
     }
 
     private Bucket newAuthAttemptBucket(String key) {

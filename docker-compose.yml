@@ -66,8 +66,13 @@ services:
       PADDLE_WEBHOOK_SECRET_KEY: ${PADDLE_WEBHOOK_SECRET_KEY:-}
       PADDLE_ENVIRONMENT: ${PADDLE_ENVIRONMENT:-sandbox}
       ENABLE_CORS: ${ENABLE_CORS:-true}
+      # IP do cliente para rate limit: 1 = so' o nginx do frontend; 2 = borda (OpenResty) + nginx do frontend.
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7}
       EXTRA_CORS_ORIGINS: ${EXTRA_CORS_ORIGINS:-}
       SPRINGDOC_ENABLED: ${SPRINGDOC_ENABLED:-false}
+      # Manter false na Erione (pendentes: PATCH parcial, categorias de outra empresa, SSRF do envio).
+      WEBHOOK_MANAGEMENT_ENABLED: ${WEBHOOK_MANAGEMENT_ENABLED:-false}
       KEYGEN_PRODUCT_TOKEN: ${KEYGEN_PRODUCT_TOKEN:-}
       MAIL_TYPE: ${MAIL_TYPE:-smtp}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}

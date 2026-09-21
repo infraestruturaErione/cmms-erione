@@ -273,11 +273,17 @@ public class UserController {
 
     public UserResponseDTO softDelete(@PathVariable("id") Long id,
                                       @Parameter(hidden = true) @CurrentUser User requester) {
+        // Ninguem exclui a propria conta (nem admin): contas sao administradas internamente.
+        if (requester.getId().equals(id)) {
+            throw new CustomException("You cannot delete your own account", HttpStatus.FORBIDDEN);
+        }
         Optional<User> optionalUserToSoftDelete = userService.findByIdAndCompany(id, requester.getCompany().getId());
 
         if (optionalUserToSoftDelete.isPresent()) {
             User userToSoftDelete = optionalUserToSoftDelete.get();
-            if (requester.getId().equals(id) || requester.getRole().getViewPermissions().contains(PermissionEntity.SETTINGS)) {
+            // Excluir OUTRO usuario e' acao administrativa de People & Teams (mesmo dominio e
+            // mesma permissao de exclusao usados em TeamController.delete).
+            if (requester.getRole().getDeleteOtherPermissions().contains(PermissionEntity.PEOPLE_AND_TEAMS)) {
                 userToSoftDelete.setEnabled(false);
                 userToSoftDelete.setEnabledInSubscription(false);
                 userToSoftDelete.setEmail(userToSoftDelete.getEmail().concat("_".concat(id.toString())));

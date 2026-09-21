@@ -4,7 +4,6 @@ import com.grash.dto.SuccessResponse;
 import com.grash.dto.webhookEndpoint.WebhookEndpointPatchDTO;
 import com.grash.dto.webhookEndpoint.WebhookEndpointPostDTO;
 import com.grash.dto.webhookEndpoint.WebhookEndpointShowDTO;
-import com.grash.exception.CustomException;
 import com.grash.mapper.WebhookEndpointMapper;
 import com.grash.model.User;
 import com.grash.model.WebhookEndpoint;
@@ -25,7 +24,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/webhook-endpoints")
@@ -107,8 +105,7 @@ public class WebhookEndpointController {
     public ResponseEntity<List<WebhookEndpointShowDTO>> listEndpoints(
             @Parameter(hidden = true) @CurrentUser User user) {
 
-        List<WebhookEndpoint> endpoints = webhookEndpointService
-                .getActiveEndpointsByCompany(user.getCompany().getId());
+        List<WebhookEndpoint> endpoints = webhookEndpointService.getActiveEndpoints(user);
 
         return ResponseEntity.ok(endpoints.stream()
                 .map(webhookEndpointMapper::toShowDto)
@@ -171,12 +168,9 @@ public class WebhookEndpointController {
     public ResponseEntity<SuccessResponse> deleteEndpoint(
             @Parameter(hidden = true) @CurrentUser User user,
             @PathVariable Long id) {
-        Optional<WebhookEndpoint> optionalWebhookEndpoint = webhookEndpointService.findById(id);
-        if (optionalWebhookEndpoint.isPresent()) {
-            webhookEndpointService.delete(id);
-            return new ResponseEntity<>(new SuccessResponse(true, "Deleted successfully"),
-                    HttpStatus.OK);
-        } else throw new CustomException("Webhook endpoint not found", HttpStatus.NOT_FOUND);
+        webhookEndpointService.delete(id, user);
+        return new ResponseEntity<>(new SuccessResponse(true, "Deleted successfully"),
+                HttpStatus.OK);
     }
 
     @PatchMapping("/{id}/rotate-secret")
@@ -209,10 +203,7 @@ public class WebhookEndpointController {
             @Parameter(hidden = true) @CurrentUser User user,
             @PathVariable Long id) {
 
-        String newSecret = webhookEndpointService.rotateSecret(
-                id,
-                user.getCompany().getId()
-        );
+        String newSecret = webhookEndpointService.rotateSecret(id, user);
 
         return ResponseEntity.ok(new SuccessResponse(true, newSecret));
     }

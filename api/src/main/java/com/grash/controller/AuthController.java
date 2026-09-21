@@ -7,10 +7,8 @@ import com.grash.factory.MailServiceFactory;
 import com.grash.model.User;
 import com.grash.model.SuperAccountRelation;
 import com.grash.repository.SuperAccountRelationRepository;
-import com.grash.repository.UserRepository;
 import com.grash.security.CurrentUser;
 import com.grash.security.JwtTokenProvider;
-import com.grash.service.CompanyService;
 import com.grash.service.LdapService;
 import com.grash.service.UserService;
 import com.grash.service.VerificationTokenService;
@@ -44,8 +42,6 @@ public class AuthController {
     private final SuperAccountRelationRepository superAccountRelationRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final MailServiceFactory mailServiceFactory;
-    private final CompanyService companyService;
-    private final UserRepository userRepository;
     private final LdapService ldapService;
     @Value("${frontend.url}")
     private String frontendUrl;
@@ -209,13 +205,14 @@ public class AuthController {
         throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
     }
 
+    // Auto-exclusao de conta/empresa DESABILITADA (antigo DELETE /auth apagava a empresa do dono).
+    // Mantido de proposito so' para responder 403 explicito em vez de cair no handler global (500).
+    // NAO recebe usuario, NAO tem dependencias e NAO deve conter logica de exclusao: contas sao
+    // administradas internamente (desativar usuario e' PATCH /users/{id}/disable, por um admin).
     @DeleteMapping("")
     @PreAuthorize("permitAll()")
-    public SuccessResponse deleteAccount(@Parameter(hidden = true) @CurrentUser User user) {
-        if (user.isOwnsCompany())
-            companyService.delete(user.getCompany().getId());
-        else userRepository.delete(user);
-        return new SuccessResponse(true, "Account deleted successfully");
+    public SuccessResponse deleteAccount() {
+        throw new CustomException("Account self-deletion is disabled", HttpStatus.FORBIDDEN);
     }
 
 }
