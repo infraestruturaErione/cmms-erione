@@ -25,6 +25,7 @@ import {
 import type { FilterField, SearchCriteria } from 'src/models/owns/page';
 import Actions from './Actions';
 import EventPreviewPopover from './EventPreviewPopover';
+import useMonthCalendarHeight from './useMonthCalendarHeight';
 import { useTranslation } from 'react-i18next';
 import { getCalendarLocale } from '../../../../i18n/i18n';
 import type { LocaleSingularArg } from '@fullcalendar/core';
@@ -55,6 +56,24 @@ const FullCalendarWrapper = styled(Box)(
 
     & .fc-license-message {
       display: none;
+    }
+    &[data-month="true"] {
+      .calendar-event-content {
+        padding: 4px 6px;
+        font-size: 0.75rem;
+        line-height: 1.5;
+      }
+      .calendar-event-content .MuiTypography-root {
+        line-height: inherit;
+        text-transform: none;
+      }
+      .fc-popover {
+        max-width: calc(100vw - 32px);
+      }
+      .fc-popover-body {
+        max-height: min(360px, 50vh);
+        overflow-y: auto;
+      }
     }
     .fc {
       --fc-border-color: ${alpha(theme.palette.text.primary, 0.09)};
@@ -172,6 +191,59 @@ const FullCalendarWrapper = styled(Box)(
       .fc-list-event:hover td {
         background: ${alpha(theme.palette.primary.main, 0.025)};
       }
+      .fc-dayGridMonth-view {
+        .fc-col-header-cell {
+          padding-top: ${theme.spacing(0.75)};
+          padding-bottom: ${theme.spacing(0.75)};
+        }
+        .fc-daygrid-day-frame {
+          min-height: 128px;
+        }
+        .fc-daygrid-day-top {
+          padding: 4px 6px 6px;
+        }
+        .fc-daygrid-day-number {
+          padding: 0;
+          margin: 0;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.8125rem;
+        }
+        .fc-daygrid-day-events {
+          margin-right: 6px;
+          margin-left: 6px;
+        }
+        .fc-daygrid-event-harness {
+          margin-bottom: 3px;
+        }
+        .fc-daygrid-more-link {
+          font-size: 0.75rem;
+          margin-top: 3px;
+        }
+        @media (max-width: ${theme.breakpoints.values.sm - 1}px) {
+          .fc-daygrid-day-frame {
+            min-height: 108px;
+          }
+          .fc-daygrid-day-top {
+            padding-right: 2px;
+            padding-left: 2px;
+          }
+          .fc-daygrid-day-events {
+            margin-right: 1px;
+            margin-left: 1px;
+          }
+          .calendar-event-content {
+            padding-right: 2px;
+            padding-left: 2px;
+          }
+          .calendar-event-time {
+            display: none;
+          }
+        }
+      }
     }
 `
 );
@@ -233,6 +305,13 @@ function ApplicationsCalendar({
   );
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<View>('dayGridMonth');
+  const gridRef = useRef<HTMLDivElement>(null);
+  const isMonth = view === 'dayGridMonth';
+  const calendarHeight = useMonthCalendarHeight(
+    gridRef,
+    isMonth,
+    theme.breakpoints.values.sm
+  );
   const [activeStart, setActiveStart] = useState<Date>(new Date());
   const [activeEnd, setActiveEnd] = useState<Date>(new Date());
   const { t, i18n } = useTranslation();
@@ -571,7 +650,7 @@ function ApplicationsCalendar({
       : {};
 
     return (
-      <EventBlock>
+      <EventBlock className="calendar-event-content">
         <Stack direction="row" alignItems="center" spacing={0.55} minWidth={0}>
           <Box
             sx={{
@@ -587,6 +666,7 @@ function ApplicationsCalendar({
             <Typography
               component="span"
               variant="caption"
+              className="calendar-event-time"
               sx={{
                 color: 'text.secondary',
                 fontSize: 'inherit',
@@ -635,7 +715,11 @@ function ApplicationsCalendar({
   const hasEvents = calendarEvents.length > 0;
   return (
     <Grid item xs={12}>
-      <Box px={{ xs: 1, sm: 2.5 }} pt={2.25} pb={2}>
+      <Box
+        px={{ xs: 1, sm: 2.5 }}
+        pt={isMonth ? 1.5 : 2.25}
+        pb={isMonth ? 1.5 : 2}
+      >
         <Actions
           date={date}
           onNext={handleDateNext}
@@ -645,7 +729,7 @@ function ApplicationsCalendar({
           view={view}
         />
       </Box>
-      <FullCalendarWrapper>
+      <FullCalendarWrapper data-month={isMonth}>
         {loadingGet && (
           <Stack position="absolute" top={'45%'} left={'45%'} zIndex={10}>
             <CircularProgress size={64} />
@@ -661,31 +745,36 @@ function ApplicationsCalendar({
             </Typography>
           </Box>
         )}
-        <FullCalendar
-          allDayMaintainDuration
-          initialDate={date}
-          initialView={view}
-          locale={calendarLocale}
-          eventDisplay="block"
-          eventContent={renderEventContent}
-          eventClick={openCalendarEvent}
-          eventMouseEnter={handleEventMouseEnter}
-          eventMouseLeave={handleEventMouseLeave}
-          dateClick={(event) => handleAddWorkOrder(event.date)}
-          dayMaxEventRows={4}
-          events={calendarEvents}
-          headerToolbar={false}
-          height={660}
-          ref={calendarRef}
-          rerenderDelay={10}
-          weekends
-          plugins={[
-            dayGridPlugin,
-            timeGridPlugin,
-            interactionPlugin,
-            listPlugin
-          ]}
-        />
+        <div ref={gridRef}>
+          <FullCalendar
+            allDayMaintainDuration
+            initialDate={date}
+            initialView={view}
+            locale={calendarLocale}
+            eventDisplay="block"
+            eventContent={renderEventContent}
+            eventClick={openCalendarEvent}
+            eventMouseEnter={handleEventMouseEnter}
+            eventMouseLeave={handleEventMouseLeave}
+            dateClick={(event) => handleAddWorkOrder(event.date)}
+            dayMaxEventRows={isMonth ? true : 4}
+            moreLinkContent={
+              isMonth ? ({ num }) => `+${num} ${t('more')}` : undefined
+            }
+            events={calendarEvents}
+            headerToolbar={false}
+            height={calendarHeight}
+            ref={calendarRef}
+            rerenderDelay={10}
+            weekends
+            plugins={[
+              dayGridPlugin,
+              timeGridPlugin,
+              interactionPlugin,
+              listPlugin
+            ]}
+          />
+        </div>
       </FullCalendarWrapper>
       <EventPreviewPopover
         workOrder={previewWorkOrder}
