@@ -43,7 +43,7 @@ const locale = {
   erione_nav_more_reports: 'Advanced reports',
   erione_nav_more_admin: 'Additional administration',
   erione_nav_calendar: 'Service Calendar',
-  erione_nav_custom_fields_categories: 'Fields and categories',
+  erione_nav_custom_fields_categories: 'Tasks and Questionnaire',
   erione_nav_desc_work_orders: 'List, Kanban and field execution',
   erione_nav_desc_calendar: 'Monthly planning for service orders',
   erione_nav_desc_requests: 'Track open service requests',
@@ -59,7 +59,7 @@ const locale = {
     'Bulk reports by city and download history',
   erione_nav_desc_settings: 'General operation preferences',
   erione_nav_desc_custom_fields_categories:
-    'Categories and fields used in records',
+    'Task types and questionnaires used in work orders',
   erione_nav_desc_preventive_maintenance:
     'Recurring routines and preventive plans',
   erione_nav_desc_meters: 'Readings and equipment indicators',
@@ -1905,6 +1905,11 @@ const locale = {
   days_before_pm_notification:
     'Pre-work order notifications for scheduled ones',
   estimated_start_date: 'Expected start date',
+  estimated_start_time: 'Expected start time',
+  estimated_start_time_required: 'Pick a start time for a future date',
+  wo_set_custom_time: 'Set another time',
+  wo_use_current_time: 'Use current time',
+  wo_estimated_start_auto_time: 'Automatic time: {{time}}',
   no_file_linked_to_wo: 'No file attached to this work order',
   add_file: 'Add file',
   try_for_free: 'Try for free',

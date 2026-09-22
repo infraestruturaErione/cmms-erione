@@ -24,8 +24,9 @@ import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
 import DateTimePicker from '@mui/lab/DateTimePicker';
 import { FormikProps } from 'formik';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import * as Yup from 'yup';
 import { ObjectSchema } from 'yup';
 import Form from '../../components/form';
 import Field from '../../components/form/Field';
@@ -36,8 +37,19 @@ import { IField, IHash } from '../../type';
 import { useSelector } from '../../../../store';
 import { useBrand } from '../../../../hooks/useBrand';
 import { ERIONE_VISUAL_IDENTITY } from '../../../../config/erioneVisualIdentity';
-import { parseApiDate } from '../../../../utils/dateTime';
+import { ERIONE_TIME_ZONE, parseApiDate } from '../../../../utils/dateTime';
 import { getLocationAddressWithReference } from '../../../../utils/locationDisplay';
+import useAuth from '../../../../hooks/useAuth';
+import EstimatedStartDateField from './EstimatedStartDateField';
+import {
+  ESTIMATED_START_TIME_FIELD,
+  resolveEstimatedStart
+} from '../../../../utils/estimatedStartDate';
+import {
+  getServerNow,
+  hasServerClock,
+  syncServerClock
+} from '../../../../utils/serverClock';
 import Location, { LocationMiniDTO } from '../../../../models/owns/location';
 import LocationMiniMap from '../Details/LocationMiniMap';
 import {
@@ -400,6 +412,34 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
   const { open, onClose, fields, validation, values, onSubmit, onChange } =
     props;
   const [activeTab, setActiveTab] = useState(0);
+  const { companySettings } = useAuth();
+  const timeZone =
+    companySettings?.generalPreferences?.timeZone || ERIONE_TIME_ZONE;
+  const [serverNow, setServerNow] = useState<Date | null>(null);
+
+  // O "agora" e' capturado UMA vez por abertura: durante uma criacao ele nao
+  // pode avancar de minuto em minuto. Fechar e reabrir o modal recalcula.
+  useEffect(() => {
+    if (!open) {
+      setServerNow(null);
+      return;
+    }
+    let cancelled = false;
+    const hadClock = hasServerClock();
+    // Com o relogio ja sincronizado por alguma resposta da API (o caso normal,
+    // porque a propria listagem de OS ja passou por la), congela na hora:
+    // abrir a OS nao pode esperar rede.
+    if (hadClock) setServerNow(getServerNow());
+    syncServerClock().then((now) => {
+      // So' assume o valor vindo da rede quando nao havia relogio nenhum -
+      // trocar o horario congelado depois que a tela ja apareceu seria
+      // exatamente o pulo que essa UX evita.
+      if (!cancelled && !hadClock) setServerNow(now);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   const fieldByName = useMemo(
     () => new Map(fields.map((field) => [field.name, field])),
@@ -424,14 +464,46 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
     return {
       ...values,
       [UI_COLLABORATORS_FIELD]: [...primary, ...additional],
-      [UI_TEAM_FIELD]: values?.team ?? null
+      [UI_TEAM_FIELD]: values?.team ?? null,
+      // Hora vazia = automatica (horario do servidor). So' deixa de ser
+      // automatica quando o usuario escolhe uma.
+      [ESTIMATED_START_TIME_FIELD]: null
     };
   }, [values]);
+
+  const effectiveValidation = useMemo(() => {
+    if (!serverNow) return validation;
+    return validation.shape({
+      [ESTIMATED_START_TIME_FIELD]: Yup.mixed()
+        .nullable()
+        .test(
+          'estimated-start-time-required',
+          t('estimated_start_time_required'),
+          function (value) {
+            return !resolveEstimatedStart({
+              date: parseApiDate(this.parent.estimatedStartDate),
+              time: value,
+              serverNow,
+              timeZone
+            }).error;
+          }
+        )
+    });
+  }, [validation, serverNow, timeZone, t]);
 
   const submitSanitizedValues = async (formValues: IHash<any>) => {
     const sanitizedValues = { ...formValues };
     delete sanitizedValues[UI_COLLABORATORS_FIELD];
     delete sanitizedValues[UI_TEAM_FIELD];
+    // Data e hora so' vivem separadas na interface: o payload continua com um
+    // unico `estimatedStartDate`, como o backend sempre recebeu.
+    sanitizedValues.estimatedStartDate = resolveEstimatedStart({
+      date: parseApiDate(formValues.estimatedStartDate),
+      time: formValues[ESTIMATED_START_TIME_FIELD],
+      serverNow: serverNow ?? getServerNow(),
+      timeZone
+    }).value;
+    delete sanitizedValues[ESTIMATED_START_TIME_FIELD];
     await onSubmit(sanitizedValues);
   };
 
@@ -535,10 +607,12 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
                 assignedToField={fieldByName.get('assignedTo')}
                 teamField={fieldByName.get('team')}
               />
-              <FieldControl
+              <EstimatedStartDateField
                 field={fieldByName.get('estimatedStartDate')}
                 formik={formik}
                 handleChange={handleChange}
+                serverNow={serverNow}
+                timeZone={timeZone}
               />
             </Stack>
 
@@ -877,7 +951,7 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
         <Box>
           <Form
             fields={fields}
-            validation={validation}
+            validation={effectiveValidation}
             values={initialFormValues}
             onChange={onChange}
             onSubmit={submitSanitizedValues}

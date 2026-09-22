@@ -42,7 +42,7 @@ const ptBRJSON = {
   erione_nav_more_reports: 'Relatórios avançados',
   erione_nav_more_admin: 'Administração complementar',
   erione_nav_calendar: 'Calendário de OS',
-  erione_nav_custom_fields_categories: 'Campos e categorias',
+  erione_nav_custom_fields_categories: 'Tarefas e Questionário',
   erione_nav_desc_work_orders: 'Lista, Kanban e execução em campo',
   erione_nav_desc_calendar: 'Planejamento mensal das ordens',
   erione_nav_desc_requests: 'Acompanhar solicitações abertas',
@@ -58,7 +58,7 @@ const ptBRJSON = {
     'Relatórios em massa por cidade e histórico de downloads',
   erione_nav_desc_settings: 'Preferências gerais da operação',
   erione_nav_desc_custom_fields_categories:
-    'Categorias e campos usados nos cadastros',
+    'Tipos de tarefa e questionários usados nas OS',
   erione_nav_desc_preventive_maintenance:
     'Rotinas recorrentes e planos preventivos',
   erione_nav_desc_meters: 'Leituras e indicadores de equipamentos',
@@ -2000,6 +2000,12 @@ const ptBRJSON = {
   days_before_pm_notification:
     'Notificações pré-ordem de serviço para as agendadas',
   estimated_start_date: 'Data de início estimada',
+  estimated_start_time: 'Hora de início estimada',
+  estimated_start_time_required:
+    'Escolha a hora de início para uma data futura',
+  wo_set_custom_time: 'Definir outro horário',
+  wo_use_current_time: 'Usar horário atual',
+  wo_estimated_start_auto_time: 'Horário automático: {{time}}',
   no_file_linked_to_wo: 'Nenhum arquivo vinculado a esta ordem de serviço',
   add_file: 'Adicionar arquivo',
   try_for_free: 'Experimente gratuitamente',

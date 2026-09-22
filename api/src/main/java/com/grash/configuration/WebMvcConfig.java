@@ -4,6 +4,7 @@ import com.grash.security.CurrentUserResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -47,9 +48,13 @@ public class WebMvcConfig implements WebMvcConfigurer {
             registry.addMapping("/**")
                     .allowedOrigins(origins.toArray(new String[0]))
                     .allowedMethods("HEAD", "OPTIONS", "GET", "POST", "PUT", "PATCH", "DELETE")
+                    // Date ja e' enviado em toda resposta, mas nao esta na lista
+                    // segura do CORS: sem expor, o frontend em outra origem nao
+                    // consegue ler o relogio do servidor.
+                    .exposedHeaders(HttpHeaders.DATE)
                     .allowCredentials(true)
                     .maxAge(MAX_AGE_SECS);
-        } else registry.addMapping("/**").allowedMethods("*");
+        } else registry.addMapping("/**").allowedMethods("*").exposedHeaders(HttpHeaders.DATE);
     }
 
     @Override

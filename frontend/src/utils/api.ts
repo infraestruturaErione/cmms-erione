@@ -1,9 +1,13 @@
 import { apiUrl } from '../config';
+import { recordServerDate } from './serverClock';
 
 type Options = RequestInit & { raw?: boolean; headers?: HeadersInit };
 function api<T>(url: string, options: Options): Promise<T> {
   return fetch(url, { headers: authHeader(false), ...options }).then(
     async (response) => {
+      // Toda resposta ja carrega o relogio do servidor no header Date: e' de
+      // graca e mantem o offset fresco sem nenhuma requisicao extra.
+      recordServerDate(response.headers.get('Date'));
       if (!response.ok) {
         throw new Error(JSON.stringify(await response.json()));
       }
