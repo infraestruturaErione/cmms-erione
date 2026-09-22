@@ -1145,7 +1145,7 @@ function WorkOrders() {
   );
   const addWorkOrderInitialValues = useMemo(
     () => ({
-      requiredSignature: false,
+      requiredSignature: true,
       estimatedStartDate: initialEstimatedStartDate,
       asset: assetParamObject
         ? { label: assetParamObject.name, value: assetParamObject.id }
