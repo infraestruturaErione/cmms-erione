@@ -138,6 +138,21 @@ describe('SignaturePad', () => {
     expect(onChange).toHaveBeenCalledWith(VALID_SIGNATURE);
   });
 
+  test('reports pending until a valid save, then clears the warning', async () => {
+    const onPendingChange = jest.fn();
+    let root;
+    act(() => {
+      root = create(<SignaturePad label="Assinatura" onChange={jest.fn()} onPendingChange={onPendingChange} />);
+    });
+
+    expect(onPendingChange).not.toHaveBeenCalled();
+    begin(root);
+    expect(onPendingChange).toHaveBeenLastCalledWith(true);
+    await press(getSaveButton(root));
+    expect(onPendingChange).toHaveBeenLastCalledWith(false);
+    expect(getSaveButton(root)).toBeFalsy();
+  });
+
   test('does not accept an empty/invalid export as a valid signature', async () => {
     setMockCanvas('data:image/png;base64,', false); // below the length floor
     const onChange = jest.fn();

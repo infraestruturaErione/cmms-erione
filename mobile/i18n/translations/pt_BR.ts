@@ -1219,6 +1219,7 @@ const ptBRJSON = {
   search: 'Pesquisar',
   clear: 'Limpar',
   save_signature: 'Salvar assinatura',
+  signature_pending_save: 'Salve a assinatura antes de enviar.',
   signature_save_error: 'Não foi possível salvar a assinatura. Tente novamente.',
   download_as_csv: 'Baixar como CSV',
   print: 'Imprimir',

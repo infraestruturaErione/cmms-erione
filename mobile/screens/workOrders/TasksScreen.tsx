@@ -1,10 +1,19 @@
 import { Task } from '../../models/tasks';
 import { getTasks, patchTask } from '../../slices/task';
 import { useTranslation } from 'react-i18next';
-import { useContext, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useDispatch } from '../../store';
 import { CustomSnackBarContext } from '../../contexts/CustomSnackBarContext';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Keyboard,
+  LayoutRectangle,
+  View as NativeView,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollView,
+  StyleSheet,
+  View
+} from 'react-native';
 import { ProgressBar, Text, useTheme } from 'react-native-paper';
 import SingleTask from '../../components/SingleTask';
 import { RootStackScreenProps } from '../../types';
@@ -16,7 +25,13 @@ import ImageView from 'react-native-image-viewing';
 import { SheetManager } from 'react-native-actions-sheet';
 import { openLibraryWithPermission } from '../../utils/mediaPermissions';
 import InAppCamera from '../../components/InAppCamera';
-import { isExecutionTaskComplete } from '../../utils/workOrderCompletion';
+import {
+  AnsweredOverrides,
+  countAnsweredTasks,
+  getTasksProgress
+} from '../../utils/taskAnswers';
+import { computeScrollToRevealInput } from '../../utils/keyboardAwareScroll';
+import useKeyboardVisible from '../../hooks/useKeyboardVisible';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
 
 const colors = ERIONE_MOBILE_IDENTITY.colors;
@@ -42,8 +57,102 @@ export default function TasksScreen({
   const dispatch = useDispatch();
   const theme = useTheme();
   const { showSnackBar } = useContext(CustomSnackBarContext);
-  const completedTasks = tasks.filter(isExecutionTaskComplete).length;
-  const progress = tasks.length ? completedTasks / tasks.length : 0;
+  const keyboardVisible = useKeyboardVisible();
+  const [viewportHeight, setViewportHeight] = useState(0);
+
+  // Rascunhos: cada card avisa aqui quando passa a estar (ou deixa de estar) respondido,
+  // antes mesmo de o valor ser persistido. Contador e porcentagem saem dessa mistura
+  // (rascunho tem precedencia sobre o valor salvo), por isso acompanham a digitacao.
+  const [answeredOverrides, setAnsweredOverrides] = useState<AnsweredOverrides>(
+    {}
+  );
+  const handleAnsweredChange = useCallback(
+    (taskId: number, answered: boolean) => {
+      setAnsweredOverrides((previous) =>
+        previous[taskId] === answered
+          ? previous
+          : { ...previous, [taskId]: answered }
+      );
+    },
+    []
+  );
+  const completedTasks = countAnsweredTasks(tasks, answeredOverrides);
+  const progress = getTasksProgress(tasks, answeredOverrides);
+
+  // --- teclado: manter o campo focado visivel ---
+  const scrollRef = useRef<ScrollView>(null);
+  const viewportRef = useRef<NativeView>(null);
+  const scrollYRef = useRef(0);
+  const focusedInputRef = useRef<{ taskId: number; input: NativeView } | null>(null);
+  const correctionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const revealFocusedTask = useCallback(() => {
+    const input = focusedInputRef.current?.input;
+    const scroll = scrollRef.current;
+    if (!input || !scroll || !viewportRef.current) return;
+    viewportRef.current.measureInWindow((_x, viewportTop, _width, height) => {
+      input.measureInWindow((_inputX, inputTop, _inputWidth, inputHeight) => {
+        const target = computeScrollToRevealInput({
+          inputTop,
+          inputBottom: inputTop + inputHeight,
+          viewportTop,
+          viewportBottom: viewportTop + height,
+          scrollY: scrollYRef.current
+        });
+        if (target !== null) {
+          scrollYRef.current = target;
+          scroll.scrollTo({ y: target, animated: false });
+        }
+      });
+    });
+  }, []);
+
+  const handleInputFocus = useCallback(
+    (taskId: number, input: NativeView) => {
+      focusedInputRef.current = { taskId, input };
+      requestAnimationFrame(revealFocusedTask);
+    },
+    [revealFocusedTask]
+  );
+
+  const handleInputSizeChange = useCallback((taskId: number) => {
+    if (focusedInputRef.current?.taskId === taskId)
+      requestAnimationFrame(revealFocusedTask);
+  }, [revealFocusedTask]);
+
+  useEffect(() => {
+    // Com adjustResize (padrao do Expo no Android) a area visivel so' e' conhecida
+    // depois que o teclado aparece - por isso a rolagem espera esse evento.
+    const show = Keyboard.addListener('keyboardDidShow', () => {
+      requestAnimationFrame(revealFocusedTask);
+      if (correctionRef.current) clearTimeout(correctionRef.current);
+      correctionRef.current = setTimeout(revealFocusedTask, 120);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      focusedInputRef.current = null;
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+      if (correctionRef.current) clearTimeout(correctionRef.current);
+    };
+  }, [revealFocusedTask]);
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollYRef.current = event.nativeEvent.contentOffset.y;
+    },
+    []
+  );
+
+  const handleScrollViewLayout = useCallback(
+    (event: { nativeEvent: { layout: LayoutRectangle } }) => {
+      const { height } = event.nativeEvent.layout;
+      setViewportHeight(height);
+      requestAnimationFrame(revealFocusedTask);
+    },
+    [revealFocusedTask]
+  );
 
   useEffect(() => setTasks(tasksProps), [tasksProps]);
 
@@ -141,10 +250,18 @@ export default function TasksScreen({
     }
   };
   return (
+    <NativeView ref={viewportRef} style={styles.container}>
     <ScrollView
+      ref={scrollRef}
       style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[
+        styles.contentContainer,
+        keyboardVisible && { paddingBottom: Math.max(40, viewportHeight) }
+      ]}
       keyboardShouldPersistTaps="handled"
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
+      onLayout={handleScrollViewLayout}
     >
       <InAppCamera
         visible={cameraTaskId !== null}
@@ -179,7 +296,9 @@ export default function TasksScreen({
           key={task.id}
           task={task}
           index={index + 1}
-          completed={isExecutionTaskComplete(task)}
+          onAnsweredChange={handleAnsweredChange}
+          onInputFocus={handleInputFocus}
+          onInputSizeChange={handleInputSizeChange}
           handleChange={handleChange}
           handleNoteChange={handleNoteChange}
           handleSaveNotes={handleSaveNotes}
@@ -203,6 +322,7 @@ export default function TasksScreen({
         onRequestClose={() => setIsImageViewerOpen(false)}
       />
     </ScrollView>
+    </NativeView>
   );
 }
 const styles = StyleSheet.create({

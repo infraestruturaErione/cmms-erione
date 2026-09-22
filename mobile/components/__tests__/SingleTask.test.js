@@ -125,3 +125,170 @@ describe('SingleTask - NUMBER/METER value display', () => {
     expect(root.root.findByType(TextInput).props.value).toBe('10');
   });
 });
+
+// Problema relatado: digitar e o card seguir "Nao respondido" / o progresso so' mudar
+// depois que a resposta e' persistida. O status passa a sair do rascunho local.
+describe('SingleTask - status acompanha a digitacao', () => {
+  const renderTask = (task, props = {}) => {
+    let root;
+    act(() => {
+      root = create(
+        <SingleTask
+          task={task}
+          handleChange={jest.fn()}
+          notes={new Map()}
+          {...props}
+        />
+      );
+    });
+    flushTimers();
+    return root;
+  };
+
+  const statusOf = (root) =>
+    root.root.findAll(
+      (node) =>
+        typeof node.props.children === 'string' &&
+        ['question_answered', 'question_pending'].includes(node.props.children)
+    )[0]?.props.children;
+
+  const typeText = (root, text) => {
+    act(() => {
+      root.root.findByType(TextInput).props.onChangeText(text);
+    });
+  };
+
+  const waitForDebounce = () => {
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+  };
+
+  it('vira "respondido" na primeira tecla, sem esperar a persistencia', () => {
+    const root = renderTask(makeTask('TEXT', undefined));
+    expect(statusOf(root)).toBe('question_pending');
+
+    typeText(root, 'T');
+
+    expect(statusOf(root)).toBe('question_answered');
+  });
+
+  it('volta a "nao respondido" quando o campo e apagado', () => {
+    const root = renderTask(makeTask('TEXT', 'resposta salva'));
+    expect(statusOf(root)).toBe('question_answered');
+
+    typeText(root, '');
+
+    expect(statusOf(root)).toBe('question_pending');
+  });
+
+  it('nao considera respondido um campo so com espacos', () => {
+    const root = renderTask(makeTask('TEXT', undefined));
+
+    typeText(root, '   ');
+
+    expect(statusOf(root)).toBe('question_pending');
+  });
+
+  it('avisa a tela apenas quando o estado vira/deixa de ser respondido', () => {
+    const onAnsweredChange = jest.fn();
+    const root = renderTask(makeTask('TEXT', undefined), { onAnsweredChange });
+
+    // montagem nao gera aviso: a tela ja parte do valor persistido
+    expect(onAnsweredChange).not.toHaveBeenCalled();
+
+    typeText(root, 'T');
+    expect(onAnsweredChange).toHaveBeenCalledTimes(1);
+    expect(onAnsweredChange).toHaveBeenCalledWith(1, true);
+
+    // seguir digitando nao re-renderiza a lista a toa
+    typeText(root, 'Tro');
+    typeText(root, 'Troca');
+    expect(onAnsweredChange).toHaveBeenCalledTimes(1);
+
+    typeText(root, '');
+    expect(onAnsweredChange).toHaveBeenCalledTimes(2);
+    expect(onAnsweredChange).toHaveBeenLastCalledWith(1, false);
+  });
+
+  it('nao avisa nada ao montar uma pergunta ja respondida', () => {
+    const onAnsweredChange = jest.fn();
+    renderTask(makeTask('TEXT', 'ja respondida'), { onAnsweredChange });
+
+    expect(onAnsweredChange).not.toHaveBeenCalled();
+  });
+
+  it('persiste so depois da pausa, uma vez, com o valor final', () => {
+    const handleChange = jest.fn();
+    const root = renderTask(makeTask('TEXT', undefined), { handleChange });
+
+    typeText(root, 'Tro');
+    typeText(root, 'Troca');
+    expect(handleChange).not.toHaveBeenCalled();
+
+    waitForDebounce();
+
+    expect(handleChange).toHaveBeenCalledTimes(1);
+    expect(handleChange).toHaveBeenCalledWith('Troca', 1);
+  });
+
+  // Caso inverso do relato: apagar precisava chegar ao servidor, senao o card
+  // voltava a "Concluido" com o campo vazio na proxima abertura.
+  it('persiste tambem quando a resposta e apagada', () => {
+    const handleChange = jest.fn();
+    const root = renderTask(makeTask('TEXT', 'resposta salva'), {
+      handleChange
+    });
+
+    typeText(root, '');
+    waitForDebounce();
+
+    expect(handleChange).toHaveBeenCalledWith('', 1);
+  });
+
+  it('descarta caracteres nao numericos em NUMBER e mantem o status coerente', () => {
+    const handleChange = jest.fn();
+    const root = renderTask(makeTask('NUMBER', undefined), { handleChange });
+
+    typeText(root, '12a3');
+
+    expect(root.root.findByType(TextInput).props.value).toBe('123');
+    expect(statusOf(root)).toBe('question_answered');
+
+    waitForDebounce();
+    expect(handleChange).toHaveBeenCalledWith('123', 1);
+  });
+
+  it('SUBTASK continua saindo do valor salvo: so COMPLETE conta', () => {
+    expect(statusOf(renderTask(makeTask('SUBTASK', 'OPEN')))).toBe(
+      'question_pending'
+    );
+    expect(statusOf(renderTask(makeTask('SUBTASK', 'COMPLETE')))).toBe(
+      'question_answered'
+    );
+  });
+
+  it('informa o input focado e seu tamanho para a tela posicionar o teclado', () => {
+    const onInputFocus = jest.fn();
+    const onInputSizeChange = jest.fn();
+    const root = renderTask(makeTask('TEXT', undefined), {
+      onInputFocus,
+      onInputSizeChange
+    });
+
+    act(() => {
+      root.root.findByType(TextInput).props.onFocus();
+    });
+    expect(onInputFocus).toHaveBeenCalledWith(1, expect.any(Object));
+
+    const inputWrapper = root.root.findAll(
+      (node) => node.props.collapsable === false && typeof node.props.onLayout === 'function'
+    )[0];
+    act(() => {
+      inputWrapper.props.onLayout({
+        nativeEvent: { layout: { x: 0, y: 320, width: 360, height: 210 } }
+      });
+    });
+    expect(onInputSizeChange).toHaveBeenCalledWith(1);
+  });
+});

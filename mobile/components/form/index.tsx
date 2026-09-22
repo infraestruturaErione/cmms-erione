@@ -44,6 +44,7 @@ import File, { IFile } from '../../models/file';
 import mime from 'mime';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useState } from 'react';
 
 interface OwnProps {
   fields: Array<IField>;
@@ -59,6 +60,7 @@ interface OwnProps {
 }
 
 export default function Form(props: OwnProps) {
+  const [signaturePending, setSignaturePending] = useState(false);
   const { t } = useTranslation();
   const shape: IHash<any> = {};
   const theme = useTheme();
@@ -680,6 +682,7 @@ export default function Form(props: OwnProps) {
                       <SignaturePad
                         label={field.label}
                         value={formik.values[field.name]}
+                        onPendingChange={setSignaturePending}
                         onChange={(signature) => {
                           formik.setFieldValue(field.name, signature);
                         }}
@@ -687,9 +690,12 @@ export default function Form(props: OwnProps) {
                     ) : (
                       renderSelect(formik, field)
                     )}
-                    {Boolean(formik.errors[field.name]) && (
+                    {(Boolean(formik.errors[field.name]) ||
+                      (field.type === 'signature' && signaturePending)) && (
                       <HelperText type="error">
-                        {t(formik.errors[field.name]?.toString())}
+                        {field.type === 'signature' && signaturePending
+                          ? t('signature_pending_save')
+                          : t(formik.errors[field.name]?.toString())}
                       </HelperText>
                     )}
                   </View>
@@ -700,7 +706,7 @@ export default function Form(props: OwnProps) {
                 onPress={() => formik.handleSubmit()}
                 mode="contained"
                 loading={formik.isSubmitting}
-                disabled={Boolean(formik.errors.submit) || formik.isSubmitting}
+                disabled={Boolean(formik.errors.submit) || formik.isSubmitting || signaturePending}
               >
                 {t(props.submitText)}
               </Button>

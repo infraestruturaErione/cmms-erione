@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 interface SignaturePadProps {
   label: string;
   onChange: (base64Data: string) => void;
+  onPendingChange?: (pending: boolean) => void;
   value?: string;
 }
 
@@ -31,6 +32,7 @@ export const isValidSignatureDataUrl = (candidate?: string | null): boolean => {
 const SignaturePad: React.FC<SignaturePadProps> = ({
   label,
   onChange,
+  onPendingChange,
   value
 }) => {
   const ref = useRef<SignatureViewRef>(null);
@@ -67,14 +69,16 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
         return;
       }
       onChange(signature);
+      onPendingChange?.(false);
       setHasChanged(false);
     },
-    [onChange]
+    [onChange, onPendingChange]
   );
 
   const handleBegin = useCallback(() => {
     setHasChanged(true);
-  }, []);
+    onPendingChange?.(true);
+  }, [onPendingChange]);
 
   const handleEmpty = useCallback(() => {
     savingRef.current = false;
@@ -127,11 +131,12 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
   const handleClear = useCallback(() => {
     ref.current?.clearSignature();
     onChange('');
+    onPendingChange?.(false);
     setHasChanged(false);
     setSaveError(false);
     savingRef.current = false;
     setIsSaving(false);
-  }, [onChange]);
+  }, [onChange, onPendingChange]);
 
   const style = `.m-signature-pad--footer .button {
     background-color: ${theme.colors.primary};

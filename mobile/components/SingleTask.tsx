@@ -14,10 +14,18 @@ import debounce from 'lodash.debounce';
 import { SheetManager } from 'react-native-actions-sheet';
 import { PermissionEntity } from '../models/role';
 import { PlanFeature } from '../models/subscriptionPlan';
-import { Image, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  View as NativeView
+} from 'react-native';
 import { ERIONE_MOBILE_IDENTITY } from '../config/erioneVisualIdentity';
+import { isTaskValueAnswered } from '../utils/taskAnswers';
 
 const colors = ERIONE_MOBILE_IDENTITY.colors;
+
+const CHOICE_TASK_TYPES: TaskType[] = ['SUBTASK', 'INSPECTION', 'MULTIPLE'];
 
 interface SingleTaskProps {
   task: Task;
@@ -30,7 +38,11 @@ interface SingleTaskProps {
   toggleNotes?: (id: number) => void;
   notes?: Map<number, boolean>;
   index?: number;
-  completed?: boolean;
+  /** Avisa a tela quando esta pergunta passa a estar (ou deixa de estar) respondida. */
+  onAnsweredChange?: (taskId: number, answered: boolean) => void;
+  /** Usado pela tela para rolar o card focado acima do teclado. */
+  onInputFocus?: (taskId: number, input: NativeView) => void;
+  onInputSizeChange?: (taskId: number) => void;
 }
 
 export default function SingleTask({
@@ -44,49 +56,55 @@ export default function SingleTask({
   handleSelectImages,
   handleZoomImage,
   index,
-  completed = false
+  onAnsweredChange,
+  onInputFocus,
+  onInputSizeChange,
 }: SingleTaskProps) {
   const theme = useTheme();
   const { t }: { t: any } = useTranslation();
   const [savingNotes, setSavingNotes] = useState<boolean>(false);
   const { user, hasCreatePermission, hasFeature } = useAuth();
-  const [inputValue, setInputValue] = useState<string>('');
+  // Ja' nasce com a resposta salva: comecar em '' fazia o card piscar "Nao respondido"
+  // no primeiro frame e disparar um aviso de mudanca de estado que nunca houve.
+  const [inputValue, setInputValue] = useState<string>(
+    () => task.value?.toString() ?? ''
+  );
   const handleChangeRef = useRef(handleChange);
+  const answerRef = useRef<NativeView>(null);
+  const notesRef = useRef<NativeView>(null);
 
   useEffect(() => {
     handleChangeRef.current = handleChange;
   }, [handleChange]);
 
-  // O TextInput de NUMBER/METER abaixo e' controlado por inputValue (value=),
-  // nao so' por defaultValue como o campo de texto generico - sem isso,
-  // inputValue comecava sempre em '' e uma resposta numerica ja salva
-  // aparecia em branco ao reabrir a pergunta, mesmo com o valor certo em
-  // task.value. So' re-semeia quando a PERGUNTA muda (task.id), nao a cada
-  // render do mesmo task - assim nao apaga o que o usuario esta digitando.
+  const taskType = task.taskBase.taskType;
+  const isChoiceInput = CHOICE_TASK_TYPES.includes(taskType);
+  const isNumericInput = taskType === 'METER' || taskType === 'NUMBER';
+
+  // Re-semeia o campo so' quando a PERGUNTA muda (task.id), nao a cada render do mesmo
+  // task - assim nao apaga o que o usuario esta digitando.
   useEffect(() => {
     setInputValue(task.value?.toString() ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task.id]);
 
-  const changeHandler = (newValue: string) => {
-    if (!preview) {
-      let formattedValue = newValue;
-      if (
-        task.taskBase.taskType === 'METER' ||
-        task.taskBase.taskType === 'NUMBER'
-      ) {
-        formattedValue = newValue?.replace(/[^0-9]/g, '') ?? '';
-        setInputValue(formattedValue);
-      } else setInputValue(formattedValue);
-      if (formattedValue !== '') handleChange(formattedValue, task.id);
-    }
-  };
+  // Valor vigente NA TELA: nos campos digitaveis e' o rascunho local (atualizado a cada
+  // tecla), nos de selecao e' o proprio task.value (o dropdown grava na hora). O status do
+  // card sai daqui, e nao do valor persistido - por isso ele acompanha a digitacao.
+  const currentValue = isChoiceInput ? task.value : inputValue;
+  const answered = isTaskValueAnswered(task, currentValue);
 
-  const debouncedChangeHandler = useMemo(
-    () => debounce(changeHandler, 1000),
-    []
-  );
-  const debouncedNumericChangeHandler = useMemo(
+  // A tela (contador/progresso) so' precisa saber quando o estado VIRA respondida ou
+  // deixa de ser - avisar a cada tecla re-renderizaria a lista inteira a toa.
+  const lastAnsweredRef = useRef(answered);
+  useEffect(() => {
+    if (lastAnsweredRef.current === answered) return;
+    lastAnsweredRef.current = answered;
+    onAnsweredChange?.(task.id, answered);
+  }, [answered, onAnsweredChange, task.id]);
+
+  // Persistencia continua debounced e separada do feedback visual.
+  const persistValue = useMemo(
     () =>
       debounce((value: string, taskId: number) => {
         handleChangeRef.current?.(value, taskId);
@@ -96,21 +114,21 @@ export default function SingleTask({
 
   useEffect(
     () => () => {
-      debouncedNumericChangeHandler.flush();
-      debouncedNumericChangeHandler.cancel();
+      persistValue.flush();
+      persistValue.cancel();
     },
-    [debouncedNumericChangeHandler]
+    [persistValue]
   );
 
-  const numericChangeHandler = (newValue: string) => {
+  const handleInputChange = (newValue: string) => {
     if (preview) return;
-    const formattedValue = newValue?.replace(/[^0-9]/g, '') ?? '';
+    const formattedValue = isNumericInput
+      ? newValue?.replace(/[^0-9]/g, '') ?? ''
+      : newValue ?? '';
     setInputValue(formattedValue);
-    if (formattedValue !== '') {
-      debouncedNumericChangeHandler(formattedValue, task.id);
-    } else {
-      debouncedNumericChangeHandler.cancel();
-    }
+    // Apagar a resposta tambem e' uma alteracao: sem isso o valor antigo ficava no
+    // servidor e a pergunta seguia "concluida" com o campo vazio na tela.
+    persistValue(formattedValue, task.id);
   };
   const onDropdownValueChange = (value) => {
     !preview &&
@@ -147,13 +165,15 @@ export default function SingleTask({
     }
   };
   return (
-    <View style={[styles.card, completed && styles.cardComplete]}>
+    <View
+      style={[styles.card, answered && styles.cardComplete]}
+    >
       <View style={styles.taskHeader}>
         <View style={styles.taskStateIcon}>
           <IconButton
-            icon={completed ? 'check-circle' : 'alert-circle-outline'}
+            icon={answered ? 'check-circle' : 'alert-circle-outline'}
             size={22}
-            iconColor={completed ? colors.primary : '#B45309'}
+            iconColor={answered ? colors.primary : '#B45309'}
             style={styles.stateIcon}
           />
         </View>
@@ -164,9 +184,9 @@ export default function SingleTask({
           </Text>
           <Text
             variant="labelSmall"
-            style={[styles.taskState, completed && styles.taskStateComplete]}
+            style={[styles.taskState, answered && styles.taskStateComplete]}
           >
-            {t(completed ? 'question_answered' : 'question_pending')}
+            {t(answered ? 'question_answered' : 'question_pending')}
           </Text>
         </View>
       </View>
@@ -195,9 +215,7 @@ export default function SingleTask({
           {t('notes')}
         </Button>
       </View>
-      {['SUBTASK', 'INSPECTION', 'MULTIPLE'].includes(
-        task.taskBase.taskType
-      ) ? (
+      {isChoiceInput ? (
         <TouchableOpacity
           onPress={() => {
             SheetManager.show('dropdown-sheet', {
@@ -235,25 +253,18 @@ export default function SingleTask({
             />
           </View>
         </TouchableOpacity>
-      ) : task.taskBase.taskType === 'METER' ||
-        task.taskBase.taskType === 'NUMBER' ? (
-        <TextInput
-          defaultValue={task.value?.toString()}
-          onChangeText={numericChangeHandler}
-          onEndEditing={() => debouncedNumericChangeHandler.flush()}
-          label={t('value')}
-          value={inputValue}
-          mode={'outlined'}
-          disabled={task.taskBase.user && task.taskBase.user.id !== user.id}
-        />
       ) : (
-        <TextInput
-          defaultValue={task.value?.toString()}
-          onChangeText={debouncedChangeHandler}
-          label={t('value')}
-          mode={'outlined'}
-          disabled={task.taskBase.user && task.taskBase.user.id !== user.id}
-        />
+        <NativeView ref={answerRef} collapsable={false} onLayout={() => onInputSizeChange?.(task.id)}>
+          <TextInput
+            value={inputValue}
+            onChangeText={handleInputChange}
+            onEndEditing={() => persistValue.flush()}
+            onFocus={() => answerRef.current && onInputFocus?.(task.id, answerRef.current)}
+            label={t('value')}
+            mode={'outlined'}
+            disabled={task.taskBase.user && task.taskBase.user.id !== user.id}
+          />
+        </NativeView>
       )}
       {task.taskBase.asset && (
         <View style={styles.metaRow}>
@@ -277,15 +288,21 @@ export default function SingleTask({
       )}
       {notes.get(task.id) && (
         <View style={styles.notesBox}>
-          <TextInput
-            mode={'outlined'}
-            multiline
-            value={task.notes}
-            label={t('notes')}
-            onChangeText={(value) =>
-              !preview && handleNoteChange(value, task.id)
-            }
-          />
+          <NativeView ref={notesRef} collapsable={false} onLayout={() => onInputSizeChange?.(task.id)}>
+            <TextInput
+              mode={'outlined'}
+              multiline
+              scrollEnabled
+              style={styles.notesInput}
+              value={task.notes}
+              label={t('notes')}
+              onFocus={() => notesRef.current && onInputFocus?.(task.id, notesRef.current)}
+              onContentSizeChange={() => onInputSizeChange?.(task.id)}
+              onChangeText={(value) =>
+                !preview && handleNoteChange(value, task.id)
+              }
+            />
+          </NativeView>
           <Button
             style={{ marginTop: 10 }}
             mode="contained"
@@ -376,6 +393,9 @@ const styles = StyleSheet.create({
   },
   notesBox: {
     marginTop: 8
+  },
+  notesInput: {
+    maxHeight: 160
   },
   imageRow: {
     flexDirection: 'row',

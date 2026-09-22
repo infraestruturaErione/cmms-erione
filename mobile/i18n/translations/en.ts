@@ -1178,6 +1178,7 @@
   search: 'Search',
   clear: 'Clear',
   save_signature: 'Save signature',
+  signature_pending_save: 'Save the signature before submitting.',
   signature_save_error: 'Could not save the signature. Please try again.',
   download_as_csv: 'Download as CSV',
   print: 'Print',

@@ -10,7 +10,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Erione CMMS',
   slug: 'erione-cmms',
-  version: '1.0.45',
+  version: '1.0.46',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'erionecmms',
@@ -31,10 +31,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     bundleIdentifier: 'com.cmms.erione',
-    buildNumber: '11',
+    buildNumber: '12',
     jsEngine: 'hermes',
     supportsTablet: false,
-    runtimeVersion: '1.0.45',
+    runtimeVersion: '1.0.46',
     ...(enableFirebase
       ? { googleServicesFile: googleServicesPlist ?? './GoogleService-Info.plist' }
       : {}),
@@ -48,7 +48,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#ffffff'
     },
     permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION', 'CAMERA'],
-    versionCode: 39,
+    versionCode: 41,
     package: 'com.cmms.erione',
     jsEngine: 'hermes',
     ...(enableFirebase
@@ -57,7 +57,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             googleServicesJson ?? './android/app/google-services.json'
         }
       : {}),
-    runtimeVersion: '1.0.45'
+    runtimeVersion: '1.0.46'
   },
   web: {
     favicon: './assets/images/favicon.png'

@@ -81,7 +81,7 @@ export default function CreateWorkOrderScreen({
         navigation={navigation}
         submitText={t('save')}
         values={{
-          requiredSignature: false,
+          requiredSignature: true,
           dueDate: initialDueDate,
           location: route.params?.location
             ? {
