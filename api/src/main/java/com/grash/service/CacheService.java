@@ -34,6 +34,10 @@ public class CacheService {
                     Hibernate.initialize(user.getRole().getDeleteOtherPermissions());
                     Hibernate.initialize(user.getRole().getEditOtherPermissions());
                 }
+                // O User cacheado e' o MESMO objeto pra todas as requests concorrentes. Uma
+                // colecao LAZY ainda nao inicializada seria inicializada por varias threads
+                // ao mesmo tempo (Illegal pop() do Hibernate) - entao vai pronta pro cache.
+                Hibernate.initialize(user.getAllowedCustomers());
                 if (user.getCompany() != null && user.getCompany().getSubscription() != null) {
                     Hibernate.initialize(user.getCompany().getSubscription().getSubscriptionPlan().getFeatures());
                 }

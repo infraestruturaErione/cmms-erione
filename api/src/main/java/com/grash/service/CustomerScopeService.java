@@ -42,11 +42,20 @@ public class CustomerScopeService {
     }
 
     public boolean hasRestrictedCustomerScope(User user) {
-        if (user == null || user.getRole() == null || user.getAllowedCustomers() == null || user.getAllowedCustomers().isEmpty()) {
+        if (user == null || user.getRole() == null) {
             return false;
         }
-        return RoleCode.REQUESTER.equals(user.getRole().getCode())
-                || RoleCode.LIMITED_ADMIN.equals(user.getRole().getCode());
+        // O role vem ANTES da colecao de proposito: allowedCustomers e' LAZY e o User
+        // e' compartilhado entre requests (cache "users"). Perfis que nao usam escopo
+        // por cliente (a grande maioria) nunca devem tocar nessa colecao - tocar nela
+        // numa rajada de requests concorrentes derrubava o request com
+        // "Illegal pop() with non-matching JdbcValuesSourceProcessingState".
+        RoleCode code = user.getRole().getCode();
+        if (!RoleCode.REQUESTER.equals(code) && !RoleCode.LIMITED_ADMIN.equals(code)) {
+            return false;
+        }
+        List<Customer> allowedCustomers = user.getAllowedCustomers();
+        return allowedCustomers != null && !allowedCustomers.isEmpty();
     }
 
     public List<Long> getAllowedCustomerIds(User user) {

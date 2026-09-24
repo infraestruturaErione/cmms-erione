@@ -87,6 +87,10 @@ import FieldExecutionSection from './FieldExecutionSection';
 import FieldReportSection from './FieldReportSection';
 import OverviewTab from './OverviewTab';
 import { ERIONE_HIDDEN_MODULES } from '../../../../config/erioneModules';
+import {
+  DrawerFetchKey,
+  getWorkOrderDetailsFetchPlan
+} from './workOrderDetailsFetchPlan';
 import { useBrand } from '../../../../hooks/useBrand';
 import { useLicenseEntitlement } from '../../../../hooks/useLicenseEntitlement';
 import { getErrorMessage } from '../../../../utils/api';
@@ -193,40 +197,43 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
 
   useEffect(() => {
     const workOrderId = workOrder.id;
-    if (
-      !hasCachedValue(commentsByWorkOrder, workOrderId) &&
-      !loadingComments
-    ) {
-      dispatch(getCommentsByWorkOrder(workOrderId));
-    }
-    if (
-      !hasCachedValue(cachedTasksByWorkOrder, workOrderId) &&
-      !cachedLoadingTasks[workOrderId]
-    ) {
-      dispatch(getTasksByWorkOrder(workOrderId));
-    }
-    if (
-      !hasCachedValue(timesByWorkOrder, workOrderId) &&
-      !loadingLabors[workOrderId]
-    ) {
-      dispatch(getLabors(workOrderId));
-    }
+    // Modulo oculto nao busca API (ver workOrderDetailsFetchPlan). Cache e
+    // loading continuam sendo respeitados exatamente como antes.
+    const plan = getWorkOrderDetailsFetchPlan({
+      hiddenModules: ERIONE_HIDDEN_MODULES,
+      fieldConfigurations: workOrderConfiguration.workOrderFieldConfigurations,
+      // O timer da aba Execucao e' renderizado sempre e le os dados de labor.
+      timerVisible: true,
+      cached: {
+        comments: hasCachedValue(commentsByWorkOrder, workOrderId),
+        tasks: hasCachedValue(cachedTasksByWorkOrder, workOrderId),
+        labors: hasCachedValue(timesByWorkOrder, workOrderId),
+        additionalCosts: hasCachedValue(costsByWorkOrder, workOrderId),
+        partQuantities: hasCachedValue(partQuantitiesByWorkOrder, workOrderId)
+      },
+      loading: {
+        comments: !!loadingComments,
+        tasks: !!cachedLoadingTasks[workOrderId],
+        labors: !!loadingLabors[workOrderId],
+        additionalCosts: !!loadingCosts[workOrderId],
+        partQuantities: !!loadingPartQuantities[workOrderId]
+      }
+    });
+    const fetchByKey: Record<DrawerFetchKey, () => void> = {
+      comments: () => dispatch(getCommentsByWorkOrder(workOrderId)),
+      tasks: () => dispatch(getTasksByWorkOrder(workOrderId)),
+      labors: () => dispatch(getLabors(workOrderId)),
+      additionalCosts: () => dispatch(getAdditionalCosts(workOrderId)),
+      partQuantities: () => dispatch(getPartQuantitiesByWorkOrder(workOrderId))
+    };
 
-    const secondaryDataTimer = window.setTimeout(() => {
-      if (
-        !hasCachedValue(costsByWorkOrder, workOrderId) &&
-        !loadingCosts[workOrderId]
-      ) {
-        dispatch(getAdditionalCosts(workOrderId));
-      }
-      if (
-        !ERIONE_HIDDEN_MODULES.parts &&
-        !hasCachedValue(partQuantitiesByWorkOrder, workOrderId) &&
-        !loadingPartQuantities[workOrderId]
-      ) {
-        dispatch(getPartQuantitiesByWorkOrder(workOrderId));
-      }
-    }, 150);
+    plan.immediate.forEach((key) => fetchByKey[key]());
+
+    const secondaryDataTimer = plan.secondary.length
+      ? window.setTimeout(() => {
+          plan.secondary.forEach((key) => fetchByKey[key]());
+        }, 150)
+      : undefined;
 
     return () => window.clearTimeout(secondaryDataTimer);
   }, [workOrder.id, dispatch]);
