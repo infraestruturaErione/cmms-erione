@@ -30,7 +30,7 @@ import { getAssetsMini } from '../../../../slices/asset';
 import { getTeamsMini } from '../../../../slices/team';
 import AssignmentTwoToneIcon from '@mui/icons-material/AssignmentTwoTone';
 import EditTwoToneIcon from '@mui/icons-material/EditTwoTone';
-import { getPriorityLabel, normalizeSearchText } from '../../../../utils/formatters';
+import { getPriorityLabel } from '../../../../utils/formatters';
 import { addCategory, getCategories } from '../../../../slices/category';
 import { getRoles } from '../../../../slices/role';
 import { getCurrencies } from '../../../../slices/currency';
@@ -44,6 +44,7 @@ import { AssetMiniDTO } from '../../../../models/owns/asset';
 import { PermissionEntity } from '../../../../models/owns/role';
 import { CustomSnackBarContext } from '../../../../contexts/CustomSnackBarContext';
 import { getLocationUrl } from '../../../../utils/urlPaths';
+import { matchesLocationSearch } from '../../../../utils/locationSearch';
 
 interface OptionType {
   label: string;
@@ -481,27 +482,21 @@ export const CustomSelect = ({
             filterOptions={(options, params) => {
               // Endereco e' o que realmente distingue Locations com o mesmo
               // name (ex.: varias unidades "Aeroporto") - busca tambem por
-              // address/customId, case/acento-insensitive ("Joao" acha
-              // "João"). Ver LocationOptionType.
-              const normalizedInput = normalizeSearchText(params.inputValue);
-              const matchesLocation = (option: LocationOptionType) =>
-                normalizeSearchText(option.label).includes(normalizedInput) ||
-                (!!option.address &&
-                  normalizeSearchText(option.address).includes(
-                    normalizedInput
-                  )) ||
-                (!!option.customId &&
-                  normalizeSearchText(option.customId).includes(
-                    normalizedInput
-                  ));
-
+              // address/customId/referencia, case/acento-insensitive
+              // ("Joao" acha "João"). Ver LocationOptionType.
               const filtered = options.filter((option) =>
-                matchesLocation(option as LocationOptionType)
+                matchesLocationSearch(
+                  option as LocationOptionType,
+                  params.inputValue
+                )
               );
 
               const { inputValue } = params;
               const isExisting = options.some((option) =>
-                matchesLocation(option as LocationOptionType)
+                matchesLocationSearch(
+                  option as LocationOptionType,
+                  params.inputValue
+                )
               );
 
               if (

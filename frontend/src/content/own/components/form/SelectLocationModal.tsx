@@ -25,6 +25,7 @@ import {
   getLocationAddressWithReference,
   getLocationIdentification
 } from '../../../../utils/locationDisplay';
+import { matchesLocationSearch } from '../../../../utils/locationSearch';
 
 interface SelectLocationModalProps {
   open: boolean;
@@ -65,9 +66,9 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
 
   // State for tracking expanded rows
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  // Busca por name/address/customId (case/acento-insensitive). Locations com
-  // o mesmo name (ex.: varias unidades "Aeroporto") so' se distinguem pelo
-  // endereco, entao a busca precisa achar por ele tambem.
+  // Busca por name/address/customId/referencia (case/acento-insensitive).
+  // Locations com o mesmo name (ex.: varias unidades "Aeroporto") so' se
+  // distinguem pelo endereco, entao a busca precisa achar por ele tambem.
   const [searchQuery, setSearchQuery] = useState('');
 
   // State for tracking selected locations
@@ -124,9 +125,7 @@ const SelectLocationModal: React.FC<SelectLocationModalProps> = ({
 
   const normalizedSearch = normalizeSearchText(searchQuery.trim());
   const matchesSearch = (location: LocationMiniDTO) =>
-    normalizeSearchText(location.name || '').includes(normalizedSearch) ||
-    normalizeSearchText(location.address || '').includes(normalizedSearch) ||
-    normalizeSearchText(location.customId || '').includes(normalizedSearch);
+    matchesLocationSearch(location, searchQuery);
 
   // locationsMini e estado global do Redux e pode estar preenchido por outra tela.
   // Sem escopo definido a lupa nao pode reaproveitar essa lista.
