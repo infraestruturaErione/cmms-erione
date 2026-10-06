@@ -1,14 +1,39 @@
 package com.grash.service;
 
+import com.grash.model.File;
 import com.grash.model.Location;
+import com.grash.model.Task;
+import com.grash.model.WorkOrder;
+import com.grash.model.enums.FileType;
 import com.grash.model.enums.LocationReferenceType;
+import com.grash.repository.CommentRepository;
+import com.grash.utils.Utils;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.MessageSource;
 
+import javax.imageio.ImageIO;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.util.Base64;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Regras PURAS de formatacao usadas no PDF de OS (WorkOrderReportService) -
@@ -132,5 +157,111 @@ class WorkOrderReportServiceTest {
         Date start = new Date(0);
         Date end = new Date(30_000);
         assertEquals("menos de 1 min", WorkOrderReportService.durationLabel(start, end));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void reportVariablesUseOptimizedBytesForEvidenceAndChecklistImages() throws Exception {
+        TaskService taskService = mock(TaskService.class);
+        CommentRepository commentRepository = mock(CommentRepository.class);
+        StorageService storageService = mock(StorageService.class);
+        WorkOrderReportService service = new WorkOrderReportService(taskService, commentRepository,
+                mock(MessageSource.class), mock(Utils.class), new PdfImageOptimizer());
+
+        byte[] original = jpeg(2400, 1200);
+        File image = new File();
+        image.setId(99L);
+        image.setName("iphone-photo.jpg");
+        image.setPath("work-orders/iphone-photo.jpg");
+        image.setType(FileType.IMAGE);
+
+        Task task = new Task();
+        task.setId(11L);
+        task.setImages(List.of(image));
+        WorkOrder workOrder = new WorkOrder();
+        workOrder.setId(7L);
+        workOrder.setTitle("OS com foto");
+        workOrder.setFiles(List.of(image));
+
+        when(taskService.findByWorkOrder(7L)).thenReturn(List.of(task));
+        when(commentRepository.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(
+                anyCollection(), anyString())).thenReturn(List.of());
+        when(storageService.download(image.getPath())).thenReturn(original);
+
+        Map<String, Object> variables = service.buildWorkOrderReportVariables(workOrder, storageService);
+        Map<Long, String[]> taskUrls = (Map<Long, String[]>) variables.get("tasksImagesUrls");
+        List<List<Map<String, Object>>> evidenceRows =
+                (List<List<Map<String, Object>>>) variables.get("fieldEvidenceRows");
+        byte[] taskBytes = dataUriBytes(taskUrls.get(11L)[0]);
+        byte[] evidenceBytes = dataUriBytes((String) evidenceRows.get(0).get(0).get("url"));
+
+        assertTrue(taskBytes.length < original.length);
+        assertTrue(evidenceBytes.length < original.length);
+        assertArrayEquals(taskBytes, evidenceBytes);
+        assertNotEquals(Base64.getEncoder().encodeToString(original),
+                Base64.getEncoder().encodeToString(taskBytes));
+        BufferedImage optimized = ImageIO.read(new ByteArrayInputStream(taskBytes));
+        assertEquals(1920, optimized.getWidth());
+        assertEquals(960, optimized.getHeight());
+        optimized.flush();
+        verify(storageService, org.mockito.Mockito.times(2)).download(image.getPath());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void corruptImageIsOmittedWithoutBreakingReportVariables() {
+        TaskService taskService = mock(TaskService.class);
+        CommentRepository commentRepository = mock(CommentRepository.class);
+        StorageService storageService = mock(StorageService.class);
+        WorkOrderReportService service = new WorkOrderReportService(taskService, commentRepository,
+                mock(MessageSource.class), mock(Utils.class), new PdfImageOptimizer());
+
+        File image = new File();
+        image.setId(100L);
+        image.setName("corrupt-photo.jpg");
+        image.setPath("work-orders/corrupt-photo.jpg");
+        image.setType(FileType.IMAGE);
+        Task task = new Task();
+        task.setId(12L);
+        task.setImages(List.of(image));
+        WorkOrder workOrder = new WorkOrder();
+        workOrder.setId(8L);
+        workOrder.setTitle("OS com imagem corrompida");
+        workOrder.setFiles(List.of(image));
+
+        when(taskService.findByWorkOrder(8L)).thenReturn(List.of(task));
+        when(commentRepository.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(
+                anyCollection(), anyString())).thenReturn(List.of());
+        when(storageService.download(image.getPath())).thenReturn("not-an-image".getBytes());
+
+        Map<String, Object> variables = service.buildWorkOrderReportVariables(workOrder, storageService);
+        Map<Long, String[]> taskUrls = (Map<Long, String[]>) variables.get("tasksImagesUrls");
+        List<List<Map<String, Object>>> evidenceRows =
+                (List<List<Map<String, Object>>>) variables.get("fieldEvidenceRows");
+
+        assertEquals(0, taskUrls.get(12L).length);
+        assertEquals(1, evidenceRows.size());
+        Map<String, Object> evidence = evidenceRows.get(0).get(0);
+        assertFalse((Boolean) evidence.get("image"));
+        assertNull(evidence.get("url"));
+    }
+
+    private static byte[] dataUriBytes(String dataUri) {
+        return Base64.getDecoder().decode(dataUri.substring(dataUri.indexOf(',') + 1));
+    }
+
+    private static byte[] jpeg(int width, int height) throws Exception {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = image.createGraphics();
+        graphics.setColor(new Color(42, 91, 138));
+        graphics.fillRect(0, 0, width, height);
+        graphics.setColor(Color.WHITE);
+        graphics.fillOval(width / 4, height / 4, width / 2, height / 2);
+        graphics.dispose();
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            ImageIO.write(image, "jpeg", output);
+            image.flush();
+            return output.toByteArray();
+        }
     }
 }

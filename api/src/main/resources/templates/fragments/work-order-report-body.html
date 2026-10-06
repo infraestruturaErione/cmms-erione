@@ -193,7 +193,7 @@ checkOutDistanceLabel, siteDurationLabel.
         <table class="evidence-table">
             <tr th:each="row : ${fieldEvidenceRows}">
                 <td th:each="evidence : ${row}" th:style="${'width:' + (100.0 / #lists.size(row)) + '%'}">
-                    <div class="evidence-slot">
+                    <div class="evidence-slot" th:classappend="${fieldEvidenceCount == 1 ? ' evidence-slot-single' : ''}">
                         <img th:if="${evidence.image}" th:src="${evidence.url}" class="evidence-img"/>
                     </div>
                     <div class="evidence-caption" th:if="${evidence.note != null}" th:text="${evidence.note}"></div>

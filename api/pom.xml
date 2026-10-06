@@ -148,6 +148,16 @@
             <version>3.0.1</version>
         </dependency>
         <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>3.14.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.drewnoakes</groupId>
+            <artifactId>metadata-extractor</artifactId>
+            <version>2.19.0</version>
+        </dependency>
+        <dependency>
             <groupId>io.github.jav</groupId>
             <artifactId>expo-server-sdk</artifactId>
             <version>1.1.0</version>

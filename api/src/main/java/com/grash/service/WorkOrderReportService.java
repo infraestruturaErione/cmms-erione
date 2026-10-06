@@ -26,7 +26,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
@@ -36,7 +35,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -63,6 +61,7 @@ public class WorkOrderReportService {
     private final CommentRepository commentRepository;
     private final MessageSource messageSource;
     private final Utils utils;
+    private final PdfImageOptimizer pdfImageOptimizer;
 
     // Dados do EMISSOR institucional do relatorio (Erione, o fornecedor do
     // software) - NAO vem de Company/Customer/BrandConfig (BrandConfig e'
@@ -202,7 +201,10 @@ public class WorkOrderReportService {
                 .collect(Collectors.toMap(
                         Task::getId,
                         task -> task.getImages().stream()
-                                .map(image -> storageService.generateSignedUrl(image, 5))
+                                .map(image -> image.getType() == FileType.IMAGE
+                                        ? imageDataUri(image, storageService)
+                                        : storageService.generateSignedUrl(image, 5))
+                                .filter(Objects::nonNull)
                                 .toArray(String[]::new)
                 ));
         List<Comment> fieldComments = commentRepository
@@ -349,20 +351,36 @@ public class WorkOrderReportService {
         // workOrder.signature) elimina esse fetch de rede na hora de gerar o PDF.
         String url = null;
         if (isImage) {
-            try {
-                byte[] bytes = storageService.download(file.getPath());
-                String mimeType = Optional.ofNullable(URLConnection.guessContentTypeFromName(file.getName()))
-                        .orElse("image/jpeg");
-                url = "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(bytes);
-            } catch (Exception ignored) {
-                isImage = false;
-            }
+            url = imageDataUri(file, storageService);
+            isImage = url != null;
         }
         item.put("image", isImage);
         item.put("source", source);
         item.put("note", note);
         item.put("url", url);
         items.add(item);
+    }
+
+    String imageDataUri(File file, StorageService storageService) {
+        byte[] originalBytes;
+        try {
+            originalBytes = storageService.download(file.getPath());
+        } catch (Exception e) {
+            log.warn("Skipping image in work order PDF: fileId={}, name={}, path={}, reason=storage download failed",
+                    file.getId(), file.getName(), file.getPath(), e);
+            return null;
+        }
+
+        PdfImageOptimizer.Result result = pdfImageOptimizer.optimize(originalBytes);
+        if (!result.successful()) {
+            log.warn("Skipping image in work order PDF: fileId={}, name={}, path={}, format={}, originalBytes={}, " +
+                            "dimensions={}x{}, reason={}",
+                    file.getId(), file.getName(), file.getPath(), result.mimeType(), result.originalSize(),
+                    result.originalWidth(), result.originalHeight(), result.failureReason());
+            return null;
+        }
+        return "data:" + result.mimeType() + ";base64," +
+                Base64.getEncoder().encodeToString(result.bytes());
     }
 
     // ===== Referencia Operacional (ID/PC) da Location no PDF =====
