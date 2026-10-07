@@ -5,12 +5,14 @@ import RadioButtonUncheckedTwoToneIcon from '@mui/icons-material/RadioButtonUnch
 import WorkOrder from '../../../../models/owns/workOrder';
 import { useTranslation } from 'react-i18next';
 import { isFieldExecutionFinished } from '../fieldExecutionRules';
+import './FieldExecutionTimeline.css';
 
 type TimelineState = 'done' | 'current' | 'pending';
 
 interface FieldExecutionTimelineProps {
   workOrder: WorkOrder;
   getFormattedDate: (date: string | Date) => string;
+  responsiveDetails?: boolean;
 }
 
 // Timeline horizontal (desktop) / empilhada (mobile) com os 6 marcos
@@ -19,7 +21,8 @@ interface FieldExecutionTimelineProps {
 // horario, sem repetir "Pendente" por extenso em cada etapa).
 export default function FieldExecutionTimeline({
   workOrder,
-  getFormattedDate
+  getFormattedDate,
+  responsiveDetails = false
 }: FieldExecutionTimelineProps) {
   const { t }: { t: any } = useTranslation();
   const theme = useTheme();
@@ -29,7 +32,12 @@ export default function FieldExecutionTimeline({
 
   const isServiceInProgress = !!workOrder.checkInAt && !workOrder.checkOutAt;
 
-  const steps: { key: string; label: string; value: string; state: TimelineState }[] = [
+  const steps: {
+    key: string;
+    label: string;
+    value: string;
+    state: TimelineState;
+  }[] = [
     {
       key: 'created',
       label: t('work_order_created'),
@@ -59,7 +67,11 @@ export default function FieldExecutionTimeline({
     {
       key: 'service',
       label: t('service_in_progress'),
-      value: isServiceInProgress ? t('in_progress') : isFieldExecutionFinished(workOrder) ? t('completed_step') : '-',
+      value: isServiceInProgress
+        ? t('in_progress')
+        : isFieldExecutionFinished(workOrder)
+        ? t('completed_step')
+        : '-',
       state: isFieldExecutionFinished(workOrder)
         ? 'done'
         : isServiceInProgress
@@ -89,7 +101,9 @@ export default function FieldExecutionTimeline({
       return <CheckCircleTwoToneIcon fontSize="small" color="success" />;
     if (state === 'current')
       return <RadioButtonCheckedTwoToneIcon fontSize="small" color="primary" />;
-    return <RadioButtonUncheckedTwoToneIcon fontSize="small" color="disabled" />;
+    return (
+      <RadioButtonUncheckedTwoToneIcon fontSize="small" color="disabled" />
+    );
   };
 
   const getLineColor = (state: TimelineState) =>
@@ -98,67 +112,97 @@ export default function FieldExecutionTimeline({
       : theme.palette.divider;
 
   return (
-    <Stack
-      direction={{ xs: 'column', sm: 'row' }}
-      alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+    <Box
+      data-execution-timeline={responsiveDetails ? true : undefined}
+      sx={responsiveDetails ? { containerType: 'inline-size' } : {}}
     >
-      {steps.map((step, index) => (
-        <Box
-          key={step.key}
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'row', sm: 'column' },
-            alignItems: { xs: 'flex-start', sm: 'center' },
-            flex: { sm: 1 },
-            minWidth: 0,
-            gap: { xs: 1, sm: 0.5 }
-          }}
-        >
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+        data-execution-steps
+      >
+        {steps.map((step, index) => (
           <Box
+            key={step.key}
+            data-execution-step
             sx={{
               display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              alignItems: 'center',
-              width: { xs: 'auto', sm: '100%' }
+              flexDirection: { xs: 'row', sm: 'column' },
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              flex: { sm: 1 },
+              minWidth: 0,
+              gap: { xs: 1, sm: 0.5 }
             }}
           >
-            {index > 0 && (
-              <Box
-                sx={{
-                  display: { xs: 'none', sm: 'block' },
-                  flex: 1,
-                  height: 2,
-                  bgcolor: getLineColor(steps[index - 1].state)
-                }}
-              />
-            )}
-            {getStepIcon(step.state)}
-            {index < steps.length - 1 && (
-              <Box
-                sx={{
-                  display: { xs: 'none', sm: 'block' },
-                  flex: 1,
-                  height: 2,
-                  bgcolor: getLineColor(step.state)
-                }}
-              />
-            )}
+            <Box
+              data-execution-icon-row
+              sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: 'center',
+                width: { xs: 'auto', sm: '100%' }
+              }}
+            >
+              {index > 0 && (
+                <Box
+                  data-execution-connector
+                  sx={{
+                    display: { xs: 'none', sm: 'block' },
+                    flex: 1,
+                    height: 2,
+                    bgcolor: getLineColor(steps[index - 1].state)
+                  }}
+                />
+              )}
+              {getStepIcon(step.state)}
+              {index < steps.length - 1 && (
+                <Box
+                  data-execution-connector
+                  sx={{
+                    display: { xs: 'none', sm: 'block' },
+                    flex: 1,
+                    height: 2,
+                    bgcolor: getLineColor(step.state)
+                  }}
+                />
+              )}
+            </Box>
+            <Box
+              data-execution-labels
+              sx={{
+                textAlign: { xs: 'left', sm: 'center' },
+                pb: { xs: index < steps.length - 1 ? 1 : 0, sm: 0 }
+              }}
+            >
+              <Typography
+                variant="caption"
+                fontWeight={700}
+                display="block"
+                noWrap={!responsiveDetails}
+                sx={
+                  responsiveDetails
+                    ? { overflowWrap: 'anywhere', lineHeight: 1.6 }
+                    : {}
+                }
+              >
+                {step.label}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                noWrap={!responsiveDetails}
+                sx={
+                  responsiveDetails
+                    ? { overflowWrap: 'anywhere', lineHeight: 1.6 }
+                    : {}
+                }
+              >
+                {step.value}
+              </Typography>
+            </Box>
           </Box>
-          <Box
-            sx={{
-              textAlign: { xs: 'left', sm: 'center' },
-              pb: { xs: index < steps.length - 1 ? 1 : 0, sm: 0 }
-            }}
-          >
-            <Typography variant="caption" fontWeight={700} display="block" noWrap>
-              {step.label}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" noWrap>
-              {step.value}
-            </Typography>
-          </Box>
-        </Box>
-      ))}
-    </Stack>
+        ))}
+      </Stack>
+    </Box>
   );
 }

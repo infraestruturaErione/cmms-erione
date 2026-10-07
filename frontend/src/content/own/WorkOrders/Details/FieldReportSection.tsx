@@ -1,11 +1,7 @@
 import {
   Box,
   Button,
-  Card,
-  CardContent,
-  Chip,
   CircularProgress,
-  Divider,
   Grid,
   IconButton,
   Stack,
@@ -29,8 +25,12 @@ import { createComment } from '../../../../slices/comment';
 import { useDispatch, useSelector } from '../../../../store';
 import { getErrorMessage } from '../../../../utils/api';
 import { getFieldClosureChecklist } from '../fieldExecutionRules';
-import { FieldReportHistory, FieldEvidenceGallery } from './FieldRegistroSection';
+import {
+  FieldReportHistory,
+  FieldEvidenceGallery
+} from './FieldRegistroSection';
 import CompactChecklist from './CompactChecklist';
+import ReportSectionPanel from './ReportSectionPanel';
 import {
   FIELD_EVIDENCE_AUTO_TEXT,
   FIELD_REPORT_PREFIX,
@@ -121,7 +121,7 @@ export default function FieldReportSection({
     evidence: 'evidence_pending',
     signature: 'signature_pending'
   };
-  const getStateLabelKey = (item: (typeof checklist)[number]) => {
+  const getStateLabelKey = (item: typeof checklist[number]) => {
     if (!item.applicable) return item.labelKey;
     return item.complete
       ? item.labelKey
@@ -182,7 +182,7 @@ export default function FieldReportSection({
   };
 
   return (
-    <Box>
+    <Stack sx={{ gap: 2.5, minWidth: 0 }}>
       <CompactChecklist
         items={checklist.map((item) => ({
           key: item.key,
@@ -196,11 +196,17 @@ export default function FieldReportSection({
               <Grid item xs={12} sm={6} key={item.key}>
                 <Stack direction="row" alignItems="center" spacing={1}>
                   {!item.applicable ? (
-                    <RemoveCircleOutlineTwoToneIcon fontSize="small" color="disabled" />
+                    <RemoveCircleOutlineTwoToneIcon
+                      fontSize="small"
+                      color="disabled"
+                    />
                   ) : item.complete ? (
                     <CheckCircleTwoToneIcon fontSize="small" color="success" />
                   ) : (
-                    <RadioButtonUncheckedTwoToneIcon fontSize="small" color="disabled" />
+                    <RadioButtonUncheckedTwoToneIcon
+                      fontSize="small"
+                      color="disabled"
+                    />
                   )}
                   <Typography variant="body2">
                     {t(getStateLabelKey(item))}
@@ -213,178 +219,234 @@ export default function FieldReportSection({
         }
       />
 
-      <Divider sx={{ mt: 1.25, mb: 2 }} />
-
-      <Card variant="outlined" sx={{ boxShadow: 'none' }}>
-        <CardContent>
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-            <Typography variant="subtitle1" fontWeight={700}>
-              {t('written_reports')}
+      <ReportSectionPanel
+        title={t('report_technician_title')}
+        count={reportsCount}
+      >
+        {hasReport && (
+          <Box sx={{ mb: 2 }}>
+            <FieldReportHistory
+              comments={comments}
+              getFormattedDate={getFormattedDate}
+            />
+          </Box>
+        )}
+        {readOnly && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ mb: 0.5, display: 'block' }}
+          >
+            {t('report_read_only')}
+          </Typography>
+        )}
+        {!hasReport && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: readOnly ? 0 : 2 }}
+          >
+            {t('field_report_history_empty')}
+          </Typography>
+        )}
+        {!readOnly && (
+          <Box
+            sx={{
+              borderTop: hasReport ? 1 : 0,
+              borderColor: 'divider',
+              pt: hasReport ? 2 : 0
+            }}
+          >
+            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
+              {t('report_new_entry')}
             </Typography>
-            {reportsCount > 0 && <Chip size="small" label={reportsCount} />}
-          </Stack>
-          {hasReport && (
-            <Box sx={{ mb: 2 }}>
-              <FieldReportHistory comments={comments} getFormattedDate={getFormattedDate} />
-            </Box>
-          )}
-          {readOnly && (
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-              {t('field_report_read_only_helper')}
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              {t('new_field_report_helper')}
             </Typography>
-          )}
-          <TextField
-            fullWidth
-            multiline
-            minRows={3}
-            placeholder={t('field_report_placeholder')}
-            value={fieldReport}
-            disabled={readOnly || submitting}
-            onChange={(event) => setFieldReport(event.target.value)}
-            inputProps={{ maxLength: 4000 }}
-            size="small"
-          />
+            <TextField
+              fullWidth
+              multiline
+              minRows={3}
+              placeholder={t('field_report_placeholder')}
+              value={fieldReport}
+              disabled={readOnly || submitting}
+              onChange={(event) => setFieldReport(event.target.value)}
+              inputProps={{ maxLength: 4000 }}
+              aria-label={t('report_new_entry')}
+              size="small"
+            />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mt: 0.75 }}
+            >
+              {fieldReport.length}/4000
+            </Typography>
 
-          {evidencePreviews.length > 0 && (
-            <Grid container spacing={1} sx={{ mt: 0.5 }}>
-              {evidencePreviews.map(({ file, url }, index) => (
-                <Grid item xs={4} sm={3} md={2} key={`${file.name}-${file.lastModified}`}>
-                  <Box
-                    sx={{
-                      position: 'relative',
-                      paddingTop: '76%',
-                      borderRadius: 1,
-                      overflow: 'hidden',
-                      bgcolor: 'action.hover'
-                    }}
+            {evidencePreviews.length > 0 && (
+              <Grid container spacing={1} sx={{ mt: 0.5 }}>
+                {evidencePreviews.map(({ file, url }, index) => (
+                  <Grid
+                    item
+                    xs={4}
+                    sm={3}
+                    md={2}
+                    key={`${file.name}-${file.lastModified}`}
                   >
                     <Box
-                      component="img"
-                      src={url}
-                      alt={file.name}
-                      sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                    <IconButton
-                      size="small"
-                      aria-label={t('remove_photo')}
-                      onClick={() =>
-                        setEvidenceFiles((current) =>
-                          current.filter((_, fileIndex) => fileIndex !== index)
-                        )
-                      }
                       sx={{
-                        position: 'absolute',
-                        top: 4,
-                        right: 4,
-                        color: '#fff',
-                        bgcolor: 'rgba(8,18,38,0.68)',
-                        '&:hover': { bgcolor: 'rgba(8,18,38,0.88)' }
+                        position: 'relative',
+                        paddingTop: '76%',
+                        borderRadius: 1,
+                        overflow: 'hidden',
+                        bgcolor: 'action.hover'
                       }}
                     >
-                      <DeleteTwoToneIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                </Grid>
-              ))}
-            </Grid>
-          )}
+                      <Box
+                        component="img"
+                        src={url}
+                        alt={file.name}
+                        sx={{
+                          position: 'absolute',
+                          inset: 0,
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                      <IconButton
+                        size="small"
+                        aria-label={t('remove_photo')}
+                        onClick={() =>
+                          setEvidenceFiles((current) =>
+                            current.filter(
+                              (_, fileIndex) => fileIndex !== index
+                            )
+                          )
+                        }
+                        sx={{
+                          position: 'absolute',
+                          top: 4,
+                          right: 4,
+                          color: '#fff',
+                          bgcolor: 'rgba(8,18,38,0.68)',
+                          '&:hover': { bgcolor: 'rgba(8,18,38,0.88)' }
+                        }}
+                      >
+                        <DeleteTwoToneIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
 
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            justifyContent="space-between"
-            alignItems={{ xs: 'stretch', sm: 'center' }}
-            spacing={1}
-            sx={{ mt: 1 }}
-          >
-            <Button
-              component="label"
-              size="small"
-              startIcon={<AddPhotoAlternateTwoToneIcon />}
-              disabled={readOnly || submitting || evidenceFiles.length >= MAX_EVIDENCE_FILES}
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'stretch', sm: 'center' }}
+              spacing={1}
+              sx={{ mt: 1 }}
             >
-              {t('add_photos')}
-              <input
-                hidden
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleEvidenceSelection}
-              />
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={
-                submitting ? <CircularProgress size="1rem" /> : <SendTwoToneIcon />
+              <Button
+                component="label"
+                size="small"
+                startIcon={<AddPhotoAlternateTwoToneIcon />}
+                disabled={
+                  readOnly ||
+                  submitting ||
+                  evidenceFiles.length >= MAX_EVIDENCE_FILES
+                }
+              >
+                {t('add_photos')}
+                <input
+                  hidden
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleEvidenceSelection}
+                />
+              </Button>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={
+                  submitting ? (
+                    <CircularProgress size="1rem" />
+                  ) : (
+                    <SendTwoToneIcon />
+                  )
+                }
+                disabled={readOnly || !canSubmit || submitting}
+                onClick={submitFieldReport}
+              >
+                {t('save_field_report')}
+              </Button>
+            </Stack>
+          </Box>
+        )}
+      </ReportSectionPanel>
+
+      <ReportSectionPanel
+        title={t('report_photographic_evidence')}
+        count={evidenceCount}
+      >
+        <FieldEvidenceGallery
+          key={workOrder.id}
+          comments={comments}
+          onOpenImage={onOpenImage}
+          getFormattedDate={getFormattedDate}
+        />
+      </ReportSectionPanel>
+
+      <ReportSectionPanel title={t('signature')}>
+        {workOrder.signature ? (
+          <Stack sx={{ gap: 1.5, minWidth: 0, alignItems: 'flex-start' }}>
+            <Box
+              component="img"
+              src={workOrder.signature}
+              alt={t('signature')}
+              onClick={() =>
+                onOpenImage([workOrder.signature], workOrder.signature)
               }
-              disabled={readOnly || !canSubmit || submitting}
-              onClick={submitFieldReport}
-            >
-              {t('save_field_report')}
-            </Button>
-          </Stack>
-        </CardContent>
-      </Card>
-
-      <Card variant="outlined" sx={{ boxShadow: 'none', mt: 2 }}>
-        <CardContent>
-          <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
-            {t('signature')}
-          </Typography>
-          {workOrder.signature ? (
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
-              <Box
-                component="img"
-                src={workOrder.signature}
-                alt={t('signature')}
-                onClick={() => onOpenImage([workOrder.signature], workOrder.signature)}
-                sx={{
-                  width: 160,
-                  height: 90,
-                  objectFit: 'contain',
-                  borderRadius: 1,
-                  border: `1px solid ${theme.palette.divider}`,
-                  bgcolor: '#fff',
-                  cursor: 'pointer'
-                }}
-              />
-              {(workOrder.signerName || workOrder.signerDocument) && (
-                <Typography variant="body2" color="text.secondary">
-                  {t('signed_by_line', {
-                    name: workOrder.signerName || t('unknown'),
-                    document: workOrder.signerDocument || '-'
-                  })}
-                </Typography>
-              )}
-            </Stack>
-          ) : (
-            <Stack direction="row" alignItems="center" spacing={1.25}>
-              <EditTwoToneIcon fontSize="small" sx={{ color: 'text.disabled' }} />
-              <Typography variant="body2" color="text.secondary">
-                {workOrder.requiredSignature || workOrder.category?.requireSignature
-                  ? t('signature_pending')
-                  : t('signature_not_required')}
+              sx={{
+                width: '100%',
+                maxWidth: 320,
+                height: 'auto',
+                aspectRatio: '16 / 9',
+                boxSizing: 'border-box',
+                objectFit: 'contain',
+                borderRadius: 1,
+                border: `1px solid ${theme.palette.divider}`,
+                bgcolor: '#fff',
+                cursor: 'pointer'
+              }}
+            />
+            {(workOrder.signerName || workOrder.signerDocument) && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ overflowWrap: 'anywhere', minWidth: 0, maxWidth: '80ch' }}
+              >
+                {t('signed_by_line', {
+                  name: workOrder.signerName || t('unknown'),
+                  document: workOrder.signerDocument || '-'
+                })}
               </Typography>
-            </Stack>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card variant="outlined" sx={{ boxShadow: 'none', mt: 2 }}>
-        <CardContent>
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-            <Typography variant="subtitle1" fontWeight={700}>
-              {t('field_evidence')}
-            </Typography>
-            {evidenceCount > 0 && <Chip size="small" label={evidenceCount} />}
+            )}
           </Stack>
-          <FieldEvidenceGallery
-            comments={comments}
-            onOpenImage={onOpenImage}
-            getFormattedDate={getFormattedDate}
-          />
-        </CardContent>
-      </Card>
-    </Box>
+        ) : (
+          <Stack direction="row" alignItems="center" spacing={1.25}>
+            <EditTwoToneIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+            <Typography variant="body2" color="text.secondary">
+              {workOrder.requiredSignature ||
+              workOrder.category?.requireSignature
+                ? t('signature_pending')
+                : t('signature_not_required')}
+            </Typography>
+          </Stack>
+        )}
+      </ReportSectionPanel>
+    </Stack>
   );
 }

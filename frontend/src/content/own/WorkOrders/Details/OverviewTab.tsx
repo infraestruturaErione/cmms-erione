@@ -1,5 +1,13 @@
 import React from 'react';
-import { Box, Chip, Divider, Grid, Link, Stack, Typography } from '@mui/material';
+import {
+  Box,
+  Chip,
+  Divider,
+  Grid,
+  Link,
+  Stack,
+  Typography
+} from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import WorkOrder from '../../../../models/owns/workOrder';
 import { Task } from '../../../../models/owns/tasks';
@@ -11,7 +19,11 @@ import AssignmentLateTwoToneIcon from '@mui/icons-material/AssignmentLateTwoTone
 import LocationOnTwoToneIcon from '@mui/icons-material/LocationOnTwoTone';
 import PersonOutlineTwoToneIcon from '@mui/icons-material/PersonOutlineTwoTone';
 import RadioButtonCheckedTwoToneIcon from '@mui/icons-material/RadioButtonCheckedTwoTone';
-import { getAssetUrl, getPreventiveMaintenanceUrl, getUserUrl } from '../../../../utils/urlPaths';
+import {
+  getAssetUrl,
+  getPreventiveMaintenanceUrl,
+  getUserUrl
+} from '../../../../utils/urlPaths';
 import { getCustomFieldValuesForDetails } from '../../type';
 import {
   getLocationAddressWithReference,
@@ -32,6 +44,40 @@ interface FieldDef {
   value: string | number | null | undefined;
   type?: 'location' | 'asset' | 'team' | 'user' | 'pm';
   id?: number;
+}
+
+const contentTextSx = {
+  whiteSpace: 'pre-wrap',
+  overflowWrap: 'anywhere',
+  lineHeight: 1.7
+} as const;
+
+function OverviewSection({
+  title,
+  children
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Box
+      component="section"
+      aria-label={title}
+      sx={{
+        minWidth: 0,
+        p: { xs: 1.5, sm: 2 },
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1.5,
+        bgcolor: 'background.paper'
+      }}
+    >
+      <Typography component="h3" variant="h5" sx={{ mb: 1.75 }}>
+        {title}
+      </Typography>
+      {children}
+    </Box>
+  );
 }
 
 // Contexto operacional antes da descricao e dos metadados administrativos.
@@ -64,7 +110,13 @@ export default function OverviewTab({
   const Field = ({ label, value, type, id }: FieldDef) => {
     if (!value) return null;
     return (
-      <Grid item xs={12} sm={6} md={6}>
+      <Grid
+        item
+        xs={12}
+        sm={6}
+        md={6}
+        sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
+      >
         <Typography variant="caption" color="text.secondary">
           {label}
         </Typography>
@@ -87,9 +139,7 @@ export default function OverviewTab({
   };
 
   const technicianLabel = [
-    workOrder.primaryUser
-      ? getUserNameById(workOrder.primaryUser.id)
-      : null,
+    workOrder.primaryUser ? getUserNameById(workOrder.primaryUser.id) : null,
     workOrder.team?.name
   ]
     .filter(Boolean)
@@ -156,11 +206,16 @@ export default function OverviewTab({
             type: workOrder.completedBy ? 'user' : undefined,
             id: workOrder.completedBy?.id
           },
-          { label: t('completed_on'), value: getFormattedDate(workOrder.completedOn) },
-          { label: t('feedback'), value: workOrder.feedback }
+          {
+            label: t('completed_on'),
+            value: getFormattedDate(workOrder.completedOn)
+          }
         ]
       : []),
-    ...getCustomFieldValuesForDetails(workOrder.customFieldValues, getFormattedDate)
+    ...getCustomFieldValuesForDetails(
+      workOrder.customFieldValues,
+      getFormattedDate
+    )
   ].filter(Boolean) as FieldDef[];
 
   const pendingRequirements = getPendingRequirements(
@@ -200,9 +255,10 @@ export default function OverviewTab({
       icon: <RadioButtonCheckedTwoToneIcon fontSize="small" color="primary" />
     },
     {
-      label: incompleteRequirements.length > 1
-        ? t('pending_requirements')
-        : t('pending_requirement', 'Pendência'),
+      label:
+        incompleteRequirements.length > 1
+          ? t('pending_requirements')
+          : t('pending_requirement', 'Pendência'),
       value: pendingLabel,
       icon: (
         <AssignmentLateTwoToneIcon
@@ -232,18 +288,28 @@ export default function OverviewTab({
               <Stack direction="row" spacing={0.75} alignItems="flex-start">
                 <Box sx={{ display: 'flex', mt: 0.15 }}>{item.icon}</Box>
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="caption" color="text.secondary" display="block">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
                     {item.label}
                   </Typography>
                   {item === summaryItems[3] ? (
                     <Chip
                       size="small"
                       label={item.value}
-                      color={incompleteRequirements.length ? 'warning' : 'default'}
+                      color={
+                        incompleteRequirements.length ? 'warning' : 'default'
+                      }
                       variant="outlined"
                     />
                   ) : (
-                    <Typography variant="body2" fontWeight={700} sx={{ overflowWrap: 'anywhere' }}>
+                    <Typography
+                      variant="body2"
+                      fontWeight={700}
+                      sx={{ overflowWrap: 'anywhere' }}
+                    >
                       {item.value}
                     </Typography>
                   )}
@@ -253,8 +319,14 @@ export default function OverviewTab({
           ))}
         </Grid>
       </Box>
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={5}>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 2,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))'
+        }}
+      >
+        <OverviewSection title={t('wo_overview_client_location')}>
           <Stack spacing={1.5}>
             {!!workOrder.customers.length && (
               <Box>
@@ -268,6 +340,7 @@ export default function OverviewTab({
                       href={`/app/vendors-customers/customers/${customer.id}`}
                       variant="body2"
                       fontWeight={600}
+                      sx={{ overflowWrap: 'anywhere' }}
                     >
                       {customer.name}
                     </Link>
@@ -285,63 +358,69 @@ export default function OverviewTab({
                   variant="body2"
                   fontWeight={600}
                   href={getPath('location', workOrder.location.id)}
+                  sx={{ overflowWrap: 'anywhere' }}
                 >
                   {getLocationIdentification(workOrder.location)}
                 </Link>
                 {getLocationAddressWithReference(workOrder.location) && (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={contentTextSx}
+                  >
                     {getLocationAddressWithReference(workOrder.location)}
                   </Typography>
                 )}
               </Box>
             )}
-            {!!workOrder.location?.latitude && !!workOrder.location?.longitude && (
-              <LocationMiniMap
-                latitude={workOrder.location.latitude}
-                longitude={workOrder.location.longitude}
-                height={160}
-              />
-            )}
+            {!!workOrder.location?.latitude &&
+              !!workOrder.location?.longitude && (
+                <LocationMiniMap
+                  latitude={workOrder.location.latitude}
+                  longitude={workOrder.location.longitude}
+                  height={160}
+                />
+              )}
           </Stack>
-        </Grid>
-        <Grid item xs={12} md={7}>
+        </OverviewSection>
+        <OverviewSection title={t('wo_overview_information')}>
           <Stack spacing={1.5}>
-            {workOrder.description && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  {t('description')}
-                </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                  {workOrder.description}
-                </Typography>
-              </Box>
-            )}
             <Grid container spacing={1.5} rowSpacing={1.25}>
               {assignedToLabel && (
-                <Grid item xs={12} sm={6} md={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    {t('assigned_to')}
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600}>
-                    {assignedToLabel}
-                  </Typography>
-                </Grid>
+                <Field label={t('assigned_to')} value={assignedToLabel} />
               )}
-            </Grid>
-            <Grid container spacing={1.5} rowSpacing={1.25}>
               {fields.map((field, index) => (
                 <Field key={index} {...field} />
               ))}
             </Grid>
           </Stack>
-        </Grid>
-      </Grid>
+        </OverviewSection>
+      </Box>
+      <Stack spacing={2} sx={{ mt: 2 }}>
+        {workOrder.description && (
+          <OverviewSection title={t('wo_overview_description')}>
+            <Typography variant="body2" sx={contentTextSx}>
+              {workOrder.description}
+            </Typography>
+          </OverviewSection>
+        )}
+        {workOrder.feedback && (
+          <OverviewSection title={t('wo_overview_feedback')}>
+            <Typography variant="body2" sx={contentTextSx}>
+              {workOrder.feedback}
+            </Typography>
+          </OverviewSection>
+        )}
+      </Stack>
       <Divider sx={{ my: 2 }} />
       <Typography variant="overline" color="text.secondary">
         {t('execution_tab')}
       </Typography>
       <Box sx={{ mt: 1 }}>
-        <FieldExecutionTimeline workOrder={workOrder} getFormattedDate={getFormattedDate} />
+        <FieldExecutionTimeline
+          workOrder={workOrder}
+          getFormattedDate={getFormattedDate}
+        />
       </Box>
     </Box>
   );

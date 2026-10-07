@@ -18,7 +18,6 @@ import {
   styled,
   Tab,
   Tabs,
-  TextField,
   Typography,
   useTheme
 } from '@mui/material';
@@ -39,7 +38,6 @@ import Tasks from './Tasks';
 import ArchiveTwoToneIcon from '@mui/icons-material/ArchiveTwoTone';
 import PictureAsPdfTwoToneIcon from '@mui/icons-material/PictureAsPdfTwoTone';
 import PriorityWrapper from '../../components/PriorityWrapper';
-import TimerTwoToneIcon from '@mui/icons-material/TimerTwoTone';
 import FactCheckTwoToneIcon from '@mui/icons-material/FactCheckTwoTone';
 import {
   changeWorkOrderStatus,
@@ -56,15 +54,7 @@ import {
   editWOPartQuantities,
   getPartQuantitiesByWorkOrder
 } from '../../../../slices/partQuantity';
-import {
-  controlTimer,
-  editLabor,
-  getLabors
-} from '../../../../slices/labor';
-import {
-  durationToHours,
-  getHoursAndMinutesAndSeconds
-} from '../../../../utils/formatters';
+import { getLabors } from '../../../../slices/labor';
 import { getAdditionalCosts } from '../../../../slices/additionalCost';
 import { getTasksByWorkOrder } from '../../../../slices/task';
 import { Task } from '../../../../models/owns/tasks';
@@ -82,7 +72,8 @@ import FilesList from '../../components/FilesList';
 import PartQuantitiesList from '../../components/PartQuantitiesList';
 import { PlanFeature } from '../../../../models/owns/subscriptionPlan';
 import AddFileModal from './AddFileModal';
-import CommentsSection from './CommentsSection';
+import CommentsDisclosure from './CommentsDisclosure';
+import ReportSectionPanel from './ReportSectionPanel';
 import FieldExecutionSection from './FieldExecutionSection';
 import FieldReportSection from './FieldReportSection';
 import OverviewTab from './OverviewTab';
@@ -93,7 +84,6 @@ import {
 } from './workOrderDetailsFetchPlan';
 import { useBrand } from '../../../../hooks/useBrand';
 import { useLicenseEntitlement } from '../../../../hooks/useLicenseEntitlement';
-import { getErrorMessage } from '../../../../utils/api';
 import {
   getCommentsByWorkOrder
 } from '../../../../slices/comment';
@@ -134,7 +124,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   const { getFormattedDate, getUserNameById, getFormattedCurrency } =
     useContext(CompanySettingsContext);
   const { t }: { t: any } = useTranslation();
-  const { user, hasEditPermission, hasDeletePermission } = useAuth();
+  const { hasEditPermission, hasDeletePermission } = useAuth();
   const brandConfig = useBrand();
   const hasWOHistoryEntitlement = useLicenseEntitlement('WORK_ORDER_HISTORY');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -151,7 +141,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
     tasksByWorkOrder: cachedTasksByWorkOrder,
     loadingTasks: cachedLoadingTasks
   } = useSelector((state) => state.tasks);
-  const [controllingTime, setControllingTime] = useState<boolean>(false);
   const { timesByWorkOrder, loadingLabors } = useSelector(
     (state) => state.labors
   );
@@ -160,10 +149,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   );
   const currentWorkOrderHistories = workOrderHistories[workOrder.id] ?? [];
   const labors = timesByWorkOrder[workOrder.id] ?? [];
-  const primaryTime = labors.find(
-    (labor) => labor.logged && labor.assignedTo.id === user.id
-  );
-  const runningTimer = primaryTime?.status === 'RUNNING';
   const { costsByWorkOrder, loadingCosts } = useSelector(
     (state) => state.additionalCosts
   );
@@ -183,11 +168,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
         field.fieldName === 'completeFiles' && field.fieldType === 'REQUIRED'
     );
   const [generatingReport, setGeneratingReport] = useState<boolean>(false);
-  const [openEditPrimaryTime, setOpenEditPrimaryTime] =
-    useState<boolean>(false);
-  const [primaryTimeHours, setPrimaryTimeHours] = useState<number>();
-  const [primaryTimeMinutes, setPrimaryTimeMinutes] = useState<number>();
-  const [savingPrimaryTime, setSavingPrimaryTime] = useState<boolean>(false);
   const [commentId, setCommentId] = useState<number>(null);
 
   const hasCachedValue = <T extends Record<number, unknown>>(
@@ -202,7 +182,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
     const plan = getWorkOrderDetailsFetchPlan({
       hiddenModules: ERIONE_HIDDEN_MODULES,
       fieldConfigurations: workOrderConfiguration.workOrderFieldConfigurations,
-      // O timer da aba Execucao e' renderizado sempre e le os dados de labor.
+      // Preserva o carregamento de labor para completeTime, sem mudar o fetch plan.
       timerVisible: true,
       cached: {
         comments: hasCachedValue(commentsByWorkOrder, workOrderId),
@@ -296,13 +276,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
       })
       .finally(() => setGeneratingReport(false));
   };
-  useEffect(() => {
-    const [hours, minutes] = getHoursAndMinutesAndSeconds(
-      primaryTime?.duration
-    );
-    setPrimaryTimeHours(hours);
-    setPrimaryTimeMinutes(minutes);
-  }, [primaryTime]);
 
   const setImageState = (images: string[], image: string) => {
     setCurrentImage(image);
@@ -424,20 +397,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
     }
   ];
 
-  const onSavePrimaryTime = () => {
-    setSavingPrimaryTime(true);
-    const duration = primaryTimeHours * 3600 + primaryTimeMinutes * 60;
-    dispatch(
-      editLabor(primaryTime.id, workOrder.id, {
-        ...primaryTime,
-        duration
-      })
-    )
-      .then(() => {
-        setOpenEditPrimaryTime(false);
-      })
-      .finally(() => setSavingPrimaryTime(false));
-  };
   const handleTabsChange = (_event: ChangeEvent<{}>, value: string): void => {
     setCurrentTab(value);
   };
@@ -590,22 +549,37 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
           TabIndicatorProps={{ sx: { display: 'none' } }}
           sx={{
             minHeight: 42,
+            height: 'auto',
+            '& .MuiTabs-scroller': { overflowX: 'auto !important' },
             '& .MuiTab-root': {
               minHeight: 42,
               borderRadius: 1.25,
               mr: 0.75,
               textTransform: 'none',
               fontWeight: 700,
-              color: 'text.secondary'
-            },
-            '& .Mui-selected': {
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
-              color: theme.palette.primary.main
+              color: 'text.secondary',
+              '&:hover': { bgcolor: 'action.hover' },
+              '&.Mui-focusVisible': {
+                outline: '2px solid',
+                outlineColor: 'primary.main',
+                outlineOffset: -2
+              }
             }
           }}
         >
           {tabs.map((tab) => (
-            <Tab key={tab.value} label={tab.label} value={tab.value} />
+            <Tab
+              key={tab.value}
+              label={tab.label}
+              value={tab.value}
+              sx={{
+                '&&.Mui-selected, &&.Mui-selected:hover': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  color: 'primary.main',
+                  boxShadow: 'none'
+                }
+              }}
+            />
           ))}
         </Tabs>
       </Grid>
@@ -627,99 +601,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
               canEdit={hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)}
               getFormattedDate={getFormattedDate}
             />
-
-            <Divider sx={{ my: 2 }} />
-
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={1.5}
-              alignItems={{ xs: 'flex-start', sm: 'center' }}
-            >
-              <Button
-                size="small"
-                startIcon={
-                  controllingTime ? (
-                    <CircularProgress size="1rem" />
-                  ) : (
-                    <TimerTwoToneIcon />
-                  )
-                }
-                disabled={
-                  controllingTime ||
-                  !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
-                }
-                onClick={() => {
-                  setControllingTime(true);
-                  dispatch(controlTimer(!runningTimer, workOrder.id))
-                    .catch((err) =>
-                      showSnackBar(getErrorMessage(err), 'error')
-                    )
-                    .finally(() => setControllingTime(false));
-                }}
-                variant={runningTimer ? 'contained' : 'outlined'}
-              >
-                {runningTimer
-                  ? t('timer_running')
-                  : t('run_timer') +
-                    ' - ' +
-                    durationToHours(primaryTime?.duration)}
-              </Button>
-              {primaryTime && (
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Typography variant="caption" color="text.secondary">
-                    {t('time')}:
-                  </Typography>
-                  {openEditPrimaryTime ? (
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <TextField
-                        size="small"
-                        sx={{ width: 64 }}
-                        value={primaryTimeHours}
-                        type="number"
-                        onChange={(event) =>
-                          setPrimaryTimeHours(Number(event.target.value))
-                        }
-                      />
-                      <Typography variant="body2">h</Typography>
-                      <TextField
-                        size="small"
-                        sx={{ width: 64 }}
-                        value={primaryTimeMinutes}
-                        type="number"
-                        InputProps={{ inputProps: { min: 0, max: 59 } }}
-                        onChange={(event) =>
-                          setPrimaryTimeMinutes(Number(event.target.value))
-                        }
-                      />
-                      <Typography variant="body2">m</Typography>
-                      <Button
-                        size="small"
-                        startIcon={
-                          savingPrimaryTime ? (
-                            <CircularProgress size="1rem" />
-                          ) : null
-                        }
-                        disabled={savingPrimaryTime}
-                        variant="contained"
-                        onClick={onSavePrimaryTime}
-                      >
-                        {t('save')}
-                      </Button>
-                    </Stack>
-                  ) : (
-                    <Typography
-                      variant="body2"
-                      fontWeight={600}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => setOpenEditPrimaryTime(true)}
-                      color="primary"
-                    >
-                      {durationToHours(primaryTime?.duration)}
-                    </Typography>
-                  )}
-                </Stack>
-              )}
-            </Stack>
 
             {!ERIONE_HIDDEN_MODULES.parts && (
               <Box>
@@ -770,7 +651,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
           </Box>
         )}
         {currentTab === 'relatoEvidencias' && (
-          <Box>
+          <Stack sx={{ gap: 2.5, minWidth: 0 }}>
             <FieldReportSection
               workOrder={workOrder}
               canEdit={hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)}
@@ -779,11 +660,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
               onOpenImage={setImageState}
             />
 
-            <Box sx={{ mt: 2 }}>
-              <Divider sx={{ mb: 1.5 }} />
-              <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-                {t('files')}
-              </Typography>
+            <ReportSectionPanel title={t('report_work_order_files')}>
               {!!workOrder.files.length ? (
                 <FilesList
                   confirmMessage={t('confirm_delete_file_wo')}
@@ -810,21 +687,10 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                   {t('add_file')}
                 </Button>
               )}
-            </Box>
+            </ReportSectionPanel>
 
-            <Box sx={{ mt: 2.5 }}>
-              <Divider sx={{ mb: 1.5 }} />
-              <Typography
-                variant="body2"
-                fontWeight={700}
-                color="text.secondary"
-                sx={{ mb: 1 }}
-              >
-                {`${t('comments')}${commentsCount > 0 ? ` (${commentsCount})` : ''}`}
-              </Typography>
-              <CommentsSection workOrderId={workOrder.id} commentId={commentId} />
-            </Box>
-          </Box>
+            <CommentsDisclosure key={workOrder.id} workOrderId={workOrder.id} comments={comments} commentId={commentId} />
+          </Stack>
         )}
         {currentTab === 'questionario' && (
           <Stack spacing={2}>

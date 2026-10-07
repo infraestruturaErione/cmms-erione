@@ -309,13 +309,18 @@ export default function SingleTask({
           justifyContent="space-between"
           alignItems="flex-start"
           gap={2}
+          sx={{ flexWrap: 'wrap' }}
         >
-          <Box sx={{ minWidth: 0 }}>
-            <Stack direction="row" spacing={1} alignItems="baseline">
+          <Box sx={{ minWidth: 0, flex: '1 1 200px' }}>
+            <Stack direction="row" sx={{ gap: 1 }} alignItems="baseline">
               {indexLabel && (
                 <Typography
                   variant="body2"
-                  sx={{ fontWeight: 700, color: theme.colors.alpha.black[50] }}
+                  sx={{
+                    fontWeight: 700,
+                    flexShrink: 0,
+                    color: theme.colors.alpha.black[50]
+                  }}
                 >
                   {indexLabel}
                 </Typography>
@@ -323,7 +328,7 @@ export default function SingleTask({
               <Typography
                 variant="body1"
                 fontWeight="bold"
-                sx={{ wordBreak: 'break-word' }}
+                sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
               >
                 {task.taskBase.label || `<${t('enter_task_name')}>`}
               </Typography>
@@ -346,6 +351,8 @@ export default function SingleTask({
                 alignItems: 'center',
                 gap: 0.5,
                 flexShrink: 0,
+                maxWidth: '100%',
+                overflowWrap: 'anywhere',
                 px: 1.2,
                 py: 0.4,
                 borderRadius: 999,
@@ -358,23 +365,47 @@ export default function SingleTask({
               {visual.icon}
               {t(visual.labelKey)}
             </Box>
-          ) : (
+          ) : null}
+        </Box>
+        {!visual && (
+          <Box
+            component="section"
+            aria-label={t('task_answer_label')}
+            sx={{
+              mt: 1.5,
+              p: 1.5,
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1,
+              bgcolor: 'background.paper',
+              minWidth: 0
+            }}
+          >
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              fontWeight={600}
+              display="block"
+              sx={{ mb: 0.5 }}
+            >
+              {t('task_answer_label')}
+            </Typography>
             <Typography
               variant="body2"
-              fontWeight={600}
-              sx={{ textAlign: 'right', maxWidth: '60%' }}
+              sx={{
+                whiteSpace: 'pre-wrap',
+                overflowWrap: 'anywhere',
+                lineHeight: 1.7
+              }}
             >
-              {task.value || (
-                <Box
-                  component="span"
-                  sx={{ color: theme.colors.alpha.black[50] }}
-                >
-                  {t('not_filled')}
-                </Box>
-              )}
+              {task.value !== undefined &&
+              task.value !== null &&
+              task.value !== ''
+                ? task.value
+                : t('not_filled')}
             </Typography>
-          )}
-        </Box>
+          </Box>
+        )}
         {task.notes && (
           <Box sx={{ mt: 1.5 }}>
             <Typography
@@ -394,7 +425,9 @@ export default function SingleTask({
                 p: 1,
                 borderRadius: 1,
                 backgroundColor: theme.colors.alpha.white[100],
-                color: theme.colors.alpha.black[70]
+                color: theme.colors.alpha.black[70],
+                whiteSpace: 'pre-wrap',
+                overflowWrap: 'anywhere'
               }}
             >
               {task.notes}
@@ -406,7 +439,7 @@ export default function SingleTask({
           <Typography
             variant="body2"
             color="text.secondary"
-            sx={{ mt: 1.5, fontSize: 12 }}
+            sx={{ mt: 1.5, fontSize: 12, overflowWrap: 'anywhere' }}
           >
             {metaText}
           </Typography>

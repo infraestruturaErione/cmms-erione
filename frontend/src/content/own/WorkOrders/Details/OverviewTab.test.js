@@ -72,7 +72,7 @@ it('shows an operational summary before the two-column context and description',
     expect(text.indexOf(value)).toBeGreaterThanOrEqual(0);
     expect(text.indexOf(value)).toBeLessThan(text.indexOf('LONG-DESCRIPTION'));
   });
-  expect(text.indexOf('Ana Silva')).toBeGreaterThan(text.indexOf('LONG-DESCRIPTION'));
+  expect(text.indexOf('Ana Silva')).toBeLessThan(text.indexOf('LONG-DESCRIPTION'));
   expect(text.indexOf('field_report')).toBeLessThan(text.indexOf('LONG-DESCRIPTION'));
   expect(text.indexOf('LONG-DESCRIPTION')).toBeLessThan(text.indexOf('execution-timeline'));
   expect(text.match(/Pessoa 9/g)).toHaveLength(1);
@@ -134,4 +134,25 @@ it('keeps completion metadata and description visible without introducing action
   expect(text).toContain('Serviço aprovado');
   expect(text).toContain('LONG-DESCRIPTION');
   expect(container.querySelectorAll('button, input, select')).toHaveLength(0);
+});
+
+it('separates long description and feedback from metadata, before the timeline', () => {
+  const feedback = `Feedback multilinha\n${'SemEspacos'.repeat(150)}`;
+  const { container, text } = renderOverview(makeWorkOrder({ feedback, status: 'COMPLETE' }));
+  const metadata = container.querySelector('section[aria-label="wo_overview_information"]');
+  const description = container.querySelector('section[aria-label="wo_overview_description"]');
+  const completion = container.querySelector('section[aria-label="wo_overview_feedback"]');
+  expect(metadata.textContent).toContain('WO000071');
+  expect(metadata.textContent).not.toContain('LONG-DESCRIPTION');
+  expect(metadata.textContent).not.toContain(feedback);
+  expect(description.textContent).toContain('LONG-DESCRIPTION');
+  expect(completion.textContent).toContain(feedback);
+  expect(text.indexOf(feedback)).toBeLessThan(text.indexOf('execution-timeline'));
+  expect(LocationMiniMap).toHaveBeenCalled();
+  expect(FieldExecutionTimeline).toHaveBeenCalled();
+});
+
+it('does not render an empty feedback section', () => {
+  const { container } = renderOverview(makeWorkOrder({ feedback: '' }));
+  expect(container.querySelector('section[aria-label="wo_overview_feedback"]')).toBeNull();
 });

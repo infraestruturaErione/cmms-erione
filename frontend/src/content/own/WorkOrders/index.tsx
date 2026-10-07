@@ -1697,7 +1697,10 @@ function WorkOrders() {
           open={openDrawer}
           onClose={handleCloseDetails}
           PaperProps={{
-            sx: { width: { xs: '90%', sm: '70%', md: '50%' } }
+            sx: {
+              width: { xs: '100%', sm: '95%', md: '75%' },
+              maxWidth: '100%'
+            }
           }}
         >
           <WorkOrderDetails

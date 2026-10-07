@@ -1,0 +1,27 @@
+/* Scoped to the execution tab; the overview timeline keeps its layout. */
+@container (max-width: 719px) {
+  [data-execution-timeline] [data-execution-steps] {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  [data-execution-timeline] [data-execution-step] {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  [data-execution-timeline] [data-execution-icon-row] {
+    width: auto;
+  }
+
+  [data-execution-timeline] [data-execution-connector] {
+    display: none;
+  }
+
+  [data-execution-timeline] [data-execution-labels] {
+    text-align: left;
+    padding-bottom: 0;
+  }
+}
