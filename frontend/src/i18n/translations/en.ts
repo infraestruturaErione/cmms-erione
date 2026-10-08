@@ -548,6 +548,17 @@ const locale = {
   wo_add_location_label: 'Address',
   wo_add_location_placeholder: 'Select address',
   wo_add_no_default_questionnaire: 'No default questionnaire',
+  wo_add_destination_title: 'Destination and assignees',
+  wo_add_destination_helper: 'Where the service takes place and who will perform it.',
+  wo_add_service_title: 'Requested service',
+  wo_add_service_helper: 'Describe what needs to be done and choose the task type.',
+  wo_add_automatic: 'Automatic',
+  wo_add_review_helper:
+    'Review the customer, address and assignees before creating the work order.',
+  wo_add_questionnaire_linked_helper:
+    'Linked to the task type. It will be included in the work order for the team to fill in.',
+  wo_add_questionnaire_empty_helper:
+    'The questionnaire appears here when the task type has a linked template.',
   wo_add_assignment_title: 'Execution assignees',
   wo_add_collaborator_mode: 'Collaborator(s)',
   wo_add_collaborators: 'Collaborators',

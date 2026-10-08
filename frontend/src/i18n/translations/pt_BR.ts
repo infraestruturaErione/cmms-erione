@@ -570,6 +570,17 @@ const ptBRJSON = {
   wo_add_location_label: 'Endereço',
   wo_add_location_placeholder: 'Selecionar endereço',
   wo_add_no_default_questionnaire: 'Sem questionário padrão',
+  wo_add_destination_title: 'Destino e responsáveis',
+  wo_add_destination_helper: 'Onde será o atendimento e quem vai executar.',
+  wo_add_service_title: 'Serviço solicitado',
+  wo_add_service_helper: 'Descreva o que precisa ser feito e defina o tipo de tarefa.',
+  wo_add_automatic: 'Automático',
+  wo_add_review_helper:
+    'Confira cliente, endereço e responsáveis antes de criar a OS.',
+  wo_add_questionnaire_linked_helper:
+    'Vinculado ao tipo de tarefa. Será incluído na OS para a equipe preencher.',
+  wo_add_questionnaire_empty_helper:
+    'O questionário aparece aqui quando o tipo de tarefa possui um modelo vinculado.',
   wo_add_assignment_title: 'Responsáveis pela execução',
   wo_add_collaborator_mode: 'Colaborador(es)',
   wo_add_collaborators: 'Colaboradores',

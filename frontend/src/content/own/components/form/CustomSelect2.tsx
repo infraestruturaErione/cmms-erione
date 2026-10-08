@@ -477,7 +477,12 @@ export const CustomSelect = ({
             fullWidth={field.fullWidth || true}
             disabled={formik.isSubmitting || locationScopeMissing}
             onOpen={onOpen}
-            key={field.name}
+            // freeSolo keeps its input text independently of the cleared value.
+            key={
+              field.scopedByCustomer
+                ? `${field.name}:${customerId ?? 'none'}`
+                : field.name
+            }
             freeSolo
             filterOptions={(options, params) => {
               // Endereco e' o que realmente distingue Locations com o mesmo

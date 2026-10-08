@@ -22,6 +22,9 @@ import { alpha, darken, useTheme } from '@mui/material/styles';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
+import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import DateTimePicker from '@mui/lab/DateTimePicker';
 import { FormikProps } from 'formik';
 import { useEffect, useMemo, useState } from 'react';
@@ -81,6 +84,7 @@ interface PropsType {
 
 const ATTACHMENT_FIELD_NAMES = new Set(['files', 'image']);
 const OMITTED_CREATE_FIELDS = new Set([
+  'asset',
   'assetStatus',
   'dueDate',
   'estimatedDuration',
@@ -161,9 +165,7 @@ function FieldControl({
       {...field}
       value={formik.values[field.name]}
       onBlur={formik.handleBlur}
-      onChange={(event) =>
-        handleChange(formik, field.name, event.target.value)
-      }
+      onChange={(event) => handleChange(formik, field.name, event.target.value)}
       error={Boolean(formik.errors[field.name]) || field.error}
       errorMessage={formik.errors[field.name]}
       isDisabled={formik.isSubmitting}
@@ -175,12 +177,16 @@ function FieldControl({
 function AssignmentFields({
   formik,
   handleChange,
+  mode,
+  onModeChange,
   primaryUserField,
   assignedToField,
   teamField
 }: {
   formik: FormikProps<IHash<any>>;
   handleChange: HandleFormChange;
+  mode: AssignmentMode;
+  onModeChange: (mode: AssignmentMode) => void;
   primaryUserField?: IField;
   assignedToField?: IField;
   teamField?: IField;
@@ -188,9 +194,6 @@ function AssignmentFields({
   const { t }: { t: any } = useTranslation();
   const collaboratorsAvailable = Boolean(primaryUserField || assignedToField);
   const teamAvailable = Boolean(teamField);
-  const [mode, setMode] = useState<AssignmentMode>(
-    !collaboratorsAvailable && teamAvailable ? 'TEAM' : 'COLLABORATORS'
-  );
 
   if (!collaboratorsAvailable && !teamAvailable) return null;
 
@@ -232,7 +235,7 @@ function AssignmentFields({
   };
 
   const handleModeChange = (nextMode: AssignmentMode) => {
-    setMode(nextMode);
+    onModeChange(nextMode);
     if (nextMode === 'COLLABORATORS') {
       applyCollaborators(selectedCollaborators);
     } else {
@@ -292,18 +295,61 @@ function AssignmentFields({
           onChange={(event) =>
             handleModeChange(event.target.value as AssignmentMode)
           }
-          sx={{ mb: 0.75, gap: 1 }}
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: 'minmax(0, 1fr)',
+              sm: 'repeat(2, minmax(0, 1fr))'
+            },
+            mb: 1.25,
+            mt: 1,
+            p: 0.5,
+            gap: 0.5,
+            borderRadius: 1.5,
+            backgroundColor: alpha(BRAND.primary, 0.045),
+            '& .MuiFormControlLabel-root': {
+              m: 0,
+              px: 1,
+              py: 0.9,
+              minWidth: 0,
+              borderRadius: 1,
+              border: '1px solid transparent'
+            },
+            '& .MuiRadio-root': { p: 0, mr: 1 },
+            '& .MuiFormControlLabel-label': { fontSize: 14, lineHeight: 1.4 }
+          }}
         >
           <FormControlLabel
             value="COLLABORATORS"
             control={<Radio size="small" />}
             label={t('wo_add_collaborator_mode')}
-            sx={{ mr: 1.5 }}
+            sx={
+              mode === 'COLLABORATORS'
+                ? {
+                    backgroundColor: 'background.paper',
+                    borderColor: `${alpha(BRAND.primary, 0.2)} !important`,
+                    color: BRAND.primary,
+                    '& .MuiFormControlLabel-label': { fontWeight: 700 },
+                    boxShadow: `0 2px 5px ${alpha(BRAND.primaryDark, 0.04)}`
+                  }
+                : undefined
+            }
           />
           <FormControlLabel
             value="TEAM"
             control={<Radio size="small" />}
             label={t('team')}
+            sx={
+              mode === 'TEAM'
+                ? {
+                    backgroundColor: 'background.paper',
+                    borderColor: `${alpha(BRAND.primary, 0.2)} !important`,
+                    color: BRAND.primary,
+                    '& .MuiFormControlLabel-label': { fontWeight: 700 },
+                    boxShadow: `0 2px 5px ${alpha(BRAND.primaryDark, 0.04)}`
+                  }
+                : undefined
+            }
           />
         </RadioGroup>
       )}
@@ -352,18 +398,27 @@ function LocationPreview({
       }}
     >
       <Stack
-        direction="row"
-        alignItems="center"
+        direction="column"
+        alignItems="flex-start"
         justifyContent="space-between"
         spacing={1}
         sx={{ mb: hasCoordinates ? 1 : 0 }}
       >
-        <Stack direction="row" alignItems="flex-start" spacing={0.75} minWidth={0}>
+        <Stack
+          direction="row"
+          alignItems="flex-start"
+          spacing={0.75}
+          minWidth={0}
+        >
           <PlaceRoundedIcon
             sx={{ mt: 0.15, fontSize: 18, color: BRAND.primary, flexShrink: 0 }}
           />
           <Box minWidth={0}>
-            <Typography variant="body2" fontWeight={700} noWrap>
+            <Typography
+              variant="body2"
+              fontWeight={700}
+              sx={{ overflowWrap: 'anywhere' }}
+            >
               {location.name}
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -445,6 +500,19 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
     () => new Map(fields.map((field) => [field.name, field])),
     [fields]
   );
+  const initialAssignmentMode: AssignmentMode =
+    fieldByName.has('team') &&
+    (values?.team ||
+      (!fieldByName.has('primaryUser') && !fieldByName.has('assignedTo')))
+      ? 'TEAM'
+      : 'COLLABORATORS';
+  // Geral unmounts when Anexos is shown; keep the selected mode in the modal.
+  const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>(
+    initialAssignmentMode
+  );
+  useEffect(() => {
+    setAssignmentMode(initialAssignmentMode);
+  }, [open, initialAssignmentMode]);
   const customFields = useMemo(
     () => fields.filter((field) => field.name.startsWith('customField_')),
     [fields]
@@ -563,24 +631,43 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
               display: 'grid',
               gridTemplateColumns: {
                 xs: 'minmax(0, 1fr)',
-                md: 'minmax(300px, 38%) minmax(0, 62%)',
-                xl: 'minmax(320px, 34%) minmax(0, 66%)'
+                md: 'minmax(0, 1fr) minmax(0, 1.35fr)',
+                xl: 'minmax(0, 1fr) minmax(0, 1.5fr)'
               },
-              columnGap: 3,
-              rowGap: 2.5
+              gap: { xs: 2, lg: 2.5 },
+              alignItems: 'start'
             }}
           >
-            <Stack
-              spacing={2.25}
-              sx={{
-                minWidth: 0,
-                pr: { md: 3 },
-                borderRight: {
-                  xs: 0,
-                  md: `1px solid ${theme.palette.divider}`
-                }
-              }}
-            >
+            <Stack spacing={2} className="wo-create-section">
+              <Stack
+                direction="row"
+                alignItems="flex-start"
+                spacing={1.5}
+                className="wo-create-section-heading"
+              >
+                <PlaceRoundedIcon className="wo-create-section-icon" />
+                <Box minWidth={0}>
+                  <Typography
+                    component="h3"
+                    variant="h4"
+                    sx={{
+                      fontSize: { xs: 18, sm: 20 },
+                      fontWeight: 800,
+                      color: BRAND.primaryDark,
+                      lineHeight: 1.3
+                    }}
+                  >
+                    {t('wo_add_destination_title')}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mt: 0.5, lineHeight: 1.5 }}
+                  >
+                    {t('wo_add_destination_helper')}
+                  </Typography>
+                </Box>
+              </Stack>
               <FieldControl
                 field={
                   customerField
@@ -599,10 +686,14 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
                 formik={formik}
                 handleChange={handleChange}
               />
-              {selectedLocation && <LocationPreview location={selectedLocation} />}
+              {selectedLocation && (
+                <LocationPreview location={selectedLocation} />
+              )}
               <AssignmentFields
                 formik={formik}
                 handleChange={handleChange}
+                mode={assignmentMode}
+                onModeChange={setAssignmentMode}
                 primaryUserField={fieldByName.get('primaryUser')}
                 assignedToField={fieldByName.get('assignedTo')}
                 teamField={fieldByName.get('team')}
@@ -616,7 +707,40 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
               />
             </Stack>
 
-            <Stack spacing={2.25} sx={{ minWidth: 0 }}>
+            <Stack
+              spacing={2}
+              className="wo-create-section"
+              sx={{ animationDelay: '40ms' }}
+            >
+              <Stack
+                direction="row"
+                alignItems="flex-start"
+                spacing={1.5}
+                className="wo-create-section-heading"
+              >
+                <BuildOutlinedIcon className="wo-create-section-icon" />
+                <Box minWidth={0}>
+                  <Typography
+                    component="h3"
+                    variant="h4"
+                    sx={{
+                      fontSize: { xs: 18, sm: 20 },
+                      fontWeight: 800,
+                      color: BRAND.primaryDark,
+                      lineHeight: 1.3
+                    }}
+                  >
+                    {t('wo_add_service_title')}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mt: 0.5, lineHeight: 1.5 }}
+                  >
+                    {t('wo_add_service_helper')}
+                  </Typography>
+                </Box>
+              </Stack>
               <FieldControl
                 field={fieldByName.get('title')}
                 formik={formik}
@@ -636,7 +760,7 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
                   display: 'grid',
                   gridTemplateColumns: {
                     xs: 'minmax(0, 1fr)',
-                    sm: 'minmax(0, 1.2fr) minmax(0, 1fr) minmax(150px, .75fr)'
+                    sm: 'minmax(0, 1.4fr) minmax(0, 1fr)'
                   },
                   gap: 2
                 }}
@@ -653,25 +777,83 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
                   formik={formik}
                   handleChange={handleChange}
                 />
-                <TextField
-                  fullWidth
-                  label={t('questionnaire')}
-                  value={
-                    defaultChecklist?.name || t('wo_add_no_default_questionnaire')
-                  }
-                  InputProps={{ readOnly: true }}
-                  inputProps={{ 'aria-label': t('questionnaire') }}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      backgroundColor: alpha(theme.palette.primary.main, 0.025)
-                    }
-                  }}
-                />
                 <FieldControl
                   field={fieldByName.get('priority')}
                   formik={formik}
                   handleChange={handleChange}
                 />
+              </Box>
+              <Box
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                sx={{
+                  p: 1.75,
+                  borderRadius: 1.5,
+                  backgroundColor: defaultChecklist
+                    ? alpha(BRAND.primary, 0.065)
+                    : alpha(BRAND.primaryDark, 0.025),
+                  border: `1px solid ${alpha(
+                    BRAND.primary,
+                    defaultChecklist ? 0.14 : 0.07
+                  )}`,
+                  borderLeft: `3px solid ${
+                    defaultChecklist
+                      ? BRAND.primary
+                      : alpha(BRAND.primary, 0.25)
+                  }`
+                }}
+              >
+                <Stack direction="row" alignItems="flex-start" spacing={1.25}>
+                  <AssignmentOutlinedIcon
+                    sx={{ fontSize: 22, color: BRAND.primary, mt: 0.25 }}
+                  />
+                  <Box minWidth={0} sx={{ flex: 1 }}>
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      sx={{ flexWrap: 'wrap', gap: 1, mb: 0.75 }}
+                    >
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        {t('questionnaire')}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          px: 0.9,
+                          py: 0.2,
+                          borderRadius: 0.75,
+                          color: BRAND.primary,
+                          backgroundColor: theme.palette.background.paper,
+                          border: `1px solid ${alpha(BRAND.primary, 0.12)}`,
+                          fontWeight: 700,
+                          letterSpacing: 0.4
+                        }}
+                      >
+                        {t('wo_add_automatic')}
+                      </Typography>
+                    </Stack>
+                    <Typography
+                      variant="body2"
+                      fontWeight={700}
+                      sx={{ overflowWrap: 'anywhere' }}
+                    >
+                      {defaultChecklist?.name ||
+                        t('wo_add_no_default_questionnaire')}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mt: 0.5, lineHeight: 1.5 }}
+                    >
+                      {t(
+                        defaultChecklist
+                          ? 'wo_add_questionnaire_linked_helper'
+                          : 'wo_add_questionnaire_empty_helper'
+                      )}
+                    </Typography>
+                  </Box>
+                </Stack>
               </Box>
               {fieldByName.get('requiredSignature') && (
                 <CustomSwitch
@@ -681,23 +863,15 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
                   handleChange={formik.handleChange}
                   checked={Boolean(formik.values.requiredSignature)}
                   disableGridItem
-                  sx={{ mb: 0 }}
+                  sx={{
+                    mb: 0,
+                    p: 1,
+                    borderRadius: 1.25,
+                    backgroundColor: alpha(BRAND.primary, 0.035)
+                  }}
                   titleSx={{ typography: 'body2', fontWeight: 600, mb: 0 }}
                 />
               )}
-              <FieldControl
-                field={
-                  fieldByName.get('asset')
-                    ? {
-                        ...fieldByName.get('asset'),
-                        label: t('wo_add_equipment_label'),
-                        placeholder: t('wo_add_equipment_placeholder')
-                      }
-                    : undefined
-                }
-                formik={formik}
-                handleChange={handleChange}
-              />
             </Stack>
           </Box>
 
@@ -782,6 +956,8 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
   return (
     <Dialog
       maxWidth={false}
+      aria-labelledby="wo-create-title"
+      aria-describedby="wo-create-description"
       open={open}
       onClose={(_event, reason) => {
         if (reason === 'backdropClick' || reason === 'escapeKeyDown') return;
@@ -791,18 +967,30 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
       PaperProps={{
         sx: {
           width: { xs: 'calc(100vw - 16px)', sm: '92vw' },
-          maxWidth: 1480,
-          maxHeight: '88vh',
+          maxWidth: 1360,
+          height: {
+            xs: 'calc(100vh - 16px)',
+            sm: 'min(840px, calc(100vh - 48px))'
+          },
+          maxHeight: { xs: 'calc(100vh - 16px)', sm: 'calc(100vh - 48px)' },
+          '@supports (height: 100dvh)': {
+            height: {
+              xs: 'calc(100dvh - 16px)',
+              sm: 'min(840px, calc(100dvh - 48px))'
+            },
+            maxHeight: { xs: 'calc(100dvh - 16px)', sm: 'calc(100dvh - 48px)' }
+          },
           m: { xs: 1, sm: 2 },
-          borderRadius: 2,
+          borderRadius: 2.5,
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: '#F7F9FC',
-          boxShadow: `0 24px 72px ${alpha(
-            theme.palette.common.black,
-            0.22
-          )}`
+          backgroundColor: BRAND.surface,
+          backgroundImage: `radial-gradient(ellipse at top right, ${alpha(
+            BRAND.primary,
+            0.065
+          )}, transparent 65%)`,
+          boxShadow: `0 24px 72px ${alpha(theme.palette.common.black, 0.22)}`
         }
       }}
       BackdropProps={{
@@ -810,19 +998,38 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
       }}
     >
       <DialogTitle
+        component="div"
         sx={{
-          minHeight: 72,
+          flexShrink: 0,
           px: { xs: 2, sm: 3 },
-          py: 1.5,
+          py: { xs: 2, sm: 2.5 },
           display: 'flex',
           alignItems: 'center',
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          backgroundColor: theme.palette.background.paper
+          position: 'relative',
+          color: '#fff',
+          backgroundColor: BRAND.primaryDark,
+          backgroundImage: `radial-gradient(ellipse at top right, ${alpha(
+            BRAND.primary,
+            0.65
+          )}, transparent 72%), linear-gradient(110deg, ${
+            BRAND.primaryDarker
+          }, ${BRAND.primaryDark})`,
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 3,
+            background: `linear-gradient(90deg, ${BRAND.accent} 0px, ${
+              BRAND.accent
+            } 64px, ${alpha('#fff', 0.12)} 64px, ${alpha('#fff', 0.12)} 100%)`
+          }
         }}
       >
         <Stack
           direction="row"
-          alignItems="center"
+          alignItems="flex-start"
           justifyContent="space-between"
           spacing={2}
           width="100%"
@@ -834,23 +1041,65 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
                 src={logo.dark || logo.white}
                 alt={brandName}
                 sx={{
-                  width: 38,
-                  height: 38,
+                  width: { xs: 44, sm: 52 },
+                  height: { xs: 44, sm: 52 },
+                  p: 0.75,
+                  borderRadius: 1.5,
+                  backgroundColor: '#fff',
                   objectFit: 'contain',
                   flexShrink: 0
                 }}
               />
             )}
             <Box minWidth={0}>
-              <Typography variant="h4" fontWeight={800} noWrap>
+              <Typography
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  color: alpha('#fff', 0.7),
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 1.6,
+                  mb: 0.5
+                }}
+              >
+                {brandName}
+              </Typography>
+              <Typography
+                component="h2"
+                variant="h4"
+                fontWeight={800}
+                sx={{
+                  fontSize: { xs: 20, sm: 26 },
+                  lineHeight: 1.25,
+                  overflowWrap: 'anywhere',
+                  color: '#fff',
+                  letterSpacing: -0.5
+                }}
+              >
                 {t('add_wo')}
               </Typography>
-              <Typography variant="body2" color="text.secondary" noWrap>
+              <Typography
+                id="wo-create-description"
+                variant="body2"
+                sx={{ mt: 0.5, lineHeight: 1.5, color: alpha('#fff', 0.75) }}
+              >
                 {t('wo_add_subtitle')}
               </Typography>
             </Box>
           </Stack>
-          <IconButton aria-label={t('close')} onClick={onClose} size="small">
+          <IconButton
+            aria-label={t('close')}
+            onClick={onClose}
+            size="small"
+            sx={{
+              flexShrink: 0,
+              color: '#fff',
+              backgroundColor: alpha('#fff', 0.08),
+              border: `1px solid ${alpha('#fff', 0.12)}`,
+              '&:hover': { backgroundColor: alpha('#fff', 0.16) }
+            }}
+          >
             <CloseRoundedIcon />
           </IconButton>
         </Stack>
@@ -862,12 +1111,13 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
         aria-label={t('wo_add_tabs_label')}
         TabIndicatorProps={{ sx: { display: 'none !important' } }}
         sx={{
-          minHeight: 46,
+          minHeight: 52,
+          flexShrink: 0,
           px: { xs: 1.5, sm: 3 },
           backgroundColor: theme.palette.background.paper,
           borderBottom: `1px solid ${theme.palette.divider}`,
           '& .MuiTab-root': {
-            minHeight: 46,
+            minHeight: 52,
             px: 2.25,
             textTransform: 'none',
             fontSize: 14,
@@ -875,9 +1125,9 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
             backgroundColor: 'transparent',
             color: theme.palette.text.secondary,
             zIndex: 1,
-            '&.Mui-selected': {
+            '&.Mui-selected, &.Mui-selected:hover': {
               backgroundColor: 'transparent',
-              color: BRAND.primary,
+              color: `${BRAND.primary} !important`,
               borderBottom: `3px solid ${BRAND.primary}`
             }
           },
@@ -905,13 +1155,21 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
       <DialogContent
         sx={{
           p: 0,
+          display: 'flex',
+          flex: '1 1 0',
           minHeight: 0,
           overflow: 'hidden',
-          '& > .MuiBox-root': { height: '100%' },
+          '& > .MuiBox-root': {
+            display: 'flex',
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0
+          },
           '& > .MuiBox-root > .MuiGrid-container': {
             m: 0,
             width: '100%',
-            maxHeight: 'calc(88vh - 118px)',
+            minHeight: 0,
+            flex: 1,
             flexDirection: 'column',
             flexWrap: 'nowrap'
           },
@@ -919,33 +1177,76 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
             flex: '1 1 auto',
             minHeight: 0,
             overflowY: 'auto',
-            p: { xs: 2, sm: 3 }
+            overflowX: 'hidden',
+            overscrollBehavior: 'contain',
+            p: { xs: 1.5, sm: 2, lg: 2.5 }
           },
-          '& > .MuiBox-root > .MuiGrid-container > .MuiGrid-item:last-of-type': {
-            flex: '0 0 auto',
-            p: 2,
-            borderTop: `1px solid ${theme.palette.divider}`,
+          '& .wo-create-section': {
+            minWidth: 0,
+            p: { xs: 2, lg: 2.5 },
+            borderRadius: 2,
+            border: `1px solid ${alpha(BRAND.primary, 0.09)}`,
             backgroundColor: theme.palette.background.paper,
-            boxShadow: `0 -6px 18px ${alpha(
-              theme.palette.common.black,
-              0.04
-            )}`
+            boxShadow: `0 4px 16px ${alpha(BRAND.primaryDark, 0.035)}`,
+            animation: 'wo-create-reveal 220ms ease-out both'
           },
-          '& .MuiOutlinedInput-root': {
+          '& .wo-create-section-heading': {
+            pb: 1.75,
+            borderBottom: `1px solid ${alpha(BRAND.primary, 0.08)}`
+          },
+          '& .wo-create-section-icon': {
+            boxSizing: 'content-box',
+            fontSize: 22,
+            flexShrink: 0,
+            p: 1,
             borderRadius: 1.25,
+            color: BRAND.primary,
+            backgroundColor: alpha(BRAND.primary, 0.07)
+          },
+          '@keyframes wo-create-reveal': {
+            from: { opacity: 0, transform: 'translateY(5px)' },
+            to: { opacity: 1, transform: 'translateY(0)' }
+          },
+          '@media (prefers-reduced-motion: reduce)': {
+            '& .wo-create-section': { animation: 'none' }
+          },
+          '& > .MuiBox-root > .MuiGrid-container > .MuiGrid-item:last-of-type':
+            {
+              flex: '0 0 auto',
+              px: { xs: 2, sm: 3 },
+              py: 1.5,
+              borderTop: `1px solid ${theme.palette.divider}`,
+              backgroundColor: theme.palette.background.paper,
+              boxShadow: `0 -6px 18px ${alpha(
+                theme.palette.common.black,
+                0.04
+              )}`
+            },
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 1.5,
             backgroundColor: theme.palette.background.paper,
             '& fieldset': {
-              borderColor: alpha(theme.palette.text.primary, 0.18)
+              borderColor: alpha(BRAND.primaryDark, 0.18)
             },
             '&:hover fieldset': {
               borderColor: alpha(BRAND.primary, 0.45)
             },
-            '&.Mui-focused fieldset': { borderColor: BRAND.primary }
+            '&.Mui-focused': {
+              boxShadow: `0 0 0 3px ${alpha(BRAND.primary, 0.09)}`,
+              '& fieldset': { borderColor: BRAND.primary }
+            }
           },
           '& .MuiInputBase-root:not(.MuiInputBase-multiline)': {
             minHeight: 50
           },
-          '& .MuiInputLabel-root': { fontSize: 14, fontWeight: 600 }
+          '& .MuiInputLabel-root': { fontSize: 14, fontWeight: 600 },
+          '& .MuiInputLabel-root.Mui-focused': { color: BRAND.primary },
+          '& .MuiRadio-root.Mui-checked': { color: BRAND.primary },
+          '& .MuiSwitch-switchBase.Mui-checked': { color: BRAND.primary },
+          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+            backgroundColor: `${BRAND.primary} !important`
+          },
+          '& .MuiButton-textPrimary': { color: BRAND.primary }
         }}
       >
         <Box>
@@ -965,40 +1266,69 @@ export default function AddWorkOrderTabbedModal(props: PropsType) {
                 direction="row"
                 alignItems="center"
                 justifyContent="space-between"
+                spacing={1}
                 width="100%"
               >
-                <Button
-                  color="secondary"
-                  onClick={onClose}
-                  disabled={formik.isSubmitting}
-                >
-                  {t('cancel')}
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={() => handleFinalSubmit(formik)}
-                  startIcon={
-                    formik.isSubmitting ? (
-                      <CircularProgress size="1rem" />
-                    ) : null
-                  }
-                  disabled={
-                    Boolean(formik.errors.submit) || formik.isSubmitting
-                  }
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
                   sx={{
-                    minWidth: 126,
-                    borderRadius: 1.25,
-                    px: 3,
-                    py: 1.05,
-                    fontWeight: 750,
-                    backgroundColor: BRAND.primary,
-                    '&:hover': {
-                      backgroundColor: darken(BRAND.primary, 0.12)
-                    }
+                    display: { xs: 'none', md: 'block' },
+                    maxWidth: 430,
+                    lineHeight: 1.5
                   }}
                 >
-                  {t('create_work_order')}
-                </Button>
+                  {t('wo_add_review_helper')}
+                </Typography>
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  spacing={1.5}
+                  sx={{
+                    ml: 'auto !important',
+                    width: { xs: '100%', md: 'auto' },
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <Button
+                    sx={{ color: BRAND.primary, fontWeight: 700, px: 2 }}
+                    onClick={onClose}
+                    disabled={formik.isSubmitting}
+                  >
+                    {t('cancel')}
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={() => handleFinalSubmit(formik)}
+                    startIcon={
+                      formik.isSubmitting ? (
+                        <CircularProgress size="1rem" />
+                      ) : null
+                    }
+                    disabled={
+                      Boolean(formik.errors.submit) || formik.isSubmitting
+                    }
+                    endIcon={
+                      !formik.isSubmitting ? (
+                        <ArrowForwardRoundedIcon />
+                      ) : undefined
+                    }
+                    sx={{
+                      minWidth: 126,
+                      borderRadius: 1.5,
+                      px: 3,
+                      py: 1.05,
+                      fontWeight: 750,
+                      backgroundColor: BRAND.primary,
+                      boxShadow: `0 4px 10px ${alpha(BRAND.primary, 0.2)}`,
+                      '&:hover': {
+                        backgroundColor: darken(BRAND.primary, 0.12)
+                      }
+                    }}
+                  >
+                    {t('create_work_order')}
+                  </Button>
+                </Stack>
               </Stack>
             )}
           />
