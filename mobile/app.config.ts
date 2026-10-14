@@ -31,7 +31,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     bundleIdentifier: 'com.cmms.erione',
-    buildNumber: '12',
+    buildNumber: '13',
     jsEngine: 'hermes',
     supportsTablet: false,
     runtimeVersion: '1.0.46',

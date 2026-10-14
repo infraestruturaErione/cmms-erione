@@ -35,7 +35,7 @@ import WorkOrder from '../models/workOrder';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { useTranslation } from 'react-i18next';
-import analytics from '@react-native-firebase/analytics';
+import analytics from '../utils/firebaseAnalytics';
 import { useDispatch } from '../store';
 import { revertAll } from '../utils/redux';
 import { getApiUrl } from '../config';
