@@ -28,6 +28,18 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandlerController {
 
+    @ExceptionHandler(WorkOrderExecutionException.class)
+    public ResponseEntity<Map<String, Object>> handleExecutionConflict(WorkOrderExecutionException ex) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("success", false);
+        body.put("message", ex.getMessage());
+        body.put("code", ex.getCode());
+        body.put("workOrderId", ex.getWorkOrderId());
+        body.put("executionOwnerId", ex.getExecutionOwnerId());
+        body.put("executionOwnerName", ex.getExecutionOwnerName());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @Bean
     public ErrorAttributes errorAttributes() {
         return new DefaultErrorAttributes() {

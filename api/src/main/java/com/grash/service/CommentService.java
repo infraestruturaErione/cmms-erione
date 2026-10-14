@@ -49,6 +49,9 @@ public class CommentService {
 
     public Comment create(@Valid CommentPostDTO commentReq, User user) {
         WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(commentReq.getWorkOrder().getId(), user);
+        if (isFieldReport(commentReq.getContent())) {
+            workOrderService.checkOperationalWriteAccess(workOrder.getId(), user);
+        }
 
         // Reenvio duplicado (retry de rede, duplo clique que escapou do loading
         // do botao) do MESMO conteudo pelo mesmo usuario/OS numa janela curta:
@@ -108,6 +111,11 @@ public class CommentService {
             throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
 
         WorkOrder workOrder = savedComment.getWorkOrder();
+        if (isFieldReport(savedComment.getContent()) || isFieldReport(commentPatchDTO.getContent())) {
+            workOrderService.checkOperationalWriteAccess(workOrder.getId(), user);
+        } else {
+            workOrderService.checkAccessToWorkOrderId(workOrder.getId(), user);
+        }
 
         Comment updatedComment = commentRepository.saveAndFlush(commentMapper.updateComment(savedComment,
                 commentPatchDTO));
@@ -128,6 +136,23 @@ public class CommentService {
         };
 
         return commentRepository.findAll(specification);
+    }
+
+    private boolean isFieldReport(String content) {
+        return content != null && content.startsWith("[Relato em campo]");
+    }
+
+    public void deleteByUser(Long id, User user) {
+        Comment comment = findById(id).orElseThrow(() -> new CustomException("Not found", HttpStatus.NOT_FOUND));
+        if (!comment.getUser().getId().equals(user.getId())) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        if (isFieldReport(comment.getContent())) {
+            workOrderService.checkOperationalWriteAccess(comment.getWorkOrder().getId(), user);
+        } else {
+            workOrderService.checkAccessToWorkOrderId(comment.getWorkOrder().getId(), user);
+        }
+        delete(id);
     }
 
     public long countByWorkOrderId(Long workOrderId, User user) {

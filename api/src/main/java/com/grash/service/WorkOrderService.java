@@ -285,7 +285,7 @@ public class WorkOrderService {
     @Transactional
     public WorkOrder update(Long id, WorkOrderPatchDTO workOrder, User user) {
         if (workOrderRepository.existsById(id)) {
-            WorkOrder savedWorkOrder = workOrderRepository.findById(id).get();
+            WorkOrder savedWorkOrder = lockExecutionRow(id, user);
             if (savedWorkOrder.getFirstTimeToReact() == null) savedWorkOrder.setFirstTimeToReact(new Date());
 
             Collection<WOField> changedFields = detectPatchDTOChangedFields(savedWorkOrder, workOrder);
@@ -298,6 +298,7 @@ public class WorkOrderService {
                 setWOCustomFields(newWorkOrder, workOrder.getCustomFields(), user.getCompany());
             }
             customerScopeService.validateWorkOrderAssociations(workOrder, newWorkOrder, user.getCompany().getId());
+            releaseInvalidExecutionOwner(newWorkOrder);
             WorkOrder updatedWorkOrder =
                     workOrderRepository.saveAndFlush(newWorkOrder);
             em.refresh(updatedWorkOrder);
@@ -403,6 +404,104 @@ public class WorkOrderService {
         if (!workOrder.canBeEditedBy(user))
             throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
         return workOrder;
+    }
+
+    private WorkOrder lockExecutionRow(Long id, User user) {
+        WorkOrder workOrder = workOrderRepository.findForExecution(id, user.getCompany().getId())
+                .orElseThrow(() -> new CustomException("WorkOrder not found", HttpStatus.NOT_FOUND));
+        // A query lock alone does not refresh an entity already present in the persistence context.
+        em.refresh(workOrder);
+        checkAccessToWorkOrderId(id, user);
+        return workOrder;
+    }
+
+    @Transactional
+    public WorkOrder startExecution(Long id, User user) {
+        return checkOperationalAccess(id, user, true, false);
+    }
+
+    @Transactional
+    public WorkOrder reopenExecution(Long id, User user) {
+        WorkOrder original = lockExecutionRow(id, user);
+        if (!original.canBeAdministrativelyEditedBy(user)) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        if (original.getStatus() != Status.COMPLETE) return original;
+        em.detach(original);
+        WorkOrder reopened = workOrderRepository.findById(id).orElseThrow();
+        reopened.setStatus(Status.OPEN);
+        reopened.setExecutionOwner(null);
+        reopened.setExecutionClaimedAt(null);
+        reopened.setCompletedBy(null);
+        reopened.setCompletedOn(null);
+        reopened.setSignature(null);
+        reopened.setFeedback(null);
+        reopened.setSignerName(null);
+        reopened.setSignerDocument(null);
+        reopened.setMileageTraveled(null);
+        return saveAndFlushWithWebhook(reopened, user.getCompany(), original);
+    }
+
+    @Transactional(Transactional.TxType.MANDATORY)
+    public WorkOrder checkOperationalAccess(Long id, User user, boolean start, boolean allowCompletedRetry) {
+        WorkOrder workOrder = lockExecutionRow(id, user);
+        if (customerScopeService.isRequester(user) || !workOrder.canBeEditedBy(user) || !workOrder.isAssignedTo(user)) {
+            throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+        }
+        releaseInvalidExecutionOwner(workOrder);
+        if (workOrder.getExecutionOwner() != null
+                && !workOrder.getExecutionOwner().getId().equals(user.getId())) {
+            throw new com.grash.exception.WorkOrderExecutionException("WORK_ORDER_ALREADY_IN_EXECUTION", workOrder);
+        }
+        if (workOrder.getStatus() == Status.COMPLETE && !allowCompletedRetry) {
+            throw new com.grash.exception.WorkOrderExecutionException("WORK_ORDER_EXECUTION_COMPLETED", workOrder);
+        }
+        if (workOrder.getExecutionOwner() == null) {
+            if (!start || workOrder.getStatus() == Status.COMPLETE) {
+                throw new com.grash.exception.WorkOrderExecutionException("WORK_ORDER_EXECUTION_NOT_STARTED", workOrder);
+            }
+            workOrder.setExecutionOwner(user);
+            workOrder.setExecutionClaimedAt(new Date());
+            workOrderRepository.saveAndFlush(workOrder);
+        }
+        return workOrder;
+    }
+
+    @Transactional(Transactional.TxType.MANDATORY)
+    public WorkOrder checkOperationalWriteAccess(Long id, User user) {
+        return checkOperationalAccess(id, user, false, false);
+    }
+
+    public void releaseInvalidExecutionOwner(WorkOrder workOrder) {
+        if (workOrder.getStatus() != Status.COMPLETE && workOrder.getExecutionOwner() != null
+                && !workOrder.isAssignedTo(workOrder.getExecutionOwner())) {
+            workOrder.setExecutionOwner(null);
+            workOrder.setExecutionClaimedAt(null);
+        }
+    }
+
+    @Transactional
+    public void releaseInvalidTeamExecutionOwners(Long teamId) {
+        // Stable ID order avoids taking multiple OS locks in conflicting orders.
+        workOrderRepository.findByTeam_IdAndExecutionOwnerIsNotNull(teamId).stream()
+                .sorted(java.util.Comparator.comparing(WorkOrder::getId)).forEach(candidate -> {
+                    WorkOrder workOrder = workOrderRepository.findForExecution(candidate.getId(), candidate.getCompany().getId())
+                            .orElseThrow(() -> new CustomException("WorkOrder not found", HttpStatus.NOT_FOUND));
+                    em.refresh(workOrder);
+                    releaseInvalidExecutionOwner(workOrder);
+                });
+    }
+
+    public void snapshotCompletedAssignments(WorkOrder workOrder) {
+        java.util.Map<Long, String> names = new java.util.LinkedHashMap<>();
+        if (workOrder.getPrimaryUser() != null) {
+            names.put(workOrder.getPrimaryUser().getId(), workOrder.getPrimaryUser().getFullName());
+        }
+        if (workOrder.getAssignedTo() != null) {
+            workOrder.getAssignedTo().forEach(assigned -> names.putIfAbsent(assigned.getId(), assigned.getFullName()));
+        }
+        workOrder.setCompletedAssignedUserNames(String.join(", ", names.values()));
+        workOrder.setCompletedTeamName(workOrder.getTeam() == null ? "" : workOrder.getTeam().getName());
     }
 
     public Optional<WorkOrder> findByIdAndCompany(Long id, Long companyId) {

@@ -83,8 +83,7 @@ const slice = createSlice({
       const newItems = workOrders.content.filter(
         (wo) => !existingIds.has(wo.id)
       );
-      state.workOrders.content =
-        state.workOrders.content.concat(newItems);
+      state.workOrders.content = state.workOrders.content.concat(newItems);
       state.currentPageNum = state.currentPageNum + 1;
       state.lastPage = workOrders.last;
     },
@@ -161,10 +160,7 @@ const slice = createSlice({
     clearError(state: WorkOrderState) {
       state.errorGet = null;
     },
-    setError(
-      state: WorkOrderState,
-      action: PayloadAction<string>
-    ) {
+    setError(state: WorkOrderState, action: PayloadAction<string>) {
       state.errorGet = action.payload;
     }
   }
@@ -184,7 +180,9 @@ export const getWorkOrders =
       );
       dispatch(slice.actions.getWorkOrders({ workOrders, criteria }));
     } catch (e) {
-      dispatch(slice.actions.setError(getErrorMessage(e, 'Falha ao carregar OS')));
+      dispatch(
+        slice.actions.setError(getErrorMessage(e, 'Falha ao carregar OS'))
+      );
     } finally {
       dispatch(slice.actions.setLoadingGet({ loading: false }));
     }
@@ -225,6 +223,15 @@ export const getWorkOrderDetails =
       dispatch(slice.actions.setLoadingGet({ loading: false }));
     }
   };
+export const startWorkOrderExecution =
+  (id: number): AppThunk =>
+  async (dispatch) => {
+    const workOrder = await api.post<WorkOrder>(
+      `${basePath}/${id}/execution/start`,
+      {}
+    );
+    dispatch(slice.actions.getWorkOrderDetails({ id, workOrder }));
+  };
 export const refreshWorkOrderById =
   (id: number): AppThunk =>
   async (dispatch) => {
@@ -236,8 +243,7 @@ export const refreshWorkOrderById =
     }
   };
 export const refreshCurrentWorkOrders =
-  (): AppThunk =>
-  async (dispatch, getState) => {
+  (): AppThunk => async (dispatch, getState) => {
     const criteria = getState().workOrders.activeCriteria;
     if (!criteria) return;
 

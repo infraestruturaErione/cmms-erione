@@ -287,7 +287,9 @@ public class TaskController {
 
     private void checkTaskAccess(Task task, User user, boolean requireEdit) {
         if (task.getWorkOrder() != null) {
-            WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(task.getWorkOrder().getId(), user);
+            WorkOrder workOrder = requireEdit
+                    ? workOrderService.checkOperationalWriteAccess(task.getWorkOrder().getId(), user)
+                    : workOrderService.checkAccessToWorkOrderId(task.getWorkOrder().getId(), user);
             if (requireEdit && !workOrder.canBeEditedBy(user)) {
                 throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
             }
@@ -318,6 +320,9 @@ public class TaskController {
             WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(task.getWorkOrder().getId(), user);
             if (!workOrder.canBeAdministrativelyEditedBy(user)) {
                 throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
+            }
+            if (taskHasRecordedData(task)) {
+                workOrderService.checkOperationalWriteAccess(workOrder.getId(), user);
             }
             return;
         }

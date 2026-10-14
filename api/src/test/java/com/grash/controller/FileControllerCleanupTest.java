@@ -61,7 +61,8 @@ class FileControllerCleanupTest {
     @BeforeEach
     void setUp() {
         controller = new FileController(storageServiceFactory, fileService, userService, taskService,
-                workOrderService, fileMapper, licenseService, requestPortalService, rateLimiterService);
+                workOrderService, fileMapper, licenseService, requestPortalService, rateLimiterService,
+                org.mockito.Mockito.mock(com.grash.repository.CommentRepository.class));
         Company company = new Company();
         company.setId(1L);
         User user = new User();

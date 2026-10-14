@@ -45,6 +45,57 @@ import static org.mockito.Mockito.when;
  */
 class WorkOrderReportServiceTest {
 
+    @Test
+    void reportDistinguishesOperatorAllExplicitAssigneesAndTeamWithoutInventingMembers() {
+        TaskService tasks = mock(TaskService.class);
+        CommentRepository comments = mock(CommentRepository.class);
+        WorkOrderReportService service = new WorkOrderReportService(tasks, comments,
+                mock(MessageSource.class), mock(Utils.class), new PdfImageOptimizer());
+        WorkOrder wo = new WorkOrder(); wo.setId(42L); wo.setTitle("Shared OS");
+        com.grash.model.User caio = reportUser(1L, "Caio");
+        com.grash.model.User ronaldo = reportUser(2L, "Ronaldo");
+        com.grash.model.User tecnico = reportUser(3L, "Tecnico Teste");
+        com.grash.model.User member = reportUser(4L, "Team-only member");
+        wo.setPrimaryUser(caio); wo.setAssignedTo(List.of(caio, ronaldo, tecnico)); wo.setExecutionOwner(ronaldo);
+        com.grash.model.Team team = new com.grash.model.Team(); team.setName("Equipe Rodoviario");
+        team.setUsers(List.of(member)); wo.setTeam(team);
+        when(tasks.findByWorkOrder(42L)).thenReturn(List.of());
+        when(comments.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(anyCollection(), anyString())).thenReturn(List.of());
+        Map<String, Object> data = service.buildWorkOrderReportVariables(wo, mock(StorageService.class));
+        assertEquals(caio.getFullName(), data.get("primaryUserName"));
+        assertEquals(ronaldo.getFullName(), data.get("executionOwnerName"));
+        assertEquals("Caio Souza, Ronaldo Souza, Tecnico Teste Souza", data.get("assignedUserNames"));
+        assertEquals("Equipe Rodoviario", data.get("assignedTeamName"));
+        assertFalse(data.get("assignedUserNames").toString().contains(member.getFullName()));
+        org.thymeleaf.templateresolver.ClassLoaderTemplateResolver resolver = new org.thymeleaf.templateresolver.ClassLoaderTemplateResolver();
+        resolver.setPrefix("templates/"); resolver.setSuffix(".html"); resolver.setCharacterEncoding("UTF-8");
+        org.thymeleaf.TemplateEngine engine = new org.thymeleaf.TemplateEngine(); engine.setTemplateResolver(resolver);
+        data.put("companyName", "Erione CMMS"); data.put("dateFormat", "dd/MM/yyyy"); data.put("timeZone", "America/Sao_Paulo");
+        data.put("utils", mock(Utils.class));
+        org.thymeleaf.context.Context context = new org.thymeleaf.context.Context(java.util.Locale.forLanguageTag("pt-BR"));
+        context.setVariables(data);
+        byte[] pdf = service.renderPdf(engine.process("work-order-report", context));
+        try (com.itextpdf.kernel.pdf.PdfDocument document = new com.itextpdf.kernel.pdf.PdfDocument(
+                new com.itextpdf.kernel.pdf.PdfReader(new ByteArrayInputStream(pdf)))) {
+            String text = com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor.getTextFromPage(document.getFirstPage());
+            assertTrue(text.contains("Operador responsavel"));
+            assertTrue(text.contains("Ronaldo Souza")); assertTrue(text.contains("Tecnico Teste Souza"));
+            assertTrue(text.contains("Equipe Rodoviario"));
+        } catch (java.io.IOException exception) { throw new AssertionError(exception); }
+        wo.setExecutionOwner(null);
+        assertNull(service.buildWorkOrderReportVariables(wo, mock(StorageService.class)).get("executionOwnerName"));
+        wo.setStatus(com.grash.model.enums.Status.COMPLETE);
+        wo.setCompletedAssignedUserNames("Frozen assignment"); wo.setCompletedTeamName("Frozen team");
+        data = service.buildWorkOrderReportVariables(wo, mock(StorageService.class));
+        assertEquals("Frozen assignment", data.get("assignedUserNames"));
+        assertEquals("Frozen team", data.get("assignedTeamName"));
+    }
+
+    private static com.grash.model.User reportUser(Long id, String firstName) {
+        com.grash.model.User user = new com.grash.model.User();
+        user.setId(id); user.setFirstName(firstName); user.setLastName("Souza"); return user;
+    }
+
     private static Location locationWithReference(LocationReferenceType type, String code, String name, String address) {
         Location location = new Location();
         location.setName(name);

@@ -124,7 +124,8 @@ class FileCleanupEvidenceIntegrationTest {
                 mock(FileMapper.class),
                 mock(LicenseService.class),
                 mock(RequestPortalService.class),
-                mock(RateLimiterService.class)
+                mock(RateLimiterService.class),
+                mock(com.grash.repository.CommentRepository.class)
         );
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }

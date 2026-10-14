@@ -42,6 +42,12 @@ public class TeamService {
     private AssetService assetService;
     private LocationService locationService;
     private final UserService userService;
+    private WorkOrderService workOrderService;
+
+    @Autowired
+    public void setWorkOrderService(@Lazy WorkOrderService workOrderService) {
+        this.workOrderService = workOrderService;
+    }
 
     @Autowired
     public void setDeps(@Lazy AssetService assetService, @Lazy LocationService locationService
@@ -63,6 +69,7 @@ public class TeamService {
             Team savedTeam = teamRepository.findById(id).get();
             Team updatedTeam = teamRepository.saveAndFlush(teamMapper.updateTeam(savedTeam, team));
             em.refresh(updatedTeam);
+            workOrderService.releaseInvalidTeamExecutionOwners(id);
             return updatedTeam;
         } else throw new CustomException("Not found", HttpStatus.NOT_FOUND);
     }

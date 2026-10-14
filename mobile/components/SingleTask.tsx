@@ -30,6 +30,7 @@ const CHOICE_TASK_TYPES: TaskType[] = ['SUBTASK', 'INSPECTION', 'MULTIPLE'];
 interface SingleTaskProps {
   task: Task;
   preview?: boolean;
+  readOnly?: boolean;
   handleChange?: (value: string | number, id: number) => void;
   handleSaveNotes?: (value: string, id: number) => Promise<void>;
   handleNoteChange?: (value: string, id: number) => void;
@@ -51,6 +52,7 @@ export default function SingleTask({
   handleNoteChange,
   handleSaveNotes,
   preview,
+  readOnly = false,
   toggleNotes,
   notes,
   handleSelectImages,
@@ -58,7 +60,7 @@ export default function SingleTask({
   index,
   onAnsweredChange,
   onInputFocus,
-  onInputSizeChange,
+  onInputSizeChange
 }: SingleTaskProps) {
   const theme = useTheme();
   const { t }: { t: any } = useTranslation();
@@ -111,6 +113,12 @@ export default function SingleTask({
       }, 1000),
     []
   );
+  useEffect(() => {
+    if (readOnly) persistValue.cancel();
+  }, [readOnly, persistValue]);
+  useEffect(() => {
+    if (readOnly) setInputValue(task.value?.toString() ?? '');
+  }, [readOnly, task.value]);
 
   useEffect(
     () => () => {
@@ -121,7 +129,7 @@ export default function SingleTask({
   );
 
   const handleInputChange = (newValue: string) => {
-    if (preview) return;
+    if (preview || readOnly) return;
     const formattedValue = isNumericInput
       ? newValue?.replace(/[^0-9]/g, '') ?? ''
       : newValue ?? '';
@@ -132,6 +140,7 @@ export default function SingleTask({
   };
   const onDropdownValueChange = (value) => {
     !preview &&
+      !readOnly &&
       !(task.taskBase.user && task.taskBase.user.id !== user.id) &&
       handleChange(value, task.id);
   };
@@ -165,9 +174,7 @@ export default function SingleTask({
     }
   };
   return (
-    <View
-      style={[styles.card, answered && styles.cardComplete]}
-    >
+    <View style={[styles.card, answered && styles.cardComplete]}>
       <View style={styles.taskHeader}>
         <View style={styles.taskStateIcon}>
           <IconButton
@@ -198,6 +205,7 @@ export default function SingleTask({
           onPress={() => handleSelectImages(task.id)}
           disabled={
             preview ||
+            readOnly ||
             !(
               hasCreatePermission(PermissionEntity.FILES) &&
               hasFeature(PlanFeature.FILE)
@@ -217,6 +225,7 @@ export default function SingleTask({
       </View>
       {isChoiceInput ? (
         <TouchableOpacity
+          disabled={readOnly}
           onPress={() => {
             SheetManager.show('dropdown-sheet', {
               payload: {
@@ -254,15 +263,24 @@ export default function SingleTask({
           </View>
         </TouchableOpacity>
       ) : (
-        <NativeView ref={answerRef} collapsable={false} onLayout={() => onInputSizeChange?.(task.id)}>
+        <NativeView
+          ref={answerRef}
+          collapsable={false}
+          onLayout={() => onInputSizeChange?.(task.id)}
+        >
           <TextInput
             value={inputValue}
             onChangeText={handleInputChange}
             onEndEditing={() => persistValue.flush()}
-            onFocus={() => answerRef.current && onInputFocus?.(task.id, answerRef.current)}
+            onFocus={() =>
+              answerRef.current && onInputFocus?.(task.id, answerRef.current)
+            }
             label={t('value')}
             mode={'outlined'}
-            disabled={task.taskBase.user && task.taskBase.user.id !== user.id}
+            disabled={
+              readOnly ||
+              !!(task.taskBase.user && task.taskBase.user.id !== user.id)
+            }
           />
         </NativeView>
       )}
@@ -288,18 +306,25 @@ export default function SingleTask({
       )}
       {notes.get(task.id) && (
         <View style={styles.notesBox}>
-          <NativeView ref={notesRef} collapsable={false} onLayout={() => onInputSizeChange?.(task.id)}>
+          <NativeView
+            ref={notesRef}
+            collapsable={false}
+            onLayout={() => onInputSizeChange?.(task.id)}
+          >
             <TextInput
               mode={'outlined'}
               multiline
+              editable={!readOnly}
               scrollEnabled
               style={styles.notesInput}
               value={task.notes}
               label={t('notes')}
-              onFocus={() => notesRef.current && onInputFocus?.(task.id, notesRef.current)}
+              onFocus={() =>
+                notesRef.current && onInputFocus?.(task.id, notesRef.current)
+              }
               onContentSizeChange={() => onInputSizeChange?.(task.id)}
               onChangeText={(value) =>
-                !preview && handleNoteChange(value, task.id)
+                !preview && !readOnly && handleNoteChange(value, task.id)
               }
             />
           </NativeView>
@@ -307,7 +332,7 @@ export default function SingleTask({
             style={{ marginTop: 10 }}
             mode="contained"
             loading={savingNotes}
-            disabled={savingNotes}
+            disabled={savingNotes || readOnly}
             onPress={() => {
               setSavingNotes(true);
               handleSaveNotes(task.notes, task.id).finally(() =>

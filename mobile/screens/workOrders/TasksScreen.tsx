@@ -2,7 +2,14 @@ import { Task } from '../../models/tasks';
 import { getTasks, patchTask } from '../../slices/task';
 import { useTranslation } from 'react-i18next';
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useDispatch } from '../../store';
+import { useDispatch, useSelector } from '../../store';
+import useAuth from '../../hooks/useAuth';
+import {
+  canExecuteWorkOrder,
+  getQuestionnaireReadOnlyMessage
+} from '../../utils/workOrderExecution';
+import { getWorkOrderDetails } from '../../slices/workOrder';
+import { onWorkOrderExecutionConflict } from '../../utils/api';
 import { CustomSnackBarContext } from '../../contexts/CustomSnackBarContext';
 import {
   Keyboard,
@@ -55,6 +62,26 @@ export default function TasksScreen({
   const [tasks, setTasks] = useState<Task[]>(tasksProps);
   const [cameraTaskId, setCameraTaskId] = useState<number | null>(null);
   const dispatch = useDispatch();
+  const { user } = useAuth();
+  const workOrder = useSelector(
+    (state) => state.workOrders.workOrderInfos[workOrderId]?.workOrder
+  );
+  const savedTasks =
+    useSelector((state) => state.tasks.tasksByWorkOrder[workOrderId]) ??
+    tasksProps;
+  const canEdit =
+    !!workOrder &&
+    user.role.code !== 'REQUESTER' &&
+    canExecuteWorkOrder(workOrder, user.id);
+  useEffect(() => {
+    dispatch(getWorkOrderDetails(workOrderId)).catch(() => undefined);
+    return onWorkOrderExecutionConflict((id) => {
+      if (id === workOrderId) {
+        dispatch(getWorkOrderDetails(id)).catch(() => undefined);
+        dispatch(getTasks(workOrderId));
+      }
+    });
+  }, [dispatch, workOrderId]);
   const theme = useTheme();
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const keyboardVisible = useKeyboardVisible();
@@ -83,7 +110,9 @@ export default function TasksScreen({
   const scrollRef = useRef<ScrollView>(null);
   const viewportRef = useRef<NativeView>(null);
   const scrollYRef = useRef(0);
-  const focusedInputRef = useRef<{ taskId: number; input: NativeView } | null>(null);
+  const focusedInputRef = useRef<{ taskId: number; input: NativeView } | null>(
+    null
+  );
   const correctionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const revealFocusedTask = useCallback(() => {
@@ -115,10 +144,13 @@ export default function TasksScreen({
     [revealFocusedTask]
   );
 
-  const handleInputSizeChange = useCallback((taskId: number) => {
-    if (focusedInputRef.current?.taskId === taskId)
-      requestAnimationFrame(revealFocusedTask);
-  }, [revealFocusedTask]);
+  const handleInputSizeChange = useCallback(
+    (taskId: number) => {
+      if (focusedInputRef.current?.taskId === taskId)
+        requestAnimationFrame(revealFocusedTask);
+    },
+    [revealFocusedTask]
+  );
 
   useEffect(() => {
     // Com adjustResize (padrao do Expo no Android) a area visivel so' e' conhecida
@@ -154,9 +186,10 @@ export default function TasksScreen({
     [revealFocusedTask]
   );
 
-  useEffect(() => setTasks(tasksProps), [tasksProps]);
+  useEffect(() => setTasks(savedTasks), [savedTasks]);
 
   function handleChange(value: string | number, id: number) {
+    if (!canEdit) return;
     const task = tasks.find((task) => task.id === id);
     dispatch(patchTask(workOrderId, id, { ...task, value }))
       .then(() => showSnackBar(t('task_update_success'), 'success'))
@@ -172,6 +205,7 @@ export default function TasksScreen({
   }
 
   function handleNoteChange(value: string, id: number) {
+    if (!canEdit) return;
     const newTasks = tasks.map((task) => {
       if (task.id === id) {
         return { ...task, notes: value };
@@ -188,6 +222,7 @@ export default function TasksScreen({
   }
 
   function handleSaveNotes(value: string, id: number) {
+    if (!canEdit) return Promise.resolve();
     const task = tasks.find((task) => task.id === id);
     return dispatch(patchTask(workOrderId, id, { ...task, notes: value })).then(
       () => {
@@ -209,6 +244,7 @@ export default function TasksScreen({
   };
 
   const uploadImage = async (taskId: number) => {
+    if (!canEdit) return;
     console.warn('[TasksScreen] Tap -> library', JSON.stringify({ taskId }));
     const result = await openLibraryWithPermission('TasksScreen', {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -224,14 +260,18 @@ export default function TasksScreen({
     await onImagePicked(result, taskId);
   };
   const takePhoto = (taskId: number) => {
+    if (!canEdit) return;
     setCameraTaskId(taskId);
   };
   const handleInAppCapture = async (uri: string) => {
+    if (!canEdit) return;
     if (cameraTaskId === null) return;
     const taskId = cameraTaskId;
     setCameraTaskId(null);
     const fileName = uri.split('/').pop() || 'photo.jpg';
-    const files = [{ uri, name: fileName, type: mime.getType(fileName) || 'image/jpeg' }];
+    const files = [
+      { uri, name: fileName, type: mime.getType(fileName) || 'image/jpeg' }
+    ];
     return dispatch(addFiles(files, 'IMAGE', taskId))
       .then(onImageUploadSuccess)
       .then(() => dispatch(getTasks(workOrderId)))
@@ -242,7 +282,10 @@ export default function TasksScreen({
     taskId: number
   ) => {
     if (!result.canceled) {
-      console.warn('[TasksScreen] Picker result -> upload', JSON.stringify({ taskId, assets: result.assets.length }));
+      console.warn(
+        '[TasksScreen] Picker result -> upload',
+        JSON.stringify({ taskId, assets: result.assets.length })
+      );
       return dispatch(addFiles(formatImages(result), 'IMAGE', taskId))
         .then(onImageUploadSuccess)
         .then(() => dispatch(getTasks(workOrderId)))
@@ -251,77 +294,91 @@ export default function TasksScreen({
   };
   return (
     <NativeView ref={viewportRef} style={styles.container}>
-    <ScrollView
-      ref={scrollRef}
-      style={styles.container}
-      contentContainerStyle={[
-        styles.contentContainer,
-        keyboardVisible && { paddingBottom: Math.max(40, viewportHeight) }
-      ]}
-      keyboardShouldPersistTaps="handled"
-      onScroll={handleScroll}
-      scrollEventThrottle={16}
-      onLayout={handleScrollViewLayout}
-    >
-      <InAppCamera
-        visible={cameraTaskId !== null}
-        onCapture={handleInAppCapture}
-        onClose={() => setCameraTaskId(null)}
-      />
-      <View style={styles.progressCard}>
-        <View style={styles.progressHeader}>
-          <View style={{ flex: 1 }}>
-            <Text variant="titleMedium" style={styles.progressTitle}>
-              {t('questionnaire')}
+      <ScrollView
+        ref={scrollRef}
+        style={styles.container}
+        contentContainerStyle={[
+          styles.contentContainer,
+          keyboardVisible && { paddingBottom: Math.max(40, viewportHeight) }
+        ]}
+        keyboardShouldPersistTaps="handled"
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        onLayout={handleScrollViewLayout}
+      >
+        <InAppCamera
+          visible={cameraTaskId !== null}
+          onCapture={handleInAppCapture}
+          onClose={() => setCameraTaskId(null)}
+        />
+        {!!workOrder && !canEdit && (
+          <View
+            testID="questionnaire-read-only-notice"
+            style={styles.readOnlyNotice}
+          >
+            <Text variant="titleSmall" style={styles.readOnlyTitle}>
+              Somente leitura
             </Text>
-            <Text variant="bodySmall" style={styles.progressHelper}>
-              {t('questionnaire_progress', {
-                completed: completedTasks,
-                total: tasks.length
-              })}
+            <Text variant="bodyMedium" style={styles.readOnlyMessage}>
+              {getQuestionnaireReadOnlyMessage(workOrder, user.id)}
             </Text>
           </View>
-          <Text variant="titleMedium" style={styles.progressPercent}>
-            {Math.round(progress * 100)}%
-          </Text>
+        )}
+        <View style={styles.progressCard}>
+          <View style={styles.progressHeader}>
+            <View style={{ flex: 1 }}>
+              <Text variant="titleMedium" style={styles.progressTitle}>
+                {t('questionnaire')}
+              </Text>
+              <Text variant="bodySmall" style={styles.progressHelper}>
+                {t('questionnaire_progress', {
+                  completed: completedTasks,
+                  total: tasks.length
+                })}
+              </Text>
+            </View>
+            <Text variant="titleMedium" style={styles.progressPercent}>
+              {Math.round(progress * 100)}%
+            </Text>
+          </View>
+          <ProgressBar
+            progress={progress}
+            color={theme.colors.primary}
+            style={styles.progressBar}
+          />
         </View>
-        <ProgressBar
-          progress={progress}
-          color={theme.colors.primary}
-          style={styles.progressBar}
+        {tasks.map((task, index) => (
+          <SingleTask
+            readOnly={!canEdit}
+            key={task.id}
+            task={task}
+            index={index + 1}
+            onAnsweredChange={handleAnsweredChange}
+            onInputFocus={handleInputFocus}
+            onInputSizeChange={handleInputSizeChange}
+            handleChange={handleChange}
+            handleNoteChange={handleNoteChange}
+            handleSaveNotes={handleSaveNotes}
+            toggleNotes={toggleNotes}
+            handleSelectImages={(taskId) => {
+              SheetManager.show('upload-file-sheet', {
+                payload: {
+                  onPickImage: () => uploadImage(taskId),
+                  onTakePhoto: () => takePhoto(taskId)
+                }
+              });
+            }}
+            handleZoomImage={handleZoomImage}
+            notes={notes}
+          />
+        ))}
+        <ImageView
+          images={currentImages.map((uri) => ({ uri }))}
+          imageIndex={currentImages.findIndex((img) => img === currentImage)}
+          visible={isImageViewerOpen}
+          onRequestClose={() => setIsImageViewerOpen(false)}
         />
-      </View>
-      {tasks.map((task, index) => (
-        <SingleTask
-          key={task.id}
-          task={task}
-          index={index + 1}
-          onAnsweredChange={handleAnsweredChange}
-          onInputFocus={handleInputFocus}
-          onInputSizeChange={handleInputSizeChange}
-          handleChange={handleChange}
-          handleNoteChange={handleNoteChange}
-          handleSaveNotes={handleSaveNotes}
-          toggleNotes={toggleNotes}
-          handleSelectImages={(taskId) => {
-            SheetManager.show('upload-file-sheet', {
-              payload: {
-                onPickImage: () => uploadImage(taskId),
-                onTakePhoto: () => takePhoto(taskId)
-              }
-            });
-          }}
-          handleZoomImage={handleZoomImage}
-          notes={notes}
-        />
-      ))}
-      <ImageView
-        images={currentImages.map((uri) => ({ uri }))}
-        imageIndex={currentImages.findIndex((img) => img === currentImage)}
-        visible={isImageViewerOpen}
-        onRequestClose={() => setIsImageViewerOpen(false)}
-      />
-    </ScrollView>
+      </ScrollView>
     </NativeView>
   );
 }
@@ -334,6 +391,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 14,
     paddingBottom: 40
+  },
+  readOnlyNotice: {
+    padding: 14,
+    marginBottom: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#CAD6FF',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+    backgroundColor: '#F3F6FF'
+  },
+  readOnlyTitle: {
+    color: colors.primary,
+    fontWeight: '800'
+  },
+  readOnlyMessage: {
+    color: colors.text,
+    lineHeight: 21,
+    marginTop: 4
   },
   progressCard: {
     padding: 14,

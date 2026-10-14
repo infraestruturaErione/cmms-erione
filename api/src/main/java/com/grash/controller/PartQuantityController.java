@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/part-quantities")
 @Tag(name = "Part Quantities", description = "Operations on part quantities")
 @RequiredArgsConstructor
+@jakarta.transaction.Transactional
 public class PartQuantityController {
 
     private final PartQuantityService partQuantityService;
@@ -70,7 +71,7 @@ public class PartQuantityController {
                                                           @PathVariable("id") Long id,
                                                           HttpServletRequest req) {
         User user = userService.whoami(req);
-        WorkOrder savedWorkOrder = workOrderService.checkAccessToWorkOrderId(id, user);
+        WorkOrder savedWorkOrder = workOrderService.checkOperationalWriteAccess(id, user);
         if (savedWorkOrder.canBeEditedBy(user)) {
             // Mutacao (firstTimeToReact) so DEPOIS da autorizacao funcional -
             // antes ficava entre o check de scope e o de canBeEditedBy, entao
@@ -174,7 +175,7 @@ public class PartQuantityController {
             // Ler a WO (ex.: Requester acompanhando a Request que a originou)
             // nao autoriza consumir/lancar peca nela - ver
             // checkWriteAccessToWorkOrderId.
-            workOrderService.checkWriteAccessToWorkOrderId(partQuantityReq.getWorkOrder().getId(), user);
+            workOrderService.checkOperationalWriteAccess(partQuantityReq.getWorkOrder().getId(), user);
         }
         PartQuantity savedPartQuantity = partQuantityService.create(partQuantityReq);
         return partQuantityMapper.toShowDto(savedPartQuantity);
@@ -191,7 +192,7 @@ public class PartQuantityController {
         if (optionalPartQuantity.isPresent()) {
             PartQuantity savedPartQuantity = optionalPartQuantity.get();
             if (savedPartQuantity.getWorkOrder() != null) {
-                workOrderService.checkWriteAccessToWorkOrderId(savedPartQuantity.getWorkOrder().getId(), user);
+                workOrderService.checkOperationalWriteAccess(savedPartQuantity.getWorkOrder().getId(), user);
             }
             if (savedPartQuantity.getPart().getUnit() == null) {
                 partQuantity.setQuantity((int) partQuantity.getQuantity());
@@ -216,7 +217,7 @@ public class PartQuantityController {
         if (optionalPartQuantity.isPresent()) {
             PartQuantity savedPartQuantity = optionalPartQuantity.get();
             if (savedPartQuantity.getWorkOrder() != null) {
-                workOrderService.checkWriteAccessToWorkOrderId(savedPartQuantity.getWorkOrder().getId(), user);
+                workOrderService.checkOperationalWriteAccess(savedPartQuantity.getWorkOrder().getId(), user);
             }
             if
             (user.getId().equals(savedPartQuantity.getCreatedBy())

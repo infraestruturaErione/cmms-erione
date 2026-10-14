@@ -168,9 +168,7 @@ const slice = createSlice({
       }
       if (state.singleWorkOrder?.id === id)
         state.singleWorkOrder.files.push(...files);
-      const inCalendar = state.calendarWorkOrders.some(
-        (wo) => wo.id === id
-      );
+      const inCalendar = state.calendarWorkOrders.some((wo) => wo.id === id);
       if (inCalendar) {
         state.calendarWorkOrders = state.calendarWorkOrders.map((wo) => {
           if (wo.id === id) {
@@ -199,9 +197,7 @@ const slice = createSlice({
         );
       }
       if (state.singleWorkOrder?.id === id) state.singleWorkOrder.files = files;
-      const inCalendar = state.calendarWorkOrders.some(
-        (wo) => wo.id === id
-      );
+      const inCalendar = state.calendarWorkOrders.some((wo) => wo.id === id);
       if (inCalendar) {
         state.calendarWorkOrders = state.calendarWorkOrders.map((wo) => {
           if (wo.id === id) {
@@ -335,6 +331,15 @@ export const refreshWorkOrderById =
       // Best-effort realtime refresh: the current filtered view stays intact.
       return undefined;
     }
+  };
+export const startWorkOrderExecution =
+  (id: number): AppThunk =>
+  async (dispatch) => {
+    const workOrder = await api.post<WorkOrder>(
+      `${basePath}/${id}/execution/start`,
+      {}
+    );
+    dispatch(slice.actions.editWorkOrder({ workOrder }));
   };
 export const addWorkOrder =
   (workOrder): AppThunk =>

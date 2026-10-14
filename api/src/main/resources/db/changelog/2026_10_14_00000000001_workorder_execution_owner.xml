@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <changeSet id="2026-10-14-workorder-execution-owner" author="erione">
+        <addColumn tableName="work_order">
+            <column name="execution_owner_id" type="bigint"/>
+            <column name="execution_claimed_at" type="timestamp"/>
+            <column name="completed_assigned_user_names" type="text"/>
+            <column name="completed_team_name" type="varchar(255)"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="work_order" baseColumnNames="execution_owner_id"
+                                 referencedTableName="own_user" referencedColumnNames="id"
+                                 constraintName="fk_work_order_execution_owner"/>
+        <addColumn tableName="work_order_aud">
+            <column name="execution_owner_id" type="bigint"/>
+            <column name="execution_claimed_at" type="timestamp"/>
+            <column name="execution_owner_mod" type="boolean" defaultValueBoolean="false"/>
+            <column name="execution_claimed_at_mod" type="boolean" defaultValueBoolean="false"/>
+            <column name="completed_assigned_user_names" type="text"/>
+            <column name="completed_assigned_user_names_mod" type="boolean" defaultValueBoolean="false"/>
+            <column name="completed_team_name" type="varchar(255)"/>
+            <column name="completed_team_name_mod" type="boolean" defaultValueBoolean="false"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

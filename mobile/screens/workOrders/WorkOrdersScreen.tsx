@@ -8,7 +8,14 @@ import {
 } from 'react-native';
 import { useDispatch, useSelector } from '../../store';
 import * as React from 'react';
-import { Fragment, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
 import { CompanySettingsContext } from '../../contexts/CompanySettingsContext';
 import useAuth from '../../hooks/useAuth';
 import { PermissionEntity } from '../../models/role';
@@ -49,6 +56,7 @@ import {
   isWorkOrderInField
 } from '../../utils/workOrderFieldUx';
 import { useFocusEffect } from '@react-navigation/native';
+import { getWorkOrderCompanionLabel } from '../../utils/workOrderExecution';
 
 const colors = ERIONE_MOBILE_IDENTITY.colors;
 const DEFAULT_ACTIVE_WORK_ORDER_STATUSES: WorkOrderStatus[] = [
@@ -64,9 +72,8 @@ export default function WorkOrdersScreen({
 }: RootTabScreenProps<'WorkOrders'>) {
   const { t } = useTranslation();
   const [startedSearch, setStartedSearch] = useState<boolean>(false);
-  const { workOrders, loadingGet, currentPageNum, lastPage, errorGet } = useSelector(
-    (state) => state.workOrders
-  );
+  const { workOrders, loadingGet, currentPageNum, lastPage, errorGet } =
+    useSelector((state) => state.workOrders);
   const theme = useAppTheme();
   const dispatch = useDispatch();
   const [searchQuery, setSearchQuery] = useState('');
@@ -225,7 +232,10 @@ export default function WorkOrdersScreen({
             style={{ marginLeft: index > 0 ? -8 : 0 }}
           >
             {assignedUser.image ? (
-              <Avatar.Image source={{ uri: assignedUser.image.url }} size={26} />
+              <Avatar.Image
+                source={{ uri: assignedUser.image.url }}
+                size={26}
+              />
             ) : (
               <Avatar.Text size={26} label={getUserInitials(assignedUser)} />
             )}
@@ -281,8 +291,11 @@ export default function WorkOrdersScreen({
             if (isCloseToBottom(nativeEvent)) {
               if (!loadingGet && !lastPage && !loadingMoreRef.current) {
                 loadingMoreRef.current = true;
-                dispatch(getMoreWorkOrders(criteria, currentPageNum + 1))
-                  .finally(() => { loadingMoreRef.current = false; });
+                dispatch(
+                  getMoreWorkOrders(criteria, currentPageNum + 1)
+                ).finally(() => {
+                  loadingMoreRef.current = false;
+                });
               }
             }
           }}
@@ -313,7 +326,7 @@ export default function WorkOrdersScreen({
                   : '#FFFFFF'
               }
               style={{
-                  backgroundColor: _.isEqual(
+                backgroundColor: _.isEqual(
                   criteria.filterFields,
                   defaultFilterFields
                 )
@@ -378,6 +391,10 @@ export default function WorkOrdersScreen({
               const statusColor = getStatusColor(workOrder.status, theme);
               const inField = isWorkOrderInField(workOrder);
               const pendingCompletion = isPendingCompletion(workOrder);
+              const companionLabel = getWorkOrderCompanionLabel(
+                workOrder,
+                user.id
+              );
               const dueSoon =
                 workOrder.dueDate &&
                 (dayDiff(new Date(workOrder.dueDate), new Date()) <= 2 ||
@@ -425,14 +442,19 @@ export default function WorkOrdersScreen({
                     <View
                       style={[
                         styles.nextActionStrip,
-                        pendingCompletion && styles.nextActionStripWarning,
-                        inField && styles.nextActionStripActive
+                        !companionLabel &&
+                          pendingCompletion &&
+                          styles.nextActionStripWarning,
+                        (companionLabel || inField) &&
+                          styles.nextActionStripActive
                       ]}
                     >
                       <View style={styles.nextActionIcon}>
                         <IconButton
                           icon={
-                            pendingCompletion
+                            companionLabel
+                              ? 'eye-outline'
+                              : pendingCompletion
                               ? 'check-circle-outline'
                               : inField
                               ? 'map-marker-check-outline'
@@ -440,7 +462,9 @@ export default function WorkOrdersScreen({
                           }
                           size={22}
                           iconColor={
-                            pendingCompletion
+                            companionLabel
+                              ? colors.primary
+                              : pendingCompletion
                               ? theme.colors.error
                               : inField
                               ? colors.primary
@@ -450,12 +474,29 @@ export default function WorkOrdersScreen({
                         />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text variant="labelSmall" style={styles.nextActionLabel}>
-                          {t('next_action')}
+                        <Text
+                          variant="labelSmall"
+                          style={styles.nextActionLabel}
+                        >
+                          {companionLabel
+                            ? 'Somente leitura'
+                            : t('next_action')}
                         </Text>
-                        <Text variant="bodyMedium" style={styles.nextActionText}>
-                          {t(getNextActionKey(workOrder))}
+                        <Text
+                          variant="bodyMedium"
+                          style={styles.nextActionText}
+                        >
+                          {companionLabel || t(getNextActionKey(workOrder))}
                         </Text>
+                        {!!companionLabel && (
+                          <Text
+                            variant="bodySmall"
+                            style={styles.companionHelper}
+                          >
+                            Toque para acompanhar a OS. A execução está
+                            disponível somente para o operador.
+                          </Text>
+                        )}
                       </View>
                     </View>
 
@@ -492,6 +533,13 @@ export default function WorkOrdersScreen({
 
                     <View style={styles.cardFooter}>
                       <View style={styles.footerMeta}>
+                        <IconWithLabel
+                          color={colors.muted}
+                          label={`Criada em ${getFormattedDate(
+                            workOrder.createdAt
+                          )}`}
+                          icon="calendar-plus"
+                        />
                         {workOrder.priority &&
                           workOrder.priority !== 'NONE' && (
                             <ErioneStatusBadge
@@ -671,6 +719,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '900',
     marginTop: 1
+  },
+  companionHelper: {
+    color: colors.muted,
+    lineHeight: 18,
+    marginTop: 4
   },
   infoGrid: {
     gap: 8,

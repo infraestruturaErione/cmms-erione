@@ -20,6 +20,11 @@ public class WorkOrderShowDTO extends WorkOrderBaseShowDTO {
     @Schema(description = "User who completed the work order")
     private UserMiniDTO completedBy;
 
+    private UserMiniDTO executionOwner;
+    private Date executionClaimedAt;
+    private String completedAssignedUserNames;
+    private String completedTeamName;
+
     @Schema(description = "Date and time when the work order was completed")
     private Date completedOn;
 

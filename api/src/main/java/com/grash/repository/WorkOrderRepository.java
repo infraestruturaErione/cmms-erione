@@ -18,13 +18,19 @@ import java.util.Optional;
 
 public interface WorkOrderRepository extends JpaRepository<WorkOrder, Long>, JpaSpecificationExecutor<WorkOrder> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT w FROM WorkOrder w WHERE w.id = :id AND w.company.id = :companyId")
+    Optional<WorkOrder> findForExecution(@Param("id") Long id, @Param("companyId") Long companyId);
+
+    Collection<WorkOrder> findByTeam_IdAndExecutionOwnerIsNotNull(Long teamId);
+
     /**
      * Paginated specification search (hot path: POST /work-orders/search).
      * Fetch-joins single-valued associations only — safe with pagination (no row multiplication).
      * Collections (assignedTo, customers, files) stay lazy and are loaded via @BatchSize/batch fetching.
      */
     @Override
-    @EntityGraph(attributePaths = {"asset", "location", "primaryUser", "team", "completedBy", "parentRequest"},
+    @EntityGraph(attributePaths = {"asset", "location", "primaryUser", "team", "completedBy", "executionOwner", "parentRequest"},
             type = EntityGraph.EntityGraphType.LOAD)
     Page<WorkOrder> findAll(Specification<WorkOrder> spec, Pageable pageable);
 

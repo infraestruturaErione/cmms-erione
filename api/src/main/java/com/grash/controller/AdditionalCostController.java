@@ -29,6 +29,7 @@ import java.util.Optional;
 @RequestMapping("/additional-costs")
 @Tag(name = "Additional Costs", description = "Operations on additional costs")
 @RequiredArgsConstructor
+@jakarta.transaction.Transactional
 public class AdditionalCostController {
 
     private final AdditionalCostService additionalCostService;
@@ -68,7 +69,7 @@ public class AdditionalCostController {
             // permissao + customer scope (leitura) E autorizacao funcional de
             // escrita (canBeEditedBy) - ler a WO (ex.: Requester acompanhando
             // a Request que originou ela) nao autoriza lancar custo nela.
-            WorkOrder workOrder = workOrderService.checkWriteAccessToWorkOrderId(additionalCostReq.getWorkOrder().getId(), user);
+            WorkOrder workOrder = workOrderService.checkOperationalWriteAccess(additionalCostReq.getWorkOrder().getId(), user);
             if (workOrder.getFirstTimeToReact() == null) {
                 workOrder.setFirstTimeToReact(new Date());
                 workOrderService.save(workOrder);
@@ -115,7 +116,7 @@ public class AdditionalCostController {
     // Leitura da WO pai (isAccessibleBy) NAO autoriza escrever custo nela -
     // ver checkWriteAccessToWorkOrderId.
     private void checkWriteAccessToAdditionalCost(AdditionalCost additionalCost, User user) {
-        workOrderService.checkWriteAccessToWorkOrderId(additionalCost.getWorkOrder().getId(), user);
+        workOrderService.checkOperationalWriteAccess(additionalCost.getWorkOrder().getId(), user);
     }
 
 }

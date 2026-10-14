@@ -61,8 +61,17 @@ public class FileController {
     private final LicenseService licenseService;
     private final RequestPortalService requestPortalService;
     private final RateLimiterService rateLimiterService;
+    private final com.grash.repository.CommentRepository commentRepository;
+
+    private void checkOperationalFileWrite(File file, User user) {
+        if (file.getTask() != null) validateTaskAccess(file.getTask(), user);
+        commentRepository.findByFiles_IdAndContentStartingWith(file.getId(), "[Relato em campo]").stream()
+                .map(comment -> comment.getWorkOrder().getId()).distinct().sorted()
+                .forEach(id -> workOrderService.checkOperationalWriteAccess(id, user));
+    }
 
     @PostMapping(value = "/upload", produces = "application/json")
+    @jakarta.transaction.Transactional
     public List<FileShowDTO> handleFileUpload(@Parameter(description = "Files to upload") @RequestParam("files") MultipartFile[] filesReq,
                                               @Parameter(description = "Folder path to store files") @RequestParam(
                                                       "folder") String folder,
@@ -171,7 +180,7 @@ public class FileController {
 
     private void validateTaskAccess(Task task, User user) {
         if (task.getWorkOrder() != null) {
-            WorkOrder workOrder = workOrderService.checkAccessToWorkOrderId(task.getWorkOrder().getId(), user);
+            WorkOrder workOrder = workOrderService.checkOperationalWriteAccess(task.getWorkOrder().getId(), user);
             if (!workOrder.canBeEditedBy(user)) {
                 throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
             }
@@ -306,6 +315,7 @@ public class FileController {
 
     @PatchMapping("/{id}")
     @PreAuthorize("hasRole('ROLE_CLIENT')")
+    @jakarta.transaction.Transactional
 
     public FileShowDTO patch(@Parameter(description = "File fields to update") @Valid @RequestBody FilePatchDTO file,
                              @PathVariable("id") Long id,
@@ -316,6 +326,7 @@ public class FileController {
         if (optionalFile.isPresent()) {
             File savedFile = optionalFile.get();
             if (user.getRole().getEditOtherPermissions().contains(PermissionEntity.FILES) || savedFile.getCreatedBy().equals(user.getId())) {
+                checkOperationalFileWrite(savedFile, user);
                 savedFile.setName(file.getName());
                 return fileMapper.toShowDto(fileService.update(savedFile));
             } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
@@ -324,6 +335,7 @@ public class FileController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ROLE_CLIENT')")
+    @jakarta.transaction.Transactional
 
     public ResponseEntity<SuccessResponse> delete(@PathVariable("id") Long id, HttpServletRequest req) {
         User user = userService.whoami(req);
@@ -333,6 +345,7 @@ public class FileController {
             File savedFile = optionalFile.get();
             if (user.getId().equals(savedFile.getCreatedBy())
                     || user.getRole().getDeleteOtherPermissions().contains(PermissionEntity.FILES)) {
+                checkOperationalFileWrite(savedFile, user);
                 fileService.delete(id);
                 return new ResponseEntity<>(new SuccessResponse(true, "Deleted successfully"),
                         HttpStatus.OK);

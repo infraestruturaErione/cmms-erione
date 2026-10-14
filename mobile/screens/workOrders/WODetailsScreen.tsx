@@ -65,6 +65,7 @@ import {
   deleteWorkOrder,
   editWorkOrder,
   getPDFReport,
+  startWorkOrderExecution,
   getWorkOrderDetails
 } from '../../slices/workOrder';
 import { PlanFeature } from '../../models/subscriptionPlan';
@@ -74,7 +75,11 @@ import LoadingDialog from '../../components/LoadingDialog';
 import WorkOrder from '../../models/workOrder';
 import Labor from '../../models/labor';
 import { AudioPlayer } from '../../components/AudioPlayer';
-import { getErrorMessage } from '../../utils/api';
+import { getErrorMessage, onWorkOrderExecutionConflict } from '../../utils/api';
+import {
+  canExecuteWorkOrder,
+  isExecutionAssigned
+} from '../../utils/workOrderExecution';
 import { getLocationAddressWithReference } from '../../utils/locationDisplay';
 import ImageView from 'react-native-image-viewing';
 import { getCustomFieldValuesForDetails } from '../../models/form';
@@ -100,7 +105,10 @@ import {
   ErioneStatusBadge
 } from '../../components/erione/ErioneUI';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
-import { ERIONE_HIDDEN_MODULES, isErioneModuleHidden } from '../../config/erioneModules';
+import {
+  ERIONE_HIDDEN_MODULES,
+  isErioneModuleHidden
+} from '../../config/erioneModules';
 import WorkOrderEvidenceGallery from './components/WorkOrderEvidenceGallery';
 import {
   formatMissingCompletionRequirements,
@@ -143,12 +151,20 @@ export default function WODetailsScreen({
     workOrder?.status ?? ''
   );
   const {
-    hasEditPermission,
+    hasEditPermission: hasGeneralEditPermission,
     user,
     companySettings,
     hasFeature,
     hasViewPermission
   } = useAuth();
+  const hasEditPermission = (
+    permission: PermissionEntity,
+    candidate: WorkOrder
+  ) =>
+    !!candidate &&
+    user.role.code !== 'REQUESTER' &&
+    hasGeneralEditPermission(permission, candidate) &&
+    canExecuteWorkOrder(candidate, user.id);
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const { uploadFiles } = useContext(CompanySettingsContext);
   const [runningTimerDuration, setRunningTimerDuration] = useState<string>();
@@ -163,6 +179,15 @@ export default function WODetailsScreen({
   const [imageViewImages, setImageViewImages] = useState<{ uri: string }[]>([]);
   const [imageViewIndex, setImageViewIndex] = useState<number>(0);
   const dispatch = useDispatch();
+  useEffect(
+    () =>
+      onWorkOrderExecutionConflict((conflictId) => {
+        if (conflictId === id) {
+          dispatch(getWorkOrderDetails(id)).catch(() => undefined);
+        }
+      }),
+    [dispatch, id]
+  );
   const { partQuantitiesByWorkOrder, loadingPartQuantities } = useSelector(
     (state) => state.partQuantities
   );
@@ -206,9 +231,13 @@ export default function WODetailsScreen({
   const adminComments = comments.filter(
     (c) => !c.content?.startsWith(FIELD_REPORT_PREFIX)
   );
-  const statuses = ['OPEN', 'EN_ROUTE', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE'].map(
-    (status) => ({ value: status, label: t(status) })
-  );
+  const statuses = [
+    'OPEN',
+    'EN_ROUTE',
+    'IN_PROGRESS',
+    'ON_HOLD',
+    'COMPLETE'
+  ].map((status) => ({ value: status, label: t(status) }));
   const hasAdministrativeWorkOrderPermission =
     user.role.editOtherPermissions.includes(PermissionEntity.WORK_ORDERS);
   const showManualLaborTimer =
@@ -341,7 +370,10 @@ export default function WODetailsScreen({
     if (showAdditionalCostsSection && !ERIONE_HIDDEN_MODULES.additionalCosts) {
       dispatch(getAdditionalCosts(id));
     }
-    if (!generalPreferences.simplifiedWorkOrder && !ERIONE_HIDDEN_MODULES.relations) {
+    if (
+      !generalPreferences.simplifiedWorkOrder &&
+      !ERIONE_HIDDEN_MODULES.relations
+    ) {
       dispatch(getRelations(id));
     }
     dispatch(getTasks(id));
@@ -570,8 +602,7 @@ export default function WODetailsScreen({
     const requirements = completionReadiness?.requirements;
     return {
       signature:
-        !!requirements?.SIGNATURE.required &&
-        !requirements.SIGNATURE.satisfied,
+        !!requirements?.SIGNATURE.required && !requirements.SIGNATURE.satisfied,
       feedback: generalPreferences.askFeedBackOnWOClosed && !fieldReportContent,
       signerName:
         !!requirements?.SIGNER_NAME.required &&
@@ -1020,11 +1051,15 @@ export default function WODetailsScreen({
               <IconButton
                 icon={item.done ? 'check-circle' : 'alert-circle-outline'}
                 size={20}
-                iconColor={item.done ? erioneColors.primary : theme.colors.error}
+                iconColor={
+                  item.done ? erioneColors.primary : theme.colors.error
+                }
                 style={styles.completionChecklistIcon}
               />
               <View style={{ flex: 1 }}>
-                <Text style={styles.completionChecklistLabel}>{item.label}</Text>
+                <Text style={styles.completionChecklistLabel}>
+                  {item.label}
+                </Text>
                 <Text style={styles.completionChecklistStatus}>
                   {item.helper ??
                     t(
@@ -1050,7 +1085,10 @@ export default function WODetailsScreen({
         subtitle={t('work_order_destination_helper')}
       />
       {!!workOrder.customers?.length && (
-        <BasicField label={t('customers')} value={workOrder.customers[0].name} />
+        <BasicField
+          label={t('customers')}
+          value={workOrder.customers[0].name}
+        />
       )}
       {workOrder.location && (
         <ObjectField
@@ -1110,10 +1148,15 @@ export default function WODetailsScreen({
       )}
       {workOrder.image && (
         <TouchableOpacity
-          onPress={() => openImageViewer([workOrder.image.url], workOrder.image.url)}
+          onPress={() =>
+            openImageViewer([workOrder.image.url], workOrder.image.url)
+          }
           style={styles.problemImageWrap}
         >
-          <Image style={styles.workOrderImage} source={{ uri: workOrder.image.url }} />
+          <Image
+            style={styles.workOrderImage}
+            source={{ uri: workOrder.image.url }}
+          />
         </TouchableOpacity>
       )}
     </ErioneCard>
@@ -1135,7 +1178,9 @@ export default function WODetailsScreen({
           <Text variant="bodySmall" style={styles.completedMeta}>
             {getFormattedDate(workOrder.completedOn)}
             {workOrder.completedBy
-              ? ` · ${t('completed_by')} ${workOrder.completedBy.firstName} ${workOrder.completedBy.lastName}`
+              ? ` · ${t('completed_by')} ${workOrder.completedBy.firstName} ${
+                  workOrder.completedBy.lastName
+                }`
               : ''}
           </Text>
         </View>
@@ -1155,7 +1200,10 @@ export default function WODetailsScreen({
           <Text variant="labelMedium" style={styles.completedLabel}>
             {t('signature')}
           </Text>
-          <Image source={{ uri: workOrder.signature }} style={styles.signatureImage} />
+          <Image
+            source={{ uri: workOrder.signature }}
+            style={styles.signatureImage}
+          />
           {!!workOrder.signerName && (
             <Text variant="bodySmall" style={styles.completedMeta}>
               {workOrder.signerName}
@@ -1290,6 +1338,96 @@ export default function WODetailsScreen({
                 </View>
               </ErioneCard>
               {workOrder.status === 'COMPLETE' && renderCompletedSummary()}
+              <ErioneCard>
+                <Text variant="labelMedium">Operador da execução</Text>
+                <Text variant="titleMedium">
+                  {workOrder.executionOwner?.firstName
+                    ? `${workOrder.executionOwner.firstName} ${
+                        workOrder.executionOwner.lastName ?? ''
+                      }`.trim()
+                    : 'Execução ainda não assumida'}
+                </Text>
+                {workOrder.executionOwner &&
+                  workOrder.executionOwner.id !== user.id && (
+                    <Text>
+                      Você está acompanhando esta OS em modo leitura
+                      operacional.
+                    </Text>
+                  )}
+                {!workOrder.executionOwner &&
+                  workOrder.status !== 'COMPLETE' &&
+                  user.role.code !== 'REQUESTER' &&
+                  isExecutionAssigned(workOrder, user.id) &&
+                  hasGeneralEditPermission(
+                    PermissionEntity.WORK_ORDERS,
+                    workOrder
+                  ) && (
+                    <ErionePrimaryButton
+                      onPress={() => {
+                        setLoading(true);
+                        dispatch(startWorkOrderExecution(id))
+                          .catch((error) =>
+                            showSnackBar(getErrorMessage(error), 'error')
+                          )
+                          .finally(() => setLoading(false));
+                      }}
+                      loading={loading}
+                      disabled={loading}
+                    >
+                      Assumir execução
+                    </ErionePrimaryButton>
+                  )}
+                <Text variant="bodySmall">
+                  Criada em {getFormattedDate(workOrder.createdAt)}
+                </Text>
+                {workOrder.status === 'COMPLETE' &&
+                  hasAdministrativeWorkOrderPermission && (
+                    <Button
+                      mode="outlined"
+                      disabled={loading}
+                      onPress={() => {
+                        Alert.alert(
+                          'Reabrir OS',
+                          'A OS voltará para Aberto e poderá ser assumida novamente. O histórico será preservado.',
+                          [
+                            { text: 'Cancelar', style: 'cancel' },
+                            {
+                              text: 'Reabrir',
+                              onPress: () => {
+                                setLoading(true);
+                                dispatch(
+                                  changeWorkOrderStatus(id, { status: 'OPEN' })
+                                )
+                                  .catch((error) =>
+                                    showSnackBar(
+                                      getErrorMessage(error),
+                                      'error'
+                                    )
+                                  )
+                                  .finally(() => setLoading(false));
+                              }
+                            }
+                          ]
+                        );
+                      }}
+                    >
+                      Reabrir OS
+                    </Button>
+                  )}
+                {workOrder.status === 'COMPLETE' &&
+                  !!workOrder.completedAssignedUserNames && (
+                    <Text variant="bodySmall">
+                      Atribuídos na conclusão:{' '}
+                      {workOrder.completedAssignedUserNames}
+                    </Text>
+                  )}
+                {workOrder.status === 'COMPLETE' &&
+                  !!workOrder.completedTeamName && (
+                    <Text variant="bodySmall">
+                      Equipe na conclusão: {workOrder.completedTeamName}
+                    </Text>
+                  )}
+              </ErioneCard>
               {renderDestinationCard()}
               {renderProblemCard()}
               <FieldExecutionSection
@@ -1311,32 +1449,53 @@ export default function WODetailsScreen({
                 )}
               />
               {renderEvidenceGallery()}
+              {!!tasks.length &&
+                !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
+                  <Button
+                    mode="outlined"
+                    onPress={() =>
+                      navigation.navigate('Tasks', {
+                        workOrderId: id,
+                        tasksProps: tasks
+                      })
+                    }
+                  >
+                    Ver questionário
+                  </Button>
+                )}
               {renderCompletionChecklist()}
               {workOrder.status !== 'COMPLETE' &&
                 workOrder.checkOutAt &&
                 hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) &&
                 !completionReadiness?.missingRequirements.some((requirement) =>
-                  ['CHECK_IN', 'CHECK_OUT', 'FIELD_REPORT', 'PHOTO', 'CHECKLIST'].includes(
-                    requirement
-                  )
+                  [
+                    'CHECK_IN',
+                    'CHECK_OUT',
+                    'FIELD_REPORT',
+                    'PHOTO',
+                    'CHECKLIST'
+                  ].includes(requirement)
                 ) && (
-                    <ErionePrimaryButton
-                      icon="check-circle"
-                      style={styles.completeButton}
-                      loading={completionLoading}
-                      disabled={
-                        completionLoading || loadingComments || commentsLoadError
-                      }
-                      onPress={() => onStatusChange('COMPLETE')}
-                    >
-                      {t(
-                        completionReadiness?.missingRequirements.length
-                          ? 'review_closure'
-                          : 'complete_work_order_short'
-                      )}
-                    </ErionePrimaryButton>
+                  <ErionePrimaryButton
+                    icon="check-circle"
+                    style={styles.completeButton}
+                    loading={completionLoading}
+                    disabled={
+                      completionLoading || loadingComments || commentsLoadError
+                    }
+                    onPress={() => onStatusChange('COMPLETE')}
+                  >
+                    {t(
+                      completionReadiness?.missingRequirements.length
+                        ? 'review_closure'
+                        : 'complete_work_order_short'
+                    )}
+                  </ErionePrimaryButton>
                 )}
-              <FieldExecutionHistory workOrder={workOrder} comments={comments} />
+              <FieldExecutionHistory
+                workOrder={workOrder}
+                comments={comments}
+              />
               <ErioneCard style={styles.detailsCard}>
                 <TouchableOpacity
                   style={styles.collapsibleHeader}
@@ -1357,7 +1516,10 @@ export default function WODetailsScreen({
                   <Fragment>
                     {hasAdministrativeWorkOrderPermission ? (
                       <TouchableOpacity
-                        style={[styles.statusSelector, { borderColor: statusColor }]}
+                        style={[
+                          styles.statusSelector,
+                          { borderColor: statusColor }
+                        ]}
                         onPress={() =>
                           SheetManager.show('dropdown-sheet', {
                             payload: {
@@ -1369,7 +1531,10 @@ export default function WODetailsScreen({
                         }
                       >
                         <Text style={{ color: statusColor }}>
-                          {statuses.find((s) => s.value === workOrder.status)?.label}
+                          {
+                            statuses.find((s) => s.value === workOrder.status)
+                              ?.label
+                          }
                         </Text>
                         <IconButton
                           iconColor={statusColor}
@@ -1380,7 +1545,10 @@ export default function WODetailsScreen({
                       </TouchableOpacity>
                     ) : (
                       <View style={styles.readOnlyStatus}>
-                        <Text variant="labelSmall" style={styles.readOnlyStatusLabel}>
+                        <Text
+                          variant="labelSmall"
+                          style={styles.readOnlyStatusLabel}
+                        >
                           {t('status')}
                         </Text>
                         <ErioneStatusBadge
@@ -1415,9 +1583,7 @@ export default function WODetailsScreen({
                           disabled={controllingTime}
                           onPress={handleLaborTimer}
                         >
-                          {runningTimer
-                            ? t('stop_work_order')
-                            : t('run_timer')}
+                          {runningTimer ? t('stop_work_order') : t('run_timer')}
                         </Button>
                         <Text
                           variant="labelSmall"
@@ -1431,7 +1597,8 @@ export default function WODetailsScreen({
                     )}
                     {fieldsToRender.map(
                       ({ label, value, isLink }) =>
-                        value && label !== t('description') && (
+                        value &&
+                        label !== t('description') && (
                           <BasicField
                             key={label}
                             label={label}
@@ -1442,7 +1609,8 @@ export default function WODetailsScreen({
                     )}
                     {touchableFields
                       .filter(
-                        ({ label }) => label !== t('asset') && label !== t('location')
+                        ({ label }) =>
+                          label !== t('asset') && label !== t('location')
                       )
                       .map(
                         ({ label, value, link, permissionEntity }) =>
@@ -1473,24 +1641,22 @@ export default function WODetailsScreen({
                 )}
               </ErioneCard>
 
-                {workOrder.parentRequest && (
-                  <ObjectField
-                    label={t('requested_by')}
-                    value={getUserNameById(workOrder.parentRequest.createdBy)}
-                    link={{
-                      route: 'RequestDetails',
-                      id: workOrder.parentRequest.id
-                    }}
-                    permissionEntity={PermissionEntity.PEOPLE_AND_TEAMS}
-                  />
-                )}
-                {!!workOrder.assignedTo.length && (
-                  <ErioneCard style={styles.detailsCard}>
-                    <ErioneSectionHeader title={t('assigned_to')} />
-                    <View>
-                    <Text style={styles.sectionLabel}>
-                      {t('assigned_to')}
-                    </Text>
+              {workOrder.parentRequest && (
+                <ObjectField
+                  label={t('requested_by')}
+                  value={getUserNameById(workOrder.parentRequest.createdBy)}
+                  link={{
+                    route: 'RequestDetails',
+                    id: workOrder.parentRequest.id
+                  }}
+                  permissionEntity={PermissionEntity.PEOPLE_AND_TEAMS}
+                />
+              )}
+              {!!workOrder.assignedTo.length && (
+                <ErioneCard style={styles.detailsCard}>
+                  <ErioneSectionHeader title={t('assigned_to')} />
+                  <View>
+                    <Text style={styles.sectionLabel}>{t('assigned_to')}</Text>
                     {workOrder.assignedTo.map((user) => (
                       <TouchableOpacity key={user.id} style={{ marginTop: 5 }}>
                         <Text
@@ -1509,13 +1675,13 @@ export default function WODetailsScreen({
                         </Text>
                       </TouchableOpacity>
                     ))}
-                    </View>
-                  </ErioneCard>
-                )}
-                {(showPartsSection || showAdditionalCostsSection) && (
-                  <View>
-                    {showPartsSection && (
-                      <View style={styles.shadowedCard}>
+                  </View>
+                </ErioneCard>
+              )}
+              {(showPartsSection || showAdditionalCostsSection) && (
+                <View>
+                  {showPartsSection && (
+                    <View style={styles.shadowedCard}>
                       <Text
                         style={{
                           marginBottom: 10,
@@ -1565,92 +1731,10 @@ export default function WODetailsScreen({
                           </Button>
                         </Fragment>
                       )}
-                      </View>
-                    )}
-                    {showAdditionalCostsSection && !ERIONE_HIDDEN_MODULES.additionalCosts && (
-                      <View style={styles.shadowedCard}>
-                      <Text
-                        style={{
-                          marginBottom: 10,
-                          color: theme.colors.onSurfaceVariant
-                        }}
-                      >
-                        {t('additional_costs')}
-                      </Text>
-                      {!additionalCosts.length ? (
-                        <Text style={{ fontWeight: 'bold' }}>
-                          {t('no_additional_cost')}
-                        </Text>
-                      ) : (
-                        <View>
-                          {additionalCosts.map((cost) => (
-                            <View
-                              key={cost.id}
-                              style={{
-                                display: 'flex',
-                                flexDirection: 'column'
-                              }}
-                            >
-                              <Text
-                                style={{ fontWeight: 'bold' }}
-                                variant="bodyLarge"
-                              >
-                                {cost.description}
-                              </Text>
-                              <Text>{getFormattedCurrency(cost.cost)}</Text>
-                            </View>
-                          ))}
-                          <Text
-                            style={{ fontWeight: 'bold' }}
-                            variant="bodyLarge"
-                          >
-                            {t('total')}
-                          </Text>
-                          <Text>
-                            {getFormattedCurrency(
-                              additionalCosts.reduce(
-                                (acc, additionalCost) =>
-                                  additionalCost.includeToTotalCost
-                                    ? acc + additionalCost.cost
-                                    : acc,
-                                0
-                              )
-                            )}
-                          </Text>
-                        </View>
-                      )}
-                      {hasEditPermission(
-                        PermissionEntity.WORK_ORDERS,
-                        workOrder
-                      ) && (
-                        <Fragment>
-                          <Divider style={{ marginTop: 5 }} />
-                          <Button
-                            disabled={
-                              !(
-                                hasEditPermission(
-                                  PermissionEntity.WORK_ORDERS,
-                                  workOrder
-                                ) && hasFeature(PlanFeature.ADDITIONAL_COST)
-                              )
-                            }
-                            onPress={() =>
-                              navigation.push('AddAdditionalCost', {
-                                workOrderId: workOrder.id
-                              })
-                            }
-                          >
-                            {t('add_additional_cost')}
-                          </Button>
-                        </Fragment>
-                      )}
-                      </View>
-                    )}
-                  </View>
-                )}
-                {!generalPreferences.simplifiedWorkOrder && (
-                  <View>
-                    {!!workOrder.files.length && (
+                    </View>
+                  )}
+                  {showAdditionalCostsSection &&
+                    !ERIONE_HIDDEN_MODULES.additionalCosts && (
                       <View style={styles.shadowedCard}>
                         <Text
                           style={{
@@ -1658,21 +1742,105 @@ export default function WODetailsScreen({
                             color: theme.colors.onSurfaceVariant
                           }}
                         >
-                          {t('files')}
+                          {t('additional_costs')}
                         </Text>
-                        {workOrder.files.map((file) => (
-                          <List.Item
-                            key={file.id}
-                            titleStyle={{ color: theme.colors.primary }}
-                            title={file.name}
-                            onPress={() => {
-                              Linking.openURL(file.url);
-                            }}
-                          />
-                        ))}
+                        {!additionalCosts.length ? (
+                          <Text style={{ fontWeight: 'bold' }}>
+                            {t('no_additional_cost')}
+                          </Text>
+                        ) : (
+                          <View>
+                            {additionalCosts.map((cost) => (
+                              <View
+                                key={cost.id}
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column'
+                                }}
+                              >
+                                <Text
+                                  style={{ fontWeight: 'bold' }}
+                                  variant="bodyLarge"
+                                >
+                                  {cost.description}
+                                </Text>
+                                <Text>{getFormattedCurrency(cost.cost)}</Text>
+                              </View>
+                            ))}
+                            <Text
+                              style={{ fontWeight: 'bold' }}
+                              variant="bodyLarge"
+                            >
+                              {t('total')}
+                            </Text>
+                            <Text>
+                              {getFormattedCurrency(
+                                additionalCosts.reduce(
+                                  (acc, additionalCost) =>
+                                    additionalCost.includeToTotalCost
+                                      ? acc + additionalCost.cost
+                                      : acc,
+                                  0
+                                )
+                              )}
+                            </Text>
+                          </View>
+                        )}
+                        {hasEditPermission(
+                          PermissionEntity.WORK_ORDERS,
+                          workOrder
+                        ) && (
+                          <Fragment>
+                            <Divider style={{ marginTop: 5 }} />
+                            <Button
+                              disabled={
+                                !(
+                                  hasEditPermission(
+                                    PermissionEntity.WORK_ORDERS,
+                                    workOrder
+                                  ) && hasFeature(PlanFeature.ADDITIONAL_COST)
+                                )
+                              }
+                              onPress={() =>
+                                navigation.push('AddAdditionalCost', {
+                                  workOrderId: workOrder.id
+                                })
+                              }
+                            >
+                              {t('add_additional_cost')}
+                            </Button>
+                          </Fragment>
+                        )}
                       </View>
                     )}
-                    {!!currentWorkOrderRelations.length && !ERIONE_HIDDEN_MODULES.relations && (
+                </View>
+              )}
+              {!generalPreferences.simplifiedWorkOrder && (
+                <View>
+                  {!!workOrder.files.length && (
+                    <View style={styles.shadowedCard}>
+                      <Text
+                        style={{
+                          marginBottom: 10,
+                          color: theme.colors.onSurfaceVariant
+                        }}
+                      >
+                        {t('files')}
+                      </Text>
+                      {workOrder.files.map((file) => (
+                        <List.Item
+                          key={file.id}
+                          titleStyle={{ color: theme.colors.primary }}
+                          title={file.name}
+                          onPress={() => {
+                            Linking.openURL(file.url);
+                          }}
+                        />
+                      ))}
+                    </View>
+                  )}
+                  {!!currentWorkOrderRelations.length &&
+                    !ERIONE_HIDDEN_MODULES.relations && (
                       <View style={styles.shadowedCard}>
                         <Text
                           style={{
@@ -1709,8 +1877,8 @@ export default function WODetailsScreen({
                         )}
                       </View>
                     )}
-                    {showLaborSection && !ERIONE_HIDDEN_MODULES.labor && (
-                      <View style={styles.shadowedCard}>
+                  {showLaborSection && !ERIONE_HIDDEN_MODULES.labor && (
+                    <View style={styles.shadowedCard}>
                       <Text
                         style={{
                           marginBottom: 10,
@@ -1762,157 +1930,157 @@ export default function WODetailsScreen({
                           </Button>
                         </Fragment>
                       )}
-                      </View>
-                    )}
-                    <View style={styles.shadowedCard}>
+                    </View>
+                  )}
+                  <View style={styles.shadowedCard}>
+                    <Text
+                      style={{
+                        marginBottom: 10,
+                        color: theme.colors.onSurfaceVariant
+                      }}
+                    >
+                      {t('comments')}
+                    </Text>
+                    {loadingComments ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.colors.primary}
+                      />
+                    ) : adminComments.length === 0 ? (
                       <Text
                         style={{
-                          marginBottom: 10,
+                          textAlign: 'center',
+                          padding: 20,
                           color: theme.colors.onSurfaceVariant
                         }}
                       >
-                        {t('comments')}
+                        {t('no_comments')}
                       </Text>
-                      {loadingComments ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={theme.colors.primary}
+                    ) : (
+                      adminComments.map((comment) => (
+                        <CommentItem
+                          key={comment.id}
+                          comment={comment}
+                          workOrderId={id}
+                          users={usersMini.map((u) => ({
+                            id: u.id.toString(),
+                            name: `${u.firstName} ${u.lastName}`
+                          }))}
                         />
-                      ) : adminComments.length === 0 ? (
-                        <Text
+                      ))
+                    )}
+                    {hasEditPermission(
+                      PermissionEntity.WORK_ORDERS,
+                      workOrder
+                    ) && (
+                      <View style={{ marginTop: 10 }}>
+                        <View
                           style={{
-                            textAlign: 'center',
-                            padding: 20,
-                            color: theme.colors.onSurfaceVariant
+                            flexDirection: 'row',
+                            alignItems: 'center'
                           }}
                         >
-                          {t('no_comments')}
-                        </Text>
-                      ) : (
-                        adminComments.map((comment) => (
-                          <CommentItem
-                            key={comment.id}
-                            comment={comment}
-                            workOrderId={id}
-                            users={usersMini.map((u) => ({
-                              id: u.id.toString(),
-                              name: `${u.firstName} ${u.lastName}`
-                            }))}
-                          />
-                        ))
-                      )}
-                      {hasEditPermission(
-                        PermissionEntity.WORK_ORDERS,
-                        workOrder
-                      ) && (
-                        <View style={{ marginTop: 10 }}>
                           <View
                             style={{
-                              flexDirection: 'row',
-                              alignItems: 'center'
+                              flex: 1,
+                              marginBottom: 8,
+                              marginRight: 8
                             }}
                           >
-                            <View
-                              style={{
-                                flex: 1,
-                                marginBottom: 8,
-                                marginRight: 8
-                              }}
-                            >
-                              {mentionKeyword && filteredUsers.length > 0 && (
-                                <View
-                                  style={{
-                                    backgroundColor: '#fff',
-                                    borderRadius: 8,
-                                    elevation: 5,
-                                    shadowColor: '#000',
-                                    shadowOffset: { width: 0, height: 2 },
-                                    shadowOpacity: 0.2,
-                                    marginBottom: 8,
-                                    maxHeight: 200,
-                                    overflow: 'hidden'
-                                  }}
-                                >
-                                  {filteredUsers.map((item) => (
-                                    <Pressable
-                                      key={item.id}
-                                      onPress={() => {
-                                        triggers?.mention?.onSelect?.({
-                                          id: item.id,
-                                          name: item.name
-                                        });
-                                      }}
-                                      style={{
-                                        padding: 12,
-                                        borderBottomWidth: 1,
-                                        borderBottomColor: '#eee'
-                                      }}
-                                    >
-                                      <Text>{item.name}</Text>
-                                    </Pressable>
-                                  ))}
-                                </View>
-                              )}
-                              <RNTextInput
-                                multiline
-                                numberOfLines={3}
-                                onFocus={() => {
-                                  setTimeout(() => {
-                                    scrollViewRef.current?.scrollToEnd({
-                                      animated: true
-                                    });
-                                  }, 100);
+                            {mentionKeyword && filteredUsers.length > 0 && (
+                              <View
+                                style={{
+                                  backgroundColor: '#fff',
+                                  borderRadius: 8,
+                                  elevation: 5,
+                                  shadowColor: '#000',
+                                  shadowOffset: { width: 0, height: 2 },
+                                  shadowOpacity: 0.2,
+                                  marginBottom: 8,
+                                  maxHeight: 200,
+                                  overflow: 'hidden'
                                 }}
-                                placeholder={t('add_comment_placeholder')}
-                                style={{ flex: 1 }}
-                                {...textInputProps}
-                              />
-                            </View>
-                            <IconButton
-                              icon="paperclip"
-                              onPress={pickCommentFile}
-                              style={{ marginBottom: 8 }}
+                              >
+                                {filteredUsers.map((item) => (
+                                  <Pressable
+                                    key={item.id}
+                                    onPress={() => {
+                                      triggers?.mention?.onSelect?.({
+                                        id: item.id,
+                                        name: item.name
+                                      });
+                                    }}
+                                    style={{
+                                      padding: 12,
+                                      borderBottomWidth: 1,
+                                      borderBottomColor: '#eee'
+                                    }}
+                                  >
+                                    <Text>{item.name}</Text>
+                                  </Pressable>
+                                ))}
+                              </View>
+                            )}
+                            <RNTextInput
+                              multiline
+                              numberOfLines={3}
+                              onFocus={() => {
+                                setTimeout(() => {
+                                  scrollViewRef.current?.scrollToEnd({
+                                    animated: true
+                                  });
+                                }, 100);
+                              }}
+                              placeholder={t('add_comment_placeholder')}
+                              style={{ flex: 1 }}
+                              {...textInputProps}
                             />
                           </View>
-                          {commentFiles.length > 0 && (
-                            <View style={{ marginBottom: 8 }}>
-                              {commentFiles.map((file, index) => (
-                                <View
-                                  key={index}
-                                  style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    backgroundColor: theme.colors.background,
-                                    borderRadius: 4,
-                                    paddingHorizontal: 8,
-                                    marginBottom: 4
-                                  }}
-                                >
-                                  <Text style={{ flex: 1 }} numberOfLines={1}>
-                                    {file.name}
-                                  </Text>
-                                  <IconButton
-                                    icon="close-circle"
-                                    size={16}
-                                    onPress={() => removeCommentFile(index)}
-                                  />
-                                </View>
-                              ))}
-                            </View>
-                          )}
-                          <Button
-                            mode="contained"
-                            onPress={handleCommentSubmit}
-                            disabled={!commentContent.trim() || loadingCreate}
-                            loading={loadingCreate}
-                          >
-                            {t('post_comment')}
-                          </Button>
+                          <IconButton
+                            icon="paperclip"
+                            onPress={pickCommentFile}
+                            style={{ marginBottom: 8 }}
+                          />
                         </View>
-                      )}
-                    </View>
+                        {commentFiles.length > 0 && (
+                          <View style={{ marginBottom: 8 }}>
+                            {commentFiles.map((file, index) => (
+                              <View
+                                key={index}
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  backgroundColor: theme.colors.background,
+                                  borderRadius: 4,
+                                  paddingHorizontal: 8,
+                                  marginBottom: 4
+                                }}
+                              >
+                                <Text style={{ flex: 1 }} numberOfLines={1}>
+                                  {file.name}
+                                </Text>
+                                <IconButton
+                                  icon="close-circle"
+                                  size={16}
+                                  onPress={() => removeCommentFile(index)}
+                                />
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                        <Button
+                          mode="contained"
+                          onPress={handleCommentSubmit}
+                          disabled={!commentContent.trim() || loadingCreate}
+                          loading={loadingCreate}
+                        >
+                          {t('post_comment')}
+                        </Button>
+                      </View>
+                    )}
                   </View>
-                )}
+                </View>
+              )}
             </ScrollView>
           </KeyboardAvoidingView>
           {!!imageViewImages.length && (

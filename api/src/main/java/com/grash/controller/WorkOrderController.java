@@ -314,8 +314,19 @@ public class WorkOrderController {
                                                  workOrder, @PathVariable("id") Long id,
                                          HttpServletRequest req) {
         User user = userService.whoami(req);
+        if (workOrder.getStatus() == null) throw new CustomException("Status can't be null", HttpStatus.NOT_ACCEPTABLE);
+        if (workOrder.getStatus() == Status.OPEN
+                && workOrderService.checkAccessToWorkOrderId(id, user).getStatus() == Status.COMPLETE) {
+            return toScopedShowDto(workOrderService.reopenExecution(id, user), user);
+        }
+        workOrderService.checkOperationalAccess(id, user,
+                workOrder.getStatus() == Status.IN_PROGRESS || workOrder.getStatus() == Status.EN_ROUTE,
+                workOrder.getStatus() == Status.COMPLETE);
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
         WorkOrder savedWorkOrder = optionalWorkOrder.get();
+        if (savedWorkOrder.getStatus() == Status.COMPLETE && workOrder.getStatus() == Status.COMPLETE) {
+            return toScopedShowDto(savedWorkOrder, user);
+        }
         em.detach(savedWorkOrder); // detach FIRST
         WorkOrder originalWorkOrder = savedWorkOrder;
         WorkOrder mutableWO = workOrderService.findById(id).get(); // fresh managed copy
@@ -354,6 +365,7 @@ public class WorkOrderController {
                         workOrderCompletionValidator.validate(mutableWO, user.getCompany());
                         mutableWO.setCompletedBy(user);
                         mutableWO.setCompletedOn(new Date());
+                        workOrderService.snapshotCompletedAssignments(mutableWO);
                     }
                     if (mutableWO.getAsset() != null) {
                         Asset asset = mutableWO.getAsset();
@@ -417,8 +429,15 @@ public class WorkOrderController {
                                     "-update.html", Helper.getLocale(user), null);
                 }
             }
-            return workOrderMapper.toShowDto(patchedWorkOrder);
+            return toScopedShowDto(patchedWorkOrder, user);
         } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
+    }
+
+    @PostMapping("/{id}/execution/start")
+    @PreAuthorize("hasRole('ROLE_CLIENT')")
+    public WorkOrderShowDTO startExecution(@PathVariable("id") Long id, HttpServletRequest req) {
+        User user = userService.whoami(req);
+        return toScopedShowDto(workOrderService.startExecution(id, user), user);
     }
 
     @PostMapping("/{id}/depart")
@@ -427,6 +446,7 @@ public class WorkOrderController {
                                    @PathVariable("id") Long id,
                                    HttpServletRequest req) {
         User user = userService.whoami(req);
+        workOrderService.checkOperationalAccess(id, user, true, false);
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
         if (optionalWorkOrder.isPresent()) {
             WorkOrder savedWorkOrder = optionalWorkOrder.get();
@@ -443,7 +463,7 @@ public class WorkOrderController {
                     mutableWO.setDepartureLng(dto.getDepartureLng());
                     mutableWO = workOrderService.saveAndFlushWithWebhook(mutableWO, user.getCompany(), originalWorkOrder);
                 }
-                return workOrderMapper.toShowDto(mutableWO);
+                return toScopedShowDto(mutableWO, user);
             } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
         } else throw new CustomException("WorkOrder not found", HttpStatus.NOT_FOUND);
     }
@@ -454,6 +474,7 @@ public class WorkOrderController {
                                    @PathVariable("id") Long id,
                                    HttpServletRequest req) {
         User user = userService.whoami(req);
+        workOrderService.checkOperationalAccess(id, user, true, false);
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
         if (optionalWorkOrder.isPresent()) {
             WorkOrder savedWorkOrder = optionalWorkOrder.get();
@@ -470,7 +491,7 @@ public class WorkOrderController {
                     mutableWO.setCheckInAddress(dto.getCheckInAddress());
                     mutableWO = workOrderService.saveAndFlushWithWebhook(mutableWO, user.getCompany(), originalWorkOrder);
                 }
-                return workOrderMapper.toShowDto(mutableWO);
+                return toScopedShowDto(mutableWO, user);
             } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
         } else throw new CustomException("WorkOrder not found", HttpStatus.NOT_FOUND);
     }
@@ -481,6 +502,7 @@ public class WorkOrderController {
                                    @PathVariable("id") Long id,
                                    HttpServletRequest req) {
         User user = userService.whoami(req);
+        workOrderService.checkOperationalWriteAccess(id, user);
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
         if (optionalWorkOrder.isPresent()) {
             WorkOrder savedWorkOrder = optionalWorkOrder.get();
@@ -497,7 +519,7 @@ public class WorkOrderController {
                     mutableWO.setCheckOutAddress(dto.getCheckOutAddress());
                     mutableWO = workOrderService.saveAndFlushWithWebhook(mutableWO, user.getCompany(), originalWorkOrder);
                 }
-                return workOrderMapper.toShowDto(mutableWO);
+                return toScopedShowDto(mutableWO, user);
             } else throw new CustomException("Forbidden", HttpStatus.FORBIDDEN);
         } else throw new CustomException("WorkOrder not found", HttpStatus.NOT_FOUND);
     }
@@ -757,6 +779,8 @@ public class WorkOrderController {
                                                   "add") @RequestBody List<File> files,
                                           HttpServletRequest req) {
         User user = userService.whoami(req);
+        WorkOrder attachmentOwner = workOrderService.checkAccessToWorkOrderId(id, user);
+        if (!attachmentOwner.canBeAdministrativelyEditedBy(user)) workOrderService.checkOperationalWriteAccess(id, user);
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
         if (optionalWorkOrder.isPresent()) {
             WorkOrder savedWorkOrder = optionalWorkOrder.get();
@@ -773,6 +797,8 @@ public class WorkOrderController {
     public List<File> removeFileFromWorkOrder(@PathVariable("id") Long id,
                                               @PathVariable("fileId") Long fileId, HttpServletRequest req) {
         User user = userService.whoami(req);
+        WorkOrder attachmentOwner = workOrderService.checkAccessToWorkOrderId(id, user);
+        if (!attachmentOwner.canBeAdministrativelyEditedBy(user)) workOrderService.checkOperationalWriteAccess(id, user);
         Optional<WorkOrder> optionalWorkOrder = workOrderService.findById(id);
         if (optionalWorkOrder.isPresent()) {
             WorkOrder savedWorkOrder = optionalWorkOrder.get();

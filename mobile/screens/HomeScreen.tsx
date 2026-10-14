@@ -166,6 +166,13 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
             </View>
           )}
           <View style={styles.orderMeta}>
+            {!!workOrder.createdAt && (
+              <IconWithLabel
+                icon="calendar-plus"
+                label={`Criada em ${getFormattedDate(workOrder.createdAt)}`}
+                color={colors.muted}
+              />
+            )}
             {!!workOrder.customers?.length && (
               <IconWithLabel
                 icon="domain"

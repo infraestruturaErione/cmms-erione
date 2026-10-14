@@ -9,6 +9,7 @@ import com.grash.model.Task;
 import com.grash.model.User;
 import com.grash.model.WorkOrder;
 import com.grash.model.enums.FileType;
+import com.grash.model.enums.Status;
 import com.grash.repository.CommentRepository;
 import com.grash.utils.Helper;
 import com.grash.utils.Utils;
@@ -233,6 +234,21 @@ public class WorkOrderReportService {
         variables.put("workOrder", workOrder);
         variables.put("primaryUserName", workOrder.getPrimaryUser() == null ? null :
                 workOrder.getPrimaryUser().getFullName());
+        Map<Long, String> explicitUsers = new java.util.LinkedHashMap<>();
+        if (workOrder.getPrimaryUser() != null) {
+            explicitUsers.put(workOrder.getPrimaryUser().getId(), workOrder.getPrimaryUser().getFullName());
+        }
+        if (workOrder.getAssignedTo() != null) {
+            workOrder.getAssignedTo().forEach(assigned -> explicitUsers.putIfAbsent(assigned.getId(), assigned.getFullName()));
+        }
+        variables.put("assignedUserNames", blankToNull(workOrder.getStatus() == Status.COMPLETE
+                && workOrder.getCompletedAssignedUserNames() != null ? workOrder.getCompletedAssignedUserNames()
+                : String.join(", ", explicitUsers.values())));
+        variables.put("assignedTeamName", blankToNull(workOrder.getStatus() == Status.COMPLETE
+                && workOrder.getCompletedTeamName() != null ? workOrder.getCompletedTeamName()
+                : workOrder.getTeam() == null ? null : workOrder.getTeam().getName()));
+        variables.put("executionOwnerName", workOrder.getExecutionOwner() == null ? null : workOrder.getExecutionOwner().getFullName());
+        variables.put("completedByName", workOrder.getCompletedBy() == null ? null : workOrder.getCompletedBy().getFullName());
         // "Servico" da secao Informacoes da tarefa - categoria quando existe;
         // como Erione nem sempre tem a OS categorizada, cai pro titulo da OS
         // (sempre presente) em vez de deixar essa linha vazia.

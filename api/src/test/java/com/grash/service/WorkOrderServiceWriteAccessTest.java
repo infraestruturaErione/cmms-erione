@@ -39,6 +39,102 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class WorkOrderServiceWriteAccessTest {
 
+    private WorkOrder executableOrder() {
+        WorkOrder wo = workOrderSpawnedFromRequestBy(999L, 888L);
+        wo.setAssignedTo(new ArrayList<>(java.util.List.of(technicianAssigned, technicianUnassigned)));
+        when(workOrderRepository.findForExecution(100L, company.getId())).thenReturn(Optional.of(wo));
+        return wo;
+    }
+
+    @Test
+    void firstAssignedTechnicianWinsAndOtherKeepsReadAccess() {
+        WorkOrder wo = executableOrder();
+        workOrderService.startExecution(wo.getId(), technicianAssigned);
+        assertEquals(technicianAssigned.getId(), wo.getExecutionOwner().getId());
+        assertNotNull(wo.getExecutionClaimedAt());
+        assertDoesNotThrow(() -> workOrderService.checkAccessToWorkOrderId(wo.getId(), technicianUnassigned));
+        assertDoesNotThrow(() -> workOrderService.checkOperationalWriteAccess(wo.getId(), technicianAssigned));
+        var conflict = assertThrows(com.grash.exception.WorkOrderExecutionException.class,
+                () -> workOrderService.startExecution(wo.getId(), technicianUnassigned));
+        assertEquals("WORK_ORDER_ALREADY_IN_EXECUTION", conflict.getCode());
+        assertEquals(technicianAssigned.getId(), wo.getExecutionOwner().getId());
+    }
+
+    @Test
+    void secondAssignedTechnicianCanWinWithoutStaticPreference() {
+        WorkOrder wo = executableOrder();
+        workOrderService.startExecution(wo.getId(), technicianUnassigned);
+        assertEquals(technicianUnassigned.getId(), wo.getExecutionOwner().getId());
+    }
+
+    @Test
+    void teamMemberCanClaimButUnassignedAdminCannot() {
+        WorkOrder wo = executableOrder();
+        wo.setAssignedTo(new ArrayList<>());
+        com.grash.model.Team team = new com.grash.model.Team();
+        team.setUsers(new ArrayList<>(java.util.List.of(technicianAssigned, technicianUnassigned)));
+        wo.setTeam(team);
+        workOrderService.startExecution(wo.getId(), technicianUnassigned);
+        assertEquals(technicianUnassigned.getId(), wo.getExecutionOwner().getId());
+        assertTrue(wo.canBeAdministrativelyEditedBy(admin));
+        assertThrows(CustomException.class, () -> workOrderService.startExecution(wo.getId(), admin));
+    }
+
+    @Test
+    void readNeverClaimsAndNonStartWritesRequireExplicitStart() {
+        WorkOrder wo = executableOrder();
+        workOrderService.checkAccessToWorkOrderId(wo.getId(), technicianAssigned);
+        assertNull(wo.getExecutionOwner());
+        var conflict = assertThrows(com.grash.exception.WorkOrderExecutionException.class,
+                () -> workOrderService.checkOperationalWriteAccess(wo.getId(), technicianAssigned));
+        assertEquals("WORK_ORDER_EXECUTION_NOT_STARTED", conflict.getCode());
+        assertNull(wo.getExecutionOwner());
+    }
+
+    @Test
+    void restrictedScopeAndWrongTenantCannotAcquireExecution() {
+        WorkOrder wo = executableOrder();
+        when(customerScopeService.canAccessWorkOrderBase(technicianAssigned, wo)).thenReturn(false);
+        assertThrows(CustomException.class, () -> workOrderService.startExecution(wo.getId(), technicianAssigned));
+        assertNull(wo.getExecutionOwner());
+        Company other = new Company(); other.setId(77L);
+        technicianUnassigned.setCompany(other);
+        assertThrows(CustomException.class, () -> workOrderService.startExecution(wo.getId(), technicianUnassigned));
+        assertNull(wo.getExecutionOwner());
+    }
+
+    @Test
+    void ownerRemovalReleasesOpenOrderButCompletionPreservesHistory() {
+        WorkOrder wo = executableOrder();
+        workOrderService.startExecution(wo.getId(), technicianAssigned);
+        wo.setAssignedTo(new ArrayList<>(java.util.List.of(technicianUnassigned)));
+        workOrderService.releaseInvalidExecutionOwner(wo);
+        assertNull(wo.getExecutionOwner());
+        assertNull(wo.getExecutionClaimedAt());
+        workOrderService.startExecution(wo.getId(), technicianUnassigned);
+        wo.setStatus(com.grash.model.enums.Status.COMPLETE);
+        wo.setAssignedTo(new ArrayList<>());
+        workOrderService.releaseInvalidExecutionOwner(wo);
+        assertEquals(technicianUnassigned.getId(), wo.getExecutionOwner().getId());
+    }
+
+    @Test
+    void onlyAdministrativeExplicitReopenReleasesCompletedOwnership() {
+        WorkOrder wo = executableOrder();
+        workOrderService.startExecution(wo.getId(), technicianAssigned);
+        wo.setStatus(com.grash.model.enums.Status.COMPLETE);
+        wo.setCompletedBy(technicianAssigned); wo.setCompletedOn(new java.util.Date());
+        wo.setCompletedAssignedUserNames("Previous assignment");
+        assertThrows(CustomException.class, () -> workOrderService.reopenExecution(wo.getId(), technicianAssigned));
+        workOrderService.setWebhookDispatchService(webhookDispatchService);
+        when(workOrderRepository.saveAndFlush(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> invocation.getArgument(0));
+        workOrderService.reopenExecution(wo.getId(), admin);
+        assertEquals(com.grash.model.enums.Status.OPEN, wo.getStatus());
+        assertNull(wo.getExecutionOwner()); assertNull(wo.getExecutionClaimedAt());
+        assertNull(wo.getCompletedBy()); assertNull(wo.getCompletedOn());
+        assertEquals("Previous assignment", wo.getCompletedAssignedUserNames());
+    }
+
     @Mock
     private WorkOrderRepository workOrderRepository;
     @Mock

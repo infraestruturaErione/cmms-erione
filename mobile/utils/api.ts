@@ -3,6 +3,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Options = RequestInit & { raw?: boolean; headers?: HeadersInit };
 
+const executionConflictListeners = new Set<(workOrderId: number) => void>();
+export const onWorkOrderExecutionConflict = (
+  listener: (workOrderId: number) => void
+) => {
+  executionConflictListeners.add(listener);
+  return () => {
+    executionConflictListeners.delete(listener);
+  };
+};
+
 async function readJsonResponse(response: Response) {
   const text = await response.text();
   if (!text) return null;
@@ -27,7 +37,17 @@ async function api<T>(url: string, options: Options): Promise<T> {
           //TODO
           // AsyncStorage.clear();
         }
-        throw new Error(JSON.stringify(await readJsonResponse(response)));
+        const body = await readJsonResponse(response);
+        const executionCode = typeof body?.code === 'string' ? body.code : '';
+        if (
+          executionCode.startsWith('WORK_ORDER_EXECUTION_') ||
+          executionCode === 'WORK_ORDER_ALREADY_IN_EXECUTION'
+        ) {
+          executionConflictListeners.forEach((listener) =>
+            listener(body.workOrderId)
+          );
+        }
+        throw new Error(JSON.stringify(body));
       }
       return readJsonResponse(response) as Promise<T>;
     }

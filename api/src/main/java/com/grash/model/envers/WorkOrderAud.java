@@ -70,6 +70,28 @@ public class WorkOrderAud implements Serializable {
     @JoinColumn(name = "completed_by_id")
     private User completedBy;
 
+    @ManyToOne
+    @JoinColumn(name = "execution_owner_id")
+    private User executionOwner;
+
+    @Column(name = "execution_claimed_at")
+    private Date executionClaimedAt;
+
+    @Column(name = "executionOwner_MOD")
+    private Boolean executionOwnerMod;
+
+    @Column(name = "executionClaimedAt_MOD")
+    private Boolean executionClaimedAtMod;
+
+    @Column(name = "completed_assigned_user_names", columnDefinition = "text")
+    private String completedAssignedUserNames;
+    @Column(name = "completedAssignedUserNames_MOD")
+    private Boolean completedAssignedUserNamesMod;
+    @Column(name = "completed_team_name")
+    private String completedTeamName;
+    @Column(name = "completedTeamName_MOD")
+    private Boolean completedTeamNameMod;
+
     @Column(name = "completed_on")
     private Date completedOn;
 
@@ -168,6 +190,16 @@ public class WorkOrderAud implements Serializable {
     public String getSummary(MessageSource messageSource, Locale locale) {
         StringBuilder summary = new StringBuilder();
         String separator = ", ";
+        if (Boolean.TRUE.equals(completedAssignedUserNamesMod)) {
+            summary.append("Trabalhadores na conclusao: ").append(completedAssignedUserNames).append(separator);
+        }
+        if (Boolean.TRUE.equals(completedTeamNameMod)) {
+            summary.append("Equipe na conclusao: ").append(completedTeamName).append(separator);
+        }
+        if (Boolean.TRUE.equals(executionOwnerMod)) {
+            summary.append("Operador da execucao: ")
+                    .append(executionOwner == null ? "execucao liberada" : executionOwner.getFullName()).append(separator);
+        }
 
         if (dueDateMod != null && dueDateMod) {
             summary.append("Due Date: ").append(dueDate).append(separator);
@@ -234,7 +266,7 @@ public class WorkOrderAud implements Serializable {
             summary.append("Asset: ").append(asset == null ? "N/A" : asset.getName()).append(separator);
         }
 
-        return summary.substring(0, summary.length() - separator.length());
+        return summary.length() == 0 ? "" : summary.substring(0, summary.length() - separator.length());
     }
 
 

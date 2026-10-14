@@ -17,6 +17,10 @@ export default interface WorkOrder extends WorkOrderBase {
   category: Category | null;
   id: number;
   completedBy: OwnUser;
+  executionOwner?: UserMiniDTO | null;
+  executionClaimedAt?: string | null;
+  completedAssignedUserNames?: string | null;
+  completedTeamName?: string | null;
   completedOn: string;
   archived: boolean;
   parentRequest: Request;

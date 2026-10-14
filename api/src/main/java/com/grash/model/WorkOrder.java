@@ -50,6 +50,27 @@ public class WorkOrder extends WorkOrderBase {
     @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED, withModifiedFlag = true)
     private User completedBy;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED, withModifiedFlag = true)
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    @lombok.ToString.Exclude
+    @lombok.EqualsAndHashCode.Exclude
+    private User executionOwner;
+
+    @Audited(withModifiedFlag = true)
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private Date executionClaimedAt;
+
+    @Audited(withModifiedFlag = true)
+    @Column(name = "completed_assigned_user_names", columnDefinition = "text")
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private String completedAssignedUserNames;
+
+    @Audited(withModifiedFlag = true)
+    @Column(name = "completed_team_name")
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    private String completedTeamName;
+
     @Schema(description = "The date and time when the work order was completed")
     private Date completedOn;
 

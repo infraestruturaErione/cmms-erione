@@ -10,6 +10,7 @@ import java.util.List;
 
 public interface CommentRepository extends JpaRepository<Comment, Long>,
         JpaSpecificationExecutor<Comment> {
+    List<Comment> findByFiles_IdAndContentStartingWith(Long fileId, String prefix);
 
     long countByWorkOrderId(Long workOrderId);
 

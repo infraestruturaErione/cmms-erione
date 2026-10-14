@@ -76,7 +76,8 @@ class FileControllerUploadRollbackTest {
     @BeforeEach
     void setUp() {
         controller = new FileController(storageServiceFactory, fileService, userService, taskService,
-                workOrderService, fileMapper, licenseService, requestPortalService, rateLimiterService);
+                workOrderService, fileMapper, licenseService, requestPortalService, rateLimiterService,
+                org.mockito.Mockito.mock(com.grash.repository.CommentRepository.class));
 
         SubscriptionPlan plan = new SubscriptionPlan();
         plan.getFeatures().add(PlanFeatures.FILE);

@@ -41,6 +41,8 @@ import PriorityWrapper from '../../components/PriorityWrapper';
 import FactCheckTwoToneIcon from '@mui/icons-material/FactCheckTwoTone';
 import {
   changeWorkOrderStatus,
+  startWorkOrderExecution,
+  refreshWorkOrderById,
   editWorkOrder,
   getPDFReport,
   removeFileFromWorkOrder
@@ -84,10 +86,12 @@ import {
 } from './workOrderDetailsFetchPlan';
 import { useBrand } from '../../../../hooks/useBrand';
 import { useLicenseEntitlement } from '../../../../hooks/useLicenseEntitlement';
-import {
-  getCommentsByWorkOrder
-} from '../../../../slices/comment';
+import { getCommentsByWorkOrder } from '../../../../slices/comment';
 import { getFieldReportText } from './fieldReportUtils';
+import {
+  canExecuteWorkOrder,
+  isExecutionAssigned
+} from '../../../../utils/workOrderExecution';
 import { isExecutionTaskComplete } from '../../../../utils/tasks';
 
 const LabelWrapper = styled(Box)(
@@ -124,7 +128,21 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   const { getFormattedDate, getUserNameById, getFormattedCurrency } =
     useContext(CompanySettingsContext);
   const { t }: { t: any } = useTranslation();
-  const { hasEditPermission, hasDeletePermission } = useAuth();
+  const {
+    hasEditPermission: hasGeneralEditPermission,
+    hasDeletePermission,
+    user
+  } = useAuth();
+  const hasAdministrativePermission = user.role.editOtherPermissions.includes(
+    PermissionEntity.WORK_ORDERS
+  );
+  const hasEditPermission = (
+    permission: PermissionEntity,
+    candidate: WorkOrder
+  ) =>
+    user.role.code !== 'REQUESTER' &&
+    hasGeneralEditPermission(permission, candidate) &&
+    canExecuteWorkOrder(candidate, user.id);
   const brandConfig = useBrand();
   const hasWOHistoryEntitlement = useLicenseEntitlement('WORK_ORDER_HISTORY');
   const [searchParams, setSearchParams] = useSearchParams();
@@ -158,6 +176,24 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   const comments = commentsByWorkOrder[workOrder.id] ?? [];
   const commentsCount = commentsCountByWorkOrder[workOrder.id] ?? 0;
   const dispatch = useDispatch();
+  useEffect(() => {
+    const refreshExecution = (event: Event) => {
+      const conflictId = (event as CustomEvent<{ workOrderId: number }>).detail
+        ?.workOrderId;
+      if (conflictId === workOrder.id) {
+        dispatch(refreshWorkOrderById(workOrder.id));
+      }
+    };
+    window.addEventListener(
+      'erione:work-order-execution-conflict',
+      refreshExecution
+    );
+    return () =>
+      window.removeEventListener(
+        'erione:work-order-execution-conflict',
+        refreshExecution
+      );
+  }, [dispatch, workOrder.id]);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const openMenu = Boolean(anchorEl);
   const { companySettings, hasFeature } = useAuth();
@@ -240,8 +276,9 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
   }, []);
 
   const fieldReportText =
-    comments.map((comment) => getFieldReportText(comment.content)).find(Boolean) ??
-    '';
+    comments
+      .map((comment) => getFieldReportText(comment.content))
+      .find(Boolean) ?? '';
 
   const { usersMini } = useSelector((state) => state.users);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState<boolean>(false);
@@ -349,13 +386,11 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
     const category = workOrder.category;
     return {
       signature: workOrder.requiredSignature || !!category?.requireSignature,
-      feedback:
-        generalPreferences.askFeedBackOnWOClosed && !fieldReportText,
+      feedback: generalPreferences.askFeedBackOnWOClosed && !fieldReportText,
       signerName: !!category?.requireSignerName && !workOrder.signerName,
       signerDocument:
         !!category?.requireSignerDocument && !workOrder.signerDocument,
-      mileageTraveled:
-        !!category?.requireMileage && !workOrder.mileageTraveled
+      mileageTraveled: !!category?.requireMileage && !workOrder.mileageTraveled
     };
   };
   const onPartQuantityChange = (value: string, partQuantity) => {
@@ -420,7 +455,12 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
           }}
         >
           <Box sx={{ minWidth: 0 }}>
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              flexWrap="wrap"
+            >
               {workOrder?.priority !== 'NONE' && (
                 <PriorityWrapper priority={workOrder?.priority} withSuffix />
               )}
@@ -440,105 +480,177 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
             justifyContent="flex-end"
             flexShrink={0}
           >
-          {changingStatus ? (
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                width: 100,
-                height: 30
-              }}
-            >
-              <CircularProgress size={'1rem'} />
-            </Box>
-          ) : (
-            <Select
-              size="small"
-              onChange={(event) => {
-                if (event.target.value === 'COMPLETE') {
-                  if (canComplete()) {
-                    const fieldsConfig = getCompleteWOFieldsConfig();
-                    const needsAnyField = Object.values(fieldsConfig).some(
-                      Boolean
-                    );
+            {changingStatus ? (
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  width: 100,
+                  height: 30
+                }}
+              >
+                <CircularProgress size={'1rem'} />
+              </Box>
+            ) : (
+              <Select
+                size="small"
+                onChange={(event) => {
+                  if (event.target.value === 'COMPLETE') {
+                    if (canComplete()) {
+                      const fieldsConfig = getCompleteWOFieldsConfig();
+                      const needsAnyField =
+                        Object.values(fieldsConfig).some(Boolean);
 
-                    if (needsAnyField) {
-                      let error;
-                      if (fieldsConfig.signature) {
-                        if (!hasFeature(PlanFeature.SIGNATURE)) {
-                          error =
-                            'Signature on Work Order completion is not available in your current subscription plan.';
+                      if (needsAnyField) {
+                        let error;
+                        if (fieldsConfig.signature) {
+                          if (!hasFeature(PlanFeature.SIGNATURE)) {
+                            error =
+                              'Signature on Work Order completion is not available in your current subscription plan.';
+                          }
+                        }
+                        if (error) {
+                          showSnackBar(t(error), 'error');
+                        } else {
+                          setOpenCompleteModal(true);
+                          return;
                         }
                       }
-                      if (error) {
-                        showSnackBar(t(error), 'error');
-                      } else {
-                        setOpenCompleteModal(true);
-                        return;
-                      }
-                    }
-                  } else return;
+                    } else return;
+                  }
+                  setChangingStatus(true);
+                  dispatch(
+                    changeWorkOrderStatus(workOrder?.id, {
+                      status: event.target.value
+                    })
+                  ).finally(() => setChangingStatus(false));
+                }}
+                disabled={
+                !(hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) ||
+                  (workOrder.status === 'COMPLETE' && hasAdministrativePermission))
                 }
-                setChangingStatus(true);
-                dispatch(
-                  changeWorkOrderStatus(workOrder?.id, {
-                    status: event.target.value
-                  })
-                ).finally(() => setChangingStatus(false));
-              }}
-              disabled={
-                !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
-              }
-              value={workOrder.status}
-              sx={
-                workOrder.status === 'OPEN'
-                  ? {}
-                  : {
-                      backgroundColor:
-                        workOrder.status === 'IN_PROGRESS'
-                          ? theme.colors.success.main
-                          : workOrder.status === 'ON_HOLD'
-                          ? theme.colors.warning.main
-                          : theme.colors.alpha.black[30],
-                      color: 'white',
-                      fontWeight: 'bold',
-                      '.MuiSvgIcon-root ': {
-                        fill: 'white !important'
+                value={workOrder.status}
+                sx={
+                  workOrder.status === 'OPEN'
+                    ? {}
+                    : {
+                        backgroundColor:
+                          workOrder.status === 'IN_PROGRESS'
+                            ? theme.colors.success.main
+                            : workOrder.status === 'ON_HOLD'
+                            ? theme.colors.warning.main
+                            : theme.colors.alpha.black[30],
+                        color: 'white',
+                        fontWeight: 'bold',
+                        '.MuiSvgIcon-root ': {
+                          fill: 'white !important'
+                        }
                       }
-                    }
-              }
-            >
-              {workOrderStatuses.map((workOrderStatus, index) => (
-                <MenuItem key={index} value={workOrderStatus}>
-                  {t(workOrderStatus)}
-                </MenuItem>
-              ))}
-            </Select>
-          )}
-          {hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
-            <IconButton size="small" onClick={handleOpenMenu}>
-              <MoreVertTwoToneIcon fontSize="small" />
-            </IconButton>
-          )}
-          {hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
-            <IconButton size="small" onClick={() => onEdit(workOrder.id)}>
-              <EditTwoToneIcon color="primary" fontSize="small" />
-            </IconButton>
-          )}
-          {allowDelete && hasDeletePermission(PermissionEntity.WORK_ORDERS, workOrder) && (
-            <IconButton size="small">
-              <DeleteTwoToneIcon
-                color="error"
-                fontSize="small"
-                onClick={() => onDelete(workOrder.id)}
-              />
-            </IconButton>
-          )}
+                }
+              >
+                {workOrderStatuses.map((workOrderStatus, index) => (
+                <MenuItem key={index} value={workOrderStatus}
+                  disabled={workOrder.status === 'COMPLETE' && !['OPEN', 'COMPLETE'].includes(workOrderStatus)}>
+                    {t(workOrderStatus)}
+                  </MenuItem>
+                ))}
+              </Select>
+            )}
+            {hasAdministrativePermission && (
+              <IconButton size="small" onClick={handleOpenMenu}>
+                <MoreVertTwoToneIcon fontSize="small" />
+              </IconButton>
+            )}
+            {hasAdministrativePermission && (
+              <IconButton size="small" onClick={() => onEdit(workOrder.id)}>
+                <EditTwoToneIcon color="primary" fontSize="small" />
+              </IconButton>
+            )}
+            {allowDelete &&
+              hasDeletePermission(PermissionEntity.WORK_ORDERS, workOrder) && (
+                <IconButton size="small">
+                  <DeleteTwoToneIcon
+                    color="error"
+                    fontSize="small"
+                    onClick={() => onDelete(workOrder.id)}
+                  />
+                </IconButton>
+              )}
           </Stack>
         </Box>
       </Grid>
       <Divider />
+      <Grid item xs={12}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          alignItems={{ sm: 'center' }}
+          sx={{
+            p: 2,
+            bgcolor: alpha(theme.palette.primary.main, 0.06),
+            borderRadius: 2
+          }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              Operador da execução
+            </Typography>
+            <Typography fontWeight={700}>
+              {workOrder.executionOwner
+                ? `${workOrder.executionOwner.firstName} ${
+                    workOrder.executionOwner.lastName ?? ''
+                  }`.trim()
+                : 'Execução ainda não assumida'}
+            </Typography>
+            {workOrder.executionOwner &&
+              workOrder.executionOwner.id !== user.id && (
+                <Typography variant="body2" color="text.secondary">
+                  Você está acompanhando esta OS em modo leitura operacional.
+                </Typography>
+              )}
+            {workOrder.status === 'COMPLETE' &&
+              !!workOrder.completedAssignedUserNames && (
+                <Typography variant="body2" color="text.secondary">
+                  Atribuídos na conclusão:{' '}
+                  {workOrder.completedAssignedUserNames}
+                </Typography>
+              )}
+            {workOrder.status === 'COMPLETE' && !!workOrder.completedTeamName && (
+              <Typography variant="body2" color="text.secondary">
+                Equipe na conclusão: {workOrder.completedTeamName}
+              </Typography>
+            )}
+          </Box>
+          {!workOrder.executionOwner &&
+            workOrder.status !== 'COMPLETE' &&
+            user.role.code !== 'REQUESTER' &&
+            isExecutionAssigned(workOrder, user.id) &&
+            hasGeneralEditPermission(
+              PermissionEntity.WORK_ORDERS,
+              workOrder
+            ) && (
+              <Button
+                variant="contained"
+                disabled={changingStatus}
+                onClick={() => {
+                  setChangingStatus(true);
+                  dispatch(startWorkOrderExecution(workOrder.id))
+                    .catch((error) =>
+                      showSnackBar(
+                        error?.message ??
+                          'Não foi possível assumir a execução.',
+                        'error'
+                      )
+                    )
+                    .finally(() => setChangingStatus(false));
+                }}
+              >
+                Assumir execução
+              </Button>
+            )}
+        </Stack>
+      </Grid>
       <Grid item xs={12}>
         <Tabs
           onChange={handleTabsChange}
@@ -598,14 +710,21 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
           <Box>
             <FieldExecutionSection
               workOrder={workOrder}
-              canEdit={hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)}
+              canEdit={hasEditPermission(
+                PermissionEntity.WORK_ORDERS,
+                workOrder
+              )}
               getFormattedDate={getFormattedDate}
             />
 
             {!ERIONE_HIDDEN_MODULES.parts && (
               <Box>
                 <Divider sx={{ mt: 2 }} />
-                <Typography sx={{ mt: 2, mb: 1 }} variant="subtitle1" fontWeight={700}>
+                <Typography
+                  sx={{ mt: 2, mb: 1 }}
+                  variant="subtitle1"
+                  fontWeight={700}
+                >
                   {t('parts')}
                 </Typography>
                 {loadingPartQuantities[workOrder.id] ? (
@@ -654,7 +773,10 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
           <Stack sx={{ gap: 2.5, minWidth: 0 }}>
             <FieldReportSection
               workOrder={workOrder}
-              canEdit={hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)}
+              canEdit={hasEditPermission(
+                PermissionEntity.WORK_ORDERS,
+                workOrder
+              )}
               photosRequiredGlobally={photosRequiredGlobally}
               getFormattedDate={getFormattedDate}
               onOpenImage={setImageState}
@@ -665,7 +787,10 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 <FilesList
                   confirmMessage={t('confirm_delete_file_wo')}
                   removeDisabled={
-                    !hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
+                    !(
+                      hasAdministrativePermission ||
+                      hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)
+                    )
                   }
                   files={workOrder.files}
                   onRemove={(id: number) => {
@@ -673,11 +798,15 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                   }}
                 />
               ) : (
-                <Typography variant="body2" sx={{ color: theme.colors.alpha.black[70] }}>
+                <Typography
+                  variant="body2"
+                  sx={{ color: theme.colors.alpha.black[70] }}
+                >
                   {t('no_file_linked_to_wo')}
                 </Typography>
               )}
-              {hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) && (
+              {(hasAdministrativePermission ||
+                hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder)) && (
                 <Button
                   size="small"
                   onClick={() => setOpenAddFileModal(true)}
@@ -689,7 +818,12 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
               )}
             </ReportSectionPanel>
 
-            <CommentsDisclosure key={workOrder.id} workOrderId={workOrder.id} comments={comments} commentId={commentId} />
+            <CommentsDisclosure
+              key={workOrder.id}
+              workOrderId={workOrder.id}
+              comments={comments}
+              commentId={commentId}
+            />
           </Stack>
         )}
         {currentTab === 'questionario' && (
@@ -723,7 +857,9 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                   px: 2
                 }}
               >
-                <FactCheckTwoToneIcon sx={{ color: theme.colors.alpha.black[50] }} />
+                <FactCheckTwoToneIcon
+                  sx={{ color: theme.colors.alpha.black[50] }}
+                />
                 <Box>
                   <Typography variant="body2" fontWeight={700}>
                     {t('questionnaire_empty_title')}
@@ -743,7 +879,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
         onClose={() => setOpenAddFileModal(false)}
         workOrderId={workOrder.id}
       />
-
 
       {isImageViewerOpen && (
         <div style={{ zIndex: 100 }}>
@@ -769,7 +904,6 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
         onComplete={onCompleteWO}
       />
       <Menu anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu}>
-
         <MenuItem disabled={generatingReport} onClick={onGenerateReport}>
           <Stack spacing={2} direction="row">
             {generatingReport ? (

@@ -93,10 +93,18 @@ checkOutDistanceLabel, siteDurationLabel.
         <div class="section-label">Informacoes da tarefa</div>
         <table class="grid">
             <tr th:if="${primaryUserName != null or workOrder.dueDate != null}">
-                <td th:if="${primaryUserName != null}"><span class="label">Responsavel tecnico</span><span class="value" th:text="${primaryUserName}"></span></td>
+                <td th:if="${primaryUserName != null}"><span class="label">Trabalhador principal</span><span class="value" th:text="${primaryUserName}"></span></td>
                 <td th:if="${primaryUserName == null}"></td>
                 <td th:if="${workOrder.dueDate != null}"><span class="label">Data/Hora</span><span class="value" th:text="${utils.getFormattedDate(workOrder.dueDate, dateFormat, timeZone)}"></span></td>
                 <td th:if="${workOrder.dueDate == null}"></td>
+            </tr>
+            <tr th:if="${executionOwnerName != null or completedByName != null}">
+                <td><span th:if="${executionOwnerName != null}" class="label">Operador responsavel</span><span class="value" th:text="${executionOwnerName}"></span></td>
+                <td><span th:if="${completedByName != null}" class="label">Concluido por</span><span class="value" th:text="${completedByName}"></span></td>
+            </tr>
+            <tr th:if="${assignedUserNames != null or assignedTeamName != null}">
+                <td><span th:if="${assignedUserNames != null}" class="label">Trabalhadores atribuidos</span><span class="value assignment-value" th:text="${assignedUserNames}"></span></td>
+                <td><span th:if="${assignedTeamName != null}" class="label">Equipe atribuida</span><span class="value" th:text="${assignedTeamName}"></span></td>
             </tr>
             <tr>
                 <td><span class="label">Servico realizado</span><span class="value" th:text="${serviceLabel}"></span></td>
