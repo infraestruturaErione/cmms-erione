@@ -78,7 +78,8 @@ import { AudioPlayer } from '../../components/AudioPlayer';
 import { getErrorMessage, onWorkOrderExecutionConflict } from '../../utils/api';
 import {
   canExecuteWorkOrder,
-  isExecutionAssigned
+  isExecutionAssigned,
+  isSoleExecutionAssignee
 } from '../../utils/workOrderExecution';
 import { getLocationAddressWithReference } from '../../utils/locationDisplay';
 import ImageView from 'react-native-image-viewing';
@@ -1345,6 +1346,9 @@ export default function WODetailsScreen({
                     ? `${workOrder.executionOwner.firstName} ${
                         workOrder.executionOwner.lastName ?? ''
                       }`.trim()
+                    : workOrder.status !== 'COMPLETE' &&
+                      isSoleExecutionAssignee(workOrder, user.id)
+                    ? 'Inicie o atendimento normalmente. A execução será registrada automaticamente.'
                     : 'Execução ainda não assumida'}
                 </Text>
                 {workOrder.executionOwner &&
@@ -1355,6 +1359,7 @@ export default function WODetailsScreen({
                     </Text>
                   )}
                 {!workOrder.executionOwner &&
+                  !isSoleExecutionAssignee(workOrder, user.id) &&
                   workOrder.status !== 'COMPLETE' &&
                   user.role.code !== 'REQUESTER' &&
                   isExecutionAssigned(workOrder, user.id) &&

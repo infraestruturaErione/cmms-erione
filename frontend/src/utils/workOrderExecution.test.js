@@ -1,6 +1,20 @@
 import { canExecuteWorkOrder, isExecutionAssigned } from './workOrderExecution';
 
 describe('execution ownership without changing administrative permissions', () => {
+  it('allows a sole assignee without a separate claim but never overrides another owner', () => {
+    const solo = {
+      status: 'OPEN',
+      primaryUser: { id: 2 },
+      assignedTo: [{ id: 2 }]
+    };
+    expect(canExecuteWorkOrder(solo, 2)).toBe(true);
+    expect(canExecuteWorkOrder(solo, 3)).toBe(false);
+    expect(canExecuteWorkOrder({ ...solo, executionOwner: { id: 3 } }, 2)).toBe(
+      false
+    );
+    expect(canExecuteWorkOrder({ ...solo, status: 'COMPLETE' }, 2)).toBe(false);
+    expect(canExecuteWorkOrder({ ...solo, team: { id: 4 } }, 2)).toBe(false);
+  });
   const wo = {
     status: 'OPEN',
     primaryUser: { id: 1 },

@@ -13,6 +13,44 @@ const order = (extra = {}) => ({
 });
 
 describe('single shared execution', () => {
+  it('allows the sole technician to operate without a separate claim, deduplicating assignments', () => {
+    const solo = order({ primaryUser: { id: 2 }, assignedTo: [{ id: 2 }] });
+    expect(canExecuteWorkOrder(solo, 2)).toBe(true);
+    expect(canExecuteWorkOrder(solo, 3)).toBe(false);
+    expect(canExecuteWorkOrder({ ...solo, executionOwner: { id: 3 } }, 2)).toBe(
+      false
+    );
+    expect(canExecuteWorkOrder({ ...solo, status: 'COMPLETE' }, 2)).toBe(false);
+  });
+  it('requires a claim when there are several people or the team membership is unknown', () => {
+    expect(canExecuteWorkOrder(order(), 2)).toBe(false);
+    expect(
+      canExecuteWorkOrder(
+        order({
+          primaryUser: null,
+          assignedTo: [],
+          team: { users: [{ id: 2 }] }
+        }),
+        2
+      )
+    ).toBe(true);
+    expect(
+      canExecuteWorkOrder(
+        order({ primaryUser: { id: 2 }, assignedTo: [], team: { id: 7 } }),
+        2
+      )
+    ).toBe(false);
+    expect(
+      canExecuteWorkOrder(
+        order({
+          primaryUser: null,
+          assignedTo: [],
+          team: { users: [{ id: 2 }, { id: 3 }] }
+        }),
+        2
+      )
+    ).toBe(false);
+  });
   it('labels the companion card with the actual operator', () => {
     const wo = order({
       executionOwner: { id: 3, firstName: 'Fabricio', lastName: 'Souza' }

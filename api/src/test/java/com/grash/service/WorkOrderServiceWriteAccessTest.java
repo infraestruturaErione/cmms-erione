@@ -104,6 +104,35 @@ class WorkOrderServiceWriteAccessTest {
     }
 
     @Test
+    void soleAssigneeCanResumeLegacyOperationalWritesWithoutExplicitClaim() {
+        WorkOrder wo = executableOrder();
+        wo.setPrimaryUser(technicianAssigned);
+        wo.setAssignedTo(new ArrayList<>(java.util.List.of(technicianAssigned)));
+        wo.setStatus(com.grash.model.enums.Status.IN_PROGRESS);
+        workOrderService.checkAccessToWorkOrderId(wo.getId(), technicianAssigned);
+        assertNull(wo.getExecutionOwner());
+        workOrderService.checkOperationalWriteAccess(wo.getId(), technicianAssigned);
+        assertEquals(technicianAssigned.getId(), wo.getExecutionOwner().getId());
+        assertNotNull(wo.getExecutionClaimedAt());
+        assertThrows(CustomException.class, () -> workOrderService.checkOperationalWriteAccess(wo.getId(), admin));
+    }
+
+    @Test
+    void soleTeamMemberCanExecuteButReadDoesNotClaimClosedLegacyOrder() {
+        WorkOrder wo = executableOrder();
+        wo.setAssignedTo(new ArrayList<>());
+        com.grash.model.Team team = new com.grash.model.Team();
+        team.setUsers(new ArrayList<>(java.util.List.of(technicianAssigned)));
+        wo.setTeam(team);
+        workOrderService.checkOperationalWriteAccess(wo.getId(), technicianAssigned);
+        assertEquals(technicianAssigned.getId(), wo.getExecutionOwner().getId());
+        wo.setExecutionOwner(null);
+        wo.setStatus(com.grash.model.enums.Status.COMPLETE);
+        assertThrows(CustomException.class, () -> workOrderService.checkOperationalAccess(wo.getId(), technicianAssigned, false, true));
+        assertNull(wo.getExecutionOwner());
+    }
+
+    @Test
     void ownerRemovalReleasesOpenOrderButCompletionPreservesHistory() {
         WorkOrder wo = executableOrder();
         workOrderService.startExecution(wo.getId(), technicianAssigned);

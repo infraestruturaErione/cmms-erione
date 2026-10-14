@@ -457,7 +457,9 @@ public class WorkOrderService {
             throw new com.grash.exception.WorkOrderExecutionException("WORK_ORDER_EXECUTION_COMPLETED", workOrder);
         }
         if (workOrder.getExecutionOwner() == null) {
-            if (!start || workOrder.getStatus() == Status.COMPLETE) {
+            boolean soleAssignedUser = workOrder.getUsers().size() == 1;
+            // Legacy clients can resume a single technician's OS without a new claim button.
+            if ((!start && !soleAssignedUser) || workOrder.getStatus() == Status.COMPLETE) {
                 throw new com.grash.exception.WorkOrderExecutionException("WORK_ORDER_EXECUTION_NOT_STARTED", workOrder);
             }
             workOrder.setExecutionOwner(user);

@@ -90,7 +90,8 @@ import { getCommentsByWorkOrder } from '../../../../slices/comment';
 import { getFieldReportText } from './fieldReportUtils';
 import {
   canExecuteWorkOrder,
-  isExecutionAssigned
+  isExecutionAssigned,
+  isSoleExecutionAssignee
 } from '../../../../utils/workOrderExecution';
 import { isExecutionTaskComplete } from '../../../../utils/tasks';
 
@@ -527,8 +528,14 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                   ).finally(() => setChangingStatus(false));
                 }}
                 disabled={
-                !(hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) ||
-                  (workOrder.status === 'COMPLETE' && hasAdministrativePermission))
+                  !(
+                    hasEditPermission(
+                      PermissionEntity.WORK_ORDERS,
+                      workOrder
+                    ) ||
+                    (workOrder.status === 'COMPLETE' &&
+                      hasAdministrativePermission)
+                  )
                 }
                 value={workOrder.status}
                 sx={
@@ -550,8 +557,14 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 }
               >
                 {workOrderStatuses.map((workOrderStatus, index) => (
-                <MenuItem key={index} value={workOrderStatus}
-                  disabled={workOrder.status === 'COMPLETE' && !['OPEN', 'COMPLETE'].includes(workOrderStatus)}>
+                  <MenuItem
+                    key={index}
+                    value={workOrderStatus}
+                    disabled={
+                      workOrder.status === 'COMPLETE' &&
+                      !['OPEN', 'COMPLETE'].includes(workOrderStatus)
+                    }
+                  >
                     {t(workOrderStatus)}
                   </MenuItem>
                 ))}
@@ -601,6 +614,9 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
                 ? `${workOrder.executionOwner.firstName} ${
                     workOrder.executionOwner.lastName ?? ''
                   }`.trim()
+                : workOrder.status !== 'COMPLETE' &&
+                  isSoleExecutionAssignee(workOrder, user.id)
+                ? 'Inicie o atendimento normalmente. A execução será registrada automaticamente.'
                 : 'Execução ainda não assumida'}
             </Typography>
             {workOrder.executionOwner &&
@@ -623,6 +639,7 @@ export default function WorkOrderDetails(props: WorkOrderDetailsProps) {
             )}
           </Box>
           {!workOrder.executionOwner &&
+            !isSoleExecutionAssignee(workOrder, user.id) &&
             workOrder.status !== 'COMPLETE' &&
             user.role.code !== 'REQUESTER' &&
             isExecutionAssigned(workOrder, user.id) &&
