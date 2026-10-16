@@ -241,9 +241,16 @@ public class WorkOrderReportService {
         if (workOrder.getAssignedTo() != null) {
             workOrder.getAssignedTo().forEach(assigned -> explicitUsers.putIfAbsent(assigned.getId(), assigned.getFullName()));
         }
-        variables.put("assignedUserNames", blankToNull(workOrder.getStatus() == Status.COMPLETE
-                && workOrder.getCompletedAssignedUserNames() != null ? workOrder.getCompletedAssignedUserNames()
-                : String.join(", ", explicitUsers.values())));
+        boolean hasAssignmentSnapshot = workOrder.getStatus() == Status.COMPLETE
+                && workOrder.getCompletedAssignedUserNames() != null;
+        String assignedUserNames = blankToNull(hasAssignmentSnapshot ? workOrder.getCompletedAssignedUserNames()
+                : String.join(", ", explicitUsers.values()));
+        variables.put("assignedUserNames", assignedUserNames);
+        // Completed assignments are stored as comma-separated names, not user IDs.
+        // Ambiguous historical names containing a comma retain the detailed layout.
+        variables.put("singleAssignedTechnician", hasAssignmentSnapshot
+                ? assignedUserNames != null && !assignedUserNames.contains(",")
+                : explicitUsers.size() == 1);
         variables.put("assignedTeamName", blankToNull(workOrder.getStatus() == Status.COMPLETE
                 && workOrder.getCompletedTeamName() != null ? workOrder.getCompletedTeamName()
                 : workOrder.getTeam() == null ? null : workOrder.getTeam().getName()));

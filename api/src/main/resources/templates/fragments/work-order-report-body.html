@@ -33,7 +33,9 @@ locale, messageSource, utils, workOrder, primaryUserName, customers,
 customerCnpj, customerEmail, customerPhone, customerAddress, serviceLabel,
 tasks, tasksImagesUrls, fieldReports, fieldEvidenceRows, fieldEvidenceCount,
 locationIdentification, locationAddressWithReference, checkInDistanceLabel,
-checkOutDistanceLabel, siteDurationLabel.
+checkOutDistanceLabel, siteDurationLabel, travelDurationLabel,
+executionOwnerName, completedByName, assignedUserNames, assignedTeamName,
+singleAssignedTechnician.
 -->
 <th:block th:fragment="workOrderBody">
 
@@ -91,19 +93,19 @@ checkOutDistanceLabel, siteDurationLabel.
          protege sua propria quebra (.grid tr / .qa-table tr). ===== -->
     <div class="section-task">
         <div class="section-label">Informacoes da tarefa</div>
-        <table class="grid">
-            <tr th:if="${primaryUserName != null or workOrder.dueDate != null}">
-                <td th:if="${primaryUserName != null}"><span class="label">Trabalhador principal</span><span class="value" th:text="${primaryUserName}"></span></td>
-                <td th:if="${primaryUserName == null}"></td>
+        <table class="grid" th:with="responsibleName=${singleAssignedTechnician == true ? assignedUserNames : primaryUserName}">
+            <tr th:if="${responsibleName != null or workOrder.dueDate != null}">
+                <td th:if="${responsibleName != null}"><span class="label">Responsável técnico</span><span class="value" th:text="${responsibleName}"></span></td>
+                <td th:if="${responsibleName == null}"></td>
                 <td th:if="${workOrder.dueDate != null}"><span class="label">Data/Hora</span><span class="value" th:text="${utils.getFormattedDate(workOrder.dueDate, dateFormat, timeZone)}"></span></td>
                 <td th:if="${workOrder.dueDate == null}"></td>
             </tr>
-            <tr th:if="${executionOwnerName != null or completedByName != null}">
+            <tr th:if="${singleAssignedTechnician != true and (executionOwnerName != null or completedByName != null)}">
                 <td><span th:if="${executionOwnerName != null}" class="label">Operador responsavel</span><span class="value" th:text="${executionOwnerName}"></span></td>
                 <td><span th:if="${completedByName != null}" class="label">Concluido por</span><span class="value" th:text="${completedByName}"></span></td>
             </tr>
-            <tr th:if="${assignedUserNames != null or assignedTeamName != null}">
-                <td><span th:if="${assignedUserNames != null}" class="label">Trabalhadores atribuidos</span><span class="value assignment-value" th:text="${assignedUserNames}"></span></td>
+            <tr th:if="${(singleAssignedTechnician != true and assignedUserNames != null) or assignedTeamName != null}">
+                <td><th:block th:if="${singleAssignedTechnician != true and assignedUserNames != null}"><span class="label">Trabalhadores atribuidos</span><span class="value assignment-value" th:text="${assignedUserNames}"></span></th:block></td>
                 <td><span th:if="${assignedTeamName != null}" class="label">Equipe atribuida</span><span class="value" th:text="${assignedTeamName}"></span></td>
             </tr>
             <tr>
