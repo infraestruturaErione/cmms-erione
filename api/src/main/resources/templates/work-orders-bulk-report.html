@@ -61,6 +61,10 @@
     <div class="wo-index" th:text="'OS ' + (${iter.index} + 1) + ' DE ' + ${#lists.size(workOrderReports)}"></div>
     <div th:with="workOrder=${wo.workOrder},
                   primaryUserName=${wo.primaryUserName},
+                  executionOwnerName=${wo.executionOwnerName},
+                  completedByName=${wo.completedByName},
+                  assignedUserNames=${wo.assignedUserNames},
+                  assignedTeamName=${wo.assignedTeamName},
                   customers=${wo.customers},
                   customerCnpj=${wo.customerCnpj},
                   customerEmail=${wo.customerEmail},
@@ -76,7 +80,8 @@
                   locationAddressWithReference=${wo.locationAddressWithReference},
                   checkInDistanceLabel=${wo.checkInDistanceLabel},
                   checkOutDistanceLabel=${wo.checkOutDistanceLabel},
-                  siteDurationLabel=${wo.siteDurationLabel}">
+                  siteDurationLabel=${wo.siteDurationLabel},
+                  travelDurationLabel=${wo.travelDurationLabel}">
         <div th:replace="~{fragments/work-order-report-body :: workOrderBody}"></div>
     </div>
 </div>

@@ -46,6 +46,101 @@ import static org.mockito.Mockito.when;
 class WorkOrderReportServiceTest {
 
     @Test
+    void bulkPreservesEachIndividualReportBodyWithoutLeakingValuesBetweenOrders() throws Exception {
+        TaskService tasks = mock(TaskService.class);
+        CommentRepository comments = mock(CommentRepository.class);
+        WorkOrderReportService service = new WorkOrderReportService(tasks, comments,
+                mock(MessageSource.class), mock(Utils.class), new PdfImageOptimizer());
+        when(comments.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(
+                anyCollection(), anyString())).thenReturn(List.of());
+        org.thymeleaf.templateresolver.ClassLoaderTemplateResolver resolver =
+                new org.thymeleaf.templateresolver.ClassLoaderTemplateResolver();
+        resolver.setPrefix("templates/"); resolver.setSuffix(".html"); resolver.setCharacterEncoding("UTF-8");
+        org.thymeleaf.TemplateEngine engine = new org.thymeleaf.TemplateEngine();
+        engine.setTemplateResolver(resolver);
+        Map<String, Object> shared = new java.util.HashMap<>();
+        shared.put("companyName", "Erione CMMS"); shared.put("dateFormat", com.grash.model.enums.DateFormat.DDMMYY);
+        shared.put("timeZone", "America/Sao_Paulo"); shared.put("utils", mock(Utils.class));
+        String testImage = "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(jpeg(200, 100));
+        List<Map<String, Object>> reports = new java.util.ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            WorkOrder wo = new WorkOrder(); wo.setId(100L + i); wo.setCustomId("WO-BULK-" + i);
+            wo.setTitle("Servico " + i); wo.setStatus(com.grash.model.enums.Status.COMPLETE);
+            when(tasks.findByWorkOrder(wo.getId())).thenReturn(List.of());
+            if (i < 2) {
+                wo.setPrimaryUser(reportUser(1L, "Principal " + i));
+                wo.setExecutionOwner(reportUser(2L, "Executor " + i));
+                wo.setCompletedBy(reportUser(3L, "Finalizador " + i));
+                wo.setCompletedAssignedUserNames("Principal " + i + ", Executor " + i);
+                wo.setCompletedTeamName("Equipe congelada " + i);
+                wo.setDepartureAt(new Date(0)); wo.setCheckInAt(new Date((i + 6) * 60_000L));
+                wo.setCheckOutAt(new Date((i + 20) * 60_000L));
+                wo.setSignature(testImage); wo.setSignerName("ASSINATURA SINTETICA DEV " + i);
+            }
+            Map<String, Object> data = service.buildWorkOrderReportVariables(wo, mock(StorageService.class));
+            if (i < 2) {
+                Task question = mock(Task.class);
+                com.grash.model.TaskBase base = new com.grash.model.TaskBase();
+                base.setLabel("Pergunta " + i);
+                when(question.getId()).thenReturn(500L + i); when(question.getTaskBase()).thenReturn(base);
+                when(question.getTranslatedValue(org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any())).thenReturn("Resposta " + i);
+                data.put("tasks", List.of(question));
+                data.put("tasksImagesUrls", new java.util.HashMap<>(Map.of(500L + i, new String[]{testImage})));
+                data.put("fieldReports", List.of("Relato exclusivo " + i));
+                data.put("fieldEvidenceRows", List.of(List.of(Map.of(
+                        "image", true, "url", testImage, "note", "Foto exclusiva " + i))));
+                data.put("fieldEvidenceCount", 1);
+            }
+            reports.add(data);
+        }
+        Map<String, Object> bulkVariables = new java.util.HashMap<>(shared);
+        bulkVariables.put("workOrderReports", reports); bulkVariables.put("customerLabel", "Cliente DEV");
+        bulkVariables.put("periodStart", "15/10/2026"); bulkVariables.put("periodEnd", "15/10/2026");
+        org.thymeleaf.context.Context bulkContext = new org.thymeleaf.context.Context(java.util.Locale.forLanguageTag("pt-BR"));
+        bulkContext.setVariables(bulkVariables);
+        String bulkHtml = engine.process("work-orders-bulk-report", bulkContext);
+        String normalizedBulk = normalizeReportMarkup(bulkHtml);
+        for (Map<String, Object> report : reports) {
+            Map<String, Object> individualVariables = new java.util.HashMap<>(shared);
+            individualVariables.putAll(report);
+            org.thymeleaf.context.Context context = new org.thymeleaf.context.Context(java.util.Locale.forLanguageTag("pt-BR"));
+            context.setVariables(individualVariables);
+            String individualHtml = engine.process("work-order-report", context);
+            String body = individualHtml.substring(individualHtml.indexOf("<body>") + 6, individualHtml.indexOf("</body>"));
+            assertTrue(normalizedBulk.contains(normalizeReportMarkup(body)),
+                    "Bulk must preserve the entire individual body for " + ((WorkOrder) report.get("workOrder")).getCustomId());
+        }
+        try (com.itextpdf.kernel.pdf.PdfDocument pdf = new com.itextpdf.kernel.pdf.PdfDocument(
+                new com.itextpdf.kernel.pdf.PdfReader(new ByteArrayInputStream(service.renderPdf(bulkHtml))))) {
+            StringBuilder text = new StringBuilder();
+            for (int page = 1; page <= pdf.getNumberOfPages(); page++) {
+                text.append(com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor.getTextFromPage(pdf.getPage(page)));
+            }
+            String all = text.toString();
+            for (int i = 0; i < 2; i++) {
+                String section = all.substring(all.indexOf("Codigo da OS WO-BULK-" + i),
+                        all.indexOf("Codigo da OS WO-BULK-" + (i + 1)));
+                for (String expected : List.of("Operador responsavel", "Executor " + i + " Souza",
+                        "Finalizador " + i + " Souza", "Equipe congelada " + i, (i + 6) + "min",
+                        "Resposta " + i, "Relato exclusivo " + i, "Foto exclusiva " + i,
+                        "ASSINATURA SINTETICA DEV " + i)) {
+                    assertTrue(section.contains(expected), expected);
+                }
+                assertFalse(section.contains("Executor " + (1 - i) + " Souza"));
+            }
+            String legacy = all.substring(all.indexOf("Codigo da OS WO-BULK-2"));
+            assertFalse(legacy.contains("Operador responsavel"));
+            assertFalse(legacy.contains("Equipe congelada"));
+            assertFalse(legacy.contains("Aceite do servico"));
+        }
+    }
+
+    private static String normalizeReportMarkup(String html) {
+        return html.replaceAll("(?s)<!--.*?-->", "").replaceAll(">\\s+<", "><").trim();
+    }
+
+    @Test
     void reportDistinguishesOperatorAllExplicitAssigneesAndTeamWithoutInventingMembers() {
         TaskService tasks = mock(TaskService.class);
         CommentRepository comments = mock(CommentRepository.class);
