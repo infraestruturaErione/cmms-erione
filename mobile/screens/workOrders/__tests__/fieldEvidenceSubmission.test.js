@@ -17,6 +17,47 @@ const submit = (dependencies) =>
   });
 
 describe('mobile field evidence cleanup', () => {
+  it('reconciles a lost response by exact uploaded IDs without deleting confirmed photos', async () => {
+    const dependencies = setup();
+    dependencies.uploadFiles.mockResolvedValue([{ id: 10 }]);
+    dependencies.createComment.mockRejectedValue(new Error('connection lost'));
+    dependencies.reconcile = jest.fn().mockResolvedValue({ id: 100 });
+    dependencies.onConfirmedUploads = jest.fn();
+    await expect(submit(dependencies)).resolves.toEqual({ id: 100 });
+    expect(dependencies.reconcile).toHaveBeenCalledWith([10]);
+    expect(dependencies.cleanupUnusedFiles).not.toHaveBeenCalled();
+    expect(dependencies.onConfirmedUploads).toHaveBeenCalledTimes(1);
+  });
+  it('unknown reconciliation preserves objects and reports uncertainty instead of success', async () => {
+    const dependencies = setup();
+    dependencies.uploadFiles.mockResolvedValue([{ id: 10 }]);
+    dependencies.createComment.mockRejectedValue(new Error('unknown outcome'));
+    dependencies.reconcile = jest.fn().mockRejectedValue(new Error('offline'));
+    dependencies.onConfirmedUploads = jest.fn();
+    await expect(submit(dependencies)).rejects.toThrow('unknown outcome');
+    expect(dependencies.cleanupUnusedFiles).not.toHaveBeenCalled();
+    expect(dependencies.onConfirmedUploads).not.toHaveBeenCalled();
+  });
+  it('tracks temporary uploads only after confirmed attachment and never rolls back for local index failure', async () => {
+    const dependencies = setup();
+    dependencies.uploadFiles.mockResolvedValue([{ id: 10 }]);
+    dependencies.createComment.mockResolvedValue({ id: 100 });
+    dependencies.onConfirmedUploads = jest.fn(async () => {
+      throw new Error('storage full');
+    });
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await expect(submit(dependencies)).resolves.toEqual({ id: 100 });
+    expect(dependencies.onConfirmedUploads).toHaveBeenCalledWith([{ id: 10 }]);
+    expect(dependencies.createComment.mock.invocationCallOrder[0]).toBeLessThan(
+      dependencies.onConfirmedUploads.mock.invocationCallOrder[0]
+    );
+    expect(dependencies.cleanupUnusedFiles).not.toHaveBeenCalled();
+    dependencies.createComment.mockRejectedValueOnce(new Error('link failed'));
+    dependencies.onConfirmedUploads.mockClear();
+    await expect(submit(dependencies)).rejects.toThrow('link failed');
+    expect(dependencies.onConfirmedUploads).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
   it('does not call cleanup when upload fails', async () => {
     const dependencies = setup();
     const uploadError = new Error('upload failed');

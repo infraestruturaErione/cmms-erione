@@ -12,9 +12,9 @@ import {
   GestureResponderEvent,
   Image,
   Platform,
-  Pressable,
   TouchableOpacity,
-  View
+  View,
+  useWindowDimensions
 } from 'react-native';
 import ModalScreen from '../screens/ModalScreen';
 import NotFoundScreen from '../screens/NotFoundScreen';
@@ -92,7 +92,7 @@ import RequestsScreen from '../screens/requests/RequestsScreen';
 
 import { FontAwesome, Ionicons, Feather } from '@expo/vector-icons';
 import { Fragment, ReactElement, ReactNode } from 'react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { fieldTabBarStyle } from './fieldNavigationLayout';
 import { isErioneModuleHidden } from '../config/erioneModules';
 
 export default function Navigation({
@@ -138,7 +138,10 @@ function RootNavigator() {
       <Stack.Screen
         name="WODetails"
         component={WODetailsScreen}
-        options={{ title: t('wo_details') }}
+        options={{
+          title: 'Ordem de serviço',
+          headerTitleStyle: { fontSize: 18 }
+        }}
       />
       <Stack.Screen
         name="Tasks"
@@ -243,7 +246,10 @@ function RootNavigator() {
       <Stack.Screen
         name="PeopleTeams"
         component={PeopleAndTeamsScreen}
-        options={{ title: t('people_teams'), contentStyle: Platform.OS === 'ios' ? { paddingTop: 10 } : undefined }}
+        options={{
+          title: t('people_teams'),
+          contentStyle: Platform.OS === 'ios' ? { paddingTop: 10 } : undefined
+        }}
       />
       <Stack.Screen
         name="TeamDetails"
@@ -373,20 +379,11 @@ function AuthNavigator() {
   const { t } = useTranslation();
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-      <AuthStack.Screen
-        name="Login"
-        component={LoginScreen}
-      />
+      <AuthStack.Screen name="Login" component={LoginScreen} />
       {Platform.OS !== 'ios' && (
-        <AuthStack.Screen
-          name="Register"
-          component={RegisterScreen}
-        />
+        <AuthStack.Screen name="Register" component={RegisterScreen} />
       )}
-      <AuthStack.Screen
-        name="Verify"
-        component={VerifyScreen}
-      />
+      <AuthStack.Screen name="Verify" component={VerifyScreen} />
     </AuthStack.Navigator>
   );
 }
@@ -430,6 +427,7 @@ function CreateTabBarButton(props: {
 
 function BottomTabNavigator({ navigation }: RootTabScreenProps<'Home'>) {
   const theme = useTheme();
+  const { fontScale } = useWindowDimensions();
   const { t } = useTranslation();
   const { hasViewPermission, hasCreatePermission, user } = useAuth();
   const uiConfiguration = user.uiConfiguration;
@@ -461,25 +459,19 @@ function BottomTabNavigator({ navigation }: RootTabScreenProps<'Home'>) {
   return (
     <BottomTab.Navigator
       initialRouteName={user.role.code === 'REQUESTER' ? 'Requests' : 'Home'}
+      safeAreaInsets={{ top: 0, bottom: 0 }}
       screenOptions={{
+        headerStatusBarHeight: 0,
         tabBarActiveTintColor: theme.colors.primary,
-        tabBarStyle: {
-          position: 'absolute',
-          bottom: 17,
-          left: 20,
-          right: 20,
-          elevation: 8,
-          borderRadius: 15,
-          zIndex: 10,
-          height: 70,
-          paddingTop: 6,
-          paddingBottom: Platform.OS === 'ios' ? 18 : 10,
-          borderTopWidth: 0,
-          shadowColor: '#000',
-          shadowOpacity: 0.15,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: -2 }
-        },
+        tabBarLabelPosition: 'below-icon',
+        tabBarStyle: fieldTabBarStyle(fontScale),
+        tabBarLabel: ({ children, color }) => (
+          <Text
+            style={{ color, fontSize: 11, lineHeight: 15, textAlign: 'center' }}
+          >
+            {children}
+          </Text>
+        ),
         tabBarItemStyle: {
           justifyContent: 'center',
           alignItems: 'center'
@@ -491,16 +483,14 @@ function BottomTabNavigator({ navigation }: RootTabScreenProps<'Home'>) {
           name="Home"
           component={HomeScreen}
           options={({ navigation }: RootTabScreenProps<'Home'>) => ({
-            headerTitle: (props) => (
-              <Text
-                style={{
-                  color: theme.colors.primary,
-                  fontSize: 22,
-                  fontWeight: 'bold'
-                }}
-              >
-                Erione
-              </Text>
+            headerTitle: () => (
+              <Image
+                testID="home-header-logo"
+                source={require('../assets/images/erione-logo.png')}
+                resizeMode="contain"
+                style={{ width: 30, height: 30 }}
+                accessible={false}
+              />
             ),
             title: t('home'),
             tabBarIcon: ({ color, focused }) => (
@@ -511,13 +501,11 @@ function BottomTabNavigator({ navigation }: RootTabScreenProps<'Home'>) {
               />
             ),
             headerRight: () => (
-              <Pressable
-                onPress={() => {
-                  navigation.navigate('Settings');
-                }}
-              >
-                <IconButton icon="cog-outline" />
-              </Pressable>
+              <IconButton
+                icon="cog-outline"
+                accessibilityLabel="Minha conta e configurações"
+                onPress={() => navigation.navigate('Settings')}
+              />
             )
           })}
         />
@@ -538,41 +526,41 @@ function BottomTabNavigator({ navigation }: RootTabScreenProps<'Home'>) {
       />
       {!fieldTechnician &&
         createEntities.some((entity) => hasCreatePermission(entity)) && (
-        <BottomTab.Screen
-          name="AddEntities"
-          component={View}
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              if (user.role.code === 'REQUESTER')
-                navigation.navigate('AddRequest');
-              else
-                SheetManager.show('create-entities-sheet', {
-                  payload: { navigation }
-                });
-            }
-          }}
-          options={{
-            title: showBigCreateButton ? '' : t('create'),
-            tabBarIcon: ({ focused }) => (
-              <IconButton
-                icon={'plus-circle'}
-                iconColor={theme.colors.primary}
-                size={showBigCreateButton ? 60 : 35}
-              />
-            ),
-            ...(showBigCreateButton
-              ? {
-                  tabBarButton: (props) => (
-                    <CreateTabBarButton onPress={props.onPress}>
-                      {props.children}
-                    </CreateTabBarButton>
-                  )
-                }
-              : {})
-          }}
-        />
-      )}
+          <BottomTab.Screen
+            name="AddEntities"
+            component={View}
+            listeners={{
+              tabPress: (e) => {
+                e.preventDefault();
+                if (user.role.code === 'REQUESTER')
+                  navigation.navigate('AddRequest');
+                else
+                  SheetManager.show('create-entities-sheet', {
+                    payload: { navigation }
+                  });
+              }
+            }}
+            options={{
+              title: showBigCreateButton ? '' : t('create'),
+              tabBarIcon: ({ focused }) => (
+                <IconButton
+                  icon={'plus-circle'}
+                  iconColor={theme.colors.primary}
+                  size={showBigCreateButton ? 60 : 35}
+                />
+              ),
+              ...(showBigCreateButton
+                ? {
+                    tabBarButton: (props) => (
+                      <CreateTabBarButton onPress={props.onPress}>
+                        {props.children}
+                      </CreateTabBarButton>
+                    )
+                  }
+                : {})
+            }}
+          />
+        )}
       {hasViewPermission(PermissionEntity.REQUESTS) &&
         uiConfiguration.requests && (
           <BottomTab.Screen
@@ -588,21 +576,21 @@ function BottomTabNavigator({ navigation }: RootTabScreenProps<'Home'>) {
         )}
       {!fieldTechnician &&
         viewMoreEntities.some((entity) => hasViewPermission(entity)) && (
-        <BottomTab.Screen
-          name="MoreEntities"
-          component={MoreEntitiesScreen}
-          options={{
-            title: t('more'),
-            tabBarIcon: ({ color, focused }) => (
-              <Ionicons
-                name={focused ? 'menu' : 'menu-outline'}
-                size={30}
-                color={color}
-              />
-            )
-          }}
-        />
-      )}
+          <BottomTab.Screen
+            name="MoreEntities"
+            component={MoreEntitiesScreen}
+            options={{
+              title: t('more'),
+              tabBarIcon: ({ color, focused }) => (
+                <Ionicons
+                  name={focused ? 'menu' : 'menu-outline'}
+                  size={30}
+                  color={color}
+                />
+              )
+            }}
+          />
+        )}
     </BottomTab.Navigator>
   );
 }

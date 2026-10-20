@@ -254,7 +254,11 @@ export const getGuidedWorkOrderAction = ({
         type: 'closure-details',
         labelKey: missing.includes('SIGNATURE')
           ? 'collect_signature'
-          : 'inform_mileage',
+          : missing.includes('MILEAGE') &&
+            !missing.includes('SIGNER_NAME') &&
+            !missing.includes('SIGNER_DOCUMENT')
+          ? 'inform_mileage'
+          : 'review_closure',
         helperKey: 'next_action_closure_details_helper'
       };
     }
@@ -302,4 +306,3 @@ export const getFieldDurations = (
     }
   };
 };
-

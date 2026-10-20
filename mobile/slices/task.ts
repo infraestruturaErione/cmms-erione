@@ -4,10 +4,12 @@ import type { AppThunk } from '../store';
 import api from '../utils/api';
 import { Task } from '../models/tasks';
 import { revertAll } from '../utils/redux';
+import { serialTaskWrite, taskWriteRevision } from '../utils/serialTaskWrites';
 
 const basePath = 'tasks';
 
 interface TaskState {
+  session?: number;
   tasksByWorkOrder: { [id: number]: Task[] };
   loadingTasks: { [id: number]: boolean };
 }
@@ -20,7 +22,11 @@ const initialState: TaskState = {
 const slice = createSlice({
   name: 'tasks',
   initialState,
-  extraReducers: (builder) => builder.addCase(revertAll, () => initialState),
+  extraReducers: (builder) =>
+    builder.addCase(revertAll, (state) => ({
+      ...initialState,
+      session: (state.session ?? 0) + 1
+    })),
   reducers: {
     getTasks(
       state: TaskState,
@@ -47,9 +53,9 @@ const slice = createSlice({
       }>
     ) {
       const { task, workOrderId } = action.payload;
-      state.tasksByWorkOrder[workOrderId] = state.tasksByWorkOrder[
-        workOrderId
-      ].map((t) => {
+      state.tasksByWorkOrder[workOrderId] = (
+        state.tasksByWorkOrder[workOrderId] ?? []
+      ).map((t) => {
         if (t.id === task.id) {
           return task;
         }
@@ -80,15 +86,23 @@ const slice = createSlice({
 export const reducer = slice.reducer;
 
 export const getTasks =
-  (id: number): AppThunk =>
-  async (dispatch) => {
+  (id: number, throwOnError = false): AppThunk =>
+  async (dispatch, getState) => {
+    const session = getState().tasks.session;
+    const revision = taskWriteRevision(getState);
     dispatch(slice.actions.setLoadingByTask({ id, loading: true }));
     try {
       const tasks = await api.get<Task[]>(`${basePath}/work-order/${id}`);
-      dispatch(slice.actions.getTasks({ id, tasks }));
-    } catch {
+      if (
+        getState().tasks.session === session &&
+        taskWriteRevision(getState) === revision
+      )
+        dispatch(slice.actions.getTasks({ id, tasks }));
+    } catch (error) {
+      if (throwOnError) throw error;
     } finally {
-      dispatch(slice.actions.setLoadingByTask({ id, loading: false }));
+      if (getState().tasks.session === session)
+        dispatch(slice.actions.setLoadingByTask({ id, loading: false }));
     }
   };
 
@@ -124,19 +138,38 @@ export const deleteTask =
   };
 
 export const patchTask =
-  (workOrderId: number, taskId: number, task): AppThunk =>
-  async (dispatch) => {
-    const taskResponse = await api.patch<Task>(
-      `${basePath}/${taskId}`,
-      task,
-      null,
-      true
-    );
-    dispatch(
-      slice.actions.patchTask({
-        workOrderId,
-        task: taskResponse
-      })
+  (
+    workOrderId: number,
+    taskId: number,
+    task: Task | ((current: Task) => Task)
+  ): AppThunk =>
+  async (dispatch, getState) => {
+    const session = getState().tasks.session;
+    return serialTaskWrite(
+      getState,
+      `${session}:${workOrderId}:${taskId}`,
+      async () => {
+        if (getState().tasks.session !== session)
+          throw new Error('A conta foi alterada. Abra novamente a OS.');
+        const current = getState().tasks.tasksByWorkOrder[workOrderId]?.find(
+          (item) => item.id === taskId
+        );
+        const payload = typeof task === 'function' ? task(current) : task;
+        const taskResponse = await api.patch<Task>(
+          `${basePath}/${taskId}`,
+          payload,
+          null,
+          true
+        );
+        if (getState().tasks.session === session)
+          dispatch(
+            slice.actions.patchTask({
+              workOrderId,
+              task: taskResponse
+            })
+          );
+        return taskResponse;
+      }
     );
   };
 export default slice;

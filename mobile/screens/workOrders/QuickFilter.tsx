@@ -11,10 +11,10 @@ interface OwnProps {
 }
 
 export default function QuickFilter({
-                                      filterFields,
-                                      onChange,
-                                      activeFilterField
-                                    }: OwnProps) {
+  filterFields,
+  onChange,
+  activeFilterField
+}: OwnProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const isSelected: boolean = filterFields.some(
@@ -22,6 +22,8 @@ export default function QuickFilter({
   );
   return (
     <TouchableOpacity
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: isSelected }}
       onPress={() => {
         const newFilterFields = isSelected
           ? filterFields.filter(
@@ -31,18 +33,26 @@ export default function QuickFilter({
         onChange(newFilterFields);
       }}
       style={{
-        backgroundColor: isSelected ? theme.colors.primary : theme.colors.background,
+        backgroundColor: isSelected
+          ? theme.colors.primary
+          : theme.colors.background,
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 20,
+        borderRadius: 12,
+        minHeight: 44,
+        paddingVertical: 10,
         paddingHorizontal: 15,
         margin: 5
       }}
     >
       <Text
-        style={{ color: isSelected ? 'white' : 'black', fontWeight: 'bold' }}
+        style={{
+          color: isSelected ? 'white' : theme.colors.primary,
+          fontWeight: '700',
+          fontSize: 13
+        }}
       >
         {t(activeFilterField.field)}
       </Text>

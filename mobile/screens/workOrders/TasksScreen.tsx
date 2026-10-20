@@ -1,4 +1,5 @@
 import { Task } from '../../models/tasks';
+import useLocalWorkOrderRemovalBlock from '../../hooks/useLocalWorkOrderRemovalBlock';
 import { getTasks, patchTask } from '../../slices/task';
 import { useTranslation } from 'react-i18next';
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
@@ -21,17 +22,19 @@ import {
   StyleSheet,
   View
 } from 'react-native';
-import { ProgressBar, Text, useTheme } from 'react-native-paper';
+import {
+  ActivityIndicator,
+  Button,
+  ProgressBar,
+  Text
+} from 'react-native-paper';
+import {
+  isConfirmedQuestion,
+  nextPendingQuestion
+} from '../../utils/questionnaireProgress';
 import SingleTask from '../../components/SingleTask';
 import { RootStackScreenProps } from '../../types';
-import { addFiles } from '../../slices/file';
-import * as ImagePicker from 'expo-image-picker';
-import mime from 'mime';
-import { formatImages } from '../../utils/overall';
-import ImageView from 'react-native-image-viewing';
-import { SheetManager } from 'react-native-actions-sheet';
-import { openLibraryWithPermission } from '../../utils/mediaPermissions';
-import InAppCamera from '../../components/InAppCamera';
+import { WorkOrderImageViewer } from '../../components/WorkOrderImage';
 import {
   AnsweredOverrides,
   countAnsweredTasks,
@@ -40,15 +43,32 @@ import {
 import { computeScrollToRevealInput } from '../../utils/keyboardAwareScroll';
 import useKeyboardVisible from '../../hooks/useKeyboardVisible';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
+import useTaskEdits from '../../hooks/useTaskEdits';
+import usePendingEditsExit from '../../hooks/usePendingEditsExit';
+import store from '../../store';
+import {
+  FIELD_UI,
+  FieldHero,
+  FieldNotice
+} from '../../components/erione/FieldWorkOrderUI';
 
 const colors = ERIONE_MOBILE_IDENTITY.colors;
 
-export default function TasksScreen({
-  navigation,
-  route
-}: RootStackScreenProps<'Tasks'>) {
+export default function TasksScreen(props: RootStackScreenProps<'Tasks'>) {
+  const { user } = useAuth();
+  const session = useSelector((state) => state.tasks.session);
+  return (
+    <TasksContent
+      key={`${user.id}:${user.companyId}:${session}:${props.route.params.workOrderId}`}
+      {...props}
+    />
+  );
+}
+
+function TasksContent({ navigation, route }: RootStackScreenProps<'Tasks'>) {
   const { t }: { t: any } = useTranslation();
   const { tasksProps, workOrderId } = route.params;
+  useLocalWorkOrderRemovalBlock(workOrderId, true);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState<boolean>(false);
   const [currentImage, setCurrentImage] = useState<string>();
   const [currentImages, setCurrentImages] = useState<string[]>([]);
@@ -59,8 +79,6 @@ export default function TasksScreen({
     }
   });
   const [notes, setNotes] = useState<Map<number, boolean>>(initialNotes);
-  const [tasks, setTasks] = useState<Task[]>(tasksProps);
-  const [cameraTaskId, setCameraTaskId] = useState<number | null>(null);
   const dispatch = useDispatch();
   const { user } = useAuth();
   const workOrder = useSelector(
@@ -73,6 +91,35 @@ export default function TasksScreen({
     !!workOrder &&
     user.role.code !== 'REQUESTER' &&
     canExecuteWorkOrder(workOrder, user.id);
+  const edits = useTaskEdits(
+    (taskId, field, value) =>
+      dispatch(
+        patchTask(workOrderId, taskId, (current) => {
+          const latestOrder =
+            store.getState().workOrders.workOrderInfos[workOrderId]?.workOrder;
+          if (
+            !current ||
+            !latestOrder ||
+            !canExecuteWorkOrder(latestOrder, user.id)
+          )
+            throw new Error(
+              'A execução desta OS não está disponível para você.'
+            );
+          return { ...current, [field]: value };
+        })
+      ),
+    canEdit,
+    savedTasks
+  );
+  const saveFeedback = edits.states;
+  const tasks = savedTasks.map(edits.overlay);
+  const exit = usePendingEditsExit(
+    navigation,
+    edits.hasPending,
+    edits.isBusy,
+    edits.leave,
+    edits.savePending
+  );
   useEffect(() => {
     dispatch(getWorkOrderDetails(workOrderId)).catch(() => undefined);
     return onWorkOrderExecutionConflict((id) => {
@@ -82,10 +129,14 @@ export default function TasksScreen({
       }
     });
   }, [dispatch, workOrderId]);
-  const theme = useTheme();
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const keyboardVisible = useKeyboardVisible();
   const [viewportHeight, setViewportHeight] = useState(0);
+  const [activeQuestion, setActiveQuestion] = useState<number>();
+  const positions = useRef<Record<number, number>>({});
+  const confirmedCount = savedTasks.filter((task) =>
+    isConfirmedQuestion(task, saveFeedback)
+  ).length;
 
   // Rascunhos: cada card avisa aqui quando passa a estar (ou deixa de estar) respondido,
   // antes mesmo de o valor ser persistido. Contador e porcentagem saem dessa mistura
@@ -138,6 +189,7 @@ export default function TasksScreen({
 
   const handleInputFocus = useCallback(
     (taskId: number, input: NativeView) => {
+      setActiveQuestion(taskId);
       focusedInputRef.current = { taskId, input };
       requestAnimationFrame(revealFocusedTask);
     },
@@ -186,33 +238,17 @@ export default function TasksScreen({
     [revealFocusedTask]
   );
 
-  useEffect(() => setTasks(savedTasks), [savedTasks]);
-
   function handleChange(value: string | number, id: number) {
     if (!canEdit) return;
-    const task = tasks.find((task) => task.id === id);
-    dispatch(patchTask(workOrderId, id, { ...task, value }))
-      .then(() => showSnackBar(t('task_update_success'), 'success'))
+    edits.edit(id, 'value', value);
+    edits
+      .save(id, 'value')
       .catch(() => showSnackBar(t('task_update_failure'), 'error'));
-
-    const newTasks = tasks.map((task) => {
-      if (task.id === id) {
-        return { ...task, value };
-      }
-      return task;
-    });
-    setTasks(newTasks);
   }
 
   function handleNoteChange(value: string, id: number) {
     if (!canEdit) return;
-    const newTasks = tasks.map((task) => {
-      if (task.id === id) {
-        return { ...task, notes: value };
-      }
-      return task;
-    });
-    setTasks(newTasks);
+    edits.edit(id, 'notes', value);
   }
 
   function toggleNotes(id: number) {
@@ -221,224 +257,250 @@ export default function TasksScreen({
     setNotes(newNotes);
   }
 
-  function handleSaveNotes(value: string, id: number) {
+  function handleSaveNotes(_value: string, id: number) {
     if (!canEdit) return Promise.resolve();
-    const task = tasks.find((task) => task.id === id);
-    return dispatch(patchTask(workOrderId, id, { ...task, notes: value })).then(
-      () => {
-        showSnackBar(t('notes_save_success'), 'success');
-        toggleNotes(task.id);
-      }
-    );
+    return edits
+      .save(id, 'notes')
+      .then((current) => {
+        if (current) {
+          showSnackBar(t('notes_save_success'), 'success');
+          toggleNotes(id);
+        }
+      })
+      .catch((error) => {
+        showSnackBar(
+          'Não foi possível confirmar o envio das notas. Confira a conexão antes de tentar novamente.',
+          'error'
+        );
+        throw error;
+      });
   }
 
-  const onImageUploadSuccess = () => {
-    showSnackBar(t('images_add_task_success'), 'success');
-  };
-  const onImageUploadFailure = (err) =>
-    showSnackBar(t('images_add_task_failure'), 'error');
   const handleZoomImage = (images: string[], image: string) => {
     setCurrentImage(image);
     setCurrentImages(images);
     setIsImageViewerOpen(true);
   };
 
-  const uploadImage = async (taskId: number) => {
-    if (!canEdit) return;
-    console.warn('[TasksScreen] Tap -> library', JSON.stringify({ taskId }));
-    const result = await openLibraryWithPermission('TasksScreen', {
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.75
-    });
-
-    if (!result || result.canceled) {
-      console.warn('[TasksScreen] Library picker canceled or unavailable');
-      return;
-    }
-
-    await onImagePicked(result, taskId);
-  };
-  const takePhoto = (taskId: number) => {
-    if (!canEdit) return;
-    setCameraTaskId(taskId);
-  };
-  const handleInAppCapture = async (uri: string) => {
-    if (!canEdit) return;
-    if (cameraTaskId === null) return;
-    const taskId = cameraTaskId;
-    setCameraTaskId(null);
-    const fileName = uri.split('/').pop() || 'photo.jpg';
-    const files = [
-      { uri, name: fileName, type: mime.getType(fileName) || 'image/jpeg' }
-    ];
-    return dispatch(addFiles(files, 'IMAGE', taskId))
-      .then(onImageUploadSuccess)
-      .then(() => dispatch(getTasks(workOrderId)))
-      .catch(onImageUploadFailure);
-  };
-  const onImagePicked = async (
-    result: ImagePicker.ImagePickerResult,
-    taskId: number
-  ) => {
-    if (!result.canceled) {
-      console.warn(
-        '[TasksScreen] Picker result -> upload',
-        JSON.stringify({ taskId, assets: result.assets.length })
-      );
-      return dispatch(addFiles(formatImages(result), 'IMAGE', taskId))
-        .then(onImageUploadSuccess)
-        .then(() => dispatch(getTasks(workOrderId)))
-        .catch(onImageUploadFailure);
-    }
-  };
   return (
-    <NativeView ref={viewportRef} style={styles.container}>
-      <ScrollView
-        ref={scrollRef}
-        style={styles.container}
-        contentContainerStyle={[
-          styles.contentContainer,
-          keyboardVisible && { paddingBottom: Math.max(40, viewportHeight) }
-        ]}
-        keyboardShouldPersistTaps="handled"
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        onLayout={handleScrollViewLayout}
-      >
-        <InAppCamera
-          visible={cameraTaskId !== null}
-          onCapture={handleInAppCapture}
-          onClose={() => setCameraTaskId(null)}
-        />
-        {!!workOrder && !canEdit && (
-          <View
-            testID="questionnaire-read-only-notice"
-            style={styles.readOnlyNotice}
-          >
-            <Text variant="titleSmall" style={styles.readOnlyTitle}>
-              Somente leitura
-            </Text>
-            <Text variant="bodyMedium" style={styles.readOnlyMessage}>
-              {getQuestionnaireReadOnlyMessage(workOrder, user.id)}
-            </Text>
+    <View style={styles.container}>
+      {exit.saving && (
+        <View testID="questionnaire-confirming-exit" style={styles.exitNotice}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={styles.exitHelper} accessibilityLiveRegion="polite">
+            Confirmando as respostas antes de voltar à OS...
+          </Text>
+          <View style={styles.exitActions}>
+            <Button onPress={exit.continueEditing}>Continuar editando</Button>
+            <Button onPress={exit.leaveWithoutWaiting}>
+              Sair sem aguardar
+            </Button>
           </View>
-        )}
-        <View style={styles.progressCard}>
-          <View style={styles.progressHeader}>
-            <View style={{ flex: 1 }}>
-              <Text variant="titleMedium" style={styles.progressTitle}>
-                {t('questionnaire')}
-              </Text>
-              <Text variant="bodySmall" style={styles.progressHelper}>
-                {t('questionnaire_progress', {
-                  completed: completedTasks,
-                  total: tasks.length
-                })}
-              </Text>
-            </View>
-            <Text variant="titleMedium" style={styles.progressPercent}>
-              {Math.round(progress * 100)}%
-            </Text>
-          </View>
-          <ProgressBar
-            progress={progress}
-            color={theme.colors.primary}
-            style={styles.progressBar}
-          />
         </View>
-        {tasks.map((task, index) => (
-          <SingleTask
-            readOnly={!canEdit}
-            key={task.id}
-            task={task}
-            index={index + 1}
-            onAnsweredChange={handleAnsweredChange}
-            onInputFocus={handleInputFocus}
-            onInputSizeChange={handleInputSizeChange}
-            handleChange={handleChange}
-            handleNoteChange={handleNoteChange}
-            handleSaveNotes={handleSaveNotes}
-            toggleNotes={toggleNotes}
-            handleSelectImages={(taskId) => {
-              SheetManager.show('upload-file-sheet', {
-                payload: {
-                  onPickImage: () => uploadImage(taskId),
-                  onTakePhoto: () => takePhoto(taskId)
+      )}
+      <NativeView ref={viewportRef} style={styles.container}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.container}
+          contentContainerStyle={[
+            styles.contentContainer,
+            keyboardVisible && { paddingBottom: Math.max(40, viewportHeight) }
+          ]}
+          keyboardShouldPersistTaps="handled"
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          onLayout={handleScrollViewLayout}
+        >
+          {!!workOrder && !canEdit && (
+            <View
+              testID="questionnaire-read-only-notice"
+              style={styles.readOnlyNotice}
+            >
+              <FieldNotice
+                icon="eye-outline"
+                title="Somente leitura"
+                message={getQuestionnaireReadOnlyMessage(workOrder, user.id)}
+              />
+            </View>
+          )}
+          <View style={styles.progressCard}>
+            <FieldHero
+              eyebrow={
+                workOrder
+                  ? `ATENDIMENTO · #${workOrder.customId}`
+                  : 'ATENDIMENTO EM CAMPO'
+              }
+              title={t('questionnaire')}
+              count={`${Math.round(progress * 100)}%`}
+              countLabel="preenchido"
+              helper={t('questionnaire_progress', {
+                completed: completedTasks,
+                total: tasks.length
+              })}
+            />
+            <ProgressBar
+              progress={progress}
+              color={colors.primary}
+              style={styles.progressBar}
+            />
+          </View>
+          <Text style={styles.saveHelper}>
+            O progresso acompanha o preenchimento. Confira a confirmação de
+            envio em cada resposta.
+          </Text>
+          <Text accessibilityLiveRegion="polite" style={styles.confirmedCount}>
+            {confirmedCount} de {tasks.length} respostas confirmadas no sistema
+          </Text>
+          {!!tasks.length && (
+            <Button
+              mode="outlined"
+              icon="arrow-down"
+              contentStyle={{ minHeight: 48 }}
+              style={{ marginBottom: 16 }}
+              onPress={() => {
+                const next = nextPendingQuestion(
+                  savedTasks,
+                  saveFeedback,
+                  activeQuestion
+                );
+                if (next == null) {
+                  showSnackBar(
+                    'Todas as respostas estão confirmadas. Você pode voltar à OS.',
+                    'success'
+                  );
+                  return;
                 }
-              });
-            }}
-            handleZoomImage={handleZoomImage}
-            notes={notes}
+                Keyboard.dismiss();
+                setActiveQuestion(next);
+                requestAnimationFrame(() =>
+                  scrollRef.current?.scrollTo({
+                    y: positions.current[next] ?? 0,
+                    animated: false
+                  })
+                );
+              }}
+            >
+              Ir para próxima pendente
+            </Button>
+          )}
+          {tasks.map((task, index) => (
+            <View
+              key={task.id}
+              onLayout={(event) => {
+                positions.current[task.id] = event.nativeEvent.layout.y;
+              }}
+            >
+              <SingleTask
+                compact={
+                  task.id !== activeQuestion &&
+                  !notes.get(task.id) &&
+                  isConfirmedQuestion(savedTasks[index], saveFeedback)
+                }
+                onExpand={() => setActiveQuestion(task.id)}
+                workOrderId={workOrderId}
+                answerFeedback={saveFeedback[`${task.id}:value`]}
+                notesFeedback={saveFeedback[`${task.id}:notes`]}
+                onDraftChange={(id, value) => edits.edit(id, 'value', value)}
+                onRetryAnswer={(id) =>
+                  edits
+                    .save(id, 'value')
+                    .catch(() =>
+                      showSnackBar(t('task_update_failure'), 'error')
+                    )
+                }
+                flushOnUnmount={false}
+                readOnly={!canEdit || exit.saving}
+                task={task}
+                index={index + 1}
+                onAnsweredChange={handleAnsweredChange}
+                onInputFocus={handleInputFocus}
+                onInputSizeChange={handleInputSizeChange}
+                handleChange={handleChange}
+                handleNoteChange={handleNoteChange}
+                handleSaveNotes={handleSaveNotes}
+                toggleNotes={toggleNotes}
+                handleZoomImage={handleZoomImage}
+                notes={notes}
+              />
+            </View>
+          ))}
+          <Button
+            mode="contained"
+            loading={exit.saving}
+            disabled={exit.saving}
+            onPress={() => navigation.goBack()}
+            contentStyle={{ minHeight: 52 }}
+            style={{ marginTop: 8 }}
+          >
+            Voltar à ordem de serviço
+          </Button>
+          <WorkOrderImageViewer
+            workOrderId={workOrderId}
+            images={currentImages.map((uri) => ({ uri }))}
+            imageIndex={currentImages.findIndex((img) => img === currentImage)}
+            visible={isImageViewerOpen}
+            onRequestClose={() => setIsImageViewerOpen(false)}
           />
-        ))}
-        <ImageView
-          images={currentImages.map((uri) => ({ uri }))}
-          imageIndex={currentImages.findIndex((img) => img === currentImage)}
-          visible={isImageViewerOpen}
-          onRequestClose={() => setIsImageViewerOpen(false)}
-        />
-      </ScrollView>
-    </NativeView>
+        </ScrollView>
+      </NativeView>
+    </View>
   );
 }
 const styles = StyleSheet.create({
+  exitNotice: {
+    padding: 12,
+    backgroundColor: colors.primarySoft
+  },
+  exitActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center'
+  },
+  exitHelper: {
+    color: colors.primary,
+    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 20,
+    marginVertical: 8
+  },
+  confirmedCount: {
+    color: FIELD_UI.green,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginBottom: 12
+  },
   container: {
     flex: 1,
-    backgroundColor: colors.background
+    backgroundColor: FIELD_UI.canvas
   },
   contentContainer: {
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 40
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 48,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center'
   },
   readOnlyNotice: {
-    padding: 14,
-    marginBottom: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#CAD6FF',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-    backgroundColor: '#F3F6FF'
+    marginBottom: 12
   },
-  readOnlyTitle: {
-    color: colors.primary,
-    fontWeight: '800'
-  },
-  readOnlyMessage: {
-    color: colors.text,
-    lineHeight: 21,
-    marginTop: 4
+  saveHelper: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 19,
+    marginHorizontal: 4,
+    marginTop: 2,
+    marginBottom: 18
   },
   progressCard: {
-    padding: 14,
-    marginBottom: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#CAD6FF',
-    backgroundColor: '#FFFFFF'
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12
-  },
-  progressTitle: {
-    color: colors.text,
-    fontWeight: '800'
-  },
-  progressHelper: {
-    color: colors.muted,
-    marginTop: 2
-  },
-  progressPercent: {
-    color: colors.primary,
-    fontWeight: '900'
+    marginBottom: 12
   },
   progressBar: {
-    height: 7,
+    height: 5,
     borderRadius: 999,
-    marginTop: 12
+    marginTop: 10,
+    marginHorizontal: 4,
+    backgroundColor: '#DCE5F5'
   }
 });

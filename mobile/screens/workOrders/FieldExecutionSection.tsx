@@ -1,15 +1,17 @@
 import * as ImagePicker from 'expo-image-picker';
+import { rememberWorkOrderUploads } from '../../utils/workOrderMedia';
+import useLocalWorkOrderRemovalBlock from '../../hooks/useLocalWorkOrderRemovalBlock';
 import * as Location from 'expo-location';
 import { useNetInfo } from '@react-native-community/netinfo';
 import mime from 'mime';
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import {
   Button,
-  Chip,
   Divider,
   IconButton,
   ProgressBar,
+  Portal,
   Text,
   useTheme
 } from 'react-native-paper';
@@ -19,17 +21,20 @@ import FieldReportDialog from './FieldReportDialog';
 import FieldEvidenceDialog from './FieldEvidenceDialog';
 import Comment from '../../models/comment';
 import WorkOrder from '../../models/workOrder';
-import { createComment, updateComment } from '../../slices/comment';
+import commentSlice, {
+  createComment,
+  updateComment
+} from '../../slices/comment';
 import { cleanupUnusedFiles } from '../../slices/file';
 import {
   checkInWorkOrder,
   checkOutWorkOrder,
   departWorkOrder
 } from '../../slices/workOrder';
-import { useDispatch } from '../../store';
+import store, { useDispatch } from '../../store';
 import { CustomSnackBarContext } from '../../contexts/CustomSnackBarContext';
 import { CompanySettingsContext } from '../../contexts/CompanySettingsContext';
-import { getErrorMessage } from '../../utils/api';
+import api, { getErrorMessage } from '../../utils/api';
 import { openLibraryWithPermission } from '../../utils/mediaPermissions';
 import {
   formatDistanceLabel,
@@ -51,12 +56,18 @@ import {
 } from '../../utils/workOrderFieldUx';
 import {
   ErioneCard,
-  ErionePrimaryButton,
-  ErioneSectionHeader
+  ErionePrimaryButton
 } from '../../components/erione/ErioneUI';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
+import {
+  FIELD_UI,
+  FieldSectionTitle
+} from '../../components/erione/FieldWorkOrderUI';
 import useAuth from '../../hooks/useAuth';
 import { submitFieldEvidenceWithCleanup } from '../../utils/fieldEvidenceSubmission';
+import useKeyboardVisible from '../../hooks/useKeyboardVisible';
+import GuidedActionBar from './components/GuidedActionBar';
+import { getWorkOrderCompanionLabel } from '../../utils/workOrderExecution';
 
 const colors = ERIONE_MOBILE_IDENTITY.colors;
 
@@ -74,6 +85,15 @@ interface Props {
   onOpenTasks?: () => void;
   onReviewClosure?: () => void;
   completionLoading?: boolean;
+  actionPlacement?: 'inline' | 'footer';
+  onActionHeightChange?: (height: number) => void;
+  hideAction?: boolean;
+  canClaim?: boolean;
+  onClaim?: () => void;
+  claiming?: boolean;
+  checking?: boolean;
+  checkError?: boolean;
+  onRetryCheck?: () => void;
 }
 
 const formatDuration = (seconds: number | null, inProgress?: boolean) => {
@@ -192,7 +212,9 @@ export function FieldExecutionHistory({
       title: t('field_report'),
       done: reportRegistered,
       date: null,
-      detail: t(reportRegistered ? 'field_report_registered' : 'field_report_pending')
+      detail: t(
+        reportRegistered ? 'field_report_registered' : 'field_report_pending'
+      )
     },
     {
       key: 'evidence',
@@ -208,8 +230,14 @@ export function FieldExecutionHistory({
       date: workOrder.completedOn,
       detail:
         workOrder.status === 'COMPLETE' && workOrder.completedBy
-          ? `${t('completed_by')} ${workOrder.completedBy.firstName} ${workOrder.completedBy.lastName}`
-          : t(workOrder.status === 'COMPLETE' ? 'completed_step' : 'pending_completion')
+          ? `${t('completed_by')} ${workOrder.completedBy.firstName} ${
+              workOrder.completedBy.lastName
+            }`
+          : t(
+              workOrder.status === 'COMPLETE'
+                ? 'completed_step'
+                : 'pending_completion'
+            )
     }
   ];
 
@@ -240,7 +268,9 @@ export function FieldExecutionHistory({
             <IconButton
               icon={item.done ? 'check-circle' : 'circle-outline'}
               size={22}
-              iconColor={item.done ? theme.colors.primary : theme.colors.outline}
+              iconColor={
+                item.done ? theme.colors.primary : theme.colors.outline
+              }
               style={styles.timelineIcon}
             />
             <View style={{ flex: 1 }}>
@@ -274,13 +304,24 @@ export default function FieldExecutionSection({
   tasks = [],
   onOpenTasks,
   onReviewClosure,
-  completionLoading = false
+  completionLoading = false,
+  actionPlacement = 'inline',
+  onActionHeightChange,
+  hideAction = false,
+  canClaim = false,
+  onClaim,
+  claiming = false,
+  checking = false,
+  checkError = false,
+  onRetryCheck
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const dispatch = useDispatch();
   const { user } = useAuth();
   const netInfo = useNetInfo();
+  const keyboardVisible = useKeyboardVisible();
+  const actionInFlight = useRef(false);
   const { showSnackBar } = useContext(CustomSnackBarContext);
   const { getFormattedDate, uploadFiles } = useContext(CompanySettingsContext);
   const [loadingAction, setLoadingAction] = useState<FieldAction | null>(null);
@@ -292,10 +333,32 @@ export default function FieldExecutionSection({
   const [cameraOpen, setCameraOpen] = useState(false);
   const [savingReport, setSavingReport] = useState(false);
   const [savingEvidence, setSavingEvidence] = useState(false);
+  const [evidenceError, setEvidenceError] = useState('');
+  const [reportError, setReportError] = useState('');
+  const evidenceAttempt = useRef<{
+    uploaded: { id: number }[];
+    files: { uri: string; name: string; type: string }[];
+  }>(undefined);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useLocalWorkOrderRemovalBlock(
+    workOrder.id,
+    reportOpen ||
+      evidenceOpen ||
+      cameraOpen ||
+      savingReport ||
+      savingEvidence ||
+      !!loadingAction ||
+      !!evidenceFiles.length
+  );
 
   const guidedAction = getGuidedWorkOrderAction({ workOrder, readiness });
-  const isCompletionAction =
-    guidedAction.type === 'closure-details' || guidedAction.type === 'complete';
+  const [journeyExpanded, setJourneyExpanded] = useState(false);
   const status = getFieldExecutionStatus(workOrder);
   const durations = getFieldDurations(workOrder);
   const reportRegistered = hasFieldReport(comments);
@@ -324,7 +387,14 @@ export default function FieldExecutionSection({
 
   const openFieldReport = () => setReportOpen(true);
 
-  const isReportReadOnly = !!existingFieldReport && !canUpdateExistingReport;
+  const isReportReadOnly =
+    !canEdit || (!!existingFieldReport && !canUpdateExistingReport);
+  useEffect(() => {
+    if (!canEdit) {
+      setCameraOpen(false);
+      setEvidenceOpen(false);
+    }
+  }, [canEdit]);
 
   const closeReportDialog = () => setReportOpen(false);
 
@@ -349,14 +419,16 @@ export default function FieldExecutionSection({
   };
 
   const runFieldAction = async (action: FieldAction) => {
-    if (loadingAction) return;
+    if (!canEdit || actionInFlight.current || checking || checkError) return;
     if (netInfo.isInternetReachable === false) {
       showSnackBar(t('field_action_offline_error'), 'error');
       return;
     }
+    actionInFlight.current = true;
     setLoadingAction(action);
     try {
       const { latitude, longitude, error: geoError } = await getCoordinates();
+      if (!mounted.current) return;
 
       if (geoError) {
         showSnackBar(t(geoError), 'error');
@@ -391,15 +463,32 @@ export default function FieldExecutionSection({
         );
       }
 
-      showSnackBar(t('field_execution_action_success'), 'success');
+      if (mounted.current)
+        showSnackBar(t('field_execution_action_success'), 'success');
     } catch (error) {
-      showSnackBar(getErrorMessage(error), 'error');
+      if (mounted.current) showSnackBar(getErrorMessage(error), 'error');
     } finally {
-      setLoadingAction(null);
+      actionInFlight.current = false;
+      if (mounted.current) setLoadingAction(null);
     }
   };
 
   const runGuidedAction = () => {
+    if (
+      checking ||
+      checkError ||
+      loadingAction ||
+      savingReport ||
+      savingEvidence ||
+      completionLoading ||
+      claiming
+    )
+      return;
+    if (canClaim) {
+      onClaim?.();
+      return;
+    }
+    if (!canEdit) return;
     if (
       guidedAction.type === 'depart' ||
       guidedAction.type === 'check-in' ||
@@ -418,6 +507,74 @@ export default function FieldExecutionSection({
       onReviewClosure?.();
     }
   };
+
+  const actionVisible =
+    !completedMode &&
+    !hideAction &&
+    !keyboardVisible &&
+    !reportOpen &&
+    !evidenceOpen &&
+    !cameraOpen;
+  useEffect(() => {
+    if (!actionVisible || actionPlacement !== 'footer')
+      onActionHeightChange?.(0);
+  }, [actionVisible, actionPlacement, onActionHeightChange]);
+  const readOnly = !canEdit && !canClaim;
+  const actionTitle = readOnly
+    ? 'Somente leitura'
+    : checking
+    ? 'Conferindo situação da OS...'
+    : checkError
+    ? 'Não foi possível verificar esta etapa.'
+    : canClaim
+    ? 'Assumir execução'
+    : t(guidedAction.labelKey);
+  const actionBar = (
+    <GuidedActionBar
+      title={actionTitle}
+      actionKey={
+        readOnly
+          ? 'companion'
+          : checking
+          ? 'checking'
+          : checkError
+          ? 'error'
+          : canClaim
+          ? 'claim'
+          : guidedAction.type
+      }
+      readOnly={readOnly}
+      helper={
+        readOnly
+          ? getWorkOrderCompanionLabel(workOrder, user.id) ??
+            'Consulte os dados, questionário, relato e evidências.'
+          : checking || checkError
+          ? undefined
+          : canClaim
+          ? 'A execução fica com o primeiro técnico que assumir.'
+          : guidedAction.helperKey
+          ? t(guidedAction.helperKey)
+          : undefined
+      }
+      loading={!!loadingAction || completionLoading || claiming}
+      disabled={
+        !!loadingAction ||
+        savingReport ||
+        savingEvidence ||
+        completionLoading ||
+        claiming
+      }
+      onPress={
+        !readOnly &&
+        !checking &&
+        !checkError &&
+        (canClaim || guidedAction.type !== 'view')
+          ? runGuidedAction
+          : undefined
+      }
+      onRetry={!readOnly && checkError ? onRetryCheck : undefined}
+    />
+  );
 
   const closeEvidenceDialog = () => {
     if (savingEvidence) return;
@@ -468,22 +625,32 @@ export default function FieldExecutionSection({
   };
 
   const handleCameraCapture = (uri: string) => {
+    if (!mounted.current) return;
     const fileName = uri.split('/').pop() || 'photo.jpg';
-    setEvidenceFiles((current) => [
-      ...current,
-      { uri, name: fileName, type: mime.getType(fileName) || 'image/jpeg' }
-    ]);
-    setCameraOpen(false);
+    setEvidenceFiles((current) =>
+      current.some((file) => file.uri === uri)
+        ? current
+        : [
+            ...current,
+            {
+              uri,
+              name: fileName,
+              type: mime.getType(fileName) || 'image/jpeg'
+            }
+          ]
+    );
   };
 
   const submitFieldReport = async (text: string) => {
-    if (savingReport) return;
+    if (!canEdit || actionInFlight.current || savingReport) return;
     if (!text.trim()) return;
     if (netInfo.isInternetReachable === false) {
       showSnackBar(t('field_report_offline_error'), 'error');
       return;
     }
+    actionInFlight.current = true;
     setSavingReport(true);
+    setReportError('');
     try {
       const content = `${FIELD_REPORT_PREFIX} ${text.trim()}`.trim();
       if (existingFieldReport) {
@@ -507,183 +674,273 @@ export default function FieldExecutionSection({
           })
         );
       }
+      if (!mounted.current) return;
       setReportOpen(false);
       showSnackBar(t('field_report_save_success'), 'success');
     } catch (error) {
-      showSnackBar(getErrorMessage(error, t('field_report_save_error')), 'error');
+      if (!mounted.current) return;
+      setReportError(getErrorMessage(error, t('field_report_save_error')));
+      showSnackBar(
+        getErrorMessage(error, t('field_report_save_error')),
+        'error'
+      );
     } finally {
-      setSavingReport(false);
+      actionInFlight.current = false;
+      if (mounted.current) setSavingReport(false);
     }
   };
 
   const submitEvidence = async () => {
-    if (savingEvidence) return;
+    if (!canEdit || actionInFlight.current || savingEvidence) return;
     if (!evidenceFiles.length) return;
     if (netInfo.isInternetReachable === false) {
       showSnackBar(t('field_evidence_offline_error'), 'error');
       return;
     }
+    actionInFlight.current = true;
     setSavingEvidence(true);
+    setEvidenceError('');
+    const session = store.getState().tasks.session;
+    const assertSession = () => {
+      if (!mounted.current || store.getState().tasks.session !== session)
+        throw new Error(
+          'A sessão mudou. Abra novamente a OS para conferir os registros.'
+        );
+    };
+    const reconcile = async (ids: number[]) => {
+      assertSession();
+      if (!ids.length) return undefined;
+      const fresh = await api.post<Comment[]>(
+        `comments/search/${workOrder.id}`,
+        {}
+      );
+      assertSession();
+      const found = fresh.find(
+        (comment) =>
+          comment.user?.id === user.id &&
+          comment.content?.startsWith(FIELD_REPORT_PREFIX) &&
+          comment.files?.length === ids.length &&
+          ids.every((id) => comment.files.some((file) => file.id === id))
+      );
+      if (found)
+        dispatch(
+          commentSlice.actions.getComments({
+            workOrderId: workOrder.id,
+            comments: fresh
+          })
+        );
+      return found;
+    };
     try {
-      // uploadFiles(files, images, hidden) - fotos de evidencia tem que ir no
-      // 2o parametro (images -> type=IMAGE), senao sobem como type=OTHER e o
-      // relatorio PDF nao renderiza a miniatura (so exibe quando type=IMAGE).
-      await submitFieldEvidenceWithCleanup({
-        evidenceFiles,
-        uploadFiles,
-        createComment: (files) =>
-          dispatch(
-            createComment({
-              workOrder: { id: workOrder.id },
-              content: `${FIELD_REPORT_PREFIX} ${FIELD_EVIDENCE_AUTO_TEXT}`,
-              files
-            })
-          ),
-        cleanupUnusedFiles
-      });
-      setEvidenceFiles([]);
-      setEvidenceOpen(false);
+      const previous = evidenceAttempt.current;
+      const confirmed = previous
+        ? await reconcile(previous.uploaded.map((file) => file.id))
+        : undefined;
+      let confirmedFiles = evidenceFiles;
+      if (confirmed) {
+        confirmedFiles = previous.files;
+        await rememberWorkOrderUploads(
+          workOrder.id,
+          previous.files,
+          previous.uploaded
+        ).catch(() => undefined);
+      } else {
+        // uploadFiles(files, images, hidden) - fotos de evidencia tem que ir no
+        // 2o parametro (images -> type=IMAGE), senao sobem como type=OTHER e o
+        // relatorio PDF nao renderiza a miniatura (so exibe quando type=IMAGE).
+        await submitFieldEvidenceWithCleanup({
+          evidenceFiles,
+          uploadFiles,
+          onConfirmedUploads: (files) => {
+            assertSession();
+            return rememberWorkOrderUploads(workOrder.id, evidenceFiles, files);
+          },
+          createComment: (files) => {
+            assertSession();
+            return dispatch(
+              createComment({
+                workOrder: { id: workOrder.id },
+                content: `${FIELD_REPORT_PREFIX} ${FIELD_EVIDENCE_AUTO_TEXT}`,
+                files
+              })
+            );
+          },
+          cleanupUnusedFiles: (ids) => {
+            assertSession();
+            return cleanupUnusedFiles(ids);
+          },
+          onUploaded: (files) => {
+            evidenceAttempt.current = { uploaded: files, files: evidenceFiles };
+          },
+          reconcile
+        });
+      }
+      evidenceAttempt.current = undefined;
+      if (!mounted.current) return;
+      const sent = new Set(confirmedFiles.map((file) => file.uri));
+      const remaining = evidenceFiles.filter((file) => !sent.has(file.uri));
+      setEvidenceFiles(remaining);
+      setEvidenceOpen(remaining.length > 0);
       showSnackBar(t('field_evidence_save_success'), 'success');
     } catch (error) {
-      showSnackBar(getErrorMessage(error, t('field_evidence_save_error')), 'error');
+      if (!mounted.current) return;
+      setEvidenceError(
+        'Não foi possível confirmar o envio. As fotos selecionadas continuam aqui. Confira os registros da OS antes de tentar novamente.'
+      );
+      showSnackBar(
+        getErrorMessage(error, t('field_evidence_save_error')),
+        'error'
+      );
     } finally {
-      setSavingEvidence(false);
+      actionInFlight.current = false;
+      if (mounted.current) setSavingEvidence(false);
     }
   };
 
   return (
     <ErioneCard style={styles.card}>
-      <View style={styles.headerRow}>
-        <View style={{ flex: 1 }}>
-          <ErioneSectionHeader
-            title={t('field_execution')}
-            subtitle={t('field_execution_mobile_helper')}
-          />
-        </View>
-        <Chip compact style={styles.statusChip} textStyle={styles.statusChipText}>
-          {t(status)}
-        </Chip>
-      </View>
+      <FieldSectionTitle
+        icon="map-marker-check-outline"
+        title={t('field_execution')}
+        helper={t('field_execution_mobile_helper')}
+        status={t(status)}
+      />
 
-      {!completedMode && (
-        <View style={styles.nextActionBox}>
-          <Text variant="labelMedium" style={styles.nextActionLabel}>
-            {t('next_action')}
-          </Text>
-          <Text variant="titleLarge" style={styles.nextActionTitle}>
-            {t(guidedAction.labelKey)}
-          </Text>
-          {guidedAction.helperKey && (
-            <Text variant="bodySmall" style={styles.nextActionHelper}>
-              {t(guidedAction.helperKey)}
-            </Text>
-          )}
-          {canEdit && guidedAction.type !== 'view' && (
-            <ErionePrimaryButton
-              loading={
-                loadingAction === guidedAction.type ||
-                (isCompletionAction && completionLoading)
-              }
-              disabled={
-                !!loadingAction ||
-                savingReport ||
-                savingEvidence ||
-                (isCompletionAction && completionLoading)
-              }
-              onPress={runGuidedAction}
-              style={styles.nextActionButton}
+      {actionVisible &&
+        (actionPlacement === 'footer' ? (
+          <Portal>
+            <View
+              pointerEvents="box-none"
+              style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}
             >
-              {t(guidedAction.labelKey)}
-            </ErionePrimaryButton>
-          )}
-        </View>
-      )}
+              <View
+                onLayout={(event) =>
+                  onActionHeightChange?.(event.nativeEvent.layout.height)
+                }
+                style={{
+                  backgroundColor: '#FFFFFF'
+                }}
+              >
+                {actionBar}
+              </View>
+            </View>
+          </Portal>
+        ) : (
+          actionBar
+        ))}
 
-      <Text variant="titleSmall" style={styles.subsectionTitle}>
-        {t('arrival')}
-      </Text>
-      <View style={styles.arrivalSteps}>
-        {[
-          {
-            label: t('travel_started'),
-            done: !!workOrder.departureAt,
-            date: workOrder.departureAt
-          },
-          {
-            label: t('check_in_done'),
-            done: !!workOrder.checkInAt,
-            date: workOrder.checkInAt
-          }
-        ].map((step, index, steps) => (
-          <View
-            key={step.label}
-            style={[
-              styles.arrivalStep,
-              index === steps.length - 1 && styles.arrivalStepLast
-            ]}
-          >
+      {!!workOrder.checkInAt && (
+        <Button
+          mode="text"
+          icon={journeyExpanded ? 'chevron-up' : 'chevron-down'}
+          accessibilityState={{ expanded: journeyExpanded }}
+          onPress={() => setJourneyExpanded((open) => !open)}
+          contentStyle={{ minHeight: 44 }}
+        >
+          {journeyExpanded
+            ? 'Recolher chegada e tempos'
+            : 'Chegada confirmada · ver etapas e tempos'}
+        </Button>
+      )}
+      <View
+        style={
+          workOrder.checkInAt && !journeyExpanded
+            ? { display: 'none' }
+            : undefined
+        }
+      >
+        <Text variant="titleSmall" style={styles.subsectionTitle}>
+          {t('arrival')}
+        </Text>
+        <View style={styles.arrivalSteps}>
+          {[
+            {
+              label: t('travel_started'),
+              done: !!workOrder.departureAt,
+              date: workOrder.departureAt
+            },
+            {
+              label: t('check_in_done'),
+              done: !!workOrder.checkInAt,
+              date: workOrder.checkInAt
+            }
+          ].map((step, index, steps) => (
+            <View
+              key={step.label}
+              style={[
+                styles.arrivalStep,
+                index === steps.length - 1 && styles.arrivalStepLast
+              ]}
+            >
+              <IconButton
+                icon={step.done ? 'check-circle' : 'circle-outline'}
+                size={20}
+                iconColor={step.done ? colors.primary : theme.colors.outline}
+                style={styles.arrivalIcon}
+              />
+              <Text variant="bodyMedium" style={styles.arrivalLabel}>
+                {step.label}
+              </Text>
+              <Text variant="bodySmall" style={styles.arrivalTime}>
+                {step.date ? getFormattedDate(step.date) : t('pending_step')}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <Text variant="titleSmall" style={styles.subsectionTitle}>
+          {t('on_site_closing')}
+        </Text>
+        <View style={styles.arrivalSteps}>
+          <View style={[styles.arrivalStep, styles.arrivalStepLast]}>
             <IconButton
-              icon={step.done ? 'check-circle' : 'circle-outline'}
+              icon={workOrder.checkOutAt ? 'check-circle' : 'circle-outline'}
               size={20}
-              iconColor={step.done ? colors.primary : theme.colors.outline}
+              iconColor={
+                workOrder.checkOutAt ? colors.primary : theme.colors.outline
+              }
               style={styles.arrivalIcon}
             />
             <Text variant="bodyMedium" style={styles.arrivalLabel}>
-              {step.label}
+              {t('check_out_done')}
             </Text>
             <Text variant="bodySmall" style={styles.arrivalTime}>
-              {step.date ? getFormattedDate(step.date) : t('pending_step')}
+              {workOrder.checkOutAt
+                ? getFormattedDate(workOrder.checkOutAt)
+                : t('pending_step')}
             </Text>
           </View>
-        ))}
-      </View>
-
-      <Text variant="titleSmall" style={styles.subsectionTitle}>
-        {t('on_site_closing')}
-      </Text>
-      <View style={styles.arrivalSteps}>
-        <View style={[styles.arrivalStep, styles.arrivalStepLast]}>
-          <IconButton
-            icon={workOrder.checkOutAt ? 'check-circle' : 'circle-outline'}
-            size={20}
-            iconColor={
-              workOrder.checkOutAt ? colors.primary : theme.colors.outline
-            }
-            style={styles.arrivalIcon}
-          />
-          <Text variant="bodyMedium" style={styles.arrivalLabel}>
-            {t('check_out_done')}
-          </Text>
-          <Text variant="bodySmall" style={styles.arrivalTime}>
-            {workOrder.checkOutAt
-              ? getFormattedDate(workOrder.checkOutAt)
-              : t('pending_step')}
-          </Text>
         </View>
-      </View>
 
-      <View style={styles.metricsRow}>
-        <View style={styles.metric}>
-          <Text variant="labelSmall" style={styles.metricLabel}>
-            {t('travel_duration')}
-          </Text>
-          <Text variant="bodyMedium" style={styles.metricValue}>
-            {formatDuration(durations.travel.seconds, durations.travel.inProgress)}
-          </Text>
+        <View style={styles.metricsRow}>
+          <View style={styles.metric}>
+            <Text variant="labelSmall" style={styles.metricLabel}>
+              {t('travel_duration')}
+            </Text>
+            <Text variant="bodyMedium" style={styles.metricValue}>
+              {formatDuration(
+                durations.travel.seconds,
+                durations.travel.inProgress
+              )}
+            </Text>
+          </View>
+          <View style={styles.metric}>
+            <Text variant="labelSmall" style={styles.metricLabel}>
+              {t('total_field_duration')}
+            </Text>
+            <Text variant="bodyMedium" style={styles.metricValue}>
+              {formatDuration(
+                durations.total.seconds,
+                durations.total.inProgress
+              )}
+            </Text>
+          </View>
         </View>
-        <View style={styles.metric}>
-          <Text variant="labelSmall" style={styles.metricLabel}>
-            {t('total_field_duration')}
-          </Text>
-          <Text variant="bodyMedium" style={styles.metricValue}>
-            {formatDuration(durations.total.seconds, durations.total.inProgress)}
-          </Text>
-        </View>
-      </View>
 
-      <Text variant="bodySmall" style={styles.durationHelper}>
-        {t('field_time_labor_helper')}
-      </Text>
+        <Text variant="bodySmall" style={styles.durationHelper}>
+          {t('field_time_labor_helper')}
+        </Text>
+      </View>
 
       {!!tasks.length && (
         <View style={styles.questionnaireCard}>
@@ -707,16 +964,29 @@ export default function FieldExecutionSection({
             </Text>
           </View>
           <ProgressBar progress={taskProgress} color={colors.primary} />
-          {!completedMode && canEdit && (
-            <Button
-              mode="text"
-              icon="clipboard-check-outline"
-              onPress={onOpenTasks}
-              style={styles.inlineAction}
-            >
-              {t(completedTasks === tasks.length ? 'review_answers' : 'continue_questionnaire')}
-            </Button>
-          )}
+          {!completedMode &&
+            canEdit &&
+            guidedAction.type !== 'questionnaire' && (
+              <Button
+                mode="text"
+                icon="clipboard-check-outline"
+                onPress={onOpenTasks}
+                disabled={
+                  checking ||
+                  checkError ||
+                  !!loadingAction ||
+                  savingReport ||
+                  savingEvidence
+                }
+                style={styles.inlineAction}
+              >
+                {t(
+                  completedTasks === tasks.length
+                    ? 'review_answers'
+                    : 'continue_questionnaire'
+                )}
+              </Button>
+            )}
         </View>
       )}
 
@@ -734,11 +1004,30 @@ export default function FieldExecutionSection({
           <View style={{ flex: 1 }}>
             <Text style={styles.recordTitle}>{t('field_report')}</Text>
             <Text style={styles.recordMeta}>
-              {t(reportRegistered ? 'field_report_registered' : 'field_report_pending')}
+              {t(
+                reportRegistered
+                  ? 'field_report_registered'
+                  : 'field_report_pending'
+              )}
             </Text>
           </View>
-          {(reportRegistered || (!completedMode && canEdit)) && (
-            <Button compact mode="text" onPress={openFieldReport}>
+          {(reportRegistered ||
+            (!completedMode &&
+              canEdit &&
+              guidedAction.type !== 'field-report')) && (
+            <Button
+              compact
+              mode="text"
+              onPress={openFieldReport}
+              disabled={
+                !reportRegistered &&
+                (checking ||
+                  checkError ||
+                  !!loadingAction ||
+                  savingReport ||
+                  savingEvidence)
+              }
+            >
               {t(reportRegistered ? 'view_report' : 'add')}
             </Button>
           )}
@@ -747,18 +1036,33 @@ export default function FieldExecutionSection({
           <IconButton
             icon={fieldEvidenceCount ? 'check-circle' : 'image-outline'}
             size={22}
-            iconColor={fieldEvidenceCount ? colors.primary : theme.colors.outline}
+            iconColor={
+              fieldEvidenceCount ? colors.primary : theme.colors.outline
+            }
             style={styles.recordIcon}
           />
           <View style={{ flex: 1 }}>
             <Text style={styles.recordTitle}>{t('evidence')}</Text>
             <Text style={styles.recordMeta}>
               {t('evidence_photo_count', { count: fieldEvidenceCount })}
-              {readiness?.requirements.PHOTO.required ? ` · ${t('required')}` : ''}
+              {readiness?.requirements.PHOTO.required
+                ? ` · ${t('required')}`
+                : ''}
             </Text>
           </View>
-          {!completedMode && canEdit && (
-            <Button compact mode="text" onPress={() => setEvidenceOpen(true)}>
+          {!completedMode && canEdit && guidedAction.type !== 'photo' && (
+            <Button
+              compact
+              mode="text"
+              onPress={() => setEvidenceOpen(true)}
+              disabled={
+                checking ||
+                checkError ||
+                !!loadingAction ||
+                savingReport ||
+                savingEvidence
+              }
+            >
               {t('add')}
             </Button>
           )}
@@ -769,6 +1073,7 @@ export default function FieldExecutionSection({
       </Text>
 
       <FieldReportDialog
+        error={reportError}
         visible={reportOpen}
         initialValue={initialFieldReportValue}
         readOnly={isReportReadOnly}
@@ -778,6 +1083,7 @@ export default function FieldExecutionSection({
       />
 
       <FieldEvidenceDialog
+        error={evidenceError}
         visible={evidenceOpen}
         files={evidenceFiles}
         saving={savingEvidence}
@@ -789,6 +1095,9 @@ export default function FieldExecutionSection({
       />
       {cameraOpen && (
         <InAppCamera
+          multiCapture
+          confirmCapture
+          capturedCount={evidenceFiles.length}
           visible={cameraOpen}
           onCapture={handleCameraCapture}
           onClose={() => setCameraOpen(false)}
@@ -800,45 +1109,45 @@ export default function FieldExecutionSection({
 
 const styles = StyleSheet.create({
   card: {
-    marginVertical: 10,
-    marginHorizontal: 0
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start'
-  },
-  statusChip: {
-    backgroundColor: colors.primarySoft
-  },
-  statusChipText: {
-    color: colors.primary,
-    fontWeight: '700'
+    marginBottom: 16,
+    marginTop: 0,
+    marginHorizontal: 0,
+    padding: 18,
+    borderColor: FIELD_UI.border,
+    shadowOpacity: 0,
+    elevation: 0
   },
   nextActionBox: {
-    padding: 14,
+    padding: 18,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#CAD6FF',
-    backgroundColor: colors.primarySoft
+    borderColor: FIELD_UI.navy,
+    backgroundColor: FIELD_UI.navy
   },
   nextActionLabel: {
-    color: colors.primary,
-    fontWeight: '800'
+    color: '#BACCF0',
+    fontWeight: '800',
+    letterSpacing: 1,
+    fontSize: 11
   },
   nextActionTitle: {
-    color: colors.text,
+    color: '#FFFFFF',
     fontWeight: '800',
-    marginTop: 2
+    marginTop: 6,
+    fontSize: 22,
+    lineHeight: 29
   },
   nextActionHelper: {
-    color: colors.muted,
-    marginTop: 3
+    color: '#D7E2F7',
+    lineHeight: 20,
+    marginTop: 6
   },
   nextActionButton: {
     marginTop: 12
   },
   metricsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 12
   },
@@ -862,6 +1171,7 @@ const styles = StyleSheet.create({
     minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 9,
     paddingRight: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E2E8F0'
@@ -885,6 +1195,7 @@ const styles = StyleSheet.create({
   },
   metric: {
     flex: 1,
+    minWidth: 100,
     padding: 12,
     borderRadius: 12,
     backgroundColor: '#F6F9FA'
@@ -926,6 +1237,7 @@ const styles = StyleSheet.create({
   },
   inlineAction: {
     alignSelf: 'flex-start',
+    minHeight: 44,
     marginTop: 6,
     marginLeft: -8
   },
@@ -967,7 +1279,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between'
   },
   historyCard: {
-    marginBottom: 12
+    marginBottom: 16,
+    borderColor: FIELD_UI.border,
+    shadowOpacity: 0,
+    elevation: 0
   },
   historyTitle: {
     color: colors.text,

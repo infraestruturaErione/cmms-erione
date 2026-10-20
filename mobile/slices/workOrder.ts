@@ -6,6 +6,11 @@ import api, { getErrorMessage } from '../utils/api';
 import { Task } from '../models/tasks';
 import { getInitialPage, Page, SearchCriteria } from '../models/page';
 import { revertAll } from '../utils/redux';
+import {
+  firstWorkOrderPage,
+  isStaleWorkOrderPage,
+  sameWorkOrderQuery
+} from '../utils/workOrderRefresh';
 
 const basePath = 'work-orders';
 
@@ -34,6 +39,12 @@ interface WorkOrderState {
   workOrderInfos: { [key: number]: { workOrder?: WorkOrder } };
   loadingGet: boolean;
   errorGet: string | null;
+  errorMore: string | null;
+  listRequestId: string | null;
+  requestedCriteria: SearchCriteria | null;
+  loadingList: boolean;
+  loadingMore: boolean;
+  listRequestSilent: boolean;
   currentPageNum: number;
   lastPage: boolean;
   calendar: {
@@ -49,6 +60,12 @@ const initialState: WorkOrderState = {
   workOrderInfos: {},
   loadingGet: false,
   errorGet: null,
+  errorMore: null,
+  listRequestId: null,
+  requestedCriteria: null,
+  loadingList: false,
+  loadingMore: false,
+  listRequestSilent: false,
   currentPageNum: 0,
   lastPage: true,
   calendar: {
@@ -66,8 +83,10 @@ const slice = createSlice({
       action: PayloadAction<{
         workOrders: Page<WorkOrder>;
         criteria: SearchCriteria;
+        requestId?: string;
       }>
     ) {
+      if (isStaleWorkOrderPage(state, action)) return;
       const { workOrders, criteria } = action.payload;
       state.workOrders = workOrders;
       state.activeCriteria = criteria;
@@ -76,20 +95,29 @@ const slice = createSlice({
     },
     getMoreWorkOrders(
       state: WorkOrderState,
-      action: PayloadAction<{ workOrders: Page<WorkOrder> }>
+      action: PayloadAction<{
+        workOrders: Page<WorkOrder>;
+        requestId?: string;
+        pageNum?: number;
+      }>
     ) {
+      if (isStaleWorkOrderPage(state, action)) return;
       const { workOrders } = action.payload;
       const existingIds = new Set(state.workOrders.content.map((wo) => wo.id));
       const newItems = workOrders.content.filter(
         (wo) => !existingIds.has(wo.id)
       );
       state.workOrders.content = state.workOrders.content.concat(newItems);
-      state.currentPageNum = state.currentPageNum + 1;
+      state.currentPageNum = action.payload.pageNum ?? state.currentPageNum + 1;
       state.lastPage = workOrders.last;
     },
     getWorkOrderDetails(
       state: WorkOrderState,
-      action: PayloadAction<{ workOrder; id: number }>
+      action: PayloadAction<{
+        workOrder;
+        id: number;
+        explicitLocalReload?: boolean;
+      }>
     ) {
       const { workOrder, id } = action.payload;
       if (state.workOrderInfos[id]) {
@@ -162,75 +190,173 @@ const slice = createSlice({
     },
     setError(state: WorkOrderState, action: PayloadAction<string>) {
       state.errorGet = action.payload;
+    },
+    startListRequest(
+      state: WorkOrderState,
+      action: PayloadAction<{
+        requestId: string;
+        criteria: SearchCriteria;
+        more: boolean;
+        silent: boolean;
+      }>
+    ) {
+      state.listRequestId = action.payload.requestId;
+      state.requestedCriteria = action.payload.criteria;
+      state.loadingList = !action.payload.more;
+      state.loadingMore = action.payload.more;
+      state.listRequestSilent = action.payload.silent;
+      state.errorMore = null;
+      if (!action.payload.silent) {
+        state.errorGet = null;
+        state.loadingGet = true;
+      }
+    },
+    finishListRequest(
+      state: WorkOrderState,
+      action: PayloadAction<{
+        requestId: string;
+        error?: string;
+        more: boolean;
+        silent: boolean;
+      }>
+    ) {
+      if (state.listRequestId !== action.payload.requestId) return;
+      state.loadingList = false;
+      state.loadingMore = false;
+      if (!action.payload.silent) {
+        state.loadingGet = false;
+        if (action.payload.more) state.errorMore = action.payload.error ?? null;
+        else state.errorGet = action.payload.error ?? null;
+      } else if (!action.payload.error) {
+        state.errorGet = null;
+      }
     }
   }
 });
 
 export const reducer = slice.reducer;
+let nextListRequest = 0;
+const liveListRequests = new Set<string>();
 
 export const getWorkOrders =
-  (criteria: SearchCriteria): AppThunk =>
-  async (dispatch) => {
+  (criteria: SearchCriteria, silent = false): AppThunk =>
+  async (dispatch, getState) => {
+    const current = getState().workOrders;
+    if (
+      current.loadingList &&
+      liveListRequests.has(current.listRequestId) &&
+      sameWorkOrderQuery(current.requestedCriteria, criteria)
+    )
+      return;
+    const requestId = `${Date.now()}-${++nextListRequest}`;
+    liveListRequests.add(requestId);
+    dispatch(
+      slice.actions.startListRequest({
+        requestId,
+        criteria,
+        more: false,
+        silent
+      })
+    );
+    let error: string;
     try {
-      dispatch(slice.actions.setLoadingGet({ loading: true }));
-      dispatch(slice.actions.clearError());
       const workOrders = await api.post<Page<WorkOrder>>(
         `${basePath}/search`,
         criteria
       );
-      dispatch(slice.actions.getWorkOrders({ workOrders, criteria }));
-    } catch (e) {
       dispatch(
-        slice.actions.setError(getErrorMessage(e, 'Falha ao carregar OS'))
+        slice.actions.getWorkOrders({ workOrders, criteria, requestId })
       );
+    } catch (e) {
+      error = getErrorMessage(e, 'Falha ao carregar OS');
     } finally {
-      dispatch(slice.actions.setLoadingGet({ loading: false }));
+      liveListRequests.delete(requestId);
+      dispatch(
+        slice.actions.finishListRequest({
+          requestId,
+          error,
+          more: false,
+          silent
+        })
+      );
     }
   };
 export const getMoreWorkOrders =
   (criteria: SearchCriteria, pageNum: number): AppThunk =>
-  async (dispatch) => {
+  async (dispatch, getState) => {
+    const current = getState().workOrders;
+    if (
+      current.loadingList ||
+      current.loadingMore ||
+      !sameWorkOrderQuery(current.activeCriteria, criteria) ||
+      pageNum !== current.currentPageNum + 1
+    )
+      return;
+    const requestId = `${Date.now()}-${++nextListRequest}`;
     criteria = { ...criteria, pageNum };
+    dispatch(
+      slice.actions.startListRequest({
+        requestId,
+        criteria,
+        more: true,
+        silent: false
+      })
+    );
+    let error: string;
     try {
-      dispatch(slice.actions.setLoadingGet({ loading: true }));
       const workOrders = await api.post<Page<WorkOrder>>(
         `${basePath}/search`,
         criteria
       );
-      dispatch(slice.actions.getMoreWorkOrders({ workOrders }));
+      dispatch(
+        slice.actions.getMoreWorkOrders({ workOrders, requestId, pageNum })
+      );
     } catch (e) {
-      console.error('Falha ao carregar mais OS:', e);
+      error = getErrorMessage(e, 'Não foi possível carregar mais OS.');
     } finally {
-      dispatch(slice.actions.setLoadingGet({ loading: false }));
+      dispatch(
+        slice.actions.finishListRequest({
+          requestId,
+          error,
+          more: true,
+          silent: false
+        })
+      );
     }
   };
 export const getWorkOrderDetails =
-  (id: number): AppThunk =>
-  async (dispatch) => {
+  (id: number, explicitLocalReload = false): AppThunk =>
+  async (dispatch, getState) => {
+    const session = getState().tasks?.session;
     try {
       dispatch(slice.actions.setLoadingGet({ loading: true }));
       const workOrder = await api.get<WorkOrder>(`${basePath}/${id}`);
-      dispatch(
-        slice.actions.getWorkOrderDetails({
-          id,
-          workOrder
-        })
-      );
+      if (getState().tasks?.session === session)
+        dispatch(
+          slice.actions.getWorkOrderDetails({
+            id,
+            workOrder,
+            explicitLocalReload
+          })
+        );
     } catch (e) {
       console.error('Falha ao carregar detalhes da OS:', e);
       throw e;
     } finally {
-      dispatch(slice.actions.setLoadingGet({ loading: false }));
+      if (getState().tasks?.session === session)
+        dispatch(slice.actions.setLoadingGet({ loading: false }));
     }
   };
 export const startWorkOrderExecution =
   (id: number): AppThunk =>
-  async (dispatch) => {
+  async (dispatch, getState) => {
+    const session = getState().tasks?.session;
     const workOrder = await api.post<WorkOrder>(
       `${basePath}/${id}/execution/start`,
       {}
     );
-    dispatch(slice.actions.getWorkOrderDetails({ id, workOrder }));
+    if (getState().tasks?.session === session)
+      dispatch(slice.actions.getWorkOrderDetails({ id, workOrder }));
   };
 export const refreshWorkOrderById =
   (id: number): AppThunk =>
@@ -247,15 +373,9 @@ export const refreshCurrentWorkOrders =
     const criteria = getState().workOrders.activeCriteria;
     if (!criteria) return;
 
-    try {
-      const workOrders = await api.post<Page<WorkOrder>>(
-        `${basePath}/search`,
-        criteria
-      );
-      dispatch(slice.actions.getWorkOrders({ workOrders, criteria }));
-    } catch (err) {
-      // Realtime is best-effort. Focus and pull-to-refresh remain available.
-    }
+    if (getState().workOrders.loadingList || getState().workOrders.loadingMore)
+      return;
+    await dispatch(getWorkOrders(firstWorkOrderPage(criteria), true));
   };
 export const addWorkOrder =
   (workOrder): AppThunk =>
@@ -359,38 +479,46 @@ export const changeWorkOrderStatus =
       mileageTraveled?: number;
     }
   ): AppThunk =>
-  async (dispatch) => {
+  async (dispatch, getState) => {
+    const session = getState().tasks?.session;
     const workOrderResponse = await api.patch<WorkOrder>(
       `${basePath}/${id}/change-status`,
       body
     );
-    dispatch(slice.actions.editWorkOrder({ workOrder: workOrderResponse }));
+    if (getState().tasks?.session === session)
+      dispatch(slice.actions.editWorkOrder({ workOrder: workOrderResponse }));
   };
 export const departWorkOrder =
   (id: number, body: WorkOrderDepartPayload): AppThunk =>
-  async (dispatch) => {
+  async (dispatch, getState) => {
+    const session = getState().tasks?.session;
     const workOrderResponse = await api.post<WorkOrder>(
       `${basePath}/${id}/depart`,
       body
     );
-    dispatch(slice.actions.editWorkOrder({ workOrder: workOrderResponse }));
+    if (getState().tasks?.session === session)
+      dispatch(slice.actions.editWorkOrder({ workOrder: workOrderResponse }));
   };
 export const checkInWorkOrder =
   (id: number, body: WorkOrderCheckInPayload): AppThunk =>
-  async (dispatch) => {
+  async (dispatch, getState) => {
+    const session = getState().tasks?.session;
     const workOrderResponse = await api.post<WorkOrder>(
       `${basePath}/${id}/check-in`,
       body
     );
-    dispatch(slice.actions.editWorkOrder({ workOrder: workOrderResponse }));
+    if (getState().tasks?.session === session)
+      dispatch(slice.actions.editWorkOrder({ workOrder: workOrderResponse }));
   };
 export const checkOutWorkOrder =
   (id: number, body: WorkOrderCheckOutPayload): AppThunk =>
-  async (dispatch) => {
+  async (dispatch, getState) => {
+    const session = getState().tasks?.session;
     const workOrderResponse = await api.post<WorkOrder>(
       `${basePath}/${id}/check-out`,
       body
     );
-    dispatch(slice.actions.editWorkOrder({ workOrder: workOrderResponse }));
+    if (getState().tasks?.session === session)
+      dispatch(slice.actions.editWorkOrder({ workOrder: workOrderResponse }));
   };
 export default slice;

@@ -195,6 +195,30 @@ describe('FieldReportDialog', () => {
 });
 
 describe('FieldReportDialog - digitacao', () => {
+  it('remote refresh cannot replace an open report draft or its native editor seed', () => {
+    const onSave = jest.fn(),
+      root = renderDialog({ initialValue: 'inicial', onSave });
+    type(root, 'minha edicao em andamento');
+    const input = getTextInput(root);
+    act(() =>
+      root.update(
+        wrap(
+          <FieldReportDialog
+            visible
+            initialValue="atualizacao remota"
+            readOnly={false}
+            saving={false}
+            onSave={onSave}
+            onRequestClose={jest.fn()}
+          />
+        )
+      )
+    );
+    expect(getTextInput(root)).toBe(input);
+    expect(getTextInput(root).props.defaultValue).toBe('inicial');
+    act(() => getSaveButton(root).props.onPress());
+    expect(onSave).toHaveBeenCalledWith('minha edicao em andamento');
+  });
   beforeEach(() => {
     useKeyboardVisible.mockReturnValue(false);
   });

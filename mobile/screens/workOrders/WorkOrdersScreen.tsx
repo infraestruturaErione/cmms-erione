@@ -2,61 +2,60 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  FlatList,
   StyleSheet,
   TouchableOpacity,
   View
 } from 'react-native';
 import { useDispatch, useSelector } from '../../store';
 import * as React from 'react';
-import {
-  Fragment,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState
-} from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import { CompanySettingsContext } from '../../contexts/CompanySettingsContext';
 import useAuth from '../../hooks/useAuth';
 import { PermissionEntity } from '../../models/role';
 import { getMoreWorkOrders, getWorkOrders } from '../../slices/workOrder';
 import { FilterField, SearchCriteria } from '../../models/page';
-import { Avatar, IconButton, Searchbar, Text } from 'react-native-paper';
+import { Avatar, Button, Icon, IconButton, Text } from 'react-native-paper';
+import {
+  FIELD_UI,
+  FieldHero,
+  FieldNotice,
+  FieldSectionTitle
+} from '../../components/erione/FieldWorkOrderUI';
+import FieldOrderCard from './components/FieldOrderCard';
+import {
+  getWorkOrderListView,
+  selectWorkOrderListView
+} from './workOrderListViews';
 import { useTranslation } from 'react-i18next';
 import WorkOrder, {
   WORK_ORDER_STATUSES,
   WorkOrderStatus
 } from '../../models/workOrder';
-import {
-  getPriorityColor,
-  getStatusColor,
-  isCloseToBottom,
-  onSearchQueryChange
-} from '../../utils/overall';
+import { getPriorityColor, getStatusColor } from '../../utils/overall';
 import { RootTabScreenProps } from '../../types';
-import { useDebouncedEffect } from '../../hooks/useDebouncedEffect';
 import _ from 'lodash';
 import EnumFilter from './EnumFilter';
 import { dayDiff } from '../../utils/dates';
-import { IconWithLabel } from '../../components/IconWithLabel';
 import QuickFilter from './QuickFilter';
 import { useAppTheme } from '../../custom-theme';
 import { getUserInitials } from '../../utils/displayers';
 import { UserMiniDTO } from '../../models/user';
-import {
-  ErioneCard,
-  ErioneScreen,
-  ErioneStatusBadge
-} from '../../components/erione/ErioneUI';
+import { ErioneCard, ErioneScreen } from '../../components/erione/ErioneUI';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
-import {
-  getNextActionKey,
-  isPastDue,
-  isPendingCompletion,
-  isWorkOrderInField
-} from '../../utils/workOrderFieldUx';
+import { getNextActionKey, isPastDue } from '../../utils/workOrderFieldUx';
 import { useFocusEffect } from '@react-navigation/native';
 import { getWorkOrderCompanionLabel } from '../../utils/workOrderExecution';
+import {
+  firstWorkOrderPage,
+  sameWorkOrderQuery
+} from '../../utils/workOrderRefresh';
+import WorkOrderSearchBar from './components/WorkOrderSearchBar';
+import usePageRequestGate from '../../hooks/usePageRequestGate';
+import {
+  applyWorkOrderSearch,
+  getWorkOrderSearchText
+} from './workOrderSearch';
 
 const colors = ERIONE_MOBILE_IDENTITY.colors;
 const DEFAULT_ACTIVE_WORK_ORDER_STATUSES: WorkOrderStatus[] = [
@@ -66,19 +65,49 @@ const DEFAULT_ACTIVE_WORK_ORDER_STATUSES: WorkOrderStatus[] = [
   'ON_HOLD'
 ];
 
-export default function WorkOrdersScreen({
+export default function WorkOrdersScreen(
+  props: RootTabScreenProps<'WorkOrders'>
+) {
+  const { user } = useAuth();
+  const session = useSelector((state) => state.tasks?.session);
+  return (
+    <WorkOrdersContent
+      key={`${user.id}:${user.companyId}:${session}`}
+      {...props}
+    />
+  );
+}
+
+function WorkOrdersContent({
   navigation,
   route
 }: RootTabScreenProps<'WorkOrders'>) {
   const { t } = useTranslation();
-  const [startedSearch, setStartedSearch] = useState<boolean>(false);
-  const { workOrders, loadingGet, currentPageNum, lastPage, errorGet } =
-    useSelector((state) => state.workOrders);
+  const {
+    workOrders,
+    loadingList,
+    loadingMore,
+    listRequestSilent,
+    currentPageNum,
+    lastPage,
+    errorGet,
+    errorMore,
+    activeCriteria,
+    requestedCriteria
+  } = useSelector((state) => state.workOrders);
   const theme = useAppTheme();
+  const localCache = useSelector((state) => state.localWorkOrderCache);
+  const detailsById = useSelector((state) => state.workOrders.workOrderInfos);
+  const fullOrdersById = new Map(workOrders.content.map((wo) => [wo.id, wo]));
+  const allRows = (localCache.pageIds ?? workOrders.content.map((wo) => wo.id))
+    .map((id) => ({
+      id,
+      summary: localCache.summaries[id],
+      workOrder: fullOrdersById.get(id) ?? detailsById[id]?.workOrder
+    }))
+    .filter((row) => row.summary || row.workOrder);
   const dispatch = useDispatch();
-  const [searchQuery, setSearchQuery] = useState('');
-  const fromHomeInit = useRef<boolean>(false);
-  const loadingMoreRef = useRef<boolean>(false);
+  const requestPage = usePageRequestGate();
   const { getFormattedDate } = useContext(CompanySettingsContext);
   const { user, hasViewOtherPermission } = useAuth();
   const defaultFilterFields: FilterField[] = [
@@ -116,9 +145,13 @@ export default function WorkOrdersScreen({
           (ff) => ff.field != filterField.field
         ))
     );
+    const merged = [...newFilterFields, ...filterFields];
     return {
       ...initialCriteria,
-      filterFields: [...newFilterFields, ...filterFields]
+      filterFields:
+        getWorkOrderListView(merged) === 'active'
+          ? selectWorkOrderListView(merged, 'active')
+          : merged
     };
   };
   const getDefaultFilterFields = (): FilterField[] => {
@@ -132,77 +165,61 @@ export default function WorkOrdersScreen({
     }
     return fields;
   };
-  const [criteria, setCriteria] = useState<SearchCriteria>(
-    getCriteriaFromFilterFields(getDefaultFilterFields())
+  const [criteria, setCriteria] = useState<SearchCriteria>(() =>
+    getCriteriaFromFilterFields(
+      route.params?.filterFields?.length
+        ? route.params.filterFields
+        : getDefaultFilterFields()
+    )
   );
-  useEffect(() => {
-    if (route.params?.fromHome && !fromHomeInit.current) {
-      fromHomeInit.current = true;
-      return;
-    }
-    dispatch(
-      getWorkOrders({
-        ...criteria,
-        pageSize: 10,
-        pageNum: 0,
-        direction: 'DESC'
-      })
-    );
-    fromHomeInit.current = true;
-  }, [criteria]);
+  const [selectedView, setSelectedView] = useState<'active' | 'history'>(() =>
+    getWorkOrderListView(criteria.filterFields) === 'active'
+      ? 'active'
+      : 'history'
+  );
+  const query = firstWorkOrderPage(criteria);
+  const rows = sameWorkOrderQuery(activeCriteria, query) ? allRows : [];
+  const loadingGet = (!!loadingList || !!loadingMore) && !listRequestSilent;
+  const listError = sameWorkOrderQuery(requestedCriteria, query)
+    ? errorGet
+    : null;
 
   useFocusEffect(
     useCallback(() => {
-      if (!fromHomeInit.current) return;
-
-      dispatch(
-        getWorkOrders({
-          ...criteria,
-          pageSize: 10,
-          pageNum: 0,
-          direction: 'DESC'
-        })
-      );
+      dispatch(getWorkOrders(firstWorkOrderPage(criteria)));
     }, [criteria, dispatch])
   );
 
   useEffect(() => {
     const filterFields = route.params?.filterFields ?? [];
-    if (filterFields.length)
-      setCriteria(getCriteriaFromFilterFields(filterFields));
-  }, [route]);
+    if (filterFields.length) {
+      const next = getCriteriaFromFilterFields(filterFields);
+      setSelectedView(
+        getWorkOrderListView(next.filterFields) === 'active'
+          ? 'active'
+          : 'history'
+      );
+      setCriteria((previous) => (_.isEqual(previous, next) ? previous : next));
+    }
+  }, [route.params?.filterFields]);
 
   const onRefresh = () => {
-    const currentFilters = criteria.filterFields.filter(
-      (ff) => ff.field !== 'assignedToUser'
-    );
-    setCriteria(
-      getCriteriaFromFilterFields([
-        ...getDefaultFilterFields(),
-        ...currentFilters
-      ])
-    );
+    dispatch(getWorkOrders(firstWorkOrderPage(criteria)));
   };
   const onFilterChange = (newFilters: FilterField[]) => {
-    setCriteria({ ...criteria, filterFields: newFilters, pageNum: 0 });
+    setCriteria((previous) => ({
+      ...previous,
+      filterFields:
+        selectedView === 'active'
+          ? selectWorkOrderListView(newFilters, 'active')
+          : newFilters,
+      pageNum: 0
+    }));
   };
 
-  const onQueryChange = (query) => {
-    onSearchQueryChange<WorkOrder>(
-      query,
-      criteria,
-      setCriteria,
-      setSearchQuery,
-      ['title', 'description', 'feedback', 'customId']
-    );
+  const onSearchSubmit = (text: string) => {
+    setCriteria((previous) => applyWorkOrderSearch(previous, text));
   };
-  useDebouncedEffect(
-    () => {
-      if (startedSearch) onQueryChange(searchQuery);
-    },
-    [searchQuery],
-    1000
-  );
 
   const renderAssignees = (workOrder: WorkOrder) => {
     const allUsers: UserMiniDTO[] = [];
@@ -250,529 +267,384 @@ export default function WorkOrdersScreen({
     );
   };
 
+  const listView = getWorkOrderListView(criteria.filterFields);
+  const history = selectedView === 'history';
+  const resetFilterFields = selectWorkOrderListView(
+    [
+      ...defaultFilterFields,
+      ...criteria.filterFields.filter(
+        (filter) => filter.field === 'assignedToUser'
+      )
+    ],
+    selectedView
+  );
+  const filtersChanged = !_.isEqual(criteria.filterFields, resetFilterFields);
+  const resultCount = sameWorkOrderQuery(activeCriteria, query)
+    ? workOrders.totalElements ?? rows.length
+    : 0;
+  const loadMore = (retry = false) =>
+    requestPage(
+      !!rows.length &&
+        !loadingList &&
+        !loadingMore &&
+        (retry || !errorMore) &&
+        !lastPage &&
+        sameWorkOrderQuery(activeCriteria, query),
+      () => dispatch(getMoreWorkOrders(criteria, currentPageNum + 1))
+    );
+
   return (
-    <ErioneScreen>
-      <Fragment>
-        <View style={styles.pageHeader}>
-          <View style={{ flex: 1 }}>
-            <Text variant="labelMedium" style={styles.pageKicker}>
-              Erione CMMS
-            </Text>
-            <Text variant="headlineSmall" style={styles.pageTitle}>
-              {t('work_orders')}
-            </Text>
-            <Text variant="bodySmall" style={styles.pageSubtitle}>
-              {t('my_shift_helper')}
-            </Text>
-          </View>
-          <View style={styles.countPill}>
-            <Text variant="titleMedium" style={styles.countValue}>
-              {workOrders.totalElements ?? workOrders.content.length}
-            </Text>
-            <Text variant="labelSmall" style={styles.countLabel}>
-              OS
-            </Text>
-          </View>
-        </View>
-        <View style={styles.searchWrap}>
-          <Searchbar
-            placeholder={t('search')}
-            onFocus={() => setStartedSearch(true)}
-            onChangeText={setSearchQuery}
-            value={searchQuery}
-            style={styles.search}
-            inputStyle={styles.searchInput}
+    <ErioneScreen style={{ backgroundColor: FIELD_UI.canvas }}>
+      <FlatList
+        testID="work-order-virtual-list"
+        data={rows}
+        keyExtractor={(row) => String(row.id)}
+        initialNumToRender={5}
+        maxToRenderPerBatch={6}
+        windowSize={7}
+        onEndReached={() => loadMore()}
+        onEndReachedThreshold={0.35}
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={!!loadingList && !listRequestSilent}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
           />
-        </View>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          style={styles.scrollView}
-          onScroll={({ nativeEvent }) => {
-            if (isCloseToBottom(nativeEvent)) {
-              if (!loadingGet && !lastPage && !loadingMoreRef.current) {
-                loadingMoreRef.current = true;
-                dispatch(
-                  getMoreWorkOrders(criteria, currentPageNum + 1)
-                ).finally(() => {
-                  loadingMoreRef.current = false;
-                });
+        }
+        scrollEventThrottle={400}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={
+          <>
+            <FieldHero
+              eyebrow="ERIONE · CAMPO"
+              title={history ? 'Histórico de OS' : 'Ordens de serviço'}
+              helper={
+                history
+                  ? 'Consulte e filtre os atendimentos e seus registros.'
+                  : 'O destino, o serviço e a próxima ação. Tudo em um só lugar.'
               }
-            }
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={loadingGet}
-              onRefresh={onRefresh}
-              colors={[theme.colors.primary]}
+              count={resultCount}
+              countLabel="resultados"
             />
-          }
-          scrollEventThrottle={400}
-        >
-          <ScrollView
-            horizontal
-            style={styles.filters}
-            contentContainerStyle={styles.filtersContent}
-            showsHorizontalScrollIndicator={false}
-          >
-            <IconButton
-              icon={
-                _.isEqual(criteria.filterFields, defaultFilterFields)
-                  ? 'filter-outline'
-                  : 'filter-check'
+            <View style={styles.viewSwitch} accessibilityRole="tablist">
+              {(
+                [
+                  {
+                    value: 'active',
+                    label: 'Ativas',
+                    icon: 'clipboard-text-outline'
+                  },
+                  { value: 'history', label: 'Histórico', icon: 'history' }
+                ] as const
+              ).map((item) => (
+                <TouchableOpacity
+                  key={item.value}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: selectedView === item.value }}
+                  onPress={() => {
+                    setSelectedView(item.value);
+                    setCriteria((previous) => ({
+                      ...previous,
+                      pageNum: 0,
+                      filterFields: selectWorkOrderListView(
+                        previous.filterFields,
+                        item.value
+                      )
+                    }));
+                  }}
+                  style={[
+                    styles.viewTab,
+                    selectedView === item.value && styles.viewTabSelected
+                  ]}
+                >
+                  <Icon
+                    source={item.icon}
+                    size={20}
+                    color={
+                      selectedView === item.value
+                        ? colors.primary
+                        : colors.muted
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.viewTabText,
+                      selectedView === item.value && styles.viewTabTextSelected
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <WorkOrderSearchBar
+              appliedQuery={getWorkOrderSearchText(criteria)}
+              onSubmit={onSearchSubmit}
+            />
+            <ScrollView
+              horizontal
+              style={styles.filters}
+              contentContainerStyle={styles.filtersContent}
+              showsHorizontalScrollIndicator={false}
+            >
+              <IconButton
+                icon={!filtersChanged ? 'filter-outline' : 'filter-check'}
+                iconColor={!filtersChanged ? colors.primary : '#FFFFFF'}
+                style={{
+                  backgroundColor: !filtersChanged
+                    ? colors.primarySoft
+                    : theme.colors.primary
+                }}
+                onPress={() =>
+                  navigation.navigate('WorkOrderFilters', {
+                    filterFields: criteria.filterFields,
+                    onFilterChange
+                  })
+                }
+              />
+              {hasViewOtherPermission(PermissionEntity.WORK_ORDERS) && (
+                <QuickFilter
+                  filterFields={criteria.filterFields}
+                  activeFilterField={{
+                    field: 'assignedToUser',
+                    operation: 'eq',
+                    value: user.id
+                  }}
+                  onChange={onFilterChange}
+                />
+              )}
+              {history && (
+                <>
+                  <EnumFilter
+                    filterFields={criteria.filterFields}
+                    onChange={onFilterChange}
+                    completeOptions={['NONE', 'LOW', 'MEDIUM', 'HIGH']}
+                    initialOptions={['NONE', 'LOW', 'MEDIUM', 'HIGH']}
+                    fieldName="priority"
+                    icon="signal"
+                  />
+                  <EnumFilter
+                    filterFields={criteria.filterFields}
+                    onChange={onFilterChange}
+                    completeOptions={[...WORK_ORDER_STATUSES]}
+                    initialOptions={['COMPLETE']}
+                    fieldName="status"
+                    icon="circle-double"
+                    restoreInitialOnEmpty
+                  />
+                </>
+              )}
+              {filtersChanged && (
+                <IconButton
+                  icon="close"
+                  iconColor={theme.colors.error}
+                  style={{ backgroundColor: '#FEE2E2' }}
+                  onPress={() => onFilterChange(resetFilterFields)}
+                />
+              )}
+            </ScrollView>
+            <View style={styles.resultHeading}>
+              <Text accessibilityRole="header" style={styles.resultTitle}>
+                {listView === 'history'
+                  ? 'Atendimentos concluídos'
+                  : history
+                  ? 'Resultado dos filtros'
+                  : 'Sua lista de atendimentos'}
+              </Text>
+              <Text style={styles.resultHint}>{rows.length} carregadas</Text>
+            </View>
+            {listError && (
+              <View style={{ marginBottom: 14 }}>
+                <FieldNotice
+                  icon="wifi-alert"
+                  title="Não foi possível atualizar"
+                  message={
+                    rows.length
+                      ? 'Os dados anteriores continuam aqui. Confira a conexão e tente novamente.'
+                      : listError
+                  }
+                  warning
+                />
+                <Button
+                  mode="text"
+                  onPress={onRefresh}
+                  contentStyle={{ minHeight: 44 }}
+                >
+                  Tentar novamente
+                </Button>
+              </View>
+            )}
+          </>
+        }
+        renderItem={({ item: { id, summary, workOrder } }) => {
+          if (summary)
+            return (
+              <FieldOrderCard
+                key={id}
+                summary
+                customId={summary.customId}
+                title={summary.title}
+                status={t('COMPLETE')}
+                statusColor={getStatusColor('COMPLETE', theme)}
+                customer={summary.customerNames}
+                location={summary.locationName}
+                createdAt={getFormattedDate(summary.createdAt)}
+                completedAt={
+                  summary.completedOn
+                    ? getFormattedDate(summary.completedOn)
+                    : undefined
+                }
+                action="Consultar detalhes online"
+                onPress={() => navigation.push('WODetails', { id })}
+              />
+            );
+          const companionLabel = getWorkOrderCompanionLabel(workOrder, user.id);
+          const dueSoon =
+            !!workOrder.dueDate &&
+            (dayDiff(new Date(workOrder.dueDate), new Date()) <= 2 ||
+              isPastDue(workOrder)) &&
+            workOrder.status !== 'COMPLETE';
+          return (
+            <FieldOrderCard
+              key={id}
+              customId={workOrder.customId}
+              title={workOrder.title}
+              status={t(workOrder.status)}
+              statusColor={getStatusColor(workOrder.status, theme)}
+              customer={workOrder.customers?.[0]?.name}
+              location={workOrder.location?.name}
+              address={workOrder.location?.address}
+              asset={workOrder.asset?.name}
+              createdAt={getFormattedDate(workOrder.createdAt)}
+              completedAt={
+                workOrder.status === 'COMPLETE' && workOrder.completedOn
+                  ? getFormattedDate(workOrder.completedOn)
+                  : undefined
               }
-              iconColor={
-                _.isEqual(criteria.filterFields, defaultFilterFields)
-                  ? colors.primary
-                  : '#FFFFFF'
+              dueAt={
+                workOrder.dueDate
+                  ? getFormattedDate(workOrder.dueDate)
+                  : undefined
               }
-              style={{
-                backgroundColor: _.isEqual(
-                  criteria.filterFields,
-                  defaultFilterFields
-                )
-                  ? colors.primarySoft
-                  : theme.colors.primary
-              }}
+              dueSoon={dueSoon}
+              priority={
+                workOrder.priority && workOrder.priority !== 'NONE'
+                  ? t(workOrder.priority)
+                  : undefined
+              }
+              priorityColor={getPriorityColor(workOrder.priority, theme)}
+              assignees={renderAssignees(workOrder)}
+              companion={!!companionLabel}
+              action={companionLabel || t(getNextActionKey(workOrder))}
               onPress={() =>
-                navigation.navigate('WorkOrderFilters', {
-                  filterFields: criteria.filterFields,
-                  onFilterChange
+                navigation.push('WODetails', {
+                  id: workOrder.id,
+                  workOrderProp: workOrder
                 })
               }
             />
-            {hasViewOtherPermission(PermissionEntity.WORK_ORDERS) && (
-              <QuickFilter
-                filterFields={criteria.filterFields}
-                activeFilterField={{
-                  field: 'assignedToUser',
-                  operation: 'eq',
-                  value: user.id
-                }}
-                onChange={onFilterChange}
-              />
+          );
+        }}
+        ListFooterComponent={
+          <>
+            {!rows.length && !loadingGet && !listError && (
+              <ErioneCard style={styles.emptyCard}>
+                <FieldSectionTitle
+                  icon="clipboard-search-outline"
+                  title={t('no_element_match_criteria')}
+                  helper="Revise a busca ou os filtros acima para encontrar a OS."
+                />
+              </ErioneCard>
             )}
-            <EnumFilter
-              filterFields={criteria.filterFields}
-              onChange={onFilterChange}
-              completeOptions={['NONE', 'LOW', 'MEDIUM', 'HIGH']}
-              initialOptions={['NONE', 'LOW', 'MEDIUM', 'HIGH']}
-              fieldName="priority"
-              icon="signal"
-            />
-            <EnumFilter
-              filterFields={criteria.filterFields}
-              onChange={onFilterChange}
-              completeOptions={[...WORK_ORDER_STATUSES]}
-              initialOptions={[...DEFAULT_ACTIVE_WORK_ORDER_STATUSES]}
-              fieldName="status"
-              icon="circle-double"
-              restoreInitialOnEmpty
-            />
-            {!_.isEqual(criteria.filterFields, defaultFilterFields) && (
-              <IconButton
-                icon="close"
-                iconColor={theme.colors.error}
-                style={{ backgroundColor: '#FEE2E2' }}
-                onPress={() => onFilterChange(defaultFilterFields)}
-              />
-            )}
-          </ScrollView>
-          {errorGet ? (
-            <ErioneCard style={styles.emptyCard}>
-              <Text variant="titleMedium" style={styles.emptyTitle}>
-                {errorGet}
-              </Text>
-              <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
-                <Text style={styles.retryText}>Tentar novamente</Text>
-              </TouchableOpacity>
-            </ErioneCard>
-          ) : !!workOrders.content.length ? (
-            workOrders.content.map((workOrder) => {
-              const statusColor = getStatusColor(workOrder.status, theme);
-              const inField = isWorkOrderInField(workOrder);
-              const pendingCompletion = isPendingCompletion(workOrder);
-              const companionLabel = getWorkOrderCompanionLabel(
-                workOrder,
-                user.id
-              );
-              const dueSoon =
-                workOrder.dueDate &&
-                (dayDiff(new Date(workOrder.dueDate), new Date()) <= 2 ||
-                  isPastDue(workOrder)) &&
-                workOrder.status !== 'COMPLETE';
-
-              return (
-                <TouchableOpacity
-                  onPress={() =>
-                    navigation.push('WODetails', {
-                      id: workOrder.id,
-                      workOrderProp: workOrder
-                    })
-                  }
-                  key={workOrder.id}
-                  activeOpacity={0.82}
+            {!!errorMore && sameWorkOrderQuery(activeCriteria, query) && (
+              <ErioneCard style={styles.emptyCard}>
+                <FieldNotice
+                  icon="wifi-alert"
+                  title="A próxima página não carregou"
+                  message={errorMore}
+                  warning
+                />
+                <Button
+                  mode="outlined"
+                  onPress={() => loadMore(true)}
+                  contentStyle={{ minHeight: 48 }}
+                  style={{ marginTop: 12 }}
                 >
-                  <ErioneCard
-                    style={[
-                      styles.card,
-                      inField && styles.activeCard,
-                      pendingCompletion && styles.pendingCompletionCard
-                    ]}
-                  >
-                    <View style={styles.cardTopRow}>
-                      <View style={styles.titleGroup}>
-                        <Text variant="bodySmall" style={styles.customId}>
-                          #{workOrder.customId}
-                        </Text>
-                        <Text
-                          variant="titleMedium"
-                          style={styles.cardTitle}
-                          numberOfLines={2}
-                        >
-                          {workOrder.title}
-                        </Text>
-                      </View>
-                      <ErioneStatusBadge
-                        label={t(workOrder.status)}
-                        color={statusColor}
-                        subtle
-                      />
-                    </View>
-
-                    <View
-                      style={[
-                        styles.nextActionStrip,
-                        !companionLabel &&
-                          pendingCompletion &&
-                          styles.nextActionStripWarning,
-                        (companionLabel || inField) &&
-                          styles.nextActionStripActive
-                      ]}
-                    >
-                      <View style={styles.nextActionIcon}>
-                        <IconButton
-                          icon={
-                            companionLabel
-                              ? 'eye-outline'
-                              : pendingCompletion
-                              ? 'check-circle-outline'
-                              : inField
-                              ? 'map-marker-check-outline'
-                              : 'arrow-right-circle-outline'
-                          }
-                          size={22}
-                          iconColor={
-                            companionLabel
-                              ? colors.primary
-                              : pendingCompletion
-                              ? theme.colors.error
-                              : inField
-                              ? colors.primary
-                              : colors.muted
-                          }
-                          style={{ margin: 0 }}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          variant="labelSmall"
-                          style={styles.nextActionLabel}
-                        >
-                          {companionLabel
-                            ? 'Somente leitura'
-                            : t('next_action')}
-                        </Text>
-                        <Text
-                          variant="bodyMedium"
-                          style={styles.nextActionText}
-                        >
-                          {companionLabel || t(getNextActionKey(workOrder))}
-                        </Text>
-                        {!!companionLabel && (
-                          <Text
-                            variant="bodySmall"
-                            style={styles.companionHelper}
-                          >
-                            Toque para acompanhar a OS. A execução está
-                            disponível somente para o operador.
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-
-                    <View style={styles.infoGrid}>
-                      {!!workOrder.customers?.length && (
-                        <IconWithLabel
-                          label={workOrder.customers[0].name}
-                          icon="domain"
-                          color={colors.muted}
-                        />
-                      )}
-                      {workOrder.location && (
-                        <IconWithLabel
-                          label={workOrder.location.name}
-                          icon="map-marker-outline"
-                          color={colors.muted}
-                        />
-                      )}
-                      {workOrder.location?.address && (
-                        <IconWithLabel
-                          label={workOrder.location.address}
-                          icon="map-marker-radius-outline"
-                          color={colors.muted}
-                        />
-                      )}
-                      {workOrder.asset && (
-                        <IconWithLabel
-                          label={workOrder.asset.name}
-                          icon="package-variant-closed"
-                          color={colors.muted}
-                        />
-                      )}
-                    </View>
-
-                    <View style={styles.cardFooter}>
-                      <View style={styles.footerMeta}>
-                        <IconWithLabel
-                          color={colors.muted}
-                          label={`Criada em ${getFormattedDate(
-                            workOrder.createdAt
-                          )}`}
-                          icon="calendar-plus"
-                        />
-                        {workOrder.priority &&
-                          workOrder.priority !== 'NONE' && (
-                            <ErioneStatusBadge
-                              label={t(workOrder.priority)}
-                              color={getPriorityColor(
-                                workOrder.priority,
-                                theme
-                              )}
-                              subtle
-                            />
-                          )}
-                        {workOrder.dueDate && (
-                          <IconWithLabel
-                            color={dueSoon ? theme.colors.error : colors.muted}
-                            label={getFormattedDate(workOrder.dueDate)}
-                            icon="clock-alert-outline"
-                          />
-                        )}
-                      </View>
-                      {renderAssignees(workOrder)}
-                    </View>
-                  </ErioneCard>
-                </TouchableOpacity>
-              );
-            })
-          ) : loadingGet ? null : (
-            <ErioneCard style={styles.emptyCard}>
-              <Text variant="titleMedium" style={styles.emptyTitle}>
-                {t('no_element_match_criteria')}
-              </Text>
-            </ErioneCard>
-          )}
-          {loadingGet && !!workOrders.content.length && (
-            <View style={styles.bottomLoader}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
-          )}
-        </ScrollView>
-      </Fragment>
+                  Tentar carregar mais
+                </Button>
+              </ErioneCard>
+            )}
+            {loadingGet && (
+              <View style={styles.bottomLoader}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            )}
+          </>
+        }
+      />
     </ErioneScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  pageHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 4
-  },
-  pageKicker: {
-    color: colors.primary,
-    fontWeight: '800'
-  },
-  pageTitle: {
-    color: colors.text,
-    fontWeight: '900',
-    letterSpacing: 0,
-    marginTop: 2
-  },
-  pageSubtitle: {
-    color: colors.muted,
-    marginTop: 2
-  },
-  countPill: {
-    minWidth: 58,
-    borderRadius: 18,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: '#CAD6FF'
-  },
-  countValue: {
-    color: colors.primary,
-    fontWeight: '900'
-  },
-  countLabel: {
-    color: colors.muted,
-    fontWeight: '800'
-  },
-  searchWrap: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8
-  },
-  search: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#DDE7E7',
-    elevation: 0
-  },
-  searchInput: {
-    fontSize: 15
-  },
-  scrollView: {
-    width: '100%',
-    height: '100%'
-  },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 110
+    padding: 16,
+    paddingBottom: 24,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center'
   },
-  filters: {
-    marginBottom: 12
-  },
-  filtersContent: {
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 2
-  },
-  card: {
-    marginBottom: 12,
-    padding: 14
-  },
-  activeCard: {
-    borderColor: colors.primary,
-    backgroundColor: '#F6F8FF'
-  },
-  pendingCompletionCard: {
-    borderColor: '#D97706',
-    backgroundColor: '#FFFBEB'
-  },
-  cardTopRow: {
+  viewSwitch: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12
-  },
-  orderIcon: {
-    backgroundColor: colors.primarySoft
-  },
-  titleGroup: {
-    flex: 1
-  },
-  cardTitle: {
-    color: colors.text,
-    fontWeight: '900',
-    letterSpacing: 0
-  },
-  customId: {
-    color: colors.primary,
-    fontWeight: '800',
-    marginBottom: 2
-  },
-  nextActionStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 14,
-    padding: 12,
+    padding: 4,
+    backgroundColor: '#E6ECF5',
     borderRadius: 16,
-    backgroundColor: '#F6F9FA',
-    borderWidth: 1,
-    borderColor: '#E2E8F0'
+    marginVertical: 16,
+    gap: 4
   },
-  nextActionStripActive: {
-    backgroundColor: colors.primarySoft,
-    borderColor: '#CAD6FF'
-  },
-  nextActionStripWarning: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FCD34D'
-  },
-  nextActionIcon: {
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF'
-  },
-  nextActionLabel: {
-    color: colors.muted,
-    fontWeight: '700'
-  },
-  nextActionText: {
-    color: colors.text,
-    fontWeight: '900',
-    marginTop: 1
-  },
-  companionHelper: {
-    color: colors.muted,
-    lineHeight: 18,
-    marginTop: 4
-  },
-  infoGrid: {
-    gap: 8,
-    marginTop: 14
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 14,
-    gap: 12
-  },
-  footerMeta: {
+  viewTab: {
     flex: 1,
+    minHeight: 48,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8
+  },
+  viewTabSelected: { backgroundColor: '#FFFFFF' },
+  viewTabText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.muted,
+    flexShrink: 1
+  },
+  viewTabTextSelected: { color: colors.primary },
+  filters: { marginTop: 10, marginBottom: 8 },
+  filtersContent: { alignItems: 'center', gap: 2, paddingVertical: 2 },
+  resultHeading: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 8
+    justifyContent: 'space-between',
+    gap: 6,
+    marginTop: 8,
+    marginBottom: 14
   },
-  assigneeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  assigneeMore: {
-    marginLeft: 8,
-    color: colors.muted
-  },
+  resultTitle: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  resultHint: { color: colors.muted, fontSize: 12 },
+  assigneeContainer: { flexDirection: 'row', alignItems: 'center' },
+  assigneeMore: { marginLeft: 8, color: colors.muted },
   emptyCard: {
-    marginTop: 10
+    padding: 18,
+    borderRadius: 18,
+    borderColor: FIELD_UI.border,
+    elevation: 0,
+    shadowOpacity: 0,
+    marginBottom: 14
   },
-  emptyTitle: {
-    color: colors.text,
-    fontWeight: '700',
-    marginBottom: 12
-  },
-  bottomLoader: {
-    alignItems: 'center',
-    paddingVertical: 16
-  },
-  retryButton: {
-    alignSelf: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 12
-  },
-  retryText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 15
-  }
+  bottomLoader: { alignItems: 'center', paddingVertical: 20 }
 });

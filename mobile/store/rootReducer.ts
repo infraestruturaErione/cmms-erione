@@ -1,4 +1,6 @@
-import { combineReducers } from '@reduxjs/toolkit';
+import { AnyAction, combineReducers } from '@reduxjs/toolkit';
+import { reducer as localWorkOrderCacheReducer } from '../slices/localWorkOrderCache';
+import { applyLocalWorkOrderCachePolicy } from './localWorkOrderCachePolicy';
 import { reducer as customerReducer } from '../slices/customer';
 import { reducer as vendorReducer } from '../slices/vendor';
 import { reducer as locationReducer } from '../slices/location';
@@ -41,7 +43,8 @@ import { reducer as customFieldReducer } from '../slices/customField';
 import { reducer as commentReducer } from '../slices/comment';
 import { reducer as instanceConfigReducer } from '../slices/instanceConfig';
 
-const rootReducer = combineReducers({
+const combinedReducer = combineReducers({
+  localWorkOrderCache: localWorkOrderCacheReducer,
   customers: customerReducer,
   vendors: vendorReducer,
   locations: locationReducer,
@@ -85,4 +88,11 @@ const rootReducer = combineReducers({
   instanceConfig: instanceConfigReducer
 });
 
-export default rootReducer;
+export type ApplicationState = ReturnType<typeof combinedReducer>;
+
+export default function rootReducer(
+  state: ApplicationState | undefined,
+  action: AnyAction
+): ApplicationState {
+  return applyLocalWorkOrderCachePolicy(combinedReducer(state, action), action);
+}

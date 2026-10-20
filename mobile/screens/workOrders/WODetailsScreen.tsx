@@ -46,7 +46,12 @@ import { getPriorityColor, getStatusColor } from '../../utils/overall';
 import { PermissionEntity } from '../../models/role';
 import useAuth from '../../hooks/useAuth';
 import { controlTimer, getLabors } from '../../slices/labor';
-import { useDispatch, useSelector } from '../../store';
+import store, { useDispatch, useSelector } from '../../store';
+import useLocalWorkOrderRemovalBlock from '../../hooks/useLocalWorkOrderRemovalBlock';
+import { removeWorkOrderFromDevice } from '../../utils/removeWorkOrderFromDevice';
+import LocalRemovalDialog from './components/LocalRemovalDialog';
+import { rememberWorkOrderUploads } from '../../utils/workOrderMedia';
+import { refreshWorkOrderView } from '../../utils/workOrderRefresh';
 import {
   durationToHours,
   getHoursAndMinutesAndSeconds
@@ -82,7 +87,9 @@ import {
   isSoleExecutionAssignee
 } from '../../utils/workOrderExecution';
 import { getLocationAddressWithReference } from '../../utils/locationDisplay';
-import ImageView from 'react-native-image-viewing';
+import WorkOrderImage, {
+  WorkOrderImageViewer
+} from '../../components/WorkOrderImage';
 import { getCustomFieldValuesForDetails } from '../../models/form';
 import CommentItem from '../../components/CommentItem';
 import { downloadFile } from '../../utils/fileDownload';
@@ -106,6 +113,12 @@ import {
   ErioneStatusBadge
 } from '../../components/erione/ErioneUI';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
+import {
+  FIELD_UI,
+  FieldHero,
+  FieldNotice,
+  FieldSectionTitle
+} from '../../components/erione/FieldWorkOrderUI';
 import {
   ERIONE_HIDDEN_MODULES,
   isErioneModuleHidden
@@ -138,7 +151,20 @@ const triggersConfig: TriggersConfig<'mention'> = {
       `@[${suggestion.name}](user:${suggestion.id})`
   }
 };
-export default function WODetailsScreen({
+export default function WODetailsScreen(
+  props: RootStackScreenProps<'WODetails'>
+) {
+  const { user } = useAuth();
+  const session = useSelector((state) => state.tasks.session);
+  return (
+    <WorkOrderDetailsContent
+      key={`${user.id}:${user.companyId}:${session}:${props.route.params.id}`}
+      {...props}
+    />
+  );
+}
+
+function WorkOrderDetailsContent({
   navigation,
   route
 }: RootStackScreenProps<'WODetails'>) {
@@ -173,6 +199,11 @@ export default function WODetailsScreen({
   const [loading, setLoading] = useState<boolean>(false);
   const [completionLoading, setCompletionLoading] = useState<boolean>(false);
   const completionInFlightRef = useRef(false);
+  const claimInFlight = useRef(false);
+  const [actionHeight, setActionHeight] = useState(0);
+  const [readinessState, setReadinessState] = useState<
+    'checking' | 'ready' | 'error'
+  >('checking');
   const theme = useTheme();
   const headerHeight = useHeaderHeight();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -222,6 +253,27 @@ export default function WODetailsScreen({
     { uri: string; name: string; type: string }[]
   >([]);
   const [commentsLoadError, setCommentsLoadError] = useState(false);
+  const [detailsLoadError, setDetailsLoadError] = useState(false);
+  const [openLocalRemoval, setOpenLocalRemoval] = useState(false);
+  const [localRemovalError, setLocalRemovalError] = useState('');
+  const [removingLocally, setRemovingLocally] = useState(false);
+  const localRemovalInFlight = useRef(false);
+  const refreshInFlight = useRef<Promise<void> | null>(null);
+  const viewMounted = useRef(true);
+  useEffect(() => {
+    viewMounted.current = true;
+    return () => {
+      viewMounted.current = false;
+    };
+  }, []);
+  const [refreshingDetails, setRefreshingDetails] = useState(false);
+  useLocalWorkOrderRemovalBlock(
+    id,
+    !!commentContent.trim() ||
+      !!commentFiles.length ||
+      completionLoading ||
+      controllingTime
+  );
   const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [problemExpanded, setProblemExpanded] = useState(false);
   const { commentsByWorkOrder, loadingComments, loadingCreate } = useSelector(
@@ -359,32 +411,84 @@ export default function WODetailsScreen({
   // como "ganhar foco") - manter os dois disparava a mesma request 2x
   // sempre que a tela abria sem workOrderProp pre-carregado.
   const getInfos = () => {
+    const requests: Promise<unknown>[] = [];
     if (showPartsSection) {
-      dispatch(getPartQuantitiesByWorkOrder(id));
+      requests.push(dispatch(getPartQuantitiesByWorkOrder(id)));
     }
     if (
       (showLaborSection && !ERIONE_HIDDEN_MODULES.labor) ||
       showManualLaborTimer
     ) {
-      dispatch(getLabors(id));
+      requests.push(dispatch(getLabors(id)));
     }
     if (showAdditionalCostsSection && !ERIONE_HIDDEN_MODULES.additionalCosts) {
-      dispatch(getAdditionalCosts(id));
+      requests.push(dispatch(getAdditionalCosts(id)));
     }
     if (
       !generalPreferences.simplifiedWorkOrder &&
       !ERIONE_HIDDEN_MODULES.relations
     ) {
-      dispatch(getRelations(id));
+      requests.push(dispatch(getRelations(id)));
     }
-    dispatch(getTasks(id));
+    requests.push(dispatch(getTasks(id, true)));
+    return Promise.allSettled(requests).then((results) => {
+      const failed = results.find((result) => result.status === 'rejected') as
+        | PromiseRejectedResult
+        | undefined;
+      if (failed) {
+        const error = new Error(getErrorMessage(failed.reason));
+        (error as Error & { tasksFailed: boolean }).tasksFailed =
+          results[results.length - 1].status === 'rejected';
+        throw error;
+      }
+    });
+  };
+  const refreshDetails = () => {
+    if (refreshInFlight.current) return refreshInFlight.current;
+    setRefreshingDetails(true);
+    setReadinessState('checking');
+    setDetailsLoadError(false);
+    setCommentsLoadError(false);
+    const request = refreshWorkOrderView({
+      pruned: !!store.getState().localWorkOrderCache.summaries[id],
+      loadDetails: () => dispatch(getWorkOrderDetails(id, true)),
+      loadComments: () => dispatch(getCommentsByWorkOrder(id)),
+      loadExtras: getInfos
+    })
+      .then(({ detailsError, commentsError, extrasError }) => {
+        if (!viewMounted.current) return;
+        setDetailsLoadError(!!detailsError);
+        setCommentsLoadError(!!commentsError);
+        const error = detailsError || commentsError || extrasError;
+        setReadinessState(
+          detailsError || commentsError || (extrasError as any)?.tasksFailed
+            ? 'error'
+            : 'ready'
+        );
+        if (error)
+          showSnackBar(
+            getErrorMessage(
+              error,
+              'Não foi possível atualizar todos os dados da OS.'
+            ),
+            'error'
+          );
+      })
+      .finally(() => {
+        refreshInFlight.current = null;
+        if (viewMounted.current) setRefreshingDetails(false);
+      });
+    refreshInFlight.current = request;
+    return request;
   };
   useEffect(() => {
     navigation.setOptions({
       headerRight: () =>
         workOrder &&
         !loadingTasks[id] && (
-          <Pressable
+          <IconButton
+            icon="dots-vertical"
+            accessibilityLabel="Ações da ordem de serviço"
             onPress={() => {
               SheetManager.show('work-order-details-sheet', {
                 payload: {
@@ -396,35 +500,27 @@ export default function WODetailsScreen({
                   onDelete: () => {
                     setOpenDelete(true);
                   },
+                  onRemoveFromDevice: () => {
+                    setLocalRemovalError('');
+                    setOpenLocalRemoval(true);
+                  },
                   onGenerateReport,
                   workOrder
                 }
               });
             }}
-          >
-            <IconButton icon="dots-vertical" />
-          </Pressable>
+          />
         )
     });
     //LogBox.ignoreLogs(['VirtualizedLists should never be nested']);
   }, [loadingTasks, workOrder, tasks]);
-
-  useEffect(() => {
-    getInfos();
-  }, [workOrderProp]);
 
   // Cobre mount inicial (ganhar foco pela 1a vez conta como foco) E volta
   // de outra tela (Tasks/Relato/etc.) - unico lugar que busca
   // WorkOrder/Comments, pra' nao duplicar a mesma request.
   useFocusEffect(
     useCallback(() => {
-      setCommentsLoadError(false);
-      dispatch(getWorkOrderDetails(id)).catch((err) => {
-        showSnackBar(getErrorMessage(err), 'error');
-      });
-      dispatch(getCommentsByWorkOrder(id)).catch(() => {
-        setCommentsLoadError(true);
-      });
+      refreshDetails();
     }, [dispatch, id, showSnackBar])
   );
 
@@ -491,6 +587,37 @@ export default function WODetailsScreen({
     dispatch(deleteWorkOrder(id)).then(onDeleteSuccess).catch(onDeleteFailure);
     setOpenDelete(false);
   };
+  const handleLocalRemoval = async () => {
+    if (localRemovalInFlight.current) return;
+    localRemovalInFlight.current = true;
+    setLocalRemovalError('');
+    setRemovingLocally(true);
+    try {
+      const result = await dispatch(removeWorkOrderFromDevice(id));
+      const removedSize =
+        result.removedBytes < 1024 * 1024
+          ? `${(result.removedBytes / 1024).toFixed(1)} KB`
+          : `${(result.removedBytes / 1024 / 1024).toFixed(1)} MB`;
+      setOpenLocalRemoval(false);
+      showSnackBar(
+        `Detalhes locais removidos. ${result.removedFiles} arquivo(s) temporario(s), ${removedSize}. A OS continua no sistema.`,
+        'success'
+      );
+      if (navigation.isFocused()) navigation.goBack();
+    } catch (err) {
+      setLocalRemovalError(getErrorMessage(err));
+      if (
+        store.getState().localWorkOrderCache.summaries[id] &&
+        navigation.isFocused()
+      ) {
+        showSnackBar(getErrorMessage(err), 'error');
+        navigation.goBack();
+      }
+    } finally {
+      localRemovalInFlight.current = false;
+      setRemovingLocally(false);
+    }
+  };
   const onArchive = () => {
     dispatch(editWorkOrder(id, { ...workOrder, archived: true }))
       .then(onArchiveSuccess)
@@ -524,7 +651,15 @@ export default function WODetailsScreen({
           }
         }
       })
-      .catch((err: Error) => console.error(err.message))
+      .catch((err: Error) =>
+        showSnackBar(
+          getErrorMessage(
+            err,
+            'Não foi possível baixar o PDF. Tente novamente.'
+          ),
+          'error'
+        )
+      )
       .finally(() => setLoading(false));
   };
   const canComplete = (): boolean => {
@@ -591,10 +726,12 @@ export default function WODetailsScreen({
         mileageTraveled: values.mileageTraveled
       })
     )
-      .then(() => navigation.navigate('Root'))
+      .then(() => {
+        if (viewMounted.current) navigation.navigate('Root');
+      })
       .finally(() => {
         completionInFlightRef.current = false;
-        setCompletionLoading(false);
+        if (viewMounted.current) setCompletionLoading(false);
       });
   };
   const fieldReportContent = getFirstFieldReportText(comments);
@@ -770,10 +907,21 @@ export default function WODetailsScreen({
           files: fileIds
         })
       );
+      try {
+        await rememberWorkOrderUploads(id, commentFiles, fileIds);
+      } catch {
+        console.warn('[WorkOrder] Local temporary-file tracking unavailable.');
+      }
       setCommentContent('');
       setCommentFiles([]);
     } catch (error) {
-      console.error('Failed to create comment:', error);
+      showSnackBar(
+        getErrorMessage(
+          error,
+          'Não foi possível confirmar o envio do comentário. Confira antes de tentar novamente.'
+        ),
+        'error'
+      );
     }
   };
 
@@ -947,6 +1095,7 @@ export default function WODetailsScreen({
   const renderEvidenceGallery = () => {
     return (
       <WorkOrderEvidenceGallery
+        workOrderId={id}
         evidenceItems={fieldEvidenceItems}
         getFormattedDate={getFormattedDate}
         onOpenImages={openImageViewer}
@@ -1012,9 +1161,10 @@ export default function WODetailsScreen({
 
     return (
       <ErioneCard style={styles.completionChecklistCard}>
-        <ErioneSectionHeader
+        <FieldSectionTitle
+          icon="clipboard-check-outline"
           title={t(isCompleted ? 'closing_requirements' : 'closing')}
-          subtitle={
+          helper={
             isCompleted
               ? t('closing_requirements_complete_helper')
               : t('before_complete_work_order_helper')
@@ -1081,9 +1231,10 @@ export default function WODetailsScreen({
 
   const renderDestinationCard = () => (
     <ErioneCard style={styles.detailsCard}>
-      <ErioneSectionHeader
+      <FieldSectionTitle
+        icon="map-marker-outline"
         title={t('work_order_destination')}
-        subtitle={t('work_order_destination_helper')}
+        helper={t('work_order_destination_helper')}
       />
       {!!workOrder.customers?.length && (
         <BasicField
@@ -1114,9 +1265,10 @@ export default function WODetailsScreen({
 
   const renderProblemCard = () => (
     <ErioneCard style={styles.detailsCard}>
-      <ErioneSectionHeader
+      <FieldSectionTitle
+        icon="text-box-outline"
         title={t('work_order_problem')}
-        subtitle={t('work_order_problem_helper')}
+        helper={t('work_order_problem_helper')}
       />
       {workOrder.description ? (
         <View>
@@ -1154,9 +1306,10 @@ export default function WODetailsScreen({
           }
           style={styles.problemImageWrap}
         >
-          <Image
+          <WorkOrderImage
+            workOrderId={id}
             style={styles.workOrderImage}
-            source={{ uri: workOrder.image.url }}
+            url={workOrder.image.url}
           />
         </TouchableOpacity>
       )}
@@ -1283,6 +1436,15 @@ export default function WODetailsScreen({
         <Provider theme={theme}>
           {renderConfirmDelete()}
           {renderConfirmArchive()}
+          <Portal>
+            <LocalRemovalDialog
+              visible={openLocalRemoval}
+              busy={removingLocally}
+              error={localRemovalError}
+              onDismiss={() => setOpenLocalRemoval(false)}
+              onConfirm={handleLocalRemoval}
+            />
+          </Portal>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
@@ -1292,7 +1454,7 @@ export default function WODetailsScreen({
               ref={scrollViewRef}
               contentContainerStyle={[
                 styles.detailsContent,
-                { paddingBottom: 28 }
+                { paddingBottom: 28 + actionHeight }
               ]}
               keyboardDismissMode={
                 Platform.OS === 'ios' ? 'interactive' : 'none'
@@ -1302,21 +1464,17 @@ export default function WODetailsScreen({
               style={styles.detailsScroll}
               refreshControl={
                 <RefreshControl
-                  refreshing={loading || loadingGet}
-                  onRefresh={getInfos}
+                  refreshing={refreshingDetails || loading || loadingGet}
+                  onRefresh={refreshDetails}
                 />
               }
             >
-              <ErioneCard style={styles.heroCard}>
-                <View style={styles.heroTopRow}>
-                  <View style={styles.heroTitleGroup}>
-                    <Text variant="labelMedium" style={styles.heroEyebrow}>
-                      #{workOrder.customId}
-                    </Text>
-                    <Text variant="headlineSmall" style={styles.heroTitle}>
-                      {workOrder.title}
-                    </Text>
-                  </View>
+              <View style={styles.heroCard}>
+                <FieldHero
+                  eyebrow={`ORDEM DE SERVIÇO · #${workOrder.customId}`}
+                  title={workOrder.title}
+                  helper={`Aberta em ${getFormattedDate(workOrder.createdAt)}`}
+                >
                   <ErioneStatusBadge
                     label={
                       statuses.find((s) => s.value === workOrder.status)
@@ -1325,8 +1483,6 @@ export default function WODetailsScreen({
                     color={statusColor}
                     subtle
                   />
-                </View>
-                <View style={styles.heroBadges}>
                   {workOrder.priority !== 'NONE' && (
                     <ErioneStatusBadge
                       label={t('priority_label', {
@@ -1336,12 +1492,15 @@ export default function WODetailsScreen({
                       subtle
                     />
                   )}
-                </View>
-              </ErioneCard>
+                </FieldHero>
+              </View>
               {workOrder.status === 'COMPLETE' && renderCompletedSummary()}
-              <ErioneCard>
-                <Text variant="labelMedium">Operador da execução</Text>
-                <Text variant="titleMedium">
+              <ErioneCard style={styles.detailsCard}>
+                <FieldSectionTitle
+                  icon="account-hard-hat"
+                  title="Responsável pela execução"
+                />
+                <Text style={styles.operatorName}>
                   {workOrder.executionOwner?.firstName
                     ? `${workOrder.executionOwner.firstName} ${
                         workOrder.executionOwner.lastName ?? ''
@@ -1353,38 +1512,19 @@ export default function WODetailsScreen({
                 </Text>
                 {workOrder.executionOwner &&
                   workOrder.executionOwner.id !== user.id && (
-                    <Text>
-                      Você está acompanhando esta OS em modo leitura
-                      operacional.
-                    </Text>
-                  )}
-                {!workOrder.executionOwner &&
-                  !isSoleExecutionAssignee(workOrder, user.id) &&
-                  workOrder.status !== 'COMPLETE' &&
-                  user.role.code !== 'REQUESTER' &&
-                  isExecutionAssigned(workOrder, user.id) &&
-                  hasGeneralEditPermission(
-                    PermissionEntity.WORK_ORDERS,
-                    workOrder
-                  ) && (
-                    <ErionePrimaryButton
-                      onPress={() => {
-                        setLoading(true);
-                        dispatch(startWorkOrderExecution(id))
-                          .catch((error) =>
-                            showSnackBar(getErrorMessage(error), 'error')
-                          )
-                          .finally(() => setLoading(false));
+                    <View
+                      style={{
+                        marginVertical: 12,
+                        backgroundColor: 'transparent'
                       }}
-                      loading={loading}
-                      disabled={loading}
                     >
-                      Assumir execução
-                    </ErionePrimaryButton>
+                      <FieldNotice
+                        icon="eye-outline"
+                        title="Somente leitura operacional"
+                        message="Você está acompanhando esta OS. A execução está disponível somente para o operador."
+                      />
+                    </View>
                   )}
-                <Text variant="bodySmall">
-                  Criada em {getFormattedDate(workOrder.createdAt)}
-                </Text>
                 {workOrder.status === 'COMPLETE' &&
                   hasAdministrativeWorkOrderPermission && (
                     <Button
@@ -1436,6 +1576,42 @@ export default function WODetailsScreen({
               {renderDestinationCard()}
               {renderProblemCard()}
               <FieldExecutionSection
+                actionPlacement="footer"
+                onActionHeightChange={setActionHeight}
+                hideAction={
+                  isImageViewerOpen ||
+                  openLocalRemoval ||
+                  openDelete ||
+                  openArchive
+                }
+                checking={readinessState === 'checking'}
+                checkError={readinessState === 'error'}
+                onRetryCheck={refreshDetails}
+                claiming={loading}
+                canClaim={
+                  !workOrder.executionOwner &&
+                  !isSoleExecutionAssignee(workOrder, user.id) &&
+                  workOrder.status !== 'COMPLETE' &&
+                  user.role.code !== 'REQUESTER' &&
+                  isExecutionAssigned(workOrder, user.id) &&
+                  hasGeneralEditPermission(
+                    PermissionEntity.WORK_ORDERS,
+                    workOrder
+                  )
+                }
+                onClaim={() => {
+                  if (claimInFlight.current) return;
+                  claimInFlight.current = true;
+                  setLoading(true);
+                  dispatch(startWorkOrderExecution(id))
+                    .catch((error) =>
+                      showSnackBar(getErrorMessage(error), 'error')
+                    )
+                    .finally(() => {
+                      claimInFlight.current = false;
+                      if (viewMounted.current) setLoading(false);
+                    });
+                }}
                 workOrder={workOrder}
                 comments={comments}
                 readiness={completionReadiness}
@@ -1469,34 +1645,6 @@ export default function WODetailsScreen({
                   </Button>
                 )}
               {renderCompletionChecklist()}
-              {workOrder.status !== 'COMPLETE' &&
-                workOrder.checkOutAt &&
-                hasEditPermission(PermissionEntity.WORK_ORDERS, workOrder) &&
-                !completionReadiness?.missingRequirements.some((requirement) =>
-                  [
-                    'CHECK_IN',
-                    'CHECK_OUT',
-                    'FIELD_REPORT',
-                    'PHOTO',
-                    'CHECKLIST'
-                  ].includes(requirement)
-                ) && (
-                  <ErionePrimaryButton
-                    icon="check-circle"
-                    style={styles.completeButton}
-                    loading={completionLoading}
-                    disabled={
-                      completionLoading || loadingComments || commentsLoadError
-                    }
-                    onPress={() => onStatusChange('COMPLETE')}
-                  >
-                    {t(
-                      completionReadiness?.missingRequirements.length
-                        ? 'review_closure'
-                        : 'complete_work_order_short'
-                    )}
-                  </ErionePrimaryButton>
-                )}
               <FieldExecutionHistory
                 workOrder={workOrder}
                 comments={comments}
@@ -2089,7 +2237,8 @@ export default function WODetailsScreen({
             </ScrollView>
           </KeyboardAvoidingView>
           {!!imageViewImages.length && (
-            <ImageView
+            <WorkOrderImageViewer
+              workOrderId={id}
               images={imageViewImages}
               imageIndex={imageViewIndex}
               visible={isImageViewerOpen}
@@ -2097,6 +2246,18 @@ export default function WODetailsScreen({
             />
           )}
         </Provider>
+      </View>
+    );
+  else if (detailsLoadError)
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+        <Text>
+          Não foi possível carregar a OS. Seus dados continuam no sistema;
+          confira a conexão para consultar novamente.
+        </Text>
+        <Button onPress={() => navigation.replace('WODetails', { id })}>
+          Tentar novamente
+        </Button>
       </View>
     );
   else return <LoadingDialog visible={true} />;
@@ -2108,41 +2269,25 @@ const styles = StyleSheet.create({
     backgroundColor: erioneColors.background
   },
   detailsScroll: {
-    backgroundColor: erioneColors.background
+    backgroundColor: FIELD_UI.canvas
   },
   detailsContent: {
     paddingHorizontal: 16,
-    paddingTop: 12
+    paddingTop: 16,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center'
   },
   heroCard: {
-    marginBottom: 12
+    marginBottom: 16,
+    backgroundColor: 'transparent'
   },
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12
-  },
-  heroTitleGroup: {
-    flex: 1
-  },
-  heroEyebrow: {
-    color: erioneColors.primary,
-    fontWeight: '800'
-  },
-  heroTitle: {
+  operatorName: {
     color: erioneColors.text,
-    fontWeight: '800',
-    letterSpacing: 0,
-    marginTop: 3
-  },
-  heroBadges: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12
-  },
-  heroMetaGrid: {
-    marginTop: 4
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '700',
+    marginBottom: 12
   },
   workOrderImage: {
     width: '100%',
@@ -2162,7 +2307,12 @@ const styles = StyleSheet.create({
     marginTop: 14
   },
   detailsCard: {
-    marginBottom: 12
+    marginBottom: 16,
+    borderRadius: 20,
+    padding: 18,
+    borderColor: FIELD_UI.border,
+    shadowOpacity: 0,
+    elevation: 0
   },
   collapsibleHeader: {
     flexDirection: 'row',
@@ -2228,7 +2378,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF'
   },
   completedSummaryCard: {
-    marginBottom: 12,
+    marginBottom: 16,
+    padding: 18,
+    shadowOpacity: 0,
+    elevation: 0,
     borderColor: '#B8E3D0',
     backgroundColor: '#F2FBF7'
   },
@@ -2295,9 +2448,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF'
   },
   completionChecklistCard: {
-    marginBottom: 12,
-    borderColor: '#CAD6FF',
-    backgroundColor: erioneColors.primarySoft
+    marginBottom: 16,
+    padding: 18,
+    borderColor: FIELD_UI.border,
+    backgroundColor: '#FFFFFF',
+    shadowOpacity: 0,
+    elevation: 0
   },
   completionChecklist: {
     gap: 8,

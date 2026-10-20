@@ -24,6 +24,7 @@ import { OwnUser } from '../../models/user';
 import { formatImages } from '../../utils/overall';
 import { useAppTheme } from '../../custom-theme';
 import { IconWithLabel } from '../../components/IconWithLabel';
+import AuthenticatedUserIdentity from '../../components/erione/AuthenticatedUserIdentity';
 
 export default function UserProfile(_props: RootStackScreenProps<'UserProfile'>) {
   const {
@@ -189,6 +190,8 @@ export default function UserProfile(_props: RootStackScreenProps<'UserProfile'>)
         style={{
           alignItems: 'center',
           paddingVertical: 30,
+          paddingHorizontal: 16,
+          gap: 16,
           backgroundColor: 'white'
         }}
       >
@@ -201,7 +204,11 @@ export default function UserProfile(_props: RootStackScreenProps<'UserProfile'>)
             ) : (
               <Avatar.Text
                 size={100}
-                label={getUserInitials(user)}
+                label={getUserInitials({
+                  ...user,
+                  firstName: user.firstName ?? '',
+                  lastName: user.lastName ?? ''
+                }) || '?'}
                 style={{ backgroundColor: theme.colors.background }}
               />
             )}
@@ -226,33 +233,18 @@ export default function UserProfile(_props: RootStackScreenProps<'UserProfile'>)
             </View>
           </TouchableOpacity>
         )}
-        <Text
-          variant="headlineSmall"
-          style={{ marginTop: 15, fontWeight: 'bold' }}
-        >
-          {`${user.firstName} ${user.lastName}`}
-        </Text>
-        <Text variant="bodyLarge" style={{ color: theme.colors.grey }}>
-          {user.jobTitle}
-        </Text>
+        <AuthenticatedUserIdentity />
       </View>
 
       <View style={styles.section}>
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          {t('informations')}
+          Dados da conta
         </Text>
         <View style={styles.sectionContent}>
           {user.email && (
             <IconWithLabel
               label={user.email}
               icon="email-outline"
-              color={theme.colors.grey}
-            />
-          )}
-          {user.phone && (
-            <IconWithLabel
-              label={user.phone}
-              icon="phone-outline"
               color={theme.colors.grey}
             />
           )}

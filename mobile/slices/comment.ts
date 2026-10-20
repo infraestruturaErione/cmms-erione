@@ -116,52 +116,61 @@ export const reducer = slice.reducer;
 
 export const getCommentsByWorkOrder =
   (workOrderId: number): AppThunk =>
-  async (dispatch) => {
+  async (dispatch, getState) => {
+    const session = getState().tasks.session;
     try {
       dispatch(slice.actions.setLoadingComments({ loading: true }));
       const comments = await api.post<Comment[]>(
         `${basePath}/search/${workOrderId}`,
         {}
       );
-      dispatch(slice.actions.getComments({ workOrderId, comments }));
+      if (getState().tasks.session === session)
+        dispatch(slice.actions.getComments({ workOrderId, comments }));
     } finally {
-      dispatch(slice.actions.setLoadingComments({ loading: false }));
+      if (getState().tasks.session === session)
+        dispatch(slice.actions.setLoadingComments({ loading: false }));
     }
   };
 
 export const createComment =
   (comment: CommentPostDTO): AppThunk =>
-  async (dispatch) => {
+  async (dispatch, getState) => {
+    const session = getState().tasks.session;
     try {
       dispatch(slice.actions.setLoadingCreate({ loading: true }));
       const newComment = await api.post<Comment>(basePath, comment);
-      dispatch(
-        slice.actions.addComment({
-          workOrderId: comment.workOrder.id,
-          comment: newComment
-        })
-      );
+      if (getState().tasks.session === session)
+        dispatch(
+          slice.actions.addComment({
+            workOrderId: comment.workOrder.id,
+            comment: newComment
+          })
+        );
       return newComment;
     } finally {
-      dispatch(slice.actions.setLoadingCreate({ loading: false }));
+      if (getState().tasks.session === session)
+        dispatch(slice.actions.setLoadingCreate({ loading: false }));
     }
   };
 
 export const updateComment =
   (id: number, comment: CommentPatchDTO, workOrderId: number): AppThunk =>
-  async (dispatch) => {
+  async (dispatch, getState) => {
+    const session = getState().tasks.session;
     try {
       dispatch(slice.actions.setLoadingUpdate({ loading: true }));
       const updatedComment = await api.patch<Comment>(
         `${basePath}/${id}`,
         comment
       );
-      dispatch(
-        slice.actions.updateComment({ workOrderId, comment: updatedComment })
-      );
+      if (getState().tasks.session === session)
+        dispatch(
+          slice.actions.updateComment({ workOrderId, comment: updatedComment })
+        );
       return updatedComment;
     } finally {
-      dispatch(slice.actions.setLoadingUpdate({ loading: false }));
+      if (getState().tasks.session === session)
+        dispatch(slice.actions.setLoadingUpdate({ loading: false }));
     }
   };
 

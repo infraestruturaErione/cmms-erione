@@ -1,6 +1,11 @@
 import React from 'react';
 import { act, create } from 'react-test-renderer';
-import { TextInput } from 'react-native-paper';
+import { Button, TextInput } from 'react-native-paper';
+import { Image, TouchableOpacity } from 'react-native';
+jest.mock('../WorkOrderImage', () => ({
+  __esModule: true,
+  default: () => null
+}));
 
 // SingleTask -> useAuth -> AuthContext -> utils/api.ts -> AsyncStorage,
 // which isn't backed by a native module in Jest ("NativeModule:
@@ -44,6 +49,218 @@ const render = (task) => {
   flushTimers();
   return root;
 };
+
+describe('SingleTask - questionnaire without new photo attachments', () => {
+  test('a filled answer with failed upload is not presented as server-confirmed', () => {
+    let root;
+    act(() => {
+      root = create(
+        <SingleTask
+          task={makeTask('TEXT', 'texto local')}
+          answerFeedback="error"
+          notes={new Map()}
+        />
+      );
+    });
+    expect(JSON.stringify(root.toJSON())).toContain(
+      'Preenchida · envio não confirmado'
+    );
+    act(() => root.unmount());
+  });
+  test('compact presentation keeps the exact same input instance mounted for safe review', () => {
+    const task = makeTask('TEXT', 'Resposta confirmada');
+    let tree;
+    act(() => {
+      tree = create(
+        <SingleTask
+          task={task}
+          compact
+          notes={new Map()}
+          handleChange={jest.fn()}
+        />
+      );
+    });
+    const input = tree.root.findByType(TextInput);
+    expect(input.props.value).toBe('Resposta confirmada');
+    act(() =>
+      tree.update(
+        <SingleTask
+          task={task}
+          compact={false}
+          notes={new Map()}
+          handleChange={jest.fn()}
+        />
+      )
+    );
+    expect(tree.root.findByType(TextInput)).toBe(input);
+    act(() => tree.unmount());
+  });
+  test('keeps Notes usable without an Images action', () => {
+    const toggleNotes = jest.fn();
+    let root;
+    act(() => {
+      root = create(
+        <SingleTask
+          task={makeTask('TEXT', '')}
+          notes={new Map()}
+          toggleNotes={toggleNotes}
+        />
+      );
+    });
+    const buttons = root.root.findAllByType(Button);
+    expect(buttons.some((button) => button.props.icon === 'image-plus')).toBe(
+      false
+    );
+    const notes = buttons.find(
+      (button) => button.props.icon === 'note-text-outline'
+    );
+    expect(notes).toBeDefined();
+    act(() => notes.props.onPress());
+    expect(toggleNotes).toHaveBeenCalledWith(1);
+    act(() => root.unmount());
+  });
+
+  test('preserves viewing and zooming photos already attached to old questions', () => {
+    const handleZoomImage = jest.fn();
+    const url = 'https://example.test/existing-evidence.jpg';
+    const task = {
+      ...makeTask('TEXT', 'Resposta antiga'),
+      images: [{ id: 9, url }]
+    };
+    let root;
+    act(() => {
+      root = create(
+        <SingleTask
+          task={task}
+          notes={new Map()}
+          handleZoomImage={handleZoomImage}
+        />
+      );
+    });
+    expect(
+      root.root
+        .findAllByType(Image)
+        .some((image) => image.props.source?.uri === url)
+    ).toBe(true);
+    const photo = root.root
+      .findAllByType(TouchableOpacity)
+      .find((node) =>
+        node
+          .findAllByType(Image)
+          .some((image) => image.props.source?.uri === url)
+      );
+    act(() => photo.props.onPress());
+    expect(handleZoomImage).toHaveBeenCalledWith([url], url);
+    expect(task.images).toEqual([{ id: 9, url }]);
+    act(() => root.unmount());
+  });
+});
+
+describe('SingleTask - server acknowledgement feedback', () => {
+  test('text answers wrap and retain the complete value while numeric fields keep their keypad', () => {
+    const longText = 'Conferência executada em campo.\n'.repeat(18);
+    const text = render(makeTask('TEXT', longText));
+    expect(text.root.findByType(TextInput).props.value).toBe(longText);
+    expect(text.root.findByType(TextInput).props.multiline).toBe(true);
+    expect(text.root.findByType(TextInput).props.scrollEnabled).toBe(true);
+    const numeric = render(makeTask('NUMBER', '42'));
+    expect(numeric.root.findByType(TextInput).props.multiline).toBe(false);
+    expect(numeric.root.findByType(TextInput).props.keyboardType).toBe(
+      'numeric'
+    );
+    act(() => {
+      text.unmount();
+      numeric.unmount();
+    });
+  });
+  test.each([
+    ['waiting', 'Resposta aguardando envio.'],
+    ['saving', 'Enviando resposta...'],
+    ['saved', 'Envio da resposta confirmado pelo sistema.'],
+    ['error', 'Não foi possível confirmar o envio da resposta.']
+  ])(
+    'shows %s and distinguishes filled text from server confirmation',
+    (feedback, message) => {
+      let root;
+      act(() => {
+        root = create(
+          <SingleTask
+            task={makeTask('TEXT', 'Respondido')}
+            notes={new Map()}
+            answerFeedback={feedback}
+          />
+        );
+      });
+      const labels = root.root.findAll(
+        (node) => typeof node.props.children === 'string'
+      );
+      expect(
+        labels.some((node) => node.props.children.startsWith(message))
+      ).toBe(true);
+      expect(
+        labels.some((node) => node.props.children === 'question_answered')
+      ).toBe(feedback === 'saved');
+      expect(
+        labels.some(
+          (node) => node.props.children === 'Preenchida · envio não confirmado'
+        )
+      ).toBe(feedback !== 'saved');
+      act(() => root.unmount());
+    }
+  );
+
+  test('marks typing immediately and keeps the existing one-second debounce', () => {
+    const onAnswerEdited = jest.fn();
+    const handleChange = jest.fn();
+    let root;
+    act(() => {
+      root = create(
+        <SingleTask
+          task={makeTask('TEXT', '')}
+          notes={new Map()}
+          onAnswerEdited={onAnswerEdited}
+          handleChange={handleChange}
+        />
+      );
+    });
+    act(() =>
+      root.root.findByType(TextInput).props.onChangeText('Nova resposta')
+    );
+    expect(onAnswerEdited).toHaveBeenCalledWith(1);
+    expect(handleChange).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(1000));
+    expect(handleChange).toHaveBeenCalledTimes(1);
+    expect(handleChange).toHaveBeenCalledWith('Nova resposta', 1);
+    act(() => root.unmount());
+  });
+
+  test('a failed notes save restores the button and keeps notes visible for retry', async () => {
+    const handleSaveNotes = jest.fn().mockRejectedValue(new Error('offline'));
+    let root;
+    act(() => {
+      root = create(
+        <SingleTask
+          task={makeTask('TEXT', 'Resposta')}
+          notes={new Map([[1, true]])}
+          handleSaveNotes={handleSaveNotes}
+          notesFeedback="error"
+        />
+      );
+    });
+    const saveButton = () =>
+      root.root
+        .findAllByType(Button)
+        .find((node) => node.props.mode === 'contained');
+    await act(async () => {
+      saveButton().props.onPress();
+    });
+    expect(handleSaveNotes).toHaveBeenCalledTimes(1);
+    expect(saveButton().props.loading).toBe(false);
+    expect(root.root.findAllByType(TextInput)).toHaveLength(2);
+    expect(root.toJSON()).toBeTruthy();
+    act(() => root.unmount());
+  });
+});
 
 describe('SingleTask - NUMBER/METER value display', () => {
   test.each(['NUMBER', 'METER'])(
@@ -282,7 +499,9 @@ describe('SingleTask - status acompanha a digitacao', () => {
     expect(onInputFocus).toHaveBeenCalledWith(1, expect.any(Object));
 
     const inputWrapper = root.root.findAll(
-      (node) => node.props.collapsable === false && typeof node.props.onLayout === 'function'
+      (node) =>
+        node.props.collapsable === false &&
+        typeof node.props.onLayout === 'function'
     )[0];
     act(() => {
       inputWrapper.props.onLayout({

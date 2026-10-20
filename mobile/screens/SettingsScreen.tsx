@@ -1,4 +1,4 @@
-import { Linking, StyleSheet } from 'react-native';
+import { Linking, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { View } from '../components/Themed';
 import {
   Avatar,
@@ -22,6 +22,7 @@ import { showMessage } from 'react-native-flash-message';
 import { CustomSnackBarContext } from '../contexts/CustomSnackBarContext';
 import tr from '../i18n/translations/tr';
 import { legalLinks } from '../config';
+import AuthenticatedUserIdentity from '../components/erione/AuthenticatedUserIdentity';
 
 export default function SettingsScreen({
                                          navigation
@@ -79,14 +80,28 @@ export default function SettingsScreen({
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       {renderConfirmLogout()}
       {renderDevInfo()}
-      <View>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ver meu perfil"
+          onPress={() => navigation.navigate('UserProfile')}
+        >
+          <AuthenticatedUserIdentity />
+        </Pressable>
         <List.Item
           style={{ paddingHorizontal: 20 }}
           left={(props) =>
             user.image ? (
               <Avatar.Image source={{ uri: user.image.url }} />
             ) : (
-              <Avatar.Text size={50} label={getUserInitials(user)} />
+              <Avatar.Text
+                size={50}
+                label={getUserInitials({
+                  ...user,
+                  firstName: user.firstName ?? '',
+                  lastName: user.lastName ?? ''
+                }) || '?'}
+              />
             )
           }
           title={user.email}
@@ -129,7 +144,7 @@ export default function SettingsScreen({
           description="Como os dados operacionais são tratados"
           onPress={() => Linking.openURL(legalLinks.privacyPolicy)}
         />
-      </View>
+      </ScrollView>
     </View>
   );
 }

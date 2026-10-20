@@ -12,9 +12,13 @@ import { persistReducer, persistStore } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+let persistenceFailures = 0;
 const persistConfig = {
   key: 'root',
   storage: AsyncStorage,
+  writeFailHandler: () => {
+    persistenceFailures++;
+  },
   blacklist: [
     'woAnalytics', 'assetAnalytics', 'partAnalytics',
     'requestAnalytics', 'userAnalytics', 'exports',
@@ -49,5 +53,16 @@ export const useSelector: TypedUseSelectorHook<RootState> = useReduxSelector;
 export const useDispatch = () => useReduxDispatch<AppDispatch>();
 
 export const persistor = persistStore(store);
+
+export async function flushLocalWorkOrderCache() {
+  const before = persistenceFailures;
+  await persistor.flush();
+  // redux-persist normally logs storage failures but resolves flush().
+  if (persistenceFailures !== before) {
+    throw new Error(
+      'Nao foi possivel confirmar a limpeza no armazenamento do aparelho. Tente novamente.'
+    );
+  }
+}
 
 export default store;

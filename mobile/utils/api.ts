@@ -1,5 +1,6 @@
 import { getApiUrl } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { trackLocalCacheRequest } from './localWorkOrderActivity';
 
 type Options = RequestInit & { raw?: boolean; headers?: HeadersInit };
 
@@ -55,8 +56,10 @@ async function api<T>(url: string, options: Options): Promise<T> {
 }
 
 async function get<T>(url: string, options?: Options) {
-  const currentApiUrl = await getApiUrl();
-  return api<T>(currentApiUrl + url, options);
+  return trackLocalCacheRequest(async () => {
+    const currentApiUrl = await getApiUrl();
+    return api<T>(currentApiUrl + url, options);
+  });
 }
 
 async function post<T>(
@@ -66,16 +69,18 @@ async function post<T>(
   withoutCompany?: boolean,
   isNotJson?: boolean
 ) {
-  const companyId = await AsyncStorage.getItem('companyId');
-  const currentApiUrl = await getApiUrl();
-  return api<T>(currentApiUrl + url, {
-    ...options,
-    method: 'POST',
-    body: isNotJson
-      ? data
-      : JSON.stringify(
-          withoutCompany ? data : { ...data, company: { id: companyId } }
-        )
+  return trackLocalCacheRequest(async () => {
+    const companyId = await AsyncStorage.getItem('companyId');
+    const currentApiUrl = await getApiUrl();
+    return api<T>(currentApiUrl + url, {
+      ...options,
+      method: 'POST',
+      body: isNotJson
+        ? data
+        : JSON.stringify(
+            withoutCompany ? data : { ...data, company: { id: companyId } }
+          )
+    });
   });
 }
 
@@ -85,20 +90,24 @@ async function patch<T>(
   options?: Options,
   withoutCompany?: boolean
 ) {
-  const companyId = await AsyncStorage.getItem('companyId');
-  const currentApiUrl = await getApiUrl();
-  return api<T>(currentApiUrl + url, {
-    ...options,
-    method: 'PATCH',
-    body: JSON.stringify(
-      withoutCompany ? data : { ...data, company: { id: companyId } }
-    )
+  return trackLocalCacheRequest(async () => {
+    const companyId = await AsyncStorage.getItem('companyId');
+    const currentApiUrl = await getApiUrl();
+    return api<T>(currentApiUrl + url, {
+      ...options,
+      method: 'PATCH',
+      body: JSON.stringify(
+        withoutCompany ? data : { ...data, company: { id: companyId } }
+      )
+    });
   });
 }
 
 async function deletes<T>(url, options?: Options) {
-  const currentApiUrl = await getApiUrl();
-  return api<T>(currentApiUrl + url, { ...options, method: 'DELETE' });
+  return trackLocalCacheRequest(async () => {
+    const currentApiUrl = await getApiUrl();
+    return api<T>(currentApiUrl + url, { ...options, method: 'DELETE' });
+  });
 }
 
 export async function authHeader(publicRoute: boolean) {

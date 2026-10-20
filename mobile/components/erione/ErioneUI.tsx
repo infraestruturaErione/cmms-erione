@@ -1,6 +1,12 @@
 import { ReactNode } from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { Button, Text } from 'react-native-paper';
+import {
+  ActivityIndicator,
+  Button,
+  Icon,
+  Text,
+  TouchableRipple
+} from 'react-native-paper';
 import { ERIONE_MOBILE_IDENTITY } from '../../config/erioneVisualIdentity';
 
 const colors = ERIONE_MOBILE_IDENTITY.colors;
@@ -79,7 +85,9 @@ export function ErionePrimaryButton({
   disabled,
   onPress,
   style,
-  testID
+  testID,
+  contrast = false,
+  wrapLabel = false
 }: {
   children: ReactNode;
   icon?: string;
@@ -88,23 +96,71 @@ export function ErionePrimaryButton({
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  contrast?: boolean;
+  wrapLabel?: boolean;
 }) {
+  if (!wrapLabel)
+    return (
+      <Button
+        testID={testID}
+        mode="contained"
+        icon={icon}
+        loading={loading}
+        disabled={disabled}
+        onPress={onPress}
+        buttonColor={contrast ? '#FFFFFF' : colors.primary}
+        textColor={contrast ? colors.primary : '#FFFFFF'}
+        style={[styles.primaryButton, style]}
+        contentStyle={{ minHeight: 54 }}
+        labelStyle={{ fontSize: 16, fontWeight: '800' }}
+      >
+        {children}
+      </Button>
+    );
   return (
-    <Button
+    <TouchableRipple
       testID={testID}
-      mode="contained"
-      icon={icon}
-      loading={loading}
-      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{
+        disabled: !!disabled || !!loading,
+        busy: !!loading
+      }}
+      disabled={disabled || loading}
       onPress={onPress}
-      buttonColor={colors.primary}
-      textColor="#FFFFFF"
-      style={[styles.primaryButton, style]}
-      contentStyle={styles.primaryButtonContent}
-      labelStyle={styles.primaryButtonLabel}
+      style={[
+        styles.primaryButton,
+        {
+          backgroundColor: contrast ? '#FFFFFF' : colors.primary,
+          opacity: disabled ? 0.55 : 1
+        },
+        style
+      ]}
     >
-      {children}
-    </Button>
+      <View style={styles.primaryButtonContent}>
+        {loading ? (
+          <ActivityIndicator
+            size={20}
+            color={contrast ? colors.primary : '#FFFFFF'}
+          />
+        ) : (
+          !!icon && (
+            <Icon
+              source={icon}
+              size={20}
+              color={contrast ? colors.primary : '#FFFFFF'}
+            />
+          )
+        )}
+        <Text
+          style={[
+            styles.primaryButtonLabel,
+            { color: contrast ? colors.primary : '#FFFFFF' }
+          ]}
+        >
+          {children}
+        </Text>
+      </View>
+    </TouchableRipple>
   );
 }
 
@@ -148,13 +204,23 @@ const styles = StyleSheet.create({
     marginTop: 2
   },
   primaryButton: {
-    borderRadius: 16
+    borderRadius: 16,
+    overflow: 'hidden'
   },
   primaryButtonContent: {
-    minHeight: 54
+    minHeight: 54,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8
   },
   primaryButtonLabel: {
     fontSize: 16,
-    fontWeight: '800'
+    fontWeight: '800',
+    flexShrink: 1,
+    lineHeight: 23,
+    textAlign: 'center'
   }
 });

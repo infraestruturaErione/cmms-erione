@@ -32,6 +32,20 @@ const readiness = (missingRequirements = []) => {
 };
 
 describe('guided mobile Work Order action', () => {
+  it.each([['SIGNER_NAME'], ['SIGNER_DOCUMENT'], ['SIGNER_NAME', 'MILEAGE']])(
+    'closure identity fields use review text rather than incorrectly requesting mileage: %s',
+    (...missing) => {
+      expect(
+        getGuidedWorkOrderAction({
+          workOrder: workOrder({
+            checkInAt: '2026-08-11',
+            checkOutAt: '2026-08-12'
+          }),
+          readiness: readiness(missing)
+        }).labelKey
+      ).toBe('review_closure');
+    }
+  );
   it('starts with travel without making departure mandatory for completion', () => {
     expect(getGuidedWorkOrderAction({ workOrder: workOrder() }).type).toBe(
       'depart'

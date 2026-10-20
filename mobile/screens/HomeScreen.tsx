@@ -1,4 +1,4 @@
-import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Badge, IconButton, Text, useTheme } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
@@ -17,16 +17,18 @@ import {
   ErioneCard,
   ErionePrimaryButton,
   ErioneScreen,
-  ErioneSectionHeader,
-  ErioneStatusBadge
+  ErioneSectionHeader
 } from '../components/erione/ErioneUI';
-import { IconWithLabel } from '../components/IconWithLabel';
 import { ERIONE_MOBILE_IDENTITY } from '../config/erioneVisualIdentity';
+import { FIELD_UI } from '../components/erione/FieldWorkOrderUI';
+import DailySummaryCard from '../components/erione/DailySummaryCard';
+import FieldEntrance from '../components/erione/FieldEntrance';
+import FieldOrderCard from './workOrders/components/FieldOrderCard';
+import { getWorkOrderCompanionLabel } from '../utils/workOrderExecution';
 import { getPriorityColor, getStatusColor } from '../utils/overall';
 import {
   getNextActionKey,
   isPastDue,
-  isPendingCompletion,
   isWorkOrderInField,
   sortWorkOrdersForField
 } from '../utils/workOrderFieldUx';
@@ -134,98 +136,35 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
     });
   };
 
-  const WorkOrderSummaryCard = ({
-    workOrder
-  }: {
-    workOrder: WorkOrder;
-  }) => (
-    <ErioneCard style={styles.sectionCard}>
-      <TouchableOpacity activeOpacity={0.86} onPress={() => openWorkOrder(workOrder)}>
-          <View style={styles.orderHeader}>
-            <View style={{ flex: 1 }}>
-              <Text variant="labelMedium" style={styles.orderCode}>
-                #{workOrder.customId}
-              </Text>
-              <Text variant="titleMedium" style={styles.orderTitle} numberOfLines={2}>
-                {workOrder.title}
-              </Text>
-            </View>
-            <ErioneStatusBadge
-              label={t(workOrder.status)}
-              color={getStatusColor(workOrder.status, theme)}
-              subtle
-            />
-          </View>
-          {workOrder.priority !== 'NONE' && (
-            <View style={styles.priorityRow}>
-              <ErioneStatusBadge
-                label={t('priority_label', { priority: t(workOrder.priority) })}
-                color={getPriorityColor(workOrder.priority, theme)}
-                subtle
-              />
-            </View>
-          )}
-          <View style={styles.orderMeta}>
-            {!!workOrder.createdAt && (
-              <IconWithLabel
-                icon="calendar-plus"
-                label={`Criada em ${getFormattedDate(workOrder.createdAt)}`}
-                color={colors.muted}
-              />
-            )}
-            {!!workOrder.customers?.length && (
-              <IconWithLabel
-                icon="domain"
-                label={workOrder.customers[0].name}
-                color={colors.muted}
-              />
-            )}
-            {workOrder.location && (
-              <IconWithLabel
-                icon="map-marker-outline"
-                label={workOrder.location.name}
-                color={colors.muted}
-              />
-            )}
-            {workOrder.location?.address && (
-              <IconWithLabel
-                icon="map-marker-radius-outline"
-                label={workOrder.location.address}
-                color={colors.muted}
-              />
-            )}
-            {workOrder.asset && (
-              <IconWithLabel
-                icon="package-variant-closed"
-                label={workOrder.asset.name}
-                color={colors.muted}
-              />
-            )}
-          </View>
-          <View style={styles.actionRow}>
-            <Text variant="labelMedium" style={styles.nextActionLabel}>
-              {t('next_action')}
-            </Text>
-            <ErioneStatusBadge
-              label={t(getNextActionKey(workOrder))}
-              color={isPendingCompletion(workOrder) ? theme.colors.error : colors.primary}
-              subtle={!isPendingCompletion(workOrder)}
-            />
-          </View>
-          <ErionePrimaryButton
-            icon="arrow-right-circle"
-            onPress={() => openWorkOrder(workOrder)}
-            style={styles.continueButton}
-          >
-            {t(isWorkOrderInField(workOrder) ? 'continue_service' : 'open_work_order')}
-          </ErionePrimaryButton>
-        </TouchableOpacity>
-    </ErioneCard>
+  const renderWorkOrderCard = (workOrder: WorkOrder) => (
+    <FieldOrderCard
+      key={workOrder.id}
+      customId={workOrder.customId}
+      title={workOrder.title}
+      status={t(workOrder.status)}
+      statusColor={getStatusColor(workOrder.status, theme)}
+      customer={workOrder.customers?.[0]?.name}
+      location={workOrder.location?.name}
+      address={workOrder.location?.address}
+      asset={workOrder.asset?.name}
+      createdAt={getFormattedDate(workOrder.createdAt)}
+      priority={
+        workOrder.priority !== 'NONE' ? t(workOrder.priority) : undefined
+      }
+      priorityColor={getPriorityColor(workOrder.priority, theme)}
+      companion={!!getWorkOrderCompanionLabel(workOrder, user.id)}
+      action={
+        getWorkOrderCompanionLabel(workOrder, user.id) ||
+        t(getNextActionKey(workOrder))
+      }
+      onPress={() => openWorkOrder(workOrder)}
+    />
   );
 
   return (
-    <ErioneScreen>
+    <ErioneScreen style={{ backgroundColor: FIELD_UI.canvas }}>
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
@@ -236,12 +175,9 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
         }
       >
         <View style={styles.header}>
-          <View>
-            <Text variant="labelMedium" style={styles.kicker}>
-              Erione CMMS
-            </Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text variant="headlineSmall" style={styles.title}>
-              {t('home')}
+              Seu dia em campo
             </Text>
             <Text variant="bodySmall" style={styles.subtitle}>
               {netInfo.isInternetReachable === false
@@ -259,53 +195,65 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
               <Badge
                 style={styles.badge}
                 visible={
-                  notifications.content.filter((notification) => !notification.seen)
-                    .length > 0
+                  notifications.content.filter(
+                    (notification) => !notification.seen
+                  ).length > 0
                 }
               >
                 {
-                  notifications.content.filter((notification) => !notification.seen)
-                    .length
+                  notifications.content.filter(
+                    (notification) => !notification.seen
+                  ).length
                 }
               </Badge>
             </View>
           </View>
         </View>
 
-        <ErioneCard style={styles.shiftHeroCard}>
-          <View style={styles.shiftHeroTop}>
-            <View style={{ flex: 1 }}>
-              <Text variant="labelMedium" style={styles.shiftHeroKicker}>
-                {netInfo.isInternetReachable === false
-                  ? t('offline_shift_helper')
-                  : t('my_shift_helper')}
-              </Text>
-              <Text variant="titleLarge" style={styles.shiftHeroTitle}>
-                {t('daily_summary')}
-              </Text>
-            </View>
-            <View style={styles.onlinePill}>
-              <Text variant="labelSmall" style={styles.onlinePillText}>
-                {netInfo.isInternetReachable === false ? 'Offline' : 'Online'}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.shiftStatsRow}>
-            <ShiftStat label={t('open_work_orders')} value={sortedWorkOrders.length} />
-            <ShiftStat label={t('active_service_now')} value={activeCount} />
-            <ShiftStat label={t('high_priority_or_late')} value={highOrLate} />
-          </View>
-        </ErioneCard>
+        <FieldEntrance style={styles.shiftHeroCard}>
+          <DailySummaryCard
+            title={t('daily_summary')}
+            metrics={[
+              {
+                key: 'open',
+                label: t('open_work_orders'),
+                value: sortedWorkOrders.length
+              },
+              {
+                key: 'active',
+                label: t('active_service_now'),
+                value: activeCount
+              },
+              {
+                key: 'priority',
+                label: t('high_priority_or_late'),
+                value: highOrLate
+              }
+            ]}
+          />
+        </FieldEntrance>
+        <View style={styles.connectionRow}>
+          <Text style={styles.connectionText}>
+            Resumo dos atendimentos carregados.
+          </Text>
+          <Text style={styles.connectionText}>
+            {netInfo.isInternetReachable === false
+              ? 'Sem conexão confirmada. Alguns dados podem estar desatualizados.'
+              : netInfo.isInternetReachable === true
+              ? 'Conexão disponível · confira a confirmação dos envios.'
+              : 'Verificando conexão…'}
+          </Text>
+        </View>
 
-        <View style={styles.sectionBlock}>
+        <FieldEntrance style={styles.sectionBlock} delay={70}>
           <ErioneSectionHeader
             title={t('active_service_now')}
             subtitle={t('active_service_now_helper')}
           />
           {activeWorkOrders.length ? (
-            activeWorkOrders.slice(0, 3).map((workOrder) => (
-              <WorkOrderSummaryCard key={workOrder.id} workOrder={workOrder} />
-            ))
+            activeWorkOrders
+              .slice(0, 3)
+              .map((workOrder) => renderWorkOrderCard(workOrder))
           ) : (
             <ErioneCard style={styles.emptyCard}>
               <Text variant="bodyMedium" style={styles.emptyText}>
@@ -313,25 +261,28 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
               </Text>
             </ErioneCard>
           )}
-        </View>
+        </FieldEntrance>
 
-        <View style={styles.sectionBlock}>
+        <FieldEntrance style={styles.sectionBlock} delay={140}>
           <ErioneSectionHeader
             title={t('upcoming_work_orders')}
             subtitle={t('upcoming_work_orders_helper')}
           />
           {upcomingWorkOrders.length ? (
-            upcomingWorkOrders.map((workOrder) => (
-              <WorkOrderSummaryCard key={workOrder.id} workOrder={workOrder} />
-            ))
+            upcomingWorkOrders.map((workOrder) =>
+              renderWorkOrderCard(workOrder)
+            )
           ) : (
             <ErioneCard style={styles.emptyCard}>
               <Text variant="bodyMedium" style={styles.emptyText}>
-                {loadingGet ? t('loading_work_orders') : t('no_next_work_order')}
+                {loadingGet
+                  ? t('loading_work_orders')
+                  : t('no_next_work_order')}
               </Text>
             </ErioneCard>
           )}
           <ErionePrimaryButton
+            wrapLabel
             icon="format-list-bulleted"
             onPress={() =>
               navigation.navigate('WorkOrders', {
@@ -343,31 +294,20 @@ export default function HomeScreen({ navigation }: RootTabScreenProps<'Home'>) {
           >
             {t('view_all_work_orders')}
           </ErionePrimaryButton>
-        </View>
-
+        </FieldEntrance>
       </ScrollView>
     </ErioneScreen>
   );
 }
 
-function ShiftStat({ label, value }: { label: string; value: number }) {
-  return (
-    <View style={styles.shiftStat}>
-      <Text variant="titleMedium" style={styles.shiftStatValue}>
-        {value}
-      </Text>
-      <Text variant="labelSmall" style={styles.shiftStatLabel} numberOfLines={2}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   scrollContent: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
     paddingHorizontal: 16,
     paddingTop: 18,
-    paddingBottom: 110
+    paddingBottom: 24
   },
   header: {
     flexDirection: 'row',
@@ -377,62 +317,10 @@ const styles = StyleSheet.create({
     gap: 12
   },
   shiftHeroCard: {
-    marginBottom: 12,
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark
+    marginBottom: 12
   },
-  shiftHeroTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12
-  },
-  shiftHeroKicker: {
-    color: '#C7D6FF',
-    fontWeight: '700'
-  },
-  shiftHeroTitle: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    letterSpacing: 0,
-    marginTop: 4
-  },
-  onlinePill: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)'
-  },
-  onlinePillText: {
-    color: '#FFFFFF',
-    fontWeight: '800'
-  },
-  shiftStatsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 16
-  },
-  shiftStat: {
-    flex: 1,
-    borderRadius: 14,
-    padding: 10,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)'
-  },
-  shiftStatValue: {
-    color: '#FFFFFF',
-    fontWeight: '900'
-  },
-  shiftStatLabel: {
-    color: '#D7E0FF',
-    marginTop: 2
-  },
-  kicker: {
-    color: colors.primary,
-    fontWeight: '800'
-  },
+  connectionRow: { marginBottom: 12, paddingHorizontal: 4 },
+  connectionText: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   title: {
     color: colors.text,
     fontWeight: '800',
@@ -458,51 +346,17 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0
   },
-  sectionCard: {
-    marginBottom: 12
-  },
   sectionBlock: {
     marginTop: 8,
     marginBottom: 4
   },
   emptyCard: {
     marginBottom: 12,
-    paddingVertical: 14
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'flex-start'
-  },
-  orderCode: {
-    color: colors.primary,
-    fontWeight: '800'
-  },
-  orderTitle: {
-    color: colors.text,
-    fontWeight: '800',
-    marginTop: 2
-  },
-  orderMeta: {
-    gap: 7,
-    marginTop: 12
-  },
-  priorityRow: {
-    marginTop: 10
-  },
-  actionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 14,
-    gap: 10
-  },
-  nextActionLabel: {
-    color: colors.muted,
-    fontWeight: '700'
-  },
-  continueButton: {
-    marginTop: 12
+    paddingVertical: 16,
+    borderRadius: 16,
+    borderColor: FIELD_UI.border,
+    shadowOpacity: 0,
+    elevation: 0
   },
   emptyText: {
     color: colors.muted

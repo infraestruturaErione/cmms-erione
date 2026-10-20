@@ -28,14 +28,14 @@ interface OwnProps {
 }
 
 export default function EnumFilter({
-                                     filterFields,
-                                     onChange,
-                                     completeOptions,
-                                     fieldName,
-                                     initialOptions,
-                                     icon,
-                                     restoreInitialOnEmpty = false
-                                   }: OwnProps) {
+  filterFields,
+  onChange,
+  completeOptions,
+  fieldName,
+  initialOptions,
+  icon,
+  restoreInitialOnEmpty = false
+}: OwnProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const [openDialog, setOpenDialog] = useState<boolean>(false);
@@ -145,12 +145,15 @@ export default function EnumFilter({
         );
       }}
       style={{
-        backgroundColor: isSelected ? theme.colors.primary : theme.colors.background,
+        backgroundColor: isSelected
+          ? theme.colors.primary
+          : theme.colors.background,
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 20,
+        borderRadius: 12,
+        minHeight: 44,
         paddingLeft: 15,
         margin: 5
       }}

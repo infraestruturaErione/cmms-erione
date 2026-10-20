@@ -21,6 +21,7 @@ interface Props {
   onRemoveFile: (uri: string) => void;
   onCancel: () => void;
   onSave: () => void;
+  error?: string;
 }
 
 // Extraido de FieldExecutionSection: com ~20+ fotos selecionadas a lista de
@@ -36,7 +37,8 @@ export default function FieldEvidenceDialog({
   onTakePhoto,
   onRemoveFile,
   onCancel,
-  onSave
+  onSave,
+  error
 }: Props) {
   const { t } = useTranslation();
 
@@ -99,10 +101,7 @@ export default function FieldEvidenceDialog({
           </Text>
         )}
 
-        <View
-          testID="field-evidence-grid-area"
-          style={styles.evidenceGridArea}
-        >
+        <View testID="field-evidence-grid-area" style={styles.evidenceGridArea}>
           <FlatList
             data={files}
             // So' a URI: as fotos ja sao deduplicadas por URI ao entrar na
@@ -120,7 +119,10 @@ export default function FieldEvidenceDialog({
             columnWrapperStyle={styles.evidenceGridRow}
             renderItem={({ item }) => (
               <View style={styles.evidenceThumbWrap}>
-                <Image source={{ uri: item.uri }} style={styles.evidenceThumb} />
+                <Image
+                  source={{ uri: item.uri }}
+                  style={styles.evidenceThumb}
+                />
                 <IconButton
                   testID={`field-evidence-remove-${item.uri}`}
                   icon="close-circle"
@@ -154,6 +156,18 @@ export default function FieldEvidenceDialog({
             {t('save')}
           </ErionePrimaryButton>
         </View>
+        {(saving || !!error) && (
+          <Text
+            accessibilityLiveRegion="polite"
+            style={{
+              color: error ? '#9B3A24' : colors.primary,
+              marginHorizontal: 20,
+              marginBottom: 16
+            }}
+          >
+            {saving ? 'Enviando fotos e vinculando à OS...' : error}
+          </Text>
+        )}
       </Dialog>
     </Portal>
   );
@@ -201,6 +215,7 @@ const styles = StyleSheet.create({
   // Um maxHeight concreto limita so' a grade e deixa o rodape intacto.
   evidenceGridArea: {
     maxHeight: 260,
+    flexShrink: 1,
     backgroundColor: '#FFFFFF'
   },
   evidenceGrid: {

@@ -15,6 +15,7 @@ export default function WorkOrderDetailsSheet(
     onGenerateReport: () => void;
     onOpenArchive: () => void;
     onDelete: () => void;
+    onRemoveFromDevice?: () => void;
     workOrder: WorkOrder;
   }>
 ) {
@@ -48,6 +49,14 @@ export default function WorkOrderDetailsSheet(
         PermissionEntity.WORK_ORDERS,
         props.payload.workOrder
       ) && !technicianOnly
+    },
+    {
+      title: 'Remover deste aparelho',
+      icon: 'cellphone-remove',
+      onPress: props.payload.onRemoveFromDevice,
+      visible:
+        props.payload.workOrder.status === 'COMPLETE' &&
+        !!props.payload.onRemoveFromDevice
     },
     {
       title: t('to_delete'),

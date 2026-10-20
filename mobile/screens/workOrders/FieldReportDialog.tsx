@@ -37,6 +37,7 @@ interface Props {
   // conhece o valor original (existingFieldReport) sem precisar duplicar
   // esse estado aqui.
   onRequestClose: (currentText: string) => void;
+  error?: string;
 }
 
 interface EditorProps {
@@ -135,10 +136,15 @@ export default function FieldReportDialog({
   readOnly,
   saving,
   onSave,
-  onRequestClose
+  onRequestClose,
+  error
 }: Props) {
   const { t } = useTranslation();
   const keyboardVisible = useKeyboardVisible();
+  const [editorSession, setEditorSession] = useState({ visible, initialValue });
+  if (editorSession.visible !== visible)
+    setEditorSession({ visible, initialValue });
+  const editorInitial = editorSession.initialValue;
   // SafeAreaInsetsContext (e nao o hook) de proposito: devolve null sem provider em vez
   // de lancar, entao o dialog continua montavel em teste/preview isolado.
   const insets = useContext(SafeAreaInsetsContext);
@@ -155,9 +161,9 @@ export default function FieldReportDialog({
 
   useEffect(() => {
     if (!visible) return;
-    draftRef.current = initialValue;
-    setHasText(!!initialValue.trim());
-  }, [visible, initialValue]);
+    draftRef.current = editorInitial;
+    setHasText(!!editorInitial.trim());
+  }, [visible, editorInitial]);
 
   const handleChangeText = useCallback((text: string) => {
     draftRef.current = text;
@@ -261,7 +267,7 @@ export default function FieldReportDialog({
                   </Text>
                 )}
                 <ReportTextEditor
-                  initialValue={initialValue}
+                  initialValue={editorInitial}
                   editable={!readOnly}
                   placeholder={t('field_report_placeholder')}
                   onChangeText={handleChangeText}
@@ -273,6 +279,18 @@ export default function FieldReportDialog({
                   </Text>
                 )}
               </ScrollView>
+              {!!error && (
+                <Text
+                  accessibilityLiveRegion="polite"
+                  style={{
+                    color: '#9B3A24',
+                    paddingHorizontal: 20,
+                    paddingVertical: 8
+                  }}
+                >
+                  {error}
+                </Text>
+              )}
               <View
                 style={[
                   styles.reportActions,
