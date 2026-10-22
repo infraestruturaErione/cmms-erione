@@ -6,9 +6,6 @@ import {
   Card,
   CircularProgress,
   debounce,
-  Dialog,
-  DialogContent,
-  DialogTitle,
   Divider,
   Drawer,
   IconButton,
@@ -36,7 +33,6 @@ import CustomDatagrid2, {
 } from '../components/CustomDatagrid2';
 import { createColumnHelper } from '@tanstack/react-table';
 import AddTwoToneIcon from '@mui/icons-material/AddTwoTone';
-import Form from '../components/form';
 import * as Yup from 'yup';
 import { isNumeric } from '../../../utils/validators';
 import WorkOrderDetails from './Details/WorkOrderDetails';
@@ -96,6 +92,7 @@ import { useExport } from '../../../hooks/useExport';
 import { getCustomFields } from '../../../slices/customField';
 import { CustomFieldEntityType } from '../../../models/owns/customField';
 import WorkOrderStatusCell from './components/WorkOrderStatusCell';
+import EditWorkOrderTabbedModal from './components/EditWorkOrderTabbedModal';
 import BookmarkAddedTwoToneIcon from '@mui/icons-material/BookmarkAddedTwoTone';
 import ViewListOutlinedIcon from '@mui/icons-material/ViewListOutlined';
 import ViewWeekOutlinedIcon from '@mui/icons-material/ViewWeekOutlined';
@@ -1255,91 +1252,52 @@ function WorkOrders() {
     />
   );
   const renderWorkOrderUpdateModal = () => (
-    <Dialog
-      fullWidth
-      maxWidth="md"
+    <EditWorkOrderTabbedModal
       open={openUpdateModal}
       onClose={() => setOpenUpdateModal(false)}
-    >
-      <DialogTitle
-        sx={{
-          p: 3
-        }}
-      >
-        <Typography variant="h4" gutterBottom>
-          {t('Edit Work Order')}
-        </Typography>
-        <Typography variant="subtitle2">
-          {t('Fill in the fields below to update the Work Order')}
-        </Typography>
-      </DialogTitle>
-      <DialogContent
-        dividers
-        sx={{
-          p: 3
-        }}
-      >
-        <Box>
-          <Form
-            fields={workOrderFields}
-            validation={workOrderValidation}
-            submitText={t('save')}
-            values={{
-              ...currentWorkOrder,
-              tasks,
-              ...getWOBaseValues(t, currentWorkOrder),
-              customers: getPrimaryCustomerValue(
-                getWOBaseValues(t, currentWorkOrder).customers
-              )
-            }}
-            onChange={noopFormChange}
-            onSubmit={async (values) => {
-              let formattedValues = formatValues(values);
+      workOrderCode={currentWorkOrder?.customId}
+      fields={workOrderFields}
+      validation={workOrderValidation}
+      values={{
+        ...currentWorkOrder,
+        tasks,
+        ...getWOBaseValues(t, currentWorkOrder),
+        customers: getPrimaryCustomerValue(
+          getWOBaseValues(t, currentWorkOrder).customers
+        )
+      }}
+      onChange={noopFormChange}
+      onSubmit={async (values) => {
+        let formattedValues = formatValues(values);
 
-              try {
-                const imageAndFiles = await handleFileUpload(
-                  {
-                    files: formattedValues.files,
-                    image: formattedValues.image
-                  },
-                  uploadFiles
-                );
+        try {
+          const imageAndFiles = await handleFileUpload(
+            { files: formattedValues.files, image: formattedValues.image },
+            uploadFiles
+          );
+          formattedValues = {
+            ...formattedValues,
+            image: imageAndFiles.image,
+            files: imageAndFiles.files
+          };
 
-                formattedValues = {
-                  ...formattedValues,
-                  image: imageAndFiles.image,
-                  files: imageAndFiles.files
-                };
-
-                await dispatch(
-                  //TODO editTask
-                  patchTasksOfWorkOrder(
-                    currentWorkOrder?.id,
-                    formattedValues.tasks.map((task) => {
-                      return {
-                        ...task.taskBase,
-                        options: task.taskBase.options.map(
-                          (option) => option.label
-                        )
-                      };
-                    })
-                  )
-                );
-
-                await dispatch(
-                  editWorkOrder(currentWorkOrder?.id, formattedValues)
-                );
-
-                await onEditSuccess();
-              } catch (err) {
-                onEditFailure(err);
-                throw err; // Re-throw to maintain the rejection behavior
-              }
-            }}
-          />
-        </Box>
-      </DialogContent>
-    </Dialog>
+          await dispatch(
+            patchTasksOfWorkOrder(
+              currentWorkOrder?.id,
+              formattedValues.tasks.map((task) => ({
+                ...task.taskBase,
+                options: task.taskBase.options.map((option) => option.label)
+              }))
+            )
+          );
+          await dispatch(editWorkOrder(currentWorkOrder?.id, formattedValues));
+          await onEditSuccess();
+        } catch (err) {
+          onEditFailure(err);
+          throw err;
+        }
+      }}
+    />
   );
   const renderMenu = () => (
     <Menu
@@ -1689,7 +1647,7 @@ function WorkOrders() {
           {renderWorkOrderAddModal()}
         </React.Suspense>
       )}
-      {renderWorkOrderUpdateModal()}
+      {openUpdateModal && renderWorkOrderUpdateModal()}
       {currentWorkOrder && (
         <Drawer
           key={drawerInstanceKey}

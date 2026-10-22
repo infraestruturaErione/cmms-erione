@@ -5,6 +5,8 @@ import {
   Grid,
   TextField,
   Typography,
+  SxProps,
+  Theme,
   useTheme
 } from '@mui/material';
 import { Formik, FormikProps } from 'formik';
@@ -25,6 +27,11 @@ import { CustomSelect } from './CustomSelect2';
 import SignaturePad from './SignaturePad';
 import DateRangePicker from './DateRangePicker';
 import { parseApiDate } from '../../../../utils/dateTime';
+
+export interface RenderedFormField {
+  field: IField;
+  node: ReactNode;
+}
 
 interface PropsType {
   fields: Array<IField>;
@@ -48,6 +55,11 @@ interface PropsType {
   ) => ReactNode;
   hideBottomActions?: boolean;
   midWidthBreakpoint?: 'md' | 'lg';
+  containerSx?: SxProps<Theme>;
+  renderFieldLayout?: (
+    fields: RenderedFormField[],
+    formik: FormikProps<IHash<any>>
+  ) => ReactNode;
 }
 
 export default (props: PropsType) => {
@@ -124,6 +136,13 @@ export default (props: PropsType) => {
     });
     return fieldsClone;
   };
+  const renderFieldLayout = (
+    fields: RenderedFormField[],
+    formik: FormikProps<IHash<any>>
+  ) =>
+    props.renderFieldLayout
+      ? props.renderFieldLayout(fields, formik)
+      : fields.map(({ node }) => node);
   return (
     <>
       <Formik<IHash<any>>
@@ -136,7 +155,7 @@ export default (props: PropsType) => {
           { resetForm, setErrors, setStatus, setSubmitting }
         ) => {
           setSubmitting(true);
-          props.onSubmit(values).finally(() => {
+          return props.onSubmit(values).finally(() => {
             // resetForm();
             setStatus({ success: true });
             setSubmitting(false);
@@ -144,217 +163,264 @@ export default (props: PropsType) => {
         }}
       >
         {(formik) => (
-          <Grid container spacing={2}>
+          <Grid container spacing={2} sx={props.containerSx}>
             {props.renderTopActions && (
               <Grid item xs={12}>
                 {props.renderTopActions(formik)}
               </Grid>
             )}
-            {props.renderContent ? (
-              props.renderContent(formik, handleChange)
-            ) : filterRelatedFields(props.fields, formik).map((field, index) => {
-              const gridWidthProps = field.midWidth
-                ? midWidthBreakpoint === 'md'
-                  ? { md: 6 }
-                  : { lg: 6 }
-                : {};
-              return (
-                <Grid
-                  item
-                  xs={12}
-                  {...gridWidthProps}
-                  key={field.name}
-                >
-                  {field.type === 'select' ? (
-                    <CustomSelect field={field} handleChange={handleChange} />
-                  ) : field.type === 'checkbox' ? (
-                    <CheckBoxForm
-                      label={field.label}
-                      onChange={(e) => {
-                        handleChange(formik, field.name, e.target.checked);
-                      }}
-                      checked={formik.values[field.name]}
-                    />
-                  ) : field.type === 'groupCheckbox' ? (
-                    <CheckBoxForm
-                      label={field.label}
-                      type="groupCheckbox"
-                      listCheckbox={field.items}
-                      key={field.name}
-                    />
-                  ) : field.type === 'switch' ? (
-                    <CustomSwitch
-                      title={field.label}
-                      description={field.helperText}
-                      name={field.name}
-                      handleChange={formik.handleChange}
-                      checked={formik.values[field.name]}
-                      // field.compact e' opcional/retrocompativel - undefined
-                      // mantem sx/titleSx como undefined, ou seja, o mesmo
-                      // visual de sempre (h6 bold + mb:2) em todas as outras
-                      // telas que usam type:'switch'.
-                      sx={
-                        field.compact
-                          ? {
-                              mb: 0,
-                              p: 1.25,
-                              borderRadius: 1.5,
-                              border: `1px solid ${theme.colors.alpha.black[10]}`,
-                              backgroundColor: theme.colors.alpha.white[100]
-                            }
-                          : undefined
-                      }
-                      titleSx={
-                        field.compact
-                          ? { typography: 'body1', fontWeight: 700 }
-                          : undefined
-                      }
-                      // Este CustomSwitch ja esta dentro do <Grid item> logo
-                      // acima (linha ~138) - sem isso, o <Grid item> proprio
-                      // do CustomSwitch fica aninhado direto dentro de outro
-                      // <Grid item>, herda as CSS vars de spacing do
-                      // container e duplica o gutter, o que so quebra
-                      // visualmente quando o campo e' midWidth (por isso
-                      // reaproveita o mesmo field.compact).
-                      disableGridItem={field.compact}
-                    />
-                  ) : field.type === 'titleGroupField' ? (
-                    <Typography variant="h3" sx={{ pb: 1 }}>
-                      {t(`${field.label}`)}
-                    </Typography>
-                  ) : field.type === 'file' ? (
-                    <Box>
-                      <FileUpload
-                        multiple={field.multiple}
-                        title={field.label}
-                        type={field.fileType || 'file'}
-                        variant={field.fileVariant}
-                        hideDescription={field.fileHideDescription}
-                        ctaText={field.fileCtaText}
-                        description={t('upload')}
-                        files={
-                          Array.isArray(formik.values[field.name])
-                            ? formik.values[field.name]
-                            : formik.values[field.name]
-                            ? [formik.values[field.name]]
-                            : []
-                        }
-                        onDrop={(files) => {
-                          formik.setFieldValue(field.name, files);
-                        }}
-                        error={formik.errors[field.name] || field.error}
-                      />
-                    </Box>
-                  ) : field.type === 'date' ? (
-                    <Box>
-                      <Box pb={1}>
-                        <b>{field.label}:</b>
-                      </Box>
-                      <DateTimePicker
-                        value={parseApiDate(formik.values[field.name])}
-                        onChange={(newValue) => {
-                          handleChange(formik, field.name, newValue);
-                        }}
-                        inputFormat="dd/MM/yyyy HH:mm"
-                        ampm={false}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            fullWidth
-                            placeholder={t('select_date')}
-                            required={field?.required}
-                            error={!!formik.errors[field.name] || field.error}
-                            helperText={
-                              typeof formik.errors[field.name] === 'string'
-                                ? (formik.errors[field.name] as string)
-                                : ''
-                            }
-                          />
-                        )}
-                      />
-                    </Box>
-                  ) : field.type === 'dateRange' ? (
-                    <Box>
-                      <Box pb={1}>
-                        <b>{field.label}:</b>
-                      </Box>
-                      <DateRangePicker
-                        value={formik.values[field.name]}
-                        onChange={(range) => {
-                          handleChange(formik, field.name, range);
-                        }}
-                        fullWidth
-                        placeholder={t('select_date_range')}
-                        required={field?.required}
-                        error={!!formik.errors[field.name] || field.error}
-                        helperText={
-                          typeof formik.errors[field.name] === 'string'
-                            ? (formik.errors[field.name] as string)
-                            : ''
-                        }
-                      />
-                    </Box>
-                  ) : field.type === 'coordinates' ? (
-                    <SelectMapCoordinates
-                      selected={formik.values[field.name]}
-                      onChange={(coordinates) => {
-                        if (
-                          props.fields.some(({ name }) => name === 'latitude')
-                        ) {
-                          formik.setFieldValue(
-                            'latitude',
-                            coordinates?.lat ?? ''
-                          );
-                        }
-                        if (
-                          props.fields.some(({ name }) => name === 'longitude')
-                        ) {
-                          formik.setFieldValue(
-                            'longitude',
-                            coordinates?.lng ?? ''
-                          );
-                        }
-                        handleChange(formik, field.name, coordinates);
-                      }}
-                    />
-                  ) : field.type === 'partQuantity' ? (
-                    <SelectPartQuantities
-                      selected={formik.values[field.name] ?? []}
-                      onChange={(newPartQuantities) => {
-                        handleChange(formik, field.name, newPartQuantities);
-                      }}
-                    />
-                  ) : field.type === 'signature' ? (
-                    <SignaturePad
-                      label={field.label}
-                      value={formik.values[field.name]}
-                      onChange={(signature) => {
-                        formik.setFieldValue(field.name, signature);
-                      }}
-                    />
-                  ) : (
-                    <Field
-                      key={index}
-                      {...field}
-                      isDisabled={formik.isSubmitting}
-                      type={field.type}
-                      label={field.label}
-                      placeholder={field.placeholder}
-                      value={formik.values[field.name]}
-                      onBlur={formik.handleBlur}
-                      // onChange={formik.handleChange}
-                      onChange={(e) => {
-                        handleChange(formik, field.name, e.target.value);
-                      }}
-                      onKeyDown={handleKeyDown(formik, field.multiple)}
-                      error={!!formik.errors[field.name] || field.error}
-                      errorMessage={formik.errors[field.name]}
-                      fullWidth={field.fullWidth}
-                    />
-                  )}
-                </Grid>
-              );
-            })}
+            {props.renderContent
+              ? props.renderContent(formik, handleChange)
+              : renderFieldLayout(
+                  filterRelatedFields(props.fields, formik).map(
+                    (field, index) => {
+                      const gridWidthProps = field.midWidth
+                        ? midWidthBreakpoint === 'md'
+                          ? { md: 6 }
+                          : { lg: 6 }
+                        : {};
+                      return {
+                        field,
+                        node: (
+                          <Grid
+                            item
+                            xs={12}
+                            {...gridWidthProps}
+                            key={field.name}
+                          >
+                            {field.type === 'select' ? (
+                              <CustomSelect
+                                field={field}
+                                handleChange={handleChange}
+                              />
+                            ) : field.type === 'checkbox' ? (
+                              <CheckBoxForm
+                                label={field.label}
+                                onChange={(e) => {
+                                  handleChange(
+                                    formik,
+                                    field.name,
+                                    e.target.checked
+                                  );
+                                }}
+                                checked={formik.values[field.name]}
+                              />
+                            ) : field.type === 'groupCheckbox' ? (
+                              <CheckBoxForm
+                                label={field.label}
+                                type="groupCheckbox"
+                                listCheckbox={field.items}
+                                key={field.name}
+                              />
+                            ) : field.type === 'switch' ? (
+                              <CustomSwitch
+                                title={field.label}
+                                description={field.helperText}
+                                name={field.name}
+                                handleChange={formik.handleChange}
+                                checked={formik.values[field.name]}
+                                // field.compact e' opcional/retrocompativel - undefined
+                                // mantem sx/titleSx como undefined, ou seja, o mesmo
+                                // visual de sempre (h6 bold + mb:2) em todas as outras
+                                // telas que usam type:'switch'.
+                                sx={
+                                  field.compact
+                                    ? {
+                                        mb: 0,
+                                        p: 1.25,
+                                        borderRadius: 1.5,
+                                        border: `1px solid ${theme.colors.alpha.black[10]}`,
+                                        backgroundColor:
+                                          theme.colors.alpha.white[100]
+                                      }
+                                    : undefined
+                                }
+                                titleSx={
+                                  field.compact
+                                    ? { typography: 'body1', fontWeight: 700 }
+                                    : undefined
+                                }
+                                // Este CustomSwitch ja esta dentro do <Grid item> logo
+                                // acima (linha ~138) - sem isso, o <Grid item> proprio
+                                // do CustomSwitch fica aninhado direto dentro de outro
+                                // <Grid item>, herda as CSS vars de spacing do
+                                // container e duplica o gutter, o que so quebra
+                                // visualmente quando o campo e' midWidth (por isso
+                                // reaproveita o mesmo field.compact).
+                                disableGridItem={field.compact}
+                              />
+                            ) : field.type === 'titleGroupField' ? (
+                              <Typography variant="h3" sx={{ pb: 1 }}>
+                                {t(`${field.label}`)}
+                              </Typography>
+                            ) : field.type === 'file' ? (
+                              <Box>
+                                <FileUpload
+                                  multiple={field.multiple}
+                                  title={field.label}
+                                  type={field.fileType || 'file'}
+                                  variant={field.fileVariant}
+                                  hideDescription={field.fileHideDescription}
+                                  ctaText={field.fileCtaText}
+                                  description={t('upload')}
+                                  files={
+                                    Array.isArray(formik.values[field.name])
+                                      ? formik.values[field.name]
+                                      : formik.values[field.name]
+                                      ? [formik.values[field.name]]
+                                      : []
+                                  }
+                                  disabled={formik.isSubmitting}
+                                  onDrop={(files) => {
+                                    formik.setFieldValue(field.name, files);
+                                  }}
+                                  error={
+                                    formik.errors[field.name] || field.error
+                                  }
+                                />
+                              </Box>
+                            ) : field.type === 'date' ? (
+                              <Box>
+                                <Box pb={1}>
+                                  <b>{field.label}:</b>
+                                </Box>
+                                <DateTimePicker
+                                  value={parseApiDate(
+                                    formik.values[field.name]
+                                  )}
+                                  onChange={(newValue) => {
+                                    handleChange(formik, field.name, newValue);
+                                  }}
+                                  inputFormat="dd/MM/yyyy HH:mm"
+                                  ampm={false}
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      fullWidth
+                                      placeholder={t('select_date')}
+                                      required={field?.required}
+                                      error={
+                                        !!formik.errors[field.name] ||
+                                        field.error
+                                      }
+                                      helperText={
+                                        typeof formik.errors[field.name] ===
+                                        'string'
+                                          ? (formik.errors[
+                                              field.name
+                                            ] as string)
+                                          : ''
+                                      }
+                                    />
+                                  )}
+                                />
+                              </Box>
+                            ) : field.type === 'dateRange' ? (
+                              <Box>
+                                <Box pb={1}>
+                                  <b>{field.label}:</b>
+                                </Box>
+                                <DateRangePicker
+                                  value={formik.values[field.name]}
+                                  onChange={(range) => {
+                                    handleChange(formik, field.name, range);
+                                  }}
+                                  fullWidth
+                                  placeholder={t('select_date_range')}
+                                  required={field?.required}
+                                  error={
+                                    !!formik.errors[field.name] || field.error
+                                  }
+                                  helperText={
+                                    typeof formik.errors[field.name] ===
+                                    'string'
+                                      ? (formik.errors[field.name] as string)
+                                      : ''
+                                  }
+                                />
+                              </Box>
+                            ) : field.type === 'coordinates' ? (
+                              <SelectMapCoordinates
+                                selected={formik.values[field.name]}
+                                onChange={(coordinates) => {
+                                  if (
+                                    props.fields.some(
+                                      ({ name }) => name === 'latitude'
+                                    )
+                                  ) {
+                                    formik.setFieldValue(
+                                      'latitude',
+                                      coordinates?.lat ?? ''
+                                    );
+                                  }
+                                  if (
+                                    props.fields.some(
+                                      ({ name }) => name === 'longitude'
+                                    )
+                                  ) {
+                                    formik.setFieldValue(
+                                      'longitude',
+                                      coordinates?.lng ?? ''
+                                    );
+                                  }
+                                  handleChange(formik, field.name, coordinates);
+                                }}
+                              />
+                            ) : field.type === 'partQuantity' ? (
+                              <SelectPartQuantities
+                                selected={formik.values[field.name] ?? []}
+                                onChange={(newPartQuantities) => {
+                                  handleChange(
+                                    formik,
+                                    field.name,
+                                    newPartQuantities
+                                  );
+                                }}
+                              />
+                            ) : field.type === 'signature' ? (
+                              <SignaturePad
+                                label={field.label}
+                                value={formik.values[field.name]}
+                                onChange={(signature) => {
+                                  formik.setFieldValue(field.name, signature);
+                                }}
+                              />
+                            ) : (
+                              <Field
+                                key={index}
+                                {...field}
+                                isDisabled={formik.isSubmitting}
+                                type={field.type}
+                                label={field.label}
+                                placeholder={field.placeholder}
+                                value={formik.values[field.name]}
+                                onBlur={formik.handleBlur}
+                                // onChange={formik.handleChange}
+                                onChange={(e) => {
+                                  handleChange(
+                                    formik,
+                                    field.name,
+                                    e.target.value
+                                  );
+                                }}
+                                onKeyDown={handleKeyDown(
+                                  formik,
+                                  field.multiple
+                                )}
+                                error={
+                                  !!formik.errors[field.name] || field.error
+                                }
+                                errorMessage={formik.errors[field.name]}
+                                fullWidth={field.fullWidth}
+                              />
+                            )}
+                          </Grid>
+                        )
+                      };
+                    }
+                  ),
+                  formik
+                )}
 
             {!props.hideBottomActions && (
               <Grid item xs={12}>

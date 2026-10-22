@@ -1100,7 +1100,7 @@ export const CustomSelect = ({
               return Promise.resolve();
             }}
           />
-          {defaultChecklist && (
+          {defaultChecklist && !field.hideCategoryChecklistAlert && (
             <Alert severity="info" sx={{ mb: 1.5, alignItems: 'center' }}>
               <Typography variant="subtitle2" fontWeight={700}>
                 {t('default_checklist_applied', {

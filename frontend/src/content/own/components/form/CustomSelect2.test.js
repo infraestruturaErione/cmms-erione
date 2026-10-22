@@ -149,3 +149,37 @@ it('keeps the selected address when the customer id remains the same', async () 
   click('#same-customer');
   expect(container.querySelector('input').value).toBe('Old address');
 });
+
+it.each([false, true])(
+  'keeps the default task checklist banner unless explicitly hidden (%s)',
+  async (hidden) => {
+    mockState.categories.categories['work-order-categories'] = [
+      { id: 4, defaultChecklist: { id: 8, name: 'Checklist automatico' } }
+    ];
+    await act(async () => {
+      ReactDOM.render(
+        <Formik
+          initialValues={{ category: { value: 4 }, tasks: [] }}
+          onSubmit={jest.fn()}
+        >
+          <CustomSelect
+            field={{
+              name: 'tasks',
+              type: 'select',
+              type2: 'task',
+              label: 'Itens',
+              hideCategoryChecklistAlert: hidden
+            }}
+            handleChange={jest.fn()}
+          />
+        </Formik>,
+        container
+      );
+    });
+    expect(
+      container.textContent.includes('default_checklist_applied_helper')
+    ).toBe(!hidden);
+    expect(container.textContent).toContain('additional_checklist_items');
+    delete mockState.categories.categories['work-order-categories'];
+  }
+);
