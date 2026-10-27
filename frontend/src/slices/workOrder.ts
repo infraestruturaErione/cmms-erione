@@ -483,6 +483,7 @@ export const getPDFReport =
 export const getBulkPDFReport =
   (params: {
     customerId: number;
+    scope?: 'COMPLETED' | 'ALL';
     cnpj?: string;
     periodField: string;
     start: string | null;

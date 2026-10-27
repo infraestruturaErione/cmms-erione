@@ -806,13 +806,25 @@ const ptBRJSON = {
     'Nesta fase, os cards de resumo sao calculados somente sobre a pagina carregada.',
   bulk_report_by_city_title: 'Relatório em massa por cliente',
   bulk_report_by_city_helper:
-    'Escolha um cliente: o relatório traz as OS concluídas desse cliente, no período selecionado.',
+    'Selecione o cliente, quais OS incluir e o período. O padrão é trazer somente as concluídas.',
+  bulk_report_customer_only: 'O relatório inclui exclusivamente as OS deste cliente.',
+  bulk_report_scope: 'OS no relatório',
+  bulk_report_scope_completed: 'Somente concluídas',
+  bulk_report_scope_all: 'Todas as OS',
+  bulk_report_scope_completed_helper: 'Inclui apenas OS concluídas dentro do filtro de datas escolhido.',
+  bulk_report_scope_all_helper: 'Inclui OS de todos os status no período. Ao mudar de conclusão para todas, usamos a data de criação.',
+  bulk_report_period_field: 'Filtrar período por',
+  bulk_report_dates_helper: 'As datas abaixo filtram o campo escolhido, no fuso da empresa.',
+  bulk_report_checkin_helper: 'Inclui apenas OS com check-in registrado no período, mesmo ao selecionar todas.',
+  bulk_report_start_required: 'Informe a data inicial.',
+  bulk_report_end_required: 'Informe a data final.',
+  bulk_report_period_reversed: 'A data final deve ser igual ou posterior à inicial.',
   bulk_report_period_required:
     'Selecione data inicial e final antes de gerar o relatório em massa',
   generate_bulk_report: 'Gerar relatório em massa',
   bulk_report_history: 'Relatórios em Massa',
   bulk_report_history_subtitle:
-    'Gere relatórios combinando as OS concluídas de um cliente e acompanhe o histórico de solicitações.',
+    'Reúna as ordens de serviço de um cliente em um PDF e acompanhe seus relatórios.',
   bulk_report_download_center_title: 'Central de relatórios',
   bulk_report_download_center_info:
     'Após solicitar um relatório, o arquivo fica disponível para download por 7 dias e depois é apagado automaticamente.',

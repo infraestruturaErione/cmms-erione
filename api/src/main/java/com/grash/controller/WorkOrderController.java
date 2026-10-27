@@ -625,10 +625,15 @@ public class WorkOrderController {
         Date periodEndExclusiveInstant = Date.from(request.getEnd().plusDays(1).atStartOfDay(companyZone).toInstant());
 
         List<Long> customerIds = Collections.singletonList(selectedCustomer.getId());
-        List<WorkOrder> workOrders = workOrderService.findCompletedByCustomersAndPeriod(customerIds,
-                request.getPeriodField(), periodStartInstant, periodEndExclusiveInstant, companyId);
+        List<WorkOrder> workOrders = request.getScope() == com.grash.dto.workOrder.report.WorkOrderBulkReportScope.COMPLETED
+                ? workOrderService.findCompletedByCustomersAndPeriod(customerIds, request.getPeriodField(),
+                    periodStartInstant, periodEndExclusiveInstant, companyId)
+                : workOrderService.findByCustomersAndPeriod(customerIds, request.getPeriodField(),
+                    periodStartInstant, periodEndExclusiveInstant, companyId, request.getScope());
         if (workOrders.isEmpty()) {
-            throw new CustomException("Nenhuma OS concluida encontrada nesse periodo", HttpStatus.NOT_FOUND);
+            throw new CustomException(request.getScope() == com.grash.dto.workOrder.report.WorkOrderBulkReportScope.COMPLETED
+                    ? "Nenhuma OS concluida encontrada nesse periodo" : "Nenhuma OS encontrada nesse periodo",
+                    HttpStatus.NOT_FOUND);
         }
         StorageService storageService = storageServiceFactory.getStorageService();
         Context thymeleafContext = new Context();
@@ -655,6 +660,7 @@ public class WorkOrderController {
         variables.put("periodStart", periodStartLabel);
         variables.put("periodEnd", periodEndLabel);
         variables.put("workOrderReports", workOrderReports);
+        variables.put("includeAllStatuses", request.getScope() == com.grash.dto.workOrder.report.WorkOrderBulkReportScope.ALL);
         thymeleafContext.setVariables(variables);
 
         String reportHtml = thymeleafTemplateEngine.process("work-orders-bulk-report.html", thymeleafContext);
@@ -669,6 +675,11 @@ public class WorkOrderController {
                 request.getStart(),
                 request.getEnd()
         );
+        // Keep legacy completed-only identities recognizable by the report assistant.
+        // ALL must never match/reuse a completed-only report with the same customer/dates.
+        if (request.getScope() == com.grash.dto.workOrder.report.WorkOrderBulkReportScope.ALL) {
+            description = description.replace("BulkKeyV1", "BulkKeyV2") + " · OS: Todas (todos os status)";
+        }
         Date expiresAt = new Date(System.currentTimeMillis() + GENERATED_REPORT_TTL_MS);
         generatedReportRepository.save(GeneratedReport.builder()
                 .companyId(companyId)

@@ -913,10 +913,7 @@ public class WorkOrderService {
         return workOrderRepository.findByCompany_IdAndCreatedAtBetween(id, start, end);
     }
 
-    // Usado pelo relatorio em massa por cidade: todas as OS CONCLUIDAS de um
-    // grupo de clientes (os clientes daquela cidade), num periodo, filtrando
-    // pelo campo de data escolhido (createdAt/completedOn/checkInAt) - mesmo
-    // campo dinamico ja usado no Relatorio Operacional de OS.
+    // Existing callers retain completed-only behavior; bulk can explicitly include all statuses.
     // start e' inclusivo, end e' EXCLUSIVO de proposito: o chamador (relatorio
     // em massa) resolve datas civis pro instante UTC certo no timezone da
     // empresa e ja manda o inicio do dia seguinte ao ultimo dia como "end" -
@@ -925,12 +922,27 @@ public class WorkOrderService {
     public List<WorkOrder> findCompletedByCustomersAndPeriod(List<Long> customerIds,
                                                               com.grash.dto.workOrder.report.WorkOrderOperationalReportPeriodField periodField,
                                                               Date start, Date end, Long companyId) {
+        return findByCustomersAndPeriod(customerIds, periodField, start, end, companyId,
+                com.grash.dto.workOrder.report.WorkOrderBulkReportScope.COMPLETED);
+    }
+
+    public List<WorkOrder> findByCustomersAndPeriod(List<Long> customerIds,
+            com.grash.dto.workOrder.report.WorkOrderOperationalReportPeriodField periodField,
+            Date start, Date end, Long companyId,
+            com.grash.dto.workOrder.report.WorkOrderBulkReportScope scope) {
+        if (scope == null || periodField == null
+                || (scope == com.grash.dto.workOrder.report.WorkOrderBulkReportScope.ALL
+                    && periodField == com.grash.dto.workOrder.report.WorkOrderOperationalReportPeriodField.COMPLETED_ON)) {
+            throw new CustomException("Filtro de relatorio invalido", HttpStatus.BAD_REQUEST);
+        }
         Specification<WorkOrder> spec = (root, query, cb) -> {
             query.distinct(true);
             jakarta.persistence.criteria.Join<WorkOrder, Customer> customerJoin = root.join("customers");
             List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("company").get("id"), companyId));
-            predicates.add(cb.equal(root.get("status"), Status.COMPLETE));
+            if (scope == com.grash.dto.workOrder.report.WorkOrderBulkReportScope.COMPLETED) {
+                predicates.add(cb.equal(root.get("status"), Status.COMPLETE));
+            }
             predicates.add(customerJoin.get("id").in(customerIds));
             String fieldName = periodField.getFieldName();
             if (start != null) predicates.add(cb.greaterThanOrEqualTo(root.get(fieldName), start));

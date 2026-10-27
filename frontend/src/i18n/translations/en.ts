@@ -739,15 +739,27 @@ const locale = {
     'Track field execution by customer, location, asset, status and period.',
   operational_report_page_summary_note:
     'In this phase, summary cards are calculated only from the loaded page.',
-  bulk_report_by_city_title: 'Bulk report by city',
+  bulk_report_by_city_title: 'Bulk report by customer',
   bulk_report_by_city_helper:
-    'Pick a customer: the report brings completed work orders for every customer in the same city, in the selected period.',
+    'Select a customer, which work orders to include and the period. Completed only is the default.',
+  bulk_report_customer_only: 'Only work orders linked to this customer are included.',
+  bulk_report_scope: 'Work orders to include',
+  bulk_report_scope_completed: 'Completed only',
+  bulk_report_scope_all: 'All work orders',
+  bulk_report_scope_completed_helper: 'Only completed work orders matching the selected date field are included.',
+  bulk_report_scope_all_helper: 'Includes all statuses in the period. Switching from completion to all uses the creation date.',
+  bulk_report_period_field: 'Filter period by',
+  bulk_report_dates_helper: 'Dates filter the selected field in the company timezone.',
+  bulk_report_checkin_helper: 'Only work orders with a check-in in this period are included, even when all is selected.',
+  bulk_report_start_required: 'Enter the start date.',
+  bulk_report_end_required: 'Enter the end date.',
+  bulk_report_period_reversed: 'The end date must be on or after the start date.',
   bulk_report_period_required:
     'Select a start and end date before generating the bulk report',
   generate_bulk_report: 'Generate bulk report',
   bulk_report_history: 'Bulk Reports',
   bulk_report_history_subtitle:
-    'Generate reports combining completed work orders from a city and track your request history.',
+    'Combine a customer\'s work orders in one PDF and track your reports.',
   bulk_report_download_center_title: 'Report download center',
   bulk_report_download_center_info:
     'After requesting a report, the file stays available for download for 7 days and is then automatically deleted.',

@@ -19,7 +19,7 @@
         <tr>
             <td class="brand-left">
                 <div class="doc-title">Relatorio em Massa</div>
-                <div class="doc-subtitle">Ordens de servico concluidas no periodo</div>
+                <div class="doc-subtitle" th:text="${includeAllStatuses == true ? 'Ordens de servico de todos os status no periodo' : 'Ordens de servico concluidas no periodo'}">Ordens de servico concluidas no periodo</div>
                 <div class="company-name" th:text="${companyName}">Empresa</div>
             </td>
             <td class="brand-right">

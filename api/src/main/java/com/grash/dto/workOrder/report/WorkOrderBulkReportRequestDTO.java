@@ -5,11 +5,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.AssertTrue;
 import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
-@Schema(description = "Request for the bulk work order report (all completed work orders of the selected customer, " +
+@Schema(description = "Request for the bulk work order report (completed or all work orders of the selected customer, " +
         "across every location linked to it, in a period, combined into a single PDF)")
 public class WorkOrderBulkReportRequestDTO {
     // Cliente escolhido no dropdown - sempre obrigatorio. A busca fica
@@ -30,7 +31,12 @@ public class WorkOrderBulkReportRequestDTO {
     private String cnpj;
 
     @Schema(description = "Period field used by start/end filters")
+    @NotNull
     private WorkOrderOperationalReportPeriodField periodField = WorkOrderOperationalReportPeriodField.COMPLETED_ON;
+
+    @Schema(description = "COMPLETED by default for existing clients; ALL includes every status in the selected period")
+    @NotNull
+    private WorkOrderBulkReportScope scope = WorkOrderBulkReportScope.COMPLETED;
 
     // Periodo obrigatorio de proposito: sem isso o relatorio em massa
     // tenderia a trazer TODAS as OS concluidas historicas do cliente de uma
@@ -51,4 +57,15 @@ public class WorkOrderBulkReportRequestDTO {
             example = "2026-08-31")
     @NotNull
     private LocalDate end;
+
+    @AssertTrue(message = "A data final deve ser igual ou posterior a data inicial")
+    public boolean isPeriodOrdered() {
+        return start == null || end == null || !end.isBefore(start);
+    }
+
+    @AssertTrue(message = "Todas as OS exige periodo por criacao ou check-in, nao por conclusao")
+    public boolean isScopePeriodCompatible() {
+        return scope != WorkOrderBulkReportScope.ALL
+                || periodField != WorkOrderOperationalReportPeriodField.COMPLETED_ON;
+    }
 }

@@ -47,6 +47,7 @@ const periodFieldOptions: WorkOrderOperationalReportPeriodField[] = [
 ];
 
 type BulkFilters = {
+  scope: 'COMPLETED' | 'ALL';
   cnpj: string;
   customerId: string;
   periodField: WorkOrderOperationalReportPeriodField;
@@ -55,6 +56,7 @@ type BulkFilters = {
 };
 
 const defaultBulkFilters: BulkFilters = {
+  scope: 'COMPLETED',
   cnpj: '',
   customerId: '',
   periodField: 'COMPLETED_ON',
@@ -75,6 +77,11 @@ function WorkOrderBulkReport() {
   const [history, setHistory] = useState<GeneratedReport[]>([]);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [touched, setTouched] = useState({ start: false, end: false });
+  const periodReversed =
+    !!filters.start && !!filters.end && filters.end < filters.start;
+  const startError = touched.start && !filters.start;
+  const endError = touched.end && (!filters.end || periodReversed);
 
   // Relatorio restrito EXCLUSIVAMENTE ao cliente selecionado no dropdown -
   // nunca agrupa por cidade (confirmado no backend, WorkOrderController.
@@ -95,15 +102,22 @@ function WorkOrderBulkReport() {
   };
 
   const handleGenerate = () => {
+    if (generating) return;
+    setTouched({ start: true, end: true });
     if (!filters.customerId) return;
     if (!filters.start || !filters.end) {
       showSnackBar(t('bulk_report_period_required'), 'error');
+      return;
+    }
+    if (periodReversed) {
+      showSnackBar(t('bulk_report_period_reversed'), 'error');
       return;
     }
     setGenerating(true);
     dispatch(
       getBulkPDFReport({
         customerId: Number(filters.customerId),
+        scope: filters.scope,
         cnpj: filters.cnpj.trim() || undefined,
         periodField: filters.periodField,
         // Datas civis puras ("2026-08-01"), sem hora/fuso - o backend e' quem
@@ -132,12 +146,15 @@ function WorkOrderBulkReport() {
   const statusLabel = (report: GeneratedReport) => {
     if (!report.available) return t('bulk_report_status_expired');
     if (report.status === 'DONE') return t('bulk_report_status_done');
-    if (report.status === 'PROCESSING') return t('bulk_report_status_processing');
+    if (report.status === 'PROCESSING')
+      return t('bulk_report_status_processing');
     if (report.status === 'FAILED') return t('bulk_report_status_failed');
     return t('bulk_report_status_queued');
   };
 
-  const statusColor = (report: GeneratedReport): 'success' | 'warning' | 'error' | 'default' => {
+  const statusColor = (
+    report: GeneratedReport
+  ): 'success' | 'warning' | 'error' | 'default' => {
     if (!report.available) return 'default';
     if (report.status === 'DONE') return 'success';
     if (report.status === 'FAILED') return 'error';
@@ -159,36 +176,38 @@ function WorkOrderBulkReport() {
           </Box>
 
           <Card variant="outlined" sx={{ boxShadow: 'none' }}>
-            <CardContent>
-              <Typography variant="h5">{t('bulk_report_by_city_title')}</Typography>
+            <CardContent
+              component="form"
+              noValidate
+              onSubmit={(event) => {
+                event.preventDefault();
+                handleGenerate();
+              }}
+            >
+              <Typography variant="h5">
+                {t('bulk_report_by_city_title')}
+              </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('bulk_report_by_city_helper')}
               </Typography>
               <Divider sx={{ mb: 2 }} />
               <Grid container spacing={2}>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label={t('cnpj')}
-                    placeholder={t('cnpj_placeholder')}
-                    value={filters.cnpj}
-                    onChange={(event) =>
-                      setFilters((prev) => ({ ...prev, cnpj: event.target.value }))
-                    }
-                    helperText={t('cnpj_optional_helper')}
-                  />
-                </Grid>
-                <Grid item xs={12} md={3}>
+                <Grid item xs={12} md={6}>
                   <TextField
                     select
+                    required
                     fullWidth
                     size="small"
                     label={t('customer')}
                     value={filters.customerId}
                     onChange={(event) =>
-                      setFilters((prev) => ({ ...prev, customerId: event.target.value }))
+                      setFilters((prev) => ({
+                        ...prev,
+                        customerId: event.target.value
+                      }))
                     }
+                    disabled={generating}
+                    helperText={t('bulk_report_customer_only')}
                   >
                     <MenuItem value="">{t('select')}</MenuItem>
                     {customersMini.map((customer) => (
@@ -198,28 +217,90 @@ function WorkOrderBulkReport() {
                     ))}
                   </TextField>
                 </Grid>
-                <Grid item xs={12} md={2}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label={t('cnpj')}
+                    placeholder={t('cnpj_placeholder')}
+                    value={filters.cnpj}
+                    disabled={generating}
+                    onChange={(event) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        cnpj: event.target.value
+                      }))
+                    }
+                    helperText={t('cnpj_optional_helper')}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
                   <TextField
                     select
                     fullWidth
                     size="small"
-                    label={t('period_field')}
-                    value={filters.periodField}
+                    label={t('bulk_report_scope')}
+                    value={filters.scope}
+                    disabled={generating}
+                    helperText={t(
+                      filters.scope === 'ALL'
+                        ? 'bulk_report_scope_all_helper'
+                        : 'bulk_report_scope_completed_helper'
+                    )}
                     onChange={(event) =>
                       setFilters((prev) => ({
                         ...prev,
-                        periodField: event.target.value as WorkOrderOperationalReportPeriodField
+                        scope: event.target.value as BulkFilters['scope'],
+                        periodField:
+                          event.target.value === 'ALL' &&
+                          prev.periodField === 'COMPLETED_ON'
+                            ? 'CREATED_AT'
+                            : prev.periodField
                       }))
                     }
                   >
-                    {periodFieldOptions.map((periodField) => (
-                      <MenuItem key={periodField} value={periodField}>
-                        {t(periodField)}
-                      </MenuItem>
-                    ))}
+                    <MenuItem value="COMPLETED">
+                      {t('bulk_report_scope_completed')}
+                    </MenuItem>
+                    <MenuItem value="ALL">
+                      {t('bulk_report_scope_all')}
+                    </MenuItem>
                   </TextField>
                 </Grid>
-                <Grid item xs={12} md={2}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label={t('bulk_report_period_field')}
+                    value={filters.periodField}
+                    disabled={generating}
+                    helperText={t(
+                      filters.periodField === 'CHECK_IN_AT'
+                        ? 'bulk_report_checkin_helper'
+                        : 'bulk_report_dates_helper'
+                    )}
+                    onChange={(event) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        periodField: event.target
+                          .value as WorkOrderOperationalReportPeriodField
+                      }))
+                    }
+                  >
+                    {periodFieldOptions
+                      .filter(
+                        (field) =>
+                          filters.scope !== 'ALL' || field !== 'COMPLETED_ON'
+                      )
+                      .map((periodField) => (
+                        <MenuItem key={periodField} value={periodField}>
+                          {t(periodField)}
+                        </MenuItem>
+                      ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} md={6}>
                   <TextField
                     required
                     fullWidth
@@ -227,14 +308,24 @@ function WorkOrderBulkReport() {
                     type="date"
                     label={t('start_date')}
                     value={filters.start}
-                    error={!filters.start}
+                    disabled={generating}
+                    error={startError}
+                    helperText={
+                      startError ? t('bulk_report_start_required') : ' '
+                    }
+                    onBlur={() =>
+                      setTouched((prev) => ({ ...prev, start: true }))
+                    }
                     onChange={(event) =>
-                      setFilters((prev) => ({ ...prev, start: event.target.value }))
+                      setFilters((prev) => ({
+                        ...prev,
+                        start: event.target.value
+                      }))
                     }
                     InputLabelProps={{ shrink: true }}
                   />
                 </Grid>
-                <Grid item xs={12} md={2}>
+                <Grid item xs={12} md={6}>
                   <TextField
                     required
                     fullWidth
@@ -242,9 +333,25 @@ function WorkOrderBulkReport() {
                     type="date"
                     label={t('end_date')}
                     value={filters.end}
-                    error={!filters.end}
+                    disabled={generating}
+                    error={endError}
+                    helperText={
+                      endError
+                        ? t(
+                            periodReversed
+                              ? 'bulk_report_period_reversed'
+                              : 'bulk_report_end_required'
+                          )
+                        : ' '
+                    }
+                    onBlur={() =>
+                      setTouched((prev) => ({ ...prev, end: true }))
+                    }
                     onChange={(event) =>
-                      setFilters((prev) => ({ ...prev, end: event.target.value }))
+                      setFilters((prev) => ({
+                        ...prev,
+                        end: event.target.value
+                      }))
                     }
                     InputLabelProps={{ shrink: true }}
                   />
@@ -253,12 +360,16 @@ function WorkOrderBulkReport() {
                   <Stack direction="row" justifyContent="flex-end">
                     <Button
                       variant="contained"
-                      color="error"
+                      color="primary"
+                      type="submit"
                       startIcon={
-                        generating ? <CircularProgress size={18} /> : <PictureAsPdfTwoToneIcon />
+                        generating ? (
+                          <CircularProgress size={18} />
+                        ) : (
+                          <PictureAsPdfTwoToneIcon />
+                        )
                       }
-                      onClick={handleGenerate}
-                      disabled={generating || !filters.customerId || !filters.start || !filters.end}
+                      disabled={generating || !filters.customerId}
                     >
                       {t('generate_bulk_report')}
                     </Button>
@@ -268,7 +379,10 @@ function WorkOrderBulkReport() {
             </CardContent>
           </Card>
 
-          <Alert severity="info" icon={<CloudDownloadTwoToneIcon fontSize="inherit" />}>
+          <Alert
+            severity="info"
+            icon={<CloudDownloadTwoToneIcon fontSize="inherit" />}
+          >
             <AlertTitle>{t('bulk_report_download_center_title')}</AlertTitle>
             {t('bulk_report_download_center_info')}
           </Alert>
@@ -280,9 +394,13 @@ function WorkOrderBulkReport() {
                   <TableRow>
                     <TableCell>{t('bulk_report_column_request')}</TableCell>
                     <TableCell>{t('bulk_report_column_description')}</TableCell>
-                    <TableCell>{t('bulk_report_column_requested_at')}</TableCell>
+                    <TableCell>
+                      {t('bulk_report_column_requested_at')}
+                    </TableCell>
                     <TableCell>{t('bulk_report_column_status')}</TableCell>
-                    <TableCell align="right">{t('bulk_report_column_download')}</TableCell>
+                    <TableCell align="right">
+                      {t('bulk_report_column_download')}
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -299,7 +417,9 @@ function WorkOrderBulkReport() {
                         </Typography>
                       </TableCell>
                       <TableCell>{report.description}</TableCell>
-                      <TableCell>{getFormattedDate(report.requestedAt)}</TableCell>
+                      <TableCell>
+                        {getFormattedDate(report.requestedAt)}
+                      </TableCell>
                       <TableCell>
                         <Chip
                           size="small"
@@ -311,7 +431,9 @@ function WorkOrderBulkReport() {
                         <Button
                           size="small"
                           variant="contained"
-                          disabled={!report.available || downloadingId === report.id}
+                          disabled={
+                            !report.available || downloadingId === report.id
+                          }
                           startIcon={
                             downloadingId === report.id ? (
                               <CircularProgress size={16} />

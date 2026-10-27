@@ -46,6 +46,44 @@ import static org.mockito.Mockito.when;
 class WorkOrderReportServiceTest {
 
     @Test
+    void allStatusesRendersOpenAndInProgressWithoutInventingSignatureOrCompletion() throws Exception {
+        TaskService tasks = mock(TaskService.class);
+        CommentRepository comments = mock(CommentRepository.class);
+        var messages = new org.springframework.context.support.ResourceBundleMessageSource();
+        messages.setBasename("messages"); messages.setDefaultEncoding("UTF-8");
+        var service = new WorkOrderReportService(tasks, comments, messages, new Utils(), new PdfImageOptimizer());
+        var resolver = new org.thymeleaf.templateresolver.ClassLoaderTemplateResolver();
+        resolver.setPrefix("templates/"); resolver.setSuffix(".html"); resolver.setCharacterEncoding("UTF-8");
+        var engine = new org.thymeleaf.spring5.SpringTemplateEngine();
+        engine.setTemplateResolver(resolver); engine.setMessageSource(messages);
+        var user = new com.grash.model.User(); user.setCompany(new com.grash.model.Company());
+        user.getCompany().getCompanySettings().getGeneralPreferences().setLanguage(com.grash.model.enums.Language.PT_BR);
+        var variables = new java.util.HashMap<>(service.buildCompanyReportVariables(user));
+        var reports = new java.util.ArrayList<Map<String, Object>>();
+        for (var status : List.of(com.grash.model.enums.Status.OPEN, com.grash.model.enums.Status.IN_PROGRESS)) {
+            var wo = new WorkOrder(); wo.setId((long) status.ordinal()+10); wo.setStatus(status);
+            wo.setCustomId("QA-" + status); wo.setTitle("QA " + status); wo.setRequiredSignature(true);
+            when(tasks.findByWorkOrder(wo.getId())).thenReturn(List.of());
+            when(comments.findByWorkOrder_IdInAndContentStartingWithOrderByCreatedAtDesc(List.of(wo.getId()), "[Relato em campo]"))
+                    .thenReturn(List.of());
+            reports.add(service.buildWorkOrderReportVariables(wo, mock(StorageService.class)));
+        }
+        variables.put("workOrderReports", reports); variables.put("includeAllStatuses", true);
+        variables.put("customerLabel", "QA CUSTOMER"); variables.put("periodStart", "01/10/2026"); variables.put("periodEnd", "31/10/2026");
+        var context = new org.thymeleaf.context.Context(java.util.Locale.forLanguageTag("pt-BR")); context.setVariables(variables);
+        String html = engine.process("work-orders-bulk-report", context);
+        assertTrue(html.contains("todos os status"));
+        byte[] bytes = service.renderPdf(html);
+        try (var pdf = new com.itextpdf.kernel.pdf.PdfDocument(new com.itextpdf.kernel.pdf.PdfReader(new ByteArrayInputStream(bytes)))) {
+            StringBuilder text = new StringBuilder();
+            for (int page=1;page<=pdf.getNumberOfPages();page++) text.append(com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor.getTextFromPage(pdf.getPage(page)));
+            assertTrue(text.toString().contains("QA-OPEN")); assertTrue(text.toString().contains("QA-IN_PROGRESS"));
+            assertFalse(text.toString().contains("Aceite do servico"));
+            assertFalse(text.toString().contains("Concluido por"));
+        }
+    }
+
+    @Test
     void bulkPreservesEachIndividualReportBodyWithoutLeakingValuesBetweenOrders() throws Exception {
         TaskService tasks = mock(TaskService.class);
         CommentRepository comments = mock(CommentRepository.class);

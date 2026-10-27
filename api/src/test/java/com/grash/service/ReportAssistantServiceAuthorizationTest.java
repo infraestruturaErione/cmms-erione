@@ -33,6 +33,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDate;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.HashSet;
@@ -314,6 +315,19 @@ class ReportAssistantServiceAuthorizationTest {
         GeneratedReport reused = service.findReusableBulkReport(plan, customer, admin);
 
         assertNull(reused);
+    }
+
+    @Test
+    void findReusableBulkReport_neverReusesAllStatusesAsCompletedOnly() {
+        User admin = adminWithCompany(55L);
+        Customer customer = new Customer(); customer.setId(10L); customer.setName("QA customer");
+        ReportAssistantPlanDTO plan = bulkPlan(10L, "2026-08-01", "2026-08-31", WorkOrderOperationalReportPeriodField.CREATED_AT);
+        String identity = bulkKey(10L, WorkOrderOperationalReportPeriodField.CREATED_AT, "2026-08-01", "2026-08-31", customer.getName())
+                .replace("BulkKeyV1", "BulkKeyV2") + " · OS: Todas (todos os status)";
+        GeneratedReport report = bulkReport(2L, identity, Date.from(Instant.parse("2099-08-31T00:00:00Z")));
+        when(generatedReportRepository.findByCompanyIdAndTypeOrderByCreatedAtDesc(55L, GeneratedReportType.WORK_ORDER_BULK))
+                .thenReturn(List.of(report));
+        assertNull(service.findReusableBulkReport(plan, customer, admin));
     }
 
     @Test
