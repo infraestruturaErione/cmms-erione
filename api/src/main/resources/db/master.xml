@@ -238,4 +238,5 @@
     <include file="changelog/2026_08_27_00000000001_add_location_reference.xml"
              relativeToChangelogFile="true"/>
     <include file="changelog/2026_10_14_00000000001_workorder_execution_owner.xml" relativeToChangelogFile="true"/>
+    <include file="changelog/2026_10_22_00000000001_work_order_pdf_cache.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

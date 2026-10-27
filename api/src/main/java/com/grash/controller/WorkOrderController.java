@@ -67,6 +67,13 @@ import static java.util.stream.Collectors.toCollection;
 @RequiredArgsConstructor
 @Transactional
 public class WorkOrderController {
+    private WorkOrderPdfCacheService workOrderPdfCacheService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setWorkOrderPdfCacheService(WorkOrderPdfCacheService workOrderPdfCacheService) {
+        this.workOrderPdfCacheService = workOrderPdfCacheService;
+    }
+
     private final WorkOrderService workOrderService;
     private final WorkOrderMapper workOrderMapper;
     private final UserService userService;
@@ -569,24 +576,7 @@ public class WorkOrderController {
     public ResponseEntity<?> getPDF(@PathVariable("id") Long id, HttpServletRequest req,
                                     HttpServletResponse response) throws IOException {
         User user = userService.whoami(req);
-        StorageService storageService = storageServiceFactory.getStorageService();
-        WorkOrder savedWorkOrder = workOrderService.checkAccessToWorkOrderId(id, user);
-        if (user.getRole().getViewPermissions().contains(PermissionEntity.WORK_ORDERS)) {
-                Context thymeleafContext = new Context();
-                thymeleafContext.setLocale(Helper.getLocale(user));
-                Map<String, Object> variables =
-                        new HashMap<>(workOrderReportService.buildCompanyReportVariables(user));
-                variables.putAll(workOrderReportService.buildWorkOrderReportVariables(savedWorkOrder, storageService));
-                thymeleafContext.setVariables(variables);
-
-                String reportHtml = thymeleafTemplateEngine.process("work-order-report.html", thymeleafContext);
-                byte[] bytes = workOrderReportService.renderPdf(reportHtml);
-                MultipartFile file = new MultipartFileImpl(bytes, "Work Order Report.pdf");
-                return ResponseEntity.ok()
-                        .body(new SuccessResponse(true, storageServiceFactory.getStorageService().uploadAndSign(file,
-                                "reports/" + user.getCompany().getId())));
-        } else throw new CustomException("Access denied", HttpStatus.FORBIDDEN);
-
+        return ResponseEntity.ok(new SuccessResponse(true, workOrderPdfCacheService.getPdf(id, user)));
     }
 
     @PostMapping(path = "/report/bulk")

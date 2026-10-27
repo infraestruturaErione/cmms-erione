@@ -29,6 +29,7 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,6 +38,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -196,15 +198,23 @@ public class WorkOrderReportService {
     // massa, exatamente as mesmas usadas no relatorio individual (nenhuma
     // logica duplicada entre os dois fluxos).
     public Map<String, Object> buildWorkOrderReportVariables(WorkOrder workOrder, StorageService storageService) {
+        return buildWorkOrderReportVariables(workOrder, file -> file.getType() == FileType.IMAGE
+                ? imageDataUri(file, storageService) : storageService.generateSignedUrl(file, 5));
+    }
+
+    // The cache renders the same template with stable file markers before downloading images.
+    Map<String, Object> buildWorkOrderReportVariables(WorkOrder workOrder, Function<File, String> fileSource) {
         Long id = workOrder.getId();
-        List<Task> tasks = taskService.findByWorkOrder(id);
+        // PostgreSQL may reorder ties after UPDATE; preserve creation order with an ID tie-breaker.
+        List<Task> tasks = taskService.findByWorkOrder(id).stream()
+                .sorted(Comparator.comparing(Task::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(Task::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .collect(Collectors.toList());
         Map<Long, String[]> tasksImagesUrls = tasks.stream()
                 .collect(Collectors.toMap(
                         Task::getId,
                         task -> task.getImages().stream()
-                                .map(image -> image.getType() == FileType.IMAGE
-                                        ? imageDataUri(image, storageService)
-                                        : storageService.generateSignedUrl(image, 5))
+                                .map(fileSource)
                                 .filter(Objects::nonNull)
                                 .toArray(String[]::new)
                 ));
@@ -215,7 +225,7 @@ public class WorkOrderReportService {
                 .filter(Objects::nonNull)
                 .filter(fieldReport -> !fieldReport.isBlank())
                 .collect(Collectors.toList());
-        List<Map<String, Object>> fieldEvidenceItems = buildFieldEvidenceItems(workOrder, fieldComments, storageService);
+        List<Map<String, Object>> fieldEvidenceItems = buildFieldEvidenceItems(workOrder, fieldComments, fileSource);
 
         Location location = workOrder.getLocation();
         List<Customer> customers = workOrder.getCustomers();
@@ -332,14 +342,14 @@ public class WorkOrderReportService {
     }
 
     private List<Map<String, Object>> buildFieldEvidenceItems(WorkOrder workOrder, List<Comment> fieldComments,
-                                                               StorageService storageService) {
+                                                               Function<File, String> fileSource) {
         List<Map<String, Object>> items = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         if (workOrder.getImage() != null) {
-            addEvidenceItem(items, seen, workOrder.getImage(), "OS", null, storageService);
+            addEvidenceItem(items, seen, workOrder.getImage(), "OS", null, fileSource);
         }
         if (workOrder.getFiles() != null) {
-            workOrder.getFiles().forEach(file -> addEvidenceItem(items, seen, file, "OS", null, storageService));
+            workOrder.getFiles().forEach(file -> addEvidenceItem(items, seen, file, "OS", null, fileSource));
         }
         fieldComments.forEach(comment -> {
             if (comment.getFiles() != null) {
@@ -349,14 +359,14 @@ public class WorkOrderReportService {
                 // generica em cada foto sem valor real pro cliente.
                 String note = getRealFieldReportText(comment.getContent());
                 comment.getFiles().forEach(file -> addEvidenceItem(items, seen, file, "Relato em campo", note,
-                        storageService));
+                        fileSource));
             }
         });
         return items;
     }
 
     private void addEvidenceItem(List<Map<String, Object>> items, Set<String> seen, File file, String source,
-                                 String note, StorageService storageService) {
+                                 String note, Function<File, String> fileSource) {
         String key = file.getId() == null ? file.getPath() : file.getId().toString();
         if (key == null || seen.contains(key)) {
             return;
@@ -374,7 +384,7 @@ public class WorkOrderReportService {
         // workOrder.signature) elimina esse fetch de rede na hora de gerar o PDF.
         String url = null;
         if (isImage) {
-            url = imageDataUri(file, storageService);
+            url = fileSource.apply(file);
             isImage = url != null;
         }
         item.put("image", isImage);

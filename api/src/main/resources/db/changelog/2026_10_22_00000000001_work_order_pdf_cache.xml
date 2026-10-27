@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
+    <changeSet id="20261022-01-work-order-pdf-cache" author="codex">
+        <createTable tableName="work_order_pdf_cache">
+            <column name="company_id" type="BIGINT"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="work_order_id" type="BIGINT"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="fingerprint" type="VARCHAR(64)"><constraints nullable="false" primaryKey="true"/></column>
+            <column name="file_path" type="VARCHAR(1024)"><constraints nullable="false"/></column>
+            <column name="expires_at" type="TIMESTAMP"><constraints nullable="false"/></column>
+        </createTable>
+        <createIndex tableName="work_order_pdf_cache" indexName="idx_work_order_pdf_cache_expiry">
+            <column name="expires_at"/>
+        </createIndex>
+        <rollback><dropTable tableName="work_order_pdf_cache"/></rollback>
+    </changeSet>
+</databaseChangeLog>
